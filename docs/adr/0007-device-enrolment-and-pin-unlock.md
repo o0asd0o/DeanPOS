@@ -26,7 +26,13 @@ when a drawer session starts offline.
 
 - **A stolen enrolled Device is the primary threat.** Remote Device revocation, and a
   server-side check on replay that a revoked Device's queued Orders are quarantined
-  rather than silently accepted, belong to the hardening PRD. They are not optional.
+  rather than silently accepted, are not optional.
+
+  **Amended 2026-07-31.** They do not all belong to `hardening`, which owns no endpoint.
+  The split is: `tenancy-identity` owns the `revoked` flag and the rule that every request
+  checks it · `offline-sync` enforces that check on the replay endpoint it owns and writes
+  the quarantine row · `hardening` owns the adjudication screen and the recorded decision.
+  Three areas, three pieces, one owner each.
 - PIN hashes at rest on the Device are a deliberate credential-exposure tradeoff, taken
   because offline unlock is a hard requirement. Mitigations: per-Store scope only,
   slow hash, PIN attempt throttling on-device.

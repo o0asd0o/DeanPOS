@@ -34,7 +34,7 @@ the three-origin routing, the CORS allowlist, and the Docker deploy all work tog
 and to leave behind the single test seam every later area will reuse.
 
 Alongside it, the money primitives — integer centavos, VAT backout at a configurable rate,
-round-once-half-up at the OrderLine total — land as pure, property-tested functions.
+round-once-per-stored-figure, half-up — land as pure, property-tested functions.
 They are foundation work because `catalog`, `checkout`, `drawer-sessions`, and `reporting`
 each independently need them, and four independent reimplementations of a rounding rule
 is four different totals.
@@ -102,7 +102,7 @@ is four different totals.
 **Money primitives**
 
 41. As an implementing agent, I want money represented as integer centavos with a dedicated type, so that a float can never reach a total.
-42. As an implementing agent, I want a single rounding function applied once at the OrderLine total, half-up, so that four areas cannot produce four different totals.
+42. As an implementing agent, I want a single half-up rounding function, called once per stored figure — the OrderLine total, and the Order-scoped Discount amount — so that four areas cannot produce four different totals.
 43. As an implementing agent, I want a VAT-backout function taking the rate as an argument, so that reporting does not reinvent the tax arithmetic and a non-VAT tenant is expressible (ADR-0010).
 43a. As an implementing agent, I want VAT backout to be a pure function of a total and a rate — never of a global constant — so that a Tenant setting change cannot silently re-interpret a past sale.
 44. As an implementing agent, I want typed `Delta` support — `absolute` and `multiplier` — so that `catalog` and `checkout` apply modifiers using the same primitive.
@@ -226,6 +226,18 @@ What lands there:
   closes over a constant cannot express a non-VAT tenant and cannot render a receipt from
   before the rate changed.
 - A `Delta` type discriminated on `absolute` versus `multiplier`, with application logic.
+  **Applying a Delta returns `Millicentavos`, not `Centavos`** — an integer at 1000× scale.
+  A `multiplier` on an integer-centavo price produces a fraction, and `catalog` requires
+  that fraction to survive composition unrounded so that ADR-0005's *round once, at the
+  OrderLine total* is literally true. Rounding at Delta application would round twice.
+  Millicentavos keeps it exact and keeps floats out (ADR-0005 prohibits them in every
+  layer); `roundLineTotal` is the single place the scale collapses back to `Centavos`,
+  half-up.
+
+  A half-adobo is the worked example: `₱120.00 → 12000 centavos → ×0.5 → 6000000
+  millicentavos → ₱60.00`. Change the price to `₱121.00` and the multiplier keeps
+  `6050000`, which rounds once to `₱60.50` — not two roundings that could land on
+  `₱60.00`.
 
 **No other workspace implements any of this.** A second `round` is a review finding.
 
@@ -276,8 +288,15 @@ the areas that follow.
 **Direct unit tests, not a seam.** The money primitives are pure functions with no I/O.
 They are tested directly and **property-tested**: rounding is idempotent and never drifts
 by more than a centavo from the unrounded value; VAT backout composed with VAT
-application returns the original; a `multiplier` delta applied to a `Centavos` always
-yields an integer. Examples alone are not sufficient for money.
+application returns the original; **applying any sequence of Deltas yields an exact
+`Millicentavos` integer with no rounding at any step**, and rounding that sequence once at
+the end never differs from the exact value by more than half a centavo. Examples alone are
+not sufficient for money.
+
+The property that is deliberately **not** asserted: that a `multiplier` Delta applied to a
+`Centavos` yields a `Centavos`. It does not, and an earlier draft of this PRD claimed it
+did — which contradicted `catalog` outright and would have rounded twice on every
+half-portion sold.
 
 **Deliberately not tested here.**
 

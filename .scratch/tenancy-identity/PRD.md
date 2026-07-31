@@ -75,7 +75,7 @@ are needed.
 
 **Users and roles**
 
-7. As a tenant admin, I want to invite or create a User with an email and a role, so that staff can sign in.
+7. As a tenant admin, I want to create a User with an email, a role, and an admin-set temporary password, so that staff can sign in without an email being sent. There is no invitation — no email transport exists.
 8. As a tenant admin, I want to assign a User to one or more Stores, so that a cashier at one outlet cannot operate another.
 9. As a tenant admin, I want to change a User's role, so that a promotion does not require a new account.
 10. As a tenant admin, I want to deactivate a User, so that a departing employee immediately loses access without erasing their sales history.
@@ -87,7 +87,7 @@ are needed.
 
 14. As a tenant admin, I want to sign in to the back-office with my email and password, so that I can manage the restaurant.
 15. As a manager, I want to sign in to the back-office from my phone, so that I can check on the store without going in.
-16. As a signed-in user, I want my session to persist across a browser restart, so that I am not signing in constantly.
+16. As a signed-in user, I want my session to survive closing and reopening the browser, so that I am not signing in constantly — which means a **persistent** cookie with an explicit expiry, not a session cookie.
 17. As a signed-in user, I want to sign out, so that a shared computer does not leave my account open.
 18. As a signed-in user, I want my session to expire after a period of inactivity, so that an abandoned browser is not an open door.
 19. As a tenant admin, I want to reset a User's password when they forget it, so that a lockout is resolved in-house.
@@ -159,8 +159,11 @@ are reachable only through platform-admin paths.
   flag, and its per-Store availability.
 - `User` — belongs to a Tenant; has an email, a password hash, a PIN hash, a `Role`
   (`cashier` | `manager` | `admin`), and an active flag.
-- `UserStore` — which Stores a User may operate. A cashier assigned to no Store can sign
-  in to nothing.
+- `UserStore` — which Stores a User may operate. **Append-only with an `effective_from`
+  timestamp**, never updated or deleted; un-assigning writes a closing row.
+- `UserRole` — the User's role over time. **Append-only with an `effective_from`
+  timestamp.** `User` carries the current role as a denormalised convenience; `UserRole`
+  is the truth.
 - `Device` — belongs to a Store; has a name, a hashed token, a last-seen timestamp, and a
   revoked flag.
 - `EnrolmentCode` — short-lived, single-use, bound to a Store.
@@ -187,7 +190,7 @@ The settings:
 | VAT enabled | **off** | `checkout`, `reporting` |
 | VAT rate | `12%` | `checkout`, `reporting` |
 | PaymentMethod list | **`cash` only** | `checkout`, `drawer-sessions`, `reporting` |
-| Variance tolerance | `0` | `drawer-sessions` |
+| Variance tolerance | `0` **centavos** | `drawer-sessions` |
 
 **VAT defaults to off** (ADR-0010) because most target tenants sit below the ₱3,000,000
 registration threshold. A product that ships VAT on hands those tenants figures that are
@@ -236,20 +239,70 @@ for a token; the code is consumed.
 **Revocation is checked on every request, including replay.** A revoked Device's queued
 Orders arriving later are **quarantined, not silently accepted and not silently dropped**
 — they are recorded for a human to adjudicate, because they may represent real money
-already collected from real customers. The replay endpoint itself is `offline-sync`;
-this area owns the revocation check and the quarantine decision.
+already collected from real customers.
+
+**Who owns which part**, because three areas touch this and only one may own each piece:
+
+| Piece | Area |
+| --- | --- |
+| The `revoked` flag, the revoke action, and the rule that every authenticated request checks it | **this area** |
+| Enforcing that check on the replay endpoint, and writing the quarantine row | `offline-sync` — it owns replay |
+| The adjudication screen, accept/reject, and the recorded decision | `hardening` |
+
+This area builds the check and tests it on the procedures it exposes. It does **not** own
+the replay-time enforcement, because the replay endpoint does not exist yet. ADR-0007 and
+`.scratch/APP-PLAN.md` were amended to this split on 2026-07-31; before that they placed
+replay enforcement in `hardening`, which owns no endpoint.
 
 **Back-office session.** An opaque server-side session id in an httpOnly, Secure,
 SameSite=Lax cookie scoped to the registrable domain so the `api.` origin receives it.
 Idle expiry plus absolute expiry. Sign-out revokes server-side, not just client-side.
+
+**The cookie needs a CSRF control that the Device token does not, and here it is.**
+`SameSite=Lax` stops a *cross-site* request, but `pos.`, `admin.`, and `api.` are all
+same-site under one registrable domain — so a page on the terminal origin is same-site
+with the back-office cookie and `Lax` will send it. The Device token is in an
+`Authorization` header and is structurally immune; the session cookie is not, and the two
+must not be assumed to share that property.
+
+**Every cookie-authenticated procedure requires an `Origin` header exactly matching
+`https://admin.<domain>`, and refuses otherwise** — including on safe methods, since a
+state-changing GET is a mistake this rule should also catch. A missing `Origin` is a
+refusal, not a pass. Device-token procedures are exempt: they carry no ambient credential,
+so there is nothing for a foreign origin to ride.
 
 **Password reset is admin-initiated.** A tenant admin sets a temporary password that must
 be changed on next sign-in. There is no email-based self-service reset in v1, because
 DeanPOS has no email transport and adding one is a whole integration. This is a
 deliberate v1 limitation, not an oversight.
 
+**Store membership, per role and per surface.** "Membership answers *where*" is not
+enough on its own — the two surfaces ask different questions of it.
+
+| | Terminal (`pos.`) | Back-office (`admin.`) |
+| --- | --- | --- |
+| `cashier` | must be a member of the Device's Store, or unlock is refused | sees only their own published Shifts and their own session summaries |
+| `manager` | must be a member to unlock or approve an Override there | scoped to assigned Stores on every read and write |
+| `admin` | **exempt** — an admin may unlock any Device in their Tenant | sees the whole Tenant; `UserStore` rows are not required |
+
+So: **`admin` is exempt from membership; `cashier` and `manager` are not.** A cashier with
+no `UserStore` row can sign in to nothing on either surface — they have no Store to act in
+and nothing to read. An admin with no `UserStore` row is normal and expected.
+
+**"At that time" is answerable because role and membership are effective-dated.** An
+Override created offline on Monday and replayed on Wednesday is re-verified against the
+role and Store membership that were in force **on Monday**, not against today's. With a
+mutable `Role` column and an undated `UserStore`, that sentence would be unimplementable —
+a manager demoted on Tuesday would retroactively invalidate a legitimate Monday approval,
+and nothing would record which it was.
+
+Append-only rows with `effective_from` are the whole mechanism: one extra column and no
+deletes, decided before any code exists, where it is free. `hardening` needs the same
+history for its audit, so it is not a cost carried for one feature.
+
 **Authorisation model.** `cashier` < `manager` < `admin`, plus Store membership. Role
-answers *what kind of action*, membership answers *where*. Both are checked server-side
+answers *what kind of action*, membership answers *where*, subject to the admin exemption
+above. Both are checked server-side
 on every procedure; the front end hides what it must, but hiding is never the
 enforcement.
 
@@ -262,7 +315,7 @@ PIN hash and records the Override alongside the Order; on replay the server
 at that time, and quarantines the Order if not.
 
 The set of actions requiring an Override is fixed by ADR-0005: void a paid Order, refund
-(whole or line), manual line discount or price override, and closing a DrawerSession with a
+(whole or line), manual line price override, and closing a DrawerSession with a
 Variance beyond threshold. This area builds the mechanism; `checkout` and `drawer-sessions`
 attach it to their actions.
 
@@ -305,8 +358,35 @@ filter, RLS is not actually enforced and the test is lying.
 **Also tested through the seam.** Sign-in and sign-out; session expiry and revocation;
 enrolment code single-use and expiry; Device token acceptance and rejection; revoked
 Device rejection; PIN unlock success and failure; PIN throttling and lockout persistence;
-role gating on every procedure; Store-membership gating; Override creation, single-use
-consumption, and re-verification of an offline-created Override on replay.
+role gating on every procedure; Store-membership gating, including the admin exemption and
+a cashier with no `UserStore` row reaching nothing on either surface; a persistent session
+cookie carrying an explicit expiry rather than being a session cookie; Override creation and
+single-use consumption.
+
+**The PIN-hash sync payload, which is this area's worst exposure and had no test.**
+ADR-0007 calls it a deliberate credential-exposure tradeoff; a tradeoff nobody asserts is
+just an exposure. Asserted **on the payload**, not on the device's behaviour:
+
+- The sync payload for Store X contains PIN hashes for exactly Store X's **active** Users
+  — no other Store's, and no deactivated User's.
+- It contains **no password hash**, for anyone, ever.
+- It contains no email, no role beyond what unlock needs, and no other Store's User ids.
+- Deactivating a User removes their hash from the next payload (Security criterion 16),
+  and reactivating restores it.
+- A Device requesting the payload for a Store it is not enrolled at is refused.
+
+**The back-office CSRF control.** A cookie-authenticated procedure called with an `Origin`
+of `https://pos.<domain>`, with a foreign origin, and with **no** `Origin` header is
+refused in all three cases — asserted per case, because "same-site is not same-origin" is
+exactly the assumption this control exists to break.
+
+**Override re-verification is tested here as a procedure, not as a replay.** This area
+exposes "re-verify this Override against the role and Store membership in effect at its
+stated time" and tests it directly against the effective-dated history: a manager demoted
+*after* the Override still verifies; a manager demoted *before* it does not; the same two
+cases for Store membership. Driving it through an actual Outbox replay needs the replay
+endpoint, which is `offline-sync`'s — a later area — and this PRD depends only on
+`foundation`. `offline-sync` must call this procedure and says so in its own spec.
 
 **Tenant settings, tested at their defaults first.** A freshly provisioned Tenant is the
 configuration most tenants will run, and it is the one most likely to go untested because
@@ -380,6 +460,13 @@ behaviour is what is refused.
     it silently rewrites history the first time a setting changes.
 19. **The `cash` PaymentMethod's uniqueness and undeletability are database constraints**,
     not application checks. Downstream code branches on `kind`, never on a name.
+20. **Cookie-authenticated procedures enforce an exact `Origin` match on
+    `https://admin.<domain>`.** `SameSite=Lax` is not sufficient: `pos.`, `admin.`, and
+    `api.` are same-site under one registrable domain, so `Lax` sends the back-office
+    cookie on requests from the terminal origin. A missing `Origin` is refused.
+21. **Role and Store membership are append-only and effective-dated.** An `UPDATE` to a
+    `UserRole` or `UserStore` row is a review finding — it destroys the history that
+    offline Override re-verification reads.
 
 ## Out of Scope
 

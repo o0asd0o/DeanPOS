@@ -22,8 +22,13 @@ forever.
   stands. But VAT is a **Tenant setting, off by default**, with a configurable rate, and
   the enablement and rate in force are captured on the Order. Most target tenants are
   below the ₱3,000,000 registration threshold.
-- **Rounding happens once, at the OrderLine total, half-up.** Order totals are the sum
-  of already-rounded OrderLine totals.
+- **Rounding happens once per stored figure, half-up.** **Amended by ADR-0010,
+  2026-07-31:** originally "once, at the OrderLine total", which was complete before an
+  Order-scoped Discount existed. There are now exactly **two** rounded figures — the
+  OrderLine total and the Order-scoped Discount amount — and neither is ever rounded twice.
+  The Order total is the sum of already-rounded integers minus the rounded discount amount,
+  so it is exact and is not itself a rounding site. Intermediates are exact `Millicentavos`
+  (centavos × 1000); floats remain prohibited in every layer.
 
 **Pricing tree**
 

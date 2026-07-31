@@ -26,9 +26,9 @@ on a tablet held sideways or on a phone.
 are new records — void and refund — each requiring a manager. Getting this wrong turns a
 sales ledger into a set of numbers nobody can reconcile.
 
-**Money must be exactly right, once.** Integer centavos, rounded once
-at the OrderLine total. A cent of drift per line is a peso a day and an argument at drawer-session
-close.
+**Money must be exactly right, once.** Integer centavos, and **every stored figure rounded
+exactly once** — the OrderLine total, and the Order-scoped Discount amount if there is one.
+A cent of drift per line is a peso a day and an argument at drawer-session close.
 
 **The offline story starts here even though the Outbox does not.** If the submit endpoint
 is not idempotent from the first commit, `offline-sync` cannot safely replay anything.
@@ -107,7 +107,7 @@ change tomorrow; the receipt stays true.
 31. As a cashier, I want each Order to carry a short human-readable number, so that I can find it again when the customer returns.
 32. As a cashier, I want that number to be assigned on the terminal, so that it exists even when we are offline.
 33. As a cashier, I want to start the next order in one tap from the receipt, so that the queue keeps moving.
-34. As a cashier, I want to look up a recent Order on this terminal, so that I can deal with a customer who comes back.
+34. As a cashier, I want to look up a recent Order **from what this terminal already holds**, so that a returning customer is handled at the counter with no network and no wait.
 
 **Corrections**
 
@@ -186,11 +186,60 @@ computed line total. Names are denormalised deliberately: a receipt from March m
 correctly after the Variant is renamed or archived. This is the **recorded price** of
 ADR-0003 and the server stores it verbatim.
 
-**Pricing arithmetic.** Line total = Variant price, with Modifier and Add-on Deltas
-applied, multiplied by quantity, **rounded once, half-up**, using `foundation`'s
-primitives. Order total is the sum of already-rounded line totals, minus any Order-scoped
-Discount, rounded once at that step. VAT, where enabled, is backed out of the result for
-display — never added. No other module in DeanPOS implements this arithmetic.
+**Pricing arithmetic — the whole rule, in order, with nothing left to infer.** All
+intermediates are exact `Millicentavos` integers; nothing is a float at any point.
+
+```
+per line     Variant price
+             + Modifier and Add-on Deltas          exact, millicentavos
+             − line-scoped Discount, if any        exact, applied to the UNROUNDED amount
+             × quantity                            exact
+             ──────────────────────────────────────
+             ROUND ONCE, half-up  →  OrderLine total, Centavos      ← rounded figure 1
+
+per order    Σ OrderLine totals                    exact integer sum, no rounding
+             − Order-scoped Discount               computed from that subtotal,
+                                                   ROUND ONCE, half-up               ← rounded figure 2
+             ──────────────────────────────────────
+             Order total, Centavos
+```
+
+**The rule is "once per stored figure", not "once per Order".** There are exactly two
+rounded figures — the OrderLine total and the Order-scoped Discount amount — and neither is
+ever rounded twice. A sum of already-rounded integers needs no rounding, which is why the
+Order total itself is never a rounding site. `CONTEXT.md`, ADR-0005, and
+`.scratch/APP-PLAN.md` were amended on 2026-07-31 to say this; they previously said "once,
+at the OrderLine total", which was true before ADR-0010 introduced an Order-scoped Discount
+and false afterwards.
+
+**A line-scoped Discount applies before the line's single rounding**, to the unrounded
+millicentavo amount. Applying it after would round twice on every discounted line.
+
+**VAT, where enabled, is backed out — never added.** Two cases, and they differ:
+
+```
+ordinary Discount     total is computed as above; VAT is then backed out of the
+                      Order total at the rate captured on the Order.
+                      vat = total − total / (1 + rate)
+
+VAT-exempt Discount   VAT is stripped FIRST, and the discount applies to the
+                      VAT-exclusive base. This is the statutory Philippine
+                      Senior Citizen / PWD computation, not a DeanPOS invention.
+                      base    = subtotal / (1 + rate)
+                      discount = base × percent
+                      payable  = base − discount
+                      vat recorded on the sale = 0
+```
+
+Worked example, ₱385.00 subtotal, 12% VAT, 20% VAT-exempt discount:
+`base 34375000 mc (₱343.75) · discount 6875000 mc (₱68.75) · payable ₱275.00 · VAT ₱0.00`.
+Applying the discount to the VAT-inclusive ₱385.00 instead would yield ₱308.00 and
+overcharge an entitled customer by ₱33.00.
+
+When VAT is disabled, there is no base to strip: a `vatExempt` Discount behaves as an
+ordinary percent Discount, and no VAT figure exists.
+
+**No other module in DeanPOS implements any of this.**
 
 **The server re-validates everything the terminal composed** — that the Variant belongs to
 the Tenant and Store, that required Modifier groups were satisfied, that Add-on maximums
@@ -315,9 +364,11 @@ one for this area.
 
 **Money, property-tested.** The composition rules get property tests over generated
 catalogs and carts: a line total is always a non-negative integer number of centavos;
-rounding is applied exactly once; the Order total always equals the sum of the stored line
-totals; VAT backed out and re-applied returns the original total; a `multiplier` Delta
-never produces a fractional stored value. Examples are not sufficient for money.
+**every stored figure is rounded exactly once — the OrderLine total and the Order-scoped
+Discount amount, and nothing else**; the Order total always equals the sum of the stored
+line totals minus the stored discount amount; VAT backed out and re-applied returns the
+original total; every intermediate is an exact `Millicentavos` integer. Examples are not
+sufficient for money.
 
 **Through the seam, at minimum.**
 
@@ -330,6 +381,12 @@ never produces a fractional stored value. Examples are not sufficient for money.
 - A required Modifier group cannot be skipped — rejected in the UI *and* rejected by the
   server when submitted directly.
 - An Add-on beyond its maximum is rejected server-side.
+- **An existing draft line is edited, not rebuilt** — changing its quantity, and changing
+  its Modifiers and Add-ons, each recompute the line total and the running Order total, and
+  the line keeps its identity in the cart. Stories 12 and 13 had no test; building a line
+  from scratch does not exercise mutating one.
+- A line-scoped Discount reduces the line **before** its single rounding — asserted on a
+  price where discounting after rounding would differ by a centavo.
 - An unavailable Variant cannot be added.
 - Cash below total is rejected; exact cash and over-tender both compute correct change.
 - **Double submission of the same Order UUID yields exactly one Order** — the single most
@@ -379,9 +436,11 @@ off-by-default configuration is the product most tenants will run.
 
 **Money, property-tested — both configurations.** Every property in this area is asserted
 with VAT enabled and disabled, and with and without a Discount applied: the Order total
-always equals the sum of stored line totals minus any Order-scoped Discount; rounding is
-applied exactly once per line and once at the Order-level Discount; VAT backed out and
-re-applied returns the original total; no Discount can drive a total below zero.
+always equals the sum of stored line totals minus the stored Order-scoped Discount amount;
+**exactly two figures are ever rounded — the OrderLine total and the Order-scoped Discount
+amount**; VAT backed out and re-applied returns the original total; a VAT-exempt Discount
+always yields a payable equal to `subtotal/(1+rate) × (1−percent)` to the centavo; no
+Discount can drive a total below zero.
 
 **Deliberately not tested here.** Queueing, replay from a real Outbox, and service-worker
 behaviour — `offline-sync`, using the idempotency this area establishes. DrawerSession binding and
@@ -464,7 +523,9 @@ regression — the design contract is lo-fi.
   part-cash-part-card customer.
 - Dine-in tables, open tabs, parked or held orders, kitchen tickets, split bills.
   Non-goals.
-- Promotions, coupons, loyalty. Non-goal — manual manager override is the only discount.
+- Promotions, coupons, loyalty, and any **rule-based** discounting — conditions, schedules,
+  codes, BOGO, segments. Non-goal. Configured Discounts (ADR-0010) and the manual line
+  override are the only reductions, and both are applied by a person on purpose.
 - Customer records attached to an Order. Non-goal for v1.
 - Exchanges as a first-class operation. A refund plus a new sale is the v1 answer.
 
@@ -478,9 +539,12 @@ regression — the design contract is lo-fi.
 - **Resist adding a `held` or `parked` state.** It was considered during planning and
   ruled out. It is genuinely useful and it also multiplies the offline surface; if it
   comes back, it comes back as its own decision with its own record.
-- **Speed is an acceptance criterion, not a nice-to-have.** A cashier building a
-  three-line order should not be waiting on the network at any point — every catalog read
-  in this flow comes from what the terminal already holds.
+- **Speed is an acceptance criterion, and it is falsifiable.** Not "feels fast" — the
+  assertion is that **building an order and looking one up issue zero network requests**.
+  Tested by driving the flow with the transport stubbed to throw: building a three-line
+  order, editing it, and opening the order lookup all complete. Every catalog and Order read
+  in this flow comes from what the terminal already holds. A test that cannot fail is not a
+  criterion, and "should be fast" cannot fail.
 - **Every non-cash PaymentMethod is a recording device, not a payment integration.** The UI
   should make that unmistakable, or a tenant will assume DeanPOS charged the card — and a
   method named `GCash` invites that assumption far more strongly than one named `Card` did.

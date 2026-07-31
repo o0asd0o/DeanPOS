@@ -246,6 +246,11 @@ signal; that area watches it). DrawerSession close with unsynced entries —
 4. **Everything the terminal asserts while offline is a claim, not a fact.** The server
    re-validates composition, re-verifies offline Overrides against role and Store
    membership as of then, and still stores the recorded price (ADR-0003).
+   **This area calls `tenancy-identity`'s re-verification procedure; it does not
+   reimplement the check.** That area builds and unit-tests the procedure directly because
+   it cannot depend on a replay endpoint that does not exist yet; this area is where it is
+   finally exercised through a real Outbox replay, and that end-to-end path is this PRD's
+   to prove.
 5. **Replay is authenticated per request.** A queued entry does not carry a cached
    authorisation decision that outlives the Device's validity.
 6. **The Outbox is device-local and Store-scoped.** It never contains another Store's data,

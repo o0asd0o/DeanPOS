@@ -121,7 +121,7 @@ another.
 37. As a Device, I want the catalog to carry a version, so that I can tell whether my cached copy is current without re-downloading it.
 38. As a Device, I want the version to change whenever anything in the catalog changes, so that a stale menu is detectable.
 39. As a cashier, I want the terminal to show only my Store's availability, so that the grid reflects what I can actually sell.
-40. As a cashier, I want archived items to be absent from the terminal entirely, so that I cannot sell something withdrawn.
+40. As a cashier, I want archived MenuItems and Variants to be absent from the terminal entirely, so that I cannot sell something withdrawn.
 
 **Permissions**
 
@@ -147,10 +147,28 @@ which Deltas may attach to which Variant; computing an OrderLine total is `check
 job, using `foundation`'s round-once-half-up rule. The two must not both implement the
 arithmetic.
 
-**Multiplier rounding.** A `multiplier` Delta on an integer-centavo price can produce a
-fraction. It stays unrounded through composition; rounding happens once, at the OrderLine
-total, per ADR-0005. This area must not round a modified price at the Modifier level, and
-that is worth a comment in the code because it is the obvious wrong thing to do.
+**Delta bounds, as numbers rather than adjectives.** A `multiplier` is `0 < m ≤ 10`; an
+`absolute` Delta is within `±100,000` centavos (±₱1,000) **and** may not drive a linked
+Variant's effective price below zero. "Sane bounds" is not a criterion a test can fail
+against, which is why these are digits.
+
+**Bounds are re-checked on every write that can invalidate them**, not only at
+configuration time: changing a Variant's price, linking a ModifierGroup or Add-on to a
+Variant, and editing a Modifier's or Add-on's Delta. A negative effective price is
+reachable from three directions and blocked at all three; the check is one function called
+from each write path.
+
+**Multiplier rounding — and the type that makes it possible.** A `multiplier` Delta on an
+integer-centavo price produces a fraction, so `foundation`'s Delta application returns
+**`Millicentavos`** (an integer at 1000× scale), not `Centavos`. The fraction therefore
+survives composition exactly, with no float anywhere, and `roundLineTotal` collapses the
+scale once at the OrderLine total per ADR-0005.
+
+This area must not round a modified price at the Modifier level. That is worth a comment in
+the code because it is the obvious wrong thing to do, and because an earlier draft of
+`foundation` asserted the opposite — that Delta application always yields an integer
+`Centavos`. Both PRDs now state the same rule; if they ever diverge again, **this one is
+wrong**, because the primitive lives in `foundation`.
 
 **ModifierGroup selection rules.** A group declares one of: `required-one`,
 `optional-one`, or `many` (with an optional maximum). The terminal enforces the rule and
@@ -182,8 +200,10 @@ malformed one:
 - `requiresReference` demands a non-empty label — an unlabelled required field is a field
   nobody fills in correctly.
 
-**A Discount is a definition, not a rule.** It has no conditions, no schedule, no code, no
-eligibility logic, and no interaction with any other Discount. It is applied by a person who
+**A Discount is a definition, not a rule.** It has no conditions, no schedule, no code, and
+no eligibility logic. It carries **no stacking logic of its own**; the one permitted
+combination — at most one Order-scoped Discount plus at most one per line — is a rule
+`checkout` applies (ADR-0010), not a property configured here. It is applied by a person who
 decided to apply it. This is the boundary ADR-0010 drew and the one that keeps this out of
 promotions-engine territory; the back-office copy should say so where the list is edited.
 
@@ -195,19 +215,44 @@ references it.
 
 **Visual reference.** `ORC2_DESIGN="lofi"`. Mocks are committed:
 `backoffice/catalog-list-1440`, `backoffice/menuitem-editor-1440`, `backoffice/addons-1440`,
-`backoffice/availability-1440`, `backoffice/discounts-1440`. The Discounts mock shows a
-populated list; **empty is the default and a complete configuration**, and its empty state
-is not drawn.
+`backoffice/availability-1440`, `backoffice/discounts-1440`. The Discounts mock draws
+**both** the populated list and the empty state, because empty is the default and the
+configuration most tenants will keep — it is not an edge case to be improvised at build
+time.
 
 **Availability is per Store, and is not stock.** A boolean toggle per (Variant, Store).
 Quantity tracking, depletion, and recipes are non-goals for v1 — this is the F&B "86'd"
 switch, nothing more. It lives here rather than in a future inventory area because the
 terminal needs it and it costs one table.
 
-**Nothing is hard-deleted.** Everything archives. An Order from March must still render
-its item names next year, and the archive flag is what makes that safe. Archived rows are
+**The archive cascade, stated per level** — because "everything archives" says nothing
+about a live child of an archived parent, and the two plausible guesses differ by whether
+a terminal keeps selling something the manager thought they withdrew:
+
+| Archived | Effect on the read model |
+| --- | --- |
+| Category | its MenuItems, and their Variants, all leave — **children are not separately archived**, they are excluded by their parent |
+| MenuItem | its Variants all leave |
+| Variant | that Variant leaves; siblings are unaffected; the MenuItem leaves too if it has no non-archived Variant left |
+| ModifierGroup | leaves every Variant it was linked to; the Variants stay sellable unless the group was `required-one`, in which case they leave too — a Variant with an unsatisfiable required group is not sellable |
+| Modifier | leaves its group; if the group is `required-one` and now has no option, its Variants leave |
+| Add-on | leaves every Variant it was linked to; the Variants stay sellable |
+
+Un-archiving a parent restores the children that were never themselves archived.
+**Exclusion is computed from the parent chain, not written down the tree**, so archiving a
+Category is one row and cannot half-fail.
+
+**Nothing is hard-deleted.** Everything archives. Archived rows are
 excluded from the read model and from the back-office's default views, and remain
 readable by id.
+
+The reason is **not** that a March receipt needs to render — `checkout` snapshots the
+Variant's name and price onto the OrderLine at sale time (ADR-0003, *recorded price*), so a
+receipt renders from itself and never joins back to a catalog row. An implementer who reads
+"archive is what keeps old receipts working" may conclude the opposite and live-join them,
+which is the bug this note exists to prevent. Archive exists so that an **id** referenced
+by a report, an Override, or an Order still resolves, and so that withdrawing something is
+not destructive.
 
 **The catalog read model.** One query procedure returns a Store's complete sellable
 catalog — categories, items, variants, groups, modifiers, add-on links, and that Store's
@@ -255,8 +300,10 @@ leak to a competitor on the same platform.
   why.
 - A Variant marked unavailable at Store A still appears available at Store B.
 - An archived Variant vanishes from the read model and is still readable by id.
-- A price change alters the read model and does not touch any existing row that captured
-  a price.
+- A price change alters the read model, and the previous Variant row is left intact rather
+  than mutated in place. **The "does not touch a captured price" assertion lives in
+  `checkout`**, not here — OrderLines are area 4, so at this area's build point there are
+  no price-capturing rows and the test cannot fail.
 - A `required-one` group rejects a submission with no choice; a `many` group with a
   maximum rejects one over it. Validated server-side, not only in the UI.
 - Editing a shared ModifierGroup changes every Variant linked to it.
@@ -264,6 +311,24 @@ leak to a competitor on the same platform.
 - A cashier cannot mutate anything in this area.
 - A manager cannot toggle availability at a Store they are not assigned to.
 - The version changes after any catalog write and does not change after a read.
+- **An availability toggle is a catalog write and moves the version** — asserted on its
+  own, because it is the one write most likely to be treated as "not really catalog", and
+  a version that does not move leaves every offline terminal selling a sold-out dish until
+  something else happens to change.
+- **The archive cascade, one test per level** — archiving a Category removes its MenuItems
+  and Variants from the read model; archiving a MenuItem removes its Variants; archiving
+  the last Modifier of a `required-one` group removes that group's Variants; archiving an
+  Add-on leaves its Variants sellable. Un-archiving restores what was never itself
+  archived.
+- **An Add-on quantity above its maximum is rejected server-side**, the same standard the
+  ModifierGroup maximum is held to. A limit enforced only by the stepper is not enforced.
+- A `multiplier` of `0`, a negative, and `10.01` are rejected; `10` is accepted.
+- An `absolute` Delta beyond ±₱1,000 is rejected.
+- **A Variant price change that would make a linked Delta produce a negative effective
+  price is rejected**, as is linking a group or Add-on to a Variant too cheap for it —
+  the same check, from all three write paths.
+- A `required-one` group's default Modifier is marked as the default in the read model,
+  and a group with no default is accepted.
 - Two Tenants with identically-named catalogs never see each other's rows.
 
 **Discounts.**
@@ -315,9 +380,18 @@ behaviour — `offline-sync`. Visual regression of the grid — the design contr
     `percent` above 100 or a negative `amount` never reaches a terminal that may be offline
     and unable to ask.
 11. **`vatExempt` and `requiresOverride` are financial controls.** Only `admin` and
-    `manager` may set them, and changing either is audited with the actor and both values.
-    A Discount quietly flipped to VAT-exempt is a tax claim; one flipped off
-    `requiresOverride` removes a manager from the loop.
+    `manager` may set them. A Discount quietly flipped to VAT-exempt is a tax claim; one
+    flipped off `requiresOverride` removes a manager from the loop — so **a Discount is
+    versioned rather than updated in place**: an edit writes a new row with an
+    `effective_from`, and an Order references the version it applied. That is the audit
+    record, it is this area's to create, and it is the same append-only shape
+    `tenancy-identity` uses for role and membership.
+
+    Criterion 8 forbids logging full payloads, so the log carries actor, Tenant, Discount
+    id, and the fields that changed — never the values. The values are in the row history,
+    which is queryable and access-controlled. An earlier draft asked for "both values,
+    audited" with no store to put them in and no test; that was a criterion with no
+    destination.
 
 ## Out of Scope
 
@@ -359,7 +433,7 @@ behaviour — `offline-sync`. Visual regression of the grid — the design contr
 - **Shared ModifierGroups are the difference between a usable catalog and an abandoned
   one.** Per-Variant duplication looks simpler in the schema and is unusable at thirty
   dishes.
-- **Do not round inside a Modifier.** ADR-0005 says once, at the OrderLine total. Rounding
+- **Do not round inside a Modifier.** ADR-0005 rounds once per stored figure, and a modified price is not one — the OrderLine total is. Rounding
   early is the most likely way this area produces totals that disagree with the receipt.
 - Availability sits slightly awkwardly between catalog and operations. It is here because
   the terminal needs it in the same payload, and splitting it would mean two fetches for

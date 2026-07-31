@@ -18,11 +18,14 @@ names. The **Not** column lists synonyms that are decided against, not style pre
 
 | Term | Means | Not |
 | --- | --- | --- |
+| **Category** | A named grouping of MenuItems, ordered. Drives the terminal grid's order. | section, group, menu |
 | **MenuItem** | A sellable concept with no price of its own, e.g. *Ulam*. Never sold directly. | product, item, SKU |
 | **Variant** | A priced, sellable form of a MenuItem, e.g. *Adobo*, *Munggo*. **Price lives here.** | option, choice, SKU |
+| **ModifierGroup** | A named set of Modifiers with one selection rule — `required-one`, `optional-one`, or `many`. Defined once, linked to many Variants. | option set, choice group, variant group |
 | **Modifier** | An adjustment on a Variant that changes what is served, e.g. *Whole*, *Half*. Carries a typed delta. | size, option |
 | **Add-on** | An extra selected at sale time, e.g. *Extra rice*, *Itlog*. Configured once per Tenant, attachable to Variants. | extra, topping, upsell |
 | **Delta** | A Modifier's or Add-on's price adjustment. Typed as `absolute` (±centavos) or `multiplier` (×rate) — never inferred. | adjustment, discount |
+| **Millicentavos** | Centavos × 1000, integer. The scale a Delta is applied in, so a `multiplier` fraction survives composition unrounded. Collapses to Centavos **once**, at the OrderLine total. | fixed point, decimal, float |
 
 ## Sales
 
@@ -81,7 +84,13 @@ Shift — but they are separate records with separate lifecycles, and v1 does no
 - **Whatever configuration was in force is captured on the Order** — VAT enablement and
   rate, Discount name/type/value, PaymentMethod name. A report reads what the sale said,
   never what the settings say now. Same principle as *recorded price*.
-- Rounding happens **once, at the OrderLine total, half-up**.
+- Rounding happens **once per stored figure, half-up**. Exactly two figures are rounded:
+  the **OrderLine total** and the **Order-scoped Discount amount**. A sum of already-rounded
+  integers is exact and is never a rounding site. Every intermediate is exact
+  **Millicentavos**.
+- **A VAT-exempt Discount strips VAT first**, then discounts the VAT-exclusive base — the
+  statutory Philippine Senior Citizen / PWD computation. Discounting the VAT-inclusive
+  price instead overcharges an entitled customer.
 - `paid` is irreversible. Nothing after it edits an Order.
 - **A sale happened when the Device says it happened.** Device time determines the business
   day, hour, and period in every report. Server receipt time is retained only to show sync

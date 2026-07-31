@@ -60,7 +60,11 @@ size, or catalog.
 - `amount` discounts are `order`-scoped only. Distributing a peso amount across lines is a
   rounding argument with no correct answer.
 - `vatExempt` removes VAT from the discounted sale when VAT is enabled — this is the field
-  that makes the SC/PWD case correct rather than approximate.
+  that makes the SC/PWD case correct rather than approximate. **The order of operations is
+  statutory, not ours:** strip VAT first, then discount the VAT-exclusive base.
+  `base = subtotal / (1 + rate)` · `payable = base × (1 − percent)` · VAT recorded is zero.
+  Discounting the VAT-inclusive price instead overcharges an entitled customer — on a
+  ₱385.00 subtotal at 12% and 20%, ₱308.00 charged where ₱275.00 is due.
 - `requiresReference` forces the cashier to record an identifying reference (the SC/PWD ID
   number) before the discount applies. The label is tenant-set, because the field means
   different things to different tenants.

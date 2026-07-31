@@ -469,18 +469,23 @@ def build():
                                 "☑ Requires a reference   label [ Senior ID     ]\n\n"
                                 "                                   [ Archive ]  [ Save ]",
             W, align="l", size=12),
-        box(988, 336, 420, 300, "Empty by default.\n\n"
-                                "A tenant that gives no discounts sees this\n"
-                                "list empty and NO discount control on the\n"
-                                "terminal at all.\n\n"
-                                "This is not a promotions engine: no\n"
+        box(988, 336, 420, 148, "This is not a promotions engine: no\n"
                                 "conditions, no schedules, no codes, no\n"
                                 "BOGO, no segments, no stacking rules.\n"
-                                "A person applies one, on purpose, every\n"
-                                "time.\n\n"
-                                "A Discount is archived, never deleted —\n"
-                                "an Order from March still references it.",
+                                "A person applies one, on purpose,\n"
+                                "every time.\n\n"
+                                "Archived, never deleted — an Order from\n"
+                                "March still references it.",
             D, dash=1, align="l", size=12),
+        txt(988, 516, "EMPTY STATE — what every new tenant sees", 12, "l", "bold"),
+        box(988, 526, 420, 110, "No discounts configured.\n\n"
+                                "Add one if your shop gives a senior\n"
+                                "citizen or staff discount.\n\n"
+                                "            [ + New discount ]", W, align="l", size=12),
+        box(988, 648, 420, 88, "Not an edge case — this is the DEFAULT, and the\n"
+                               "configuration most tenants will keep. The terminal\n"
+                               "shows no discount control at all in this state.",
+            M, align="l", size=11),
     ]
     out.append(screen("backoffice/discounts-1440.svg", X, Y, "Back-office · Discounts", DESK, e, notes=[
         "Optional. Empty list is the default and a complete configuration.",
