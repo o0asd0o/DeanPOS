@@ -532,8 +532,12 @@ regression — the design contract is lo-fi.
   copy. Requires an email or SMS transport DeanPOS does not have.
 - Split tender across two payment methods. **Deferred, trigger:** first reported
   part-cash-part-card customer.
-- Dine-in tables, open tabs, parked or held orders, kitchen tickets, split bills.
-  Non-goals.
+- Dine-in tables, open tabs, kitchen tickets, split bills. Non-goals — this is
+  order-then-pay counter service.
+- **Parking an order to serve the next customer.** Not in v1, but this one is deferred with
+  a trigger rather than closed, because it has a daily cost the other non-goals do not.
+  **Deferred, trigger:** a tenant reporting that the counter stalls because a cashier cannot
+  set one order aside. See the note below on what the cheap version looks like.
 - Promotions, coupons, loyalty, and any **rule-based** discounting — conditions, schedules,
   codes, BOGO, segments. Non-goal. Configured Discounts (ADR-0010) and the manual line
   override are the only reductions, and both are applied by a person on purpose.
@@ -547,9 +551,27 @@ regression — the design contract is lo-fi.
   a mock has misread it.
 - **The double-submit test is the one to write first.** If it does not pass, nothing else
   in this area matters, and `offline-sync` cannot be built at all.
-- **Resist adding a `held` or `parked` state.** It was considered during planning and
-  ruled out. It is genuinely useful and it also multiplies the offline surface; if it
-  comes back, it comes back as its own decision with its own record.
+- **The cost of having no parked order is real, and is written down here so nobody has to
+  rediscover it.** A customer mid-order says "wait, let me think" with a queue behind them,
+  and the cashier has exactly two options: hold the till, or clear the basket and re-ring it
+  later. That is a daily friction, not a hypothetical.
+
+- **When it comes back, the cheap version is one parked draft per Device, local-only, never
+  shared** — and that distinction is the whole decision. A *parked draft* is still a private
+  object on one terminal, so it changes nothing about the architecture: no server state, no
+  merge, no conflict.
+
+  An **open ticket** in the comparable product is something else entirely: a *shared mutable
+  draft* that any Device can edit. DeanPOS is offline-first, so two terminals can edit one
+  ticket while disconnected from each other — genuine conflict resolution on a live cart,
+  where last-write-wins means a line the customer ordered silently disappears. The current
+  model has no merge semantics anywhere, deliberately, and that product's own manual
+  concedes its open tickets work offline "but without synchronization with other devices".
+
+  So: **a parked draft is a small feature and an open ticket is a distributed-systems
+  problem.** If this comes back, it comes back as the first one, with its own decision
+  record. Reaching for the second without one is the failure mode this note exists to
+  prevent.
 - **Speed is an acceptance criterion, and it is falsifiable.** Not "feels fast" — the
   assertion is that **building an order and looking one up issue zero network requests**.
   Tested by driving the flow with the transport stubbed to throw: building a three-line
