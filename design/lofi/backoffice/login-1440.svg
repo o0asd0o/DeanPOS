@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1520" height="1096" viewBox="0 0 1520 1096" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<rect width="1520" height="1096" fill="#fafafa"/>
+<text x="40" y="34" font-size="17" font-weight="bold" fill="#111">Back-office · Sign in</text>
+<text x="40" y="56" font-size="12" fill="#555">backoffice · desktop 1440x900 · lo-fi: structure and order only — spacing, type, colour and states come from tokens</text>
+<g transform="translate(40,78)">
+<rect x="0" y="0" width="1440" height="900" fill="#ffffff" stroke="#111" stroke-width="2"/>
+<rect x="0" y="0" width="1440" height="900" rx="0" fill="#f7f7f7" stroke="#333" stroke-width="1"/><rect x="490.0" y="220" width="460" height="420" rx="0" fill="#ffffff" stroke="#333" stroke-width="1"/><text x="720.0" y="280" font-size="20" text-anchor="middle" font-weight="bold" fill="#111">DeanPOS back-office</text><text x="514.0" y="330" font-size="12" text-anchor="start" font-weight="normal" fill="#111">Email</text><rect x="514.0" y="342" width="412" height="48" rx="0" fill="#ffffff" stroke="#333" stroke-width="1"/><text x="514.0" y="416" font-size="12" text-anchor="start" font-weight="normal" fill="#111">Password</text><rect x="514.0" y="428" width="412" height="48" rx="0" fill="#ffffff" stroke="#333" stroke-width="1"/><rect x="514.0" y="504" width="412" height="56" rx="0" fill="#cccccc" stroke="#333" stroke-width="1"/><text x="720.0" y="537.0" font-size="15" text-anchor="middle" fill="#111">SIGN IN</text><rect x="514.0" y="578" width="412" height="40" rx="0" fill="#ffffff" stroke="#333" stroke-width="1" stroke-dasharray="6 4"/><text x="720.0" y="602.0" font-size="12" text-anchor="middle" fill="#111">Email or password is incorrect</text>
+<text x="0" y="934" font-size="12" fill="#555">· One message for unknown email and wrong password — no account enumeration.</text><text x="0" y="954" font-size="12" fill="#555">· No self-service password reset in v1; an admin sets a temporary password.</text><text x="0" y="974" font-size="12" fill="#555">· This is the desk. Cashiers unlock the terminal with a PIN instead.</text>
+</g>
+</svg>
