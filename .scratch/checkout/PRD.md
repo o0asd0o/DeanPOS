@@ -156,11 +156,18 @@ This is the decision that makes offline coherent. There is no draft synchronisat
 problem because drafts are not shared, and no partial-order reconciliation because a
 partial order is not a thing the server knows about.
 
-**Submission is idempotent on the Order UUID, from the first commit.** Re-submitting an
-identical Order is a no-op returning the same result. This is written and tested in this
-area even though nothing replays yet, because `offline-sync` is built on top of it and
-retrofitting idempotency onto a live sales endpoint is not something anyone should have to
-do.
+**Every submission is idempotent on its own client-generated UUID, from the first commit —
+and that means reversals too.** An Order carries a UUID; **so does each Void and each
+Refund**, generated on the Device when the manager approves it. Re-submitting any of them is
+a no-op returning the same result, enforced by a unique constraint per table.
+
+The Order's UUID is not sufficient for reversals: this area allows cumulative partial
+refunds, so "a retry of refund X" and "a second, legitimate line refund on the same Order"
+are indistinguishable by Order UUID alone. `offline-sync` replays all three kinds and is
+forbidden from inventing its own deduplication, so the guarantee has to be complete here.
+
+Written and tested in this area even though nothing replays yet, because retrofitting
+idempotency onto a live sales endpoint is not something anyone should have to do.
 
 **Order number.** A short human-readable identifier assigned **on the Device** — a device
 code plus a per-Device incrementing sequence, e.g. `C2-0421`. It is not globally unique
@@ -391,6 +398,10 @@ sufficient for money.
 - Cash below total is rejected; exact cash and over-tender both compute correct change.
 - **Double submission of the same Order UUID yields exactly one Order** — the single most
   important test in this PRD.
+- **Double submission of the same Void UUID yields exactly one Void, and the same for a
+  Refund** — including two concurrent attempts. Then, distinctly: **two refunds on the same
+  Order with different UUIDs both apply**, cumulatively, which is what makes the previous
+  assertion about idempotency rather than about refusing a second refund.
 - A concurrent double submission (two simultaneous requests, same UUID) also yields one
   Order. Idempotency that only holds when requests are serialised is not idempotency.
 - A paid Order cannot be mutated by any procedure, including by re-submitting a modified

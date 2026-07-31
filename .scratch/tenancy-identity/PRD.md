@@ -191,6 +191,7 @@ The settings:
 | VAT rate | `12%` | `checkout`, `reporting` |
 | PaymentMethod list | **`cash` only** | `checkout`, `drawer-sessions`, `reporting` |
 | Variance tolerance | `0` **centavos** | `drawer-sessions` |
+| Cash-movement Override threshold | `0` **centavos** | `drawer-sessions` |
 
 **VAT defaults to off** (ADR-0010) because most target tenants sit below the ₱3,000,000
 registration threshold. A product that ships VAT on hands those tenants figures that are
@@ -284,6 +285,12 @@ enough on its own — the two surfaces ask different questions of it.
 | `cashier` | must be a member of the Device's Store, or unlock is refused | sees only their own published Shifts and their own session summaries |
 | `manager` | must be a member to unlock or approve an Override there | scoped to assigned Stores on every read and write |
 | `admin` | **exempt** — an admin may unlock any Device in their Tenant | sees the whole Tenant; `UserStore` rows are not required |
+
+**Expected cash is `manager` and `admin` only.** `drawer-sessions` and `reporting` both gate
+on "the right to see expected cash"; that right **is the Role**, not a grantable per-User
+permission. DeanPOS has no per-User permissions and adding one for a single flag would make
+it the only one in the product. One rule, four surfaces: the close-time reveal, the running
+summary, session history, and every report.
 
 So: **`admin` is exempt from membership; `cashier` and `manager` are not.** A cashier with
 no `UserStore` row can sign in to nothing on either surface — they have no Store to act in

@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 9 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `tenancy-identity`, `checkout`, `offline-sync`, `observability`
+- **Depends on:** `tenancy-identity`, `catalog`, `checkout`, `offline-sync`, `drawer-sessions`, `reporting`, `observability`, `landing`
 - **Blocks:** `release-ops`
 
 > Security is **cross-cutting and has its own area**. Every PRD before this one carries its
@@ -33,7 +33,7 @@ There is no export and no deletion path, and "we'll write one if someone asks" i
 answer that becomes an emergency.
 
 And one thing is genuinely unresolved: a **stolen enrolled tablet** is the primary threat in
-ADR-0007. Revocation was specified in area 2 and enforced on replay — but the queued Orders
+ADR-0007. Revocation is specified in area 2 and enforced on replay by area 5 — but the queued Orders
 it quarantines have no human anywhere in DeanPOS who can look at them and decide.
 
 ## Solution
@@ -71,7 +71,7 @@ Six deliverables, none of which is a feature and all of which are load-bearing.
 6. As a reviewer, I want the suite to fail when a procedure has no wrong-tenant probe, so that the hole cannot ship.
 7. As a reviewer, I want the suite to fail when a procedure has no role-authorisation probe, so that a cashier-reachable admin action is caught by the build.
 8. As a reviewer, I want an explicit, justified exemption list rather than silent gaps, so that "this one is genuinely public" is a decision somebody wrote down.
-9. As an owner, I want every object reachable by guessing an id to be enumerated and tested, so that the classic breach is closed by construction.
+9. As an owner, I want **every id-bearing parameter of every procedure** enumerated and probed, so that a procedure taking three ids cannot pass by having a probe on one of them. The sweep is procedure-level *and* parameter-level; claiming "closed by construction" from procedure coverage alone would be an overclaim.
 10. As an owner, I want a wrong-Store request from a legitimate user to be refused, so that a manager at one outlet cannot reach another.
 11. As an owner, I want a wrong-Device replay to be refused, so that a terminal cannot submit sales for a store it does not belong to.
 
@@ -98,7 +98,7 @@ Six deliverables, none of which is a feature and all of which are load-bearing.
 
 25. As an operator, I want every secret's location and rotation procedure written down, so that rotating one is a checklist and not an investigation.
 26. As an operator, I want to rotate the database password, the Sentry DSN, the Slack webhook, and the session secret without a code change, so that rotation is routine.
-27. As an operator, I want a way to revoke every Device for a tenant at once, so that a compromised store can be shut down in one action.
+27. As a **tenant admin**, I want a way to revoke every Device for a tenant at once, so that a compromised store can be shut down in one action.
 28. As an operator, I want CI to flag dependencies with known advisories, so that a vulnerable package is caught at merge rather than at exploit.
 29. As an operator, I want a stated response time per severity, so that "we'll get to it" has a meaning.
 30. As a reviewer, I want the lockfile committed and installs reproducible, so that what CI tested is what ships.
@@ -111,8 +111,8 @@ Six deliverables, none of which is a feature and all of which are load-bearing.
 34. As a tenant admin, I want to request deletion of my Tenant, so that leaving means leaving.
 35. As an operator, I want deletion to require an export first and an explicit confirmation, so that it cannot be a mistake.
 36. As an operator, I want deletion to be irreversible and verified, so that "deleted" is true.
-37. As an operator, I want to see Orders quarantined from revoked Devices, so that the stolen-tablet story has an ending.
-38. As a manager, I want to accept or reject a quarantined Order with a reason, so that money genuinely collected is not lost and money that was not is not counted.
+37. As a **tenant admin**, I want to see Orders quarantined from revoked Devices at my Tenant, so that the stolen-tablet story has an ending.
+38. As a **tenant admin**, I want to accept or reject a quarantined Order with a reason, so that money genuinely collected is not lost and money that was not is not counted. **Admin, not manager** — ADR-0007 makes revocation admin-only and audited, and adjudicating its consequences is the same authority.
 39. As an owner, I want every quarantine decision recorded with who made it, so that the adjudication is itself auditable.
 
 ## Implementation Decisions
@@ -191,7 +191,7 @@ response times per severity, and a documented procedure for an advisory with no 
 available. This is policy plus one CI step, not a tool evaluation.
 
 **Tenant export.** A complete, machine-readable dump of a Tenant's data — stores, users
-(without credential material), catalog, orders, reversals, drawer sessions, cash movements,
+(without credential material), catalog, orders, voids and refunds, drawer sessions, cash movements,
 overrides. Admin-initiated, authorised, and recorded.
 
 **Tenant purge.** Hard deletion of a Tenant and everything owned by it, gated on: an export
@@ -205,7 +205,24 @@ that: it is offboarding, exercised on request, and the export is what carries th
 retention obligation with them. DeanPOS does not delete a live tenant's history, and does
 not hold a departed tenant's data indefinitely on the theory that they might need it.
 
-**Quarantine adjudication.** `tenancy-identity` and `offline-sync` quarantine Orders replayed
+**Personal data has three categories, and all three are named here** — the threat model,
+the export, the purge, the retention schedule, and the never-log list each cover all of them,
+because two sibling PRDs delegate their handling to this area and a delegation that lands
+nowhere is worse than none:
+
+| Asset | Where it comes from | Belongs to a Tenant? |
+| --- | --- | --- |
+| User records — names, emails, password and PIN hashes | `tenancy-identity` | yes |
+| **Discount references — Senior Citizen and PWD ID numbers** | `checkout` SC17, `reporting` SC12 | yes, but they identify a **customer**, not a User |
+| **Waitlist submissions** — name, business, contact, city | `landing` SC7 | **no** — outside tenant RLS |
+
+**Waitlist rows need their own retention rule, because Tenant purge cannot reach them.**
+Tenant export and purge are Tenant-scoped by construction; a row belonging to no Tenant is
+outside both. `landing` owns the delete action; this area owns the schedule that says a
+submission is deleted once converted or declined, and the test that no waitlist row outlives
+it.
+
+**Quarantine adjudication, and only adjudication.** Per the amended ADR-0007 the ownership is: `tenancy-identity` owns the `revoked` flag and the check-every-request rule · **`offline-sync` enforces it on the replay endpoint it owns and writes the quarantine row** · this area owns the screen and the decision, and builds neither the check nor the row. `offline-sync` quarantines Orders replayed
 from a revoked Device. This area builds the screen where a human resolves them: review each
 quarantined Order with its Device, cashier, timestamps, and contents, then accept it into the
 ledger or reject it, with a reason. Every decision is recorded with its actor. Without this,

@@ -51,7 +51,7 @@ is four different totals.
 6. As an implementing agent, I want `bun run test` to run every Vitest suite across all workspaces, so that the gate's second half is one command.
 7. As an implementing agent, I want the gate to fail on a type error in one workspace even when the others pass, so that a broken contract cannot merge behind a green partial run.
 8. As a developer, I want Vite+ configured as the runner for both React applications, so that the two front ends behave identically in development.
-9. As a developer, I want the Vite+ licence handled explicitly — a token in CI, or a documented and deliberate fallback to plain Vite — so that CI never silently degrades and nobody debugs it under time pressure.
+9. As a developer, I want the Vite+ licence handled explicitly — a token in the local environment, or a documented and deliberate fallback to plain Vite — so that the build never silently degrades and nobody debugs it under time pressure.
 10. As a developer, I want formatting and linting to be non-negotiable and automatic, so that no review ever spends a comment on style.
 
 **Contract and typesafety**
@@ -73,7 +73,7 @@ is four different totals.
 **Data layer**
 
 21. As an implementing agent, I want the schema defined in a Prisma schema file as the single source of truth, so that there is never a question of which definition is current.
-22. As an implementing agent, I want migrations generated as checked-in SQL and applied with `prisma migrate deploy`, so that the same migration runs identically in a lane, in CI, and in production.
+22. As an implementing agent, I want migrations generated as checked-in SQL and applied with `prisma migrate deploy`, so that the same migration runs identically in a lane, on a developer's machine, and in production.
 23. As an implementing agent, I want Kysely table types generated from that schema by `prisma-kysely`, so that a query referencing a dropped column fails the gate.
 24. As an implementing agent, I want every runtime query to go through Kysely and never through the Prisma client, so that the data layer stays thin and no ORM type leaks into a handler.
 25. As an implementing agent, I want generated type output excluded from review diffs, so that a reviewer reads the change and not the regeneration.
@@ -116,7 +116,7 @@ is four different totals.
 49. As an operator, I want CORS configured as an explicit allowlist of the origins that actually call the API, so that a permissive default never ships.
 49a. As an operator, I want a request from a non-allowlisted origin to be refused by an automated test in the gate, so that a permissive default cannot ship green while a reviewer is trusted to remember.
 49b. As a developer, I want the gate demonstrated failing — a deliberate type error and a deliberately broken assertion, each turning it red — so that a gate nobody has watched fail is not assumed to work.
-50. As an operator, I want CI to run the full gate on every change to `main` and refuse to build an image when it fails, so that an unbuildable commit cannot reach the VPS.
+50. As an operator, I want the deploy script to refuse a dirty tree and refuse a commit whose gate has not passed locally, so that an unbuildable commit cannot reach the VPS. **There is no hosted CI** — that was decided in `release-ops` and this PRD follows it.
 51. As an operator, I want a deploy to produce a versioned container image, so that rolling back is redeploying a previous image rather than reverting code.
 
 ## Implementation Decisions
@@ -141,9 +141,9 @@ area 11.
 only test runner, configured as a workspace so one invocation covers every package.
 TypeScript strict everywhere.
 
-The Vite+ licence must be resolved as part of this PRD — either a CI secret is wired and
-verified, or the repository deliberately pins plain Vite and records why. A CI run that
-degrades silently is a defect of this PRD, not a later surprise.
+The Vite+ licence must be resolved as part of this PRD — either a token is wired into the
+local environment and verified, or the repository deliberately pins plain Vite and records
+why. A build that degrades silently is a defect of this PRD, not a later surprise.
 
 **Linter and formatter: Biome.** One binary covering both, one config at the root, and the
 sibling project **ApxDenta** already has a working configuration to copy — which is the
@@ -248,8 +248,12 @@ a real slice replaces it.
 
 **Deployment.** Docker Compose defines the API, both static front ends, the landing
 site, and PostgreSQL. A reverse proxy serves **four origins** on one registrable domain
-with TLS — the apex for `apps/landing`, plus `pos.`, `admin.`, and `api.` (ADR-0001). CI
-runs the gate, then builds a versioned image on success.
+with TLS — the apex for `apps/landing`, plus `pos.`, `admin.`, and `api.` (ADR-0001).
+
+**The gate runs locally, not in hosted CI** (`release-ops`, ADR-0006). The deploy script
+refuses a dirty tree and refuses a commit whose gate has not passed, then builds a versioned
+image. `foundation` builds the gate as two commands; `release-ops` builds the script that
+enforces them.
 
 **The CORS allowlist is three origins, not four.** `pos.` and `admin.` call the API and
 are allowlisted; **the apex landing origin is not**, because in v1 the landing site makes
@@ -358,8 +362,8 @@ every default.
 
 ## Further Notes
 
-- **Vite+ is the single most likely source of a mysterious CI failure in this PRD.**
-  Resolve the licence explicitly and prove it in CI before anything else depends on the
+- **Vite+ is the single most likely source of a mysterious build failure in this PRD.**
+  Resolve the licence explicitly and prove it on a clean machine before anything depends on the
   build. If a token is unavailable, pin plain Vite and record the decision rather than
   leaving a fallback that nobody knows is active.
 - **The seam helper is the real deliverable.** Ten areas will use it. If it is awkward,

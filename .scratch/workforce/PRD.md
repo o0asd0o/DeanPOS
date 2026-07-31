@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 12 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `tenancy-identity`
+- **Depends on:** `foundation`, `tenancy-identity`, `reporting` (timezone handling and its boundary tests, reused as prior art)
 - **Blocks:** nothing
 
 > **A `Shift` is rostered work. A `DrawerSession` is cash.** They are different records with
@@ -83,11 +83,11 @@ not delivered.
 26. As a cashier, I want to see any note on my Shift, so that I know what is expected.
 27. As a cashier, I want to see only my own schedule, so that my colleagues' hours are not my business.
 28. As a cashier, I want to see my schedule on my phone, so that I can check it without going in.
-29. As a cashier, I want times shown in my own timezone, so that there is nothing to work out.
+29. As a cashier, I want times shown in my Tenant's timezone, so that there is nothing to work out. There is no per-User timezone in DeanPOS.
 
 **Oversight**
 
-30. As an owner, I want to see the roster across all my Stores, so that I can see coverage for the business.
+30. As a tenant admin, I want to see the roster across all my Stores, so that I can see coverage for the business. ("Owner" is not a Role; the Roles are `cashier`, `manager`, `admin`.)
 31. As a manager, I want to see rostered hours per person for a period, so that the roster's shape is visible before the week starts.
 32. As a manager, I want to see only my assigned Stores, so that scope matches my responsibility.
 33. As a tenant admin, I want another Tenant to be unable to see my roster, so that my staffing is private.
@@ -100,8 +100,14 @@ is a Store and a date range, and publishing sets the flag on the Shifts within i
 Roster entity would create a second thing to keep consistent with the first.
 
 **Times are stored as instants and displayed in the Tenant's timezone**, reusing the timezone
-established in `reporting`. A Shift crossing midnight is ordinary for a food business and is
+established in `tenancy-identity`, which owns the Tenant timezone setting and each Store's
+business-day start. A Shift crossing midnight is ordinary for a food business and is
 represented by its start and end, not by a date plus a duration.
+
+**The timezone *handling* and its boundary tests are `reporting`'s prior art**, and
+`reporting` is area 7 while this is area 12 — so the reuse is safe, but it is declared rather
+than assumed. An earlier draft said the timezone was "established in `reporting`", which
+confused the setting's owner with the first area that had to handle it carefully.
 
 **Draft versus published.** A Shift is created unpublished. Publishing applies to a Store and
 a date range and flips every Shift in it. Unpublished Shifts are invisible to `cashier` role
@@ -112,17 +118,54 @@ users; managers and admins see everything for their scope.
 | Check | Draft | Publish |
 | --- | --- | --- |
 | User overlaps another Shift (any Store) | Warn | Block |
-| User not assigned to the Store | Block | Block |
+| User not assigned to the Store **at the Shift's start instant** | Block | Block |
 | User is deactivated | Block | Block |
 | Shift unassigned | Warn | Warn, with explicit confirmation |
+
+**Editing an already-published Shift is held to the Publish column, not the Draft column.**
+The matrix has two columns and three things happen — draft, publish, and edit-after-publish —
+and an overlap is only a warning on draft. Without this rule a manager could edit a live
+Shift's times into a double-booking and get a warning, which is exactly the outcome
+publish-blocking exists to prevent.
+
+**"Assigned" means: an open `UserStore` interval covering the Shift's start instant.**
+`tenancy-identity` made `UserStore` append-only with an `effective_from`, and un-assigning
+writes a closing row — so "is assigned" is a question that needs an *instant*, and a Shift is
+a future event. Evaluated as of *now*, the check wrongly blocks a User whose assignment
+begins on Monday and wrongly allows one whose closing row lands on Friday.
+
+The rule, stated once and applied everywhere:
+
+| Moment | Evaluated against |
+| --- | --- |
+| Drafting or editing a Shift | the effective-dated rows **as of that Shift's start instant** |
+| Publishing | the same, re-evaluated at publish time — an assignment may have been closed since the draft was made |
+| Copy-week | the target week's Shift start instants, not the source week's |
+
+The same applies to `UserRole` and to the deactivation check. Nothing in this area reads a
+current-state flag.
 
 Overlap detection spans Stores, because the failure is a person being in two places, not a
 Store being double-booked. It is computed server-side; a client-side check is a convenience
 and never the enforcement.
 
+**A Shift created inside an already-published period inherits that period's published
+state**, and says so as it is created. The alternative — creating it unpublished, as
+everything else is — produces a Shift nobody can see in a week everybody believes they have
+seen, which is precisely the short-staffed Saturday this area exists to prevent. A period is
+therefore published or not; there is no mixed state to render.
+
+**Deleting or unpublishing a Shift that staff have already seen appends a change record**,
+like editing one. "It was changed after I saw it" is the question story 21 exists to answer,
+and a deletion is the most drastic version of it.
+
 **Copy-week** takes a source Store and week and a target week, and creates unpublished copies
-with assignments preserved where the User is still active and still assigned to the Store, and
-left unassigned where they are not. Copying never publishes, and it never silently rosters
+with assignments preserved where the User is still active and still assigned to the Store
+**as of each copied Shift's new start instant**, and left unassigned where they are not.
+**Copy-week preserves local wall-clock time, not the instant offset** — a 06:30 opening
+copied across a DST transition stays a 06:30 opening, because the roster is about when
+somebody turns up, not about elapsed seconds. (The default `Asia/Manila` has no DST; the
+setting is configurable, so the rule is stated rather than assumed away.) Copying never publishes, and it never silently rosters
 somebody who no longer works there.
 
 **Change tracking on published Shifts.** Editing a published Shift records what changed, when,
@@ -161,6 +204,12 @@ seam.
 
 **Prior art.** Actors and the wrong-tenant probe helper from `tenancy-identity`; the timezone
 handling and its boundary tests from `reporting`.
+
+**Deactivation is not hooked; the roster warns.** An earlier draft tested that "deactivating a
+User with future published Shifts surfaces them" — behaviour inside `tenancy-identity`'s
+deactivation flow, which that PRD does not mention and does not own. Instead this area's
+roster view flags any published Shift whose assignee is no longer active, which needs no
+extension point in another area and catches the same problem.
 
 **Through the seam.**
 
@@ -205,9 +254,9 @@ Notification delivery, since there is none.
    in the interface.
 5. **Staff schedules are personal data.** They are covered by `hardening`'s tenant export and
    purge paths, and appear in the schema-enumeration test there.
-6. **Untrusted input:** dates, times, ranges, ids, notes. Ranges are bounded so a copy-week or
-   a list cannot request an unbounded span; notes are length-bounded and never rendered as
-   HTML.
+6. **Untrusted input:** dates, times, ranges, ids, notes. **A requested range is at most 53
+   weeks and a note at most 500 characters**, rejected at the contract boundary. "Bounded"
+   with no number is a criterion any implementation passes.
 7. **Change records are append-only.**
 8. **Never logged:** notes and staff names. Log Shift id, Store, actor, and outcome.
 

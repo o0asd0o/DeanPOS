@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 6 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `tenancy-identity`, `checkout`, `offline-sync`
+- **Depends on:** `foundation`, `tenancy-identity`, `catalog`, `checkout`, `offline-sync`
 - **Blocks:** `reporting`
 
 > **`DrawerSession` is about cash, not labour.** A rostered block of work is a `Shift` and
@@ -77,7 +77,7 @@ like any other record.
 18. As a manager, I want to see expected, counted, and the Variance after the count is submitted, so that I can act on a real number.
 19. As a cashier, I want a Variance within the tolerance to close without ceremony, so that a peso either way does not need a manager.
 20. As a manager, I want a Variance beyond the tolerance to require my PIN and a reason, so that a real discrepancy is acknowledged by a person.
-21. As a manager, I want to set the tolerance for my Tenant, so that a busy store and a quiet one are not held to the same figure.
+21. As a tenant admin, I want to set the Variance tolerance for my Tenant, so that a busy store and a quiet one are not held to the same figure. **Admin-only**, per `tenancy-identity`, which owns every Tenant setting.
 22. As a cashier, I want to close with no network, so that an outage does not prevent ending the day.
 23. As a cashier, I want to be warned at close if sales are still waiting to sync, so that I do not walk away from a terminal holding unrecorded money.
 24. As a manager, I want a closed DrawerSession to be final, so that figures cannot be quietly adjusted afterwards.
@@ -91,19 +91,19 @@ like any other record.
 
 **Oversight**
 
-29. As a manager, I want to see all DrawerSessions at my Store with their Variances, so that I can spot a pattern across days or people.
-30. As an owner, I want every Variance beyond tolerance to name the approving manager and the reason, so that discrepancies are attributable.
-31. As an owner, I want cash movements listed with their reasons and approvers, so that a payout can be traced.
+29. As a manager, I want to see the DrawerSessions currently **open** at my Store, so that I know which terminals are live and whether one was left open overnight. Cross-day and cross-Store history is `reporting`.
+30. As a tenant admin, I want every Variance beyond tolerance to name the approving manager and the reason, so that a discrepancy is attributable. This area **records** it; `reporting` is where it is listed across sessions.
+31. As a tenant admin, I want each cash movement stored with its reason and approver, so that a payout can be traced. Listing them across a period is `reporting`.
 32. As a manager, I want a DrawerSession that was closed offline to be identifiable, so that I know the figures arrived late.
-33. As an owner, I want to be told if a terminal's computed expected total disagrees with the server's, so that a sync problem cannot hide inside a variance.
+33. As a tenant admin, I want a terminal's computed expected total disagreeing with the server's to flag that session, so that a sync problem cannot hide inside a variance.
 34. As a tenant admin, I want another Tenant to be unable to see my DrawerSessions, so that my takings are private.
 
 **Reading a session from the terminal**
 
-35. As a manager, I want to see the open DrawerSession's figures at any point during the session, so that I know where the till stands at 3pm without closing it.
+35. As a manager, I want to see the open DrawerSession's figures at any point during the session, so that I know where the drawer stands at 3pm without closing it.
 36. As a manager, I want that running summary to include expected cash, so that I can spot a problem before the count rather than after.
-37. As a cashier without the right to see expected cash, I want the running summary to show me what I have sold but not what should be in the drawer, so that the blind count survives a screen that exists to be looked at.
-38. As a cashier, I want the running summary to work with no network, so that a mid-shift check is not an online-only feature on an offline-first terminal.
+37. As a cashier, I want the running summary to show me what I have sold but not what should be in the drawer, so that the blind count survives a screen that exists to be looked at. Expected cash is `manager` and `admin` only.
+38. As a cashier, I want the running summary to work with no network, so that a mid-session check is not an online-only feature on an offline-first terminal.
 39. As a cashier, I want to see the DrawerSessions previously closed on this terminal, so that yesterday's close is answerable without opening the back-office.
 40. As a cashier, I want a session whose close has not yet reached the server to be marked as such in that history, so that "did it go through" is a thing I can see rather than assume.
 41. As a cashier, I want to reopen the summary of my own closed session, so that I can check my own work after the fact.
@@ -125,6 +125,7 @@ and the server rejects an Order that does not name one.
 **Filling in the nullable reference from `checkout`** follows ADR-0006 expand/contract:
 
 1. Backfill existing Orders by synthesising one reconstruction DrawerSession per (Device,
+   **business day** — the Store's configured start time in the Tenant's timezone, not a UTC
    calendar day), flagged as reconstructed and with no Float, no count, and no Variance —
    they are attribution, not reconciliation, and must never be presented as a real
    reconciled session.
@@ -134,7 +135,11 @@ If no Orders exist yet when this area is built, step 1 is a no-op — but the mi
 written anyway, because whether production has data is not something the implementer can
 assume.
 
-**Expected cash** = `Float + cash payments − cash refunds + cash in − cash out`.
+**Expected cash** = `Float + cash settled − cash refunds + cash in − cash out`, where
+**cash settled means the Order total paid in cash, not the amount tendered**. The glossary
+defines a Payment as an amount *tendered*, and `checkout` records tendered and change
+separately — so `tendered` would overcount the drawer by the change handed back on every
+non-exact sale. `settled = tendered − change`.
 **Only the `cash` PaymentMethod counts** (ADR-0010). Every other configured method — Card,
 GCash, Maya, Bank transfer — is a recorded tender that DeanPOS never touched and that is
 not in the drawer, so it is excluded entirely. This must be written against the method's
@@ -142,14 +147,39 @@ kind, not against a list of names, or the first tenant who adds a method breaks 
 All arithmetic uses `foundation`'s integer-centavo primitives.
 
 **Cash movements are in scope**, as a minimal `CashMovement` record: direction, amount,
-reason, actor, timestamp, and an Override above a Tenant-configured threshold. This is a
+reason, actor, timestamp, and an Override above a Tenant-configured threshold.
+
+**This adds a fifth action to ADR-0005's Override set**, which fixed it at four: void,
+refund, manual line price override, and out-of-tolerance DrawerSession close. Recorded here
+as a deliberate widening, in the same breath as `CashMovement` itself — a cash payout that
+any cashier can make unsupervised is the gap this closes.
+
+**The movement threshold is a Tenant setting** in integer centavos, `admin`-only and
+audited, exactly like the Variance tolerance. `tenancy-identity` owns it and its settings
+table carries it; a threshold with no owner and no default is a control nobody configured. This is a
 deliberate addition to the planned area boundary: without it, every legitimate payout
 appears as a shortfall, managers stop trusting Variance, and the entire area's value
 evaporates. It is not petty cash management — no categories, no budgets, no receipts.
 
-**Blind count.** The expected total is not shown, not sent to the terminal, and not
-derivable from anything on screen before the count is submitted. Withholding it in the UI
-while shipping it in the payload is not a blind count.
+**Blind count — what is actually enforceable, and what is not.** An earlier draft said the
+expected total is "not derivable from anything on screen". That is false and it contradicted
+this PRD's own offline design: the terminal computes expected locally from the Float and the
+Orders it holds, because an offline close cannot work any other way. The raw material is on
+the Device by necessity. A criterion that forbids what the architecture requires teaches an
+implementer to ignore criteria.
+
+The control is therefore split into a hard half and a soft half, and both are stated:
+
+| | |
+| --- | --- |
+| **Server-withheld — hard, tested** | No server payload contains the expected total for a User not authorised to see it. Asserted on the response body. This is a review finding if broken. |
+| **App-withheld — soft, by necessity** | The on-device figure is computed but not rendered before the count is submitted. A determined cashier with developer tools can reach it. |
+
+**The residual risk is named rather than denied:** a cashier who can open a debugger on an
+enrolled tablet can compute expected cash before counting. The mitigations are Device
+enrolment, PIN unlock, and the fact that the Variance is attributable to a person — not the
+pretence that the number is absent. Removing the residual risk means giving up the offline
+close, which is a worse trade.
 
 **Running summary — the open session, read mid-session.** A terminal screen showing the
 current DrawerSession's figures: opened-at, opening User, Float, order count, sales by
@@ -157,11 +187,16 @@ PaymentMethod, refunds, cash movements, and — **only for a User authorised to 
 expected cash. Elsewhere in the trade this is an X-report; the glossary calls it a *running
 summary*, and the closed one a *session summary*.
 
-**One right governs both the running summary's expected cash and the blind count**, and it
-is the right that already exists for revealing expected cash at close. A cashier without it
-sees everything on the sales side and no expected figure; the payload they receive does not
-contain one. Adding a second permission for the same secret is how the control gets
-widened by accident.
+**Who may see expected cash: `manager` and `admin`. A `cashier` never may.** This is the
+Role, not a grantable per-User permission — DeanPOS has no per-User permissions and
+introducing one for a single flag would make it the only one in the product
+(`tenancy-identity`: the authorisation model is Role plus Store membership, and nothing
+else).
+
+The same rule governs the close-time reveal, the running summary, and every report — one
+rule, three surfaces. A cashier sees everything on the sales side and no expected figure,
+and **the payload they receive does not contain one**. Adding a second concept for the same
+secret is how a control gets widened by accident.
 
 **The running summary is computed on the Device from the Orders it holds**, like expected
 cash at close, so it works offline. It is a view, not a record: reading it writes nothing,
@@ -182,8 +217,9 @@ expected cash** (ADR-0010). Showing a GCash total next to a cash total is what s
 cashier reading a big sales day as a drawer that ought to be fuller than it is.
 
 **Variance and tolerance.** `Variance = counted − expected`; negative is short, positive is
-over. The tolerance is a Tenant-level configured amount, defaulting to zero — a tenant that
-wants slack opts into it. Beyond tolerance, a manager Override with a reason is required to
+over. The tolerance is a Tenant setting in **integer centavos**, defaulting to zero — a
+tenant that wants slack opts into it. **`tenancy-identity` owns it and it is admin-only**;
+an earlier draft here said manager-or-above, which contradicted the owning PRD. Beyond tolerance, a manager Override with a reason is required to
 close, via `tenancy-identity`'s mechanism; this area consumes it and must not build a
 second one.
 
@@ -192,9 +228,26 @@ Orders. Corrections are notes appended by a manager, never edits to Float, count
 or Variance. There is no reopen.
 
 **Offline.** Open, sell, record movements, and close all work with no network. The
-terminal computes expected from the Orders it holds locally. The open and the close are
-**Outbox entries** like any other, ordered after the Orders they contain, per
-`offline-sync`'s dependency rules.
+terminal computes expected from the Orders it holds locally.
+
+**This area extends the Outbox with three new entry kinds** — `session_open`,
+`session_close`, and `cash_movement` — and their ordering rules, which `offline-sync`'s
+schema (`order | void | refund`) does not carry. Declaring them here is the extension;
+`offline-sync` owns the transport and this area owns these kinds.
+
+```
+session_open   BEFORE every Order it contains — the server rejects an Order naming
+               a session it has never seen, so an open that arrived late would
+               reject the whole session's sales
+cash_movement  after its session's open, in creation order
+session_close  AFTER every Order and movement it contains
+```
+
+An earlier draft said the open and close are "ordered after the Orders they contain", which
+is right for the close and backwards for the open. **An Order arriving after its session's
+close has already landed is accepted and flags the session for review** — it is real money
+and must not be rejected, but it means the close was computed without it, which is exactly
+the server-versus-terminal mismatch below.
 
 On arrival the server **recomputes expected from its own rows**. If the server's figure
 differs from the terminal's, the session is flagged for review and both figures are kept —
@@ -202,7 +255,7 @@ this is the signal that something did not sync, and it must not be silently abso
 the Variance. Neither figure is discarded.
 
 **Closing with unsynced entries is allowed and warned about.** Refusing to close would
-strand a cashier at the end of a shift during an outage, which is worse. The warning is
+strand a cashier at the end of a DrawerSession during an outage, which is worse. The warning is
 explicit and the session is marked as closed-with-pending-sync.
 
 **Manager close-on-behalf.** A manager may close another User's session with their own
@@ -213,7 +266,9 @@ open. Only an explicit close ends accountability.
 
 **Visual reference.** `ORC2_DESIGN="lofi"`. Mocks are committed:
 `pos/drawer-open-1280`, `pos/drawer-close-{1280,390}`, `pos/running-summary-1280`,
-`pos/session-history-1280`, `backoffice/drawer-sessions-1440`. The running summary's two
+`pos/session-history-1280`. **`backoffice/drawer-sessions-1440` belongs to `reporting`** —
+this area writes the rows and exposes the live open-session view; the cross-day, cross-Store
+table is a report. The running summary's two
 right-hand panels are **the same screen for two people** — with and without the right to
 see expected cash — not a two-panel layout.
 
@@ -305,8 +360,12 @@ Alerting on a session that never closes — `observability`. Rostering — area 
 6. **Cash movement Overrides follow the same rule** above the configured threshold.
 7. **A closed DrawerSession is append-only.** Any `UPDATE` to its financial fields is a
    review finding.
-8. **The tolerance is Tenant-configured and manager-or-above to change**, and changing it
-   is audited — otherwise the control can be widened to hide a shortfall.
+8. **The tolerance is a Tenant setting, `admin`-only, and audited** (`tenancy-identity`
+   owns it) — otherwise the control can be widened to hide a shortfall. The same holds for
+   the cash-movement Override threshold.
+8a. **Expected cash is `manager` and `admin` only, on every surface** — close-time reveal,
+   running summary, session history, and every `reporting` procedure. One rule, four
+   surfaces, no per-User permission.
 9. **Terminal-computed figures are claims.** The server recomputes from its own rows and
    never accepts the terminal's expected total as authoritative.
 10. **Untrusted input:** float, count, denomination breakdowns, movement amounts and

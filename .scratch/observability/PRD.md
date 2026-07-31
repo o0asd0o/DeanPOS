@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 8 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `checkout`, `offline-sync`
+- **Depends on:** `foundation`, `checkout`, `offline-sync`, `drawer-sessions`
 - **Blocks:** `release-ops`
 
 ## Problem Statement
@@ -47,7 +47,7 @@ seeing happen precisely when there is no network.
 1. Order submission failing at a rate above baseline.
 2. A Device whose Outbox is stalled — oldest queued entry older than a threshold.
 3. A DrawerSession left open far longer than a plausible shift.
-4. The API unhealthy or unreachable.
+4. The API unhealthy. **Not "unreachable"** — nothing on a dead VPS can report the VPS dead, and external uptime monitoring is deferred in Out of Scope. Sentry's rules fire on events arriving, not on silence.
 
 Each names the tenant, store, and device, so the first question is already answered when
 the alert arrives.
@@ -82,7 +82,7 @@ the alert arrives.
 18. As an operator, I want an alert when a terminal's Outbox has been stalled beyond a threshold, so that money queued on a tablet is not forgotten.
 19. As an operator, I want that alert to name the tenant, store, and device, so that I can act without investigating first.
 20. As an operator, I want an alert when a DrawerSession has been open implausibly long, so that an unclosed drawer is caught the next morning at the latest.
-21. As an operator, I want an alert when the API is unhealthy or unreachable, so that an outage is not reported to me by a customer.
+21. As an operator, I want an alert when the API reports itself unhealthy, so that a degraded box is not reported to me by a customer. A box that is fully down is caught by external uptime monitoring, which is deliberately deferred — that gap is stated, not papered over.
 22. As an operator, I want alerts delivered where I already look, so that they are seen rather than archived.
 23. As an operator, I want an alert to stop repeating once resolved, so that I do not learn to ignore the channel.
 24. As an operator, I want alert thresholds to be configuration rather than code, so that tuning them does not need a release.
@@ -98,7 +98,7 @@ the alert arrives.
 
 29. As a reviewer, I want a single logging helper used everywhere, so that context cannot be omitted by accident in a new handler.
 30. As a tenant, I want nothing sensitive in any log line, so that access to logs is not access to my business.
-31. As an operator, I want log volume to stay proportionate, so that the signal is findable and the disk survives.
+31. As an operator, I want a stated per-day log size budget that the runbook records, so that "proportionate" is a number somebody can check rather than a hope. Rotation itself is `release-ops`.
 
 ## Implementation Decisions
 
@@ -118,9 +118,26 @@ screen so support can quote it.
 Log level is read from the environment and can be raised without a code change.
 
 **What is never logged**, restated because every earlier area declares its own version and
-this is where it is enforced: passwords, PINs, PIN hashes, Device tokens, session ids,
-enrolment codes, Outbox payloads, tendered amounts, cash counts, report contents, and full
-request bodies. Log identifiers and outcomes, not values.
+this is where it is enforced. **This list is the union of every sibling PRD's, and it is
+this PRD's job to stay complete** — an item forbidden in one area and absent here reaches
+pino and Sentry unopposed:
+
+| Category | Source |
+| --- | --- |
+| Passwords, PINs, PIN hashes, Device tokens, back-office **auth** session ids, enrolment codes | `tenancy-identity` |
+| Full Order payloads, tendered amounts | `checkout` |
+| **Discount references — Senior Citizen and PWD ID numbers, which identify a real person** | `checkout` SC17, `reporting` SC12 |
+| **Floats**, cash counts, and session totals in full payloads | `drawer-sessions` |
+| Report payloads and export contents | `reporting` |
+| Outbox payloads, full request bodies | `offline-sync` |
+| Waitlist submissions | `landing` |
+
+Log identifiers and outcomes, not values.
+
+**"Session id" is two different things and only one is forbidden.** The back-office *auth*
+session id is a credential and is never logged. The `drawerSessionId` is an identifier and
+is a standard log field — `drawer-sessions` explicitly asks for it to be logged. The
+never-log list means the former.
 
 **Audit trails are not logs.** Overrides, cash movements, exports, and revocations are rows
 in the database, written by their owning areas. They are queried, retained, and
@@ -135,11 +152,17 @@ new field away from leaking.
 The POS uses Sentry's offline-capable transport so events raised during an outage are
 delivered on reconnect. They are the highest-value events DeanPOS produces.
 
-**Device telemetry.** The terminal reports, with each replay attempt and on a low-frequency
-heartbeat while online and idle: its queue depth, the age of the oldest queued entry, the
-timestamp of its last successful sync, and its release version. This is the only new data
-this area asks other areas for, and it is what makes alerts 2 and 4 and stories 26–28
-possible. It contains no sale content.
+**Device telemetry — and this area builds both ends of it.** The terminal reports, with each
+replay attempt and on a low-frequency heartbeat while online and idle: its Outbox depth, the
+age of the oldest queued entry, the timestamp of its last successful sync, and its release
+version. It contains no sale content.
+
+**This area builds the POS-side reporter and the API ingestion endpoint.** An earlier draft
+called telemetry "the only new data this area asks other areas for" — but `offline-sync`
+exposes sync state on the *terminal only*, and its spec contains no heartbeat and no
+server-facing telemetry. Neither PRD owned building it, so it would not have been built.
+`offline-sync` exposes the local state; **`observability` reports it, receives it, and stores
+it**, and that is what makes alerts 2 and 3 and stories 26–28 possible.
 
 **Alerting.** Four rules, delivered to Slack via an incoming webhook, using the channel
 already configured for this project. Two come from Sentry's own alert rules (submission
@@ -184,9 +207,21 @@ that an error raised while offline is delivered after reconnect.
 - A failing request returns a request id to the client and logs at error level with the same
   id.
 - Log level is honoured from configuration.
+- **A telemetry heartbeat authenticated by a Device token creates the row a rule reads**,
+  carries no sale content, and is wrong-tenant probed. An earlier draft tested the alert
+  rules over telemetry rows that nothing was proven to produce.
+- **A telemetry post from a revoked Device is refused.**
+- **Readiness reports not-ready when a migration is pending**, and ready when it is not —
+  story 25 asserted "including that migrations are at the expected version" with no test.
+- **The per-Device last-synced and Outbox-depth view returns what the heartbeat wrote**, and
+  is scoped to the caller's Tenant.
+- **A Device whose reported release is more than one deploy behind the current one is
+  flagged** in that view. The threshold comes from `release-ops` story 26; the check is
+  this area's, because this area holds the telemetry.
 
 **Scrubbing is tested adversarially.** A deliberately constructed error carrying a PIN, a
-Device token, a session id, and a full Order payload in its context is passed through the
+Device token, an auth session id, a full Order payload, a **discount reference**, a
+**Float**, and a **tendered amount** in its context is passed through the
 Sentry `beforeSend`, and the output is asserted to contain none of them. This test is the
 point of the allowlist and must fail loudly if the allowlist is widened carelessly.
 
@@ -212,7 +247,10 @@ watching real incidents, not an assertion.
 
 1. **The never-log list is enforced by an allowlist, not a denylist**, in both the logger's
    serialisers and Sentry's `beforeSend`. A new field is excluded by default.
-2. **The adversarial scrubbing test is mandatory** and must cover PIN, Device token, session
+2. **The adversarial scrubbing test is mandatory** and its fixture must carry **one instance
+    of every row in the never-log table above** — including a discount reference, a Float,
+    and a tendered amount, which an earlier draft omitted. A SC/PWD ID reaching Sentry is
+    personal data at a third party. It must cover PIN, Device token, session
    id, enrolment code, and a full Order payload.
 3. **Log lines carry identifiers, never values.** `orderUuid`, not the order; `deviceId`,
    not the token; `userId`, not the email.
@@ -230,8 +268,9 @@ watching real incidents, not an assertion.
 9. **Device telemetry carries no sale content** — depth, ages, versions, timestamps only.
 10. **Telemetry endpoints are authenticated by Device token** and wrong-tenant probed like
     every other procedure.
-11. **Log access on the VPS is root-only**, consistent with the secrets posture in
-    ADR-0006's consequences.
+11. **Log access on the VPS is root-only**, consistent with the `.env` root-only posture in
+    `.scratch/APP-PLAN.md`'s Ops row. ADR-0006 covers migrations and rollback and says
+    nothing about secrets; the earlier citation was wrong.
 
 ## Out of Scope
 

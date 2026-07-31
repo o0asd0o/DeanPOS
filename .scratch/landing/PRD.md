@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 11 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `hardening`
+- **Depends on:** `foundation`, `observability`, `hardening`
 - **Blocks:** nothing
 
 ## Problem Statement
@@ -101,26 +101,57 @@ committing.
 **Nothing on this site claims tax compliance.** DeanPOS produces business reports, not
 statutory ones (`reporting`). Any wording implying BIR compliance is a defect.
 
+**Feature copy describes the out-of-the-box product, or says "configurable".** Since
+ADR-0010, a new tenant gets **cash only, no VAT, no discounts**. Copy claiming DeanPOS
+"handles GCash", "supports senior citizen discounts", or "computes VAT" as default behaviour
+is false for the tenant reading it. Each is a tenant-configurable option and must be
+described as one. This is a defect rule, not a style preference — a tenant who signs up
+expecting a feature that is off by default has been misled by us.
+
 **The waitlist form** collects name, business name, contact (email or mobile), city, and an
 optional message. It posts to a public procedure in `apps/api` — the **only** unauthenticated
 write in DeanPOS — which stores the submission and posts a notification to the Slack webhook
 `observability` already configured.
 
+**This area adds the apex origin to the CORS allowlist, and it is the only reason to.**
+`foundation` deliberately allowlists three origins and excludes the apex, on the stated
+grounds that the landing site makes no browser call to `api.` in v1 and that area 11 would
+add itself when its form needed it. This is that moment. **The apex is allowlisted for the
+waitlist procedure and nothing else**, with the reason recorded — without it the form's POST
+is blocked in every browser and the feature does not work at all.
+
+**This area also registers a `waitlist | IP` class in `hardening`'s rate-limit table**,
+which does not currently carry one.
+
 Storage is durable and primary; the notification is a convenience. A failed notification must
 not fail the submission, and must be visible in logs.
 
-**Bot protection without a captcha:** a honeypot field, a minimum time-to-submit, and
+**Bot protection without a captcha:** a honeypot field, a **signed timestamp issued at build
+time and re-fetched by the form's own script** so a minimum time-to-submit is checkable on a
+statically-generated page, and
 `hardening`'s rate limiter keyed on IP. No third-party captcha — it costs a real owner
 friction and adds a third party to the one page whose job is to make a good impression.
 **Deferred, trigger:** honeypot and rate limit demonstrably failing.
 
 **Waitlist submissions are not Tenants.** They are a separate table outside tenant RLS, since
-they belong to no tenant. Converting one into a Tenant is an admin action in
-`tenancy-identity`, not something this area automates.
+they belong to no tenant.
 
-**Performance and quality budget.** Static output, no client-side framework work beyond the
-form, images compressed and correctly sized, fonts self-hosted. Targets: usable on a slow
-mobile connection, WCAG 2.2 AA, correct Open Graph and Twitter card metadata, `sitemap.xml`
+**Converting one is a manual act, not a feature.** An earlier draft said conversion "is an
+admin action in `tenancy-identity`" — but that area builds nine releases before this table
+exists and its spec never mentions the waitlist, so nobody would have built it. There is no
+conversion action anywhere: a platform admin reads the submission and provisions a Tenant
+through `tenancy-identity`'s existing admin-run provisioning. Nothing links the two rows.
+
+**Deleting a submission is this area's, and it is a platform-admin action with a test.**
+`hardening`'s export and purge are *Tenant*-scoped by construction and cannot reach a row
+that belongs to no Tenant, so delegating to it closed nothing. A submission is deleted once
+converted or declined, and `hardening` names the waitlist in its retention schedule.
+
+**Performance and quality budget, as numbers.** Static output, no client-side framework work
+beyond the form, images compressed and correctly sized, fonts self-hosted. **Budget: ≤ 150 KB
+transferred per page excluding images, and Largest Contentful Paint ≤ 2.5 s on a simulated
+3G profile.** Checked by a script at build time, which fails the build — not asserted in the
+Vitest suite and not left as "usable on a slow connection", which cannot fail. Also: WCAG 2.2 AA, correct Open Graph and Twitter card metadata, `sitemap.xml`
 and `robots.txt`, and per-page titles and descriptions.
 
 **No analytics in v1.** **Deferred, trigger:** enough traffic that a decision depends on
@@ -146,7 +177,11 @@ uses ordinary Vitest with happy-dom. **No new seam.**
 - A valid submission is stored, and the response confirms receipt.
 - A submission with the honeypot filled is accepted by the response and **not** stored — a
   bot must not learn it was detected.
-- A submission faster than the minimum time threshold is rejected.
+- A submission faster than the minimum time threshold is **also accepted by the response and
+  not stored**, for the same reason. An earlier draft rejected it visibly, which told the
+  same bot exactly what the honeypot was hiding.
+- The apex origin receives its own `Access-Control-Allow-Origin` on the waitlist procedure,
+  and does not receive one on any other procedure.
 - Exceeding the rate limit returns the limiter's response and does not store.
 - A failing Slack notification does not fail the submission, and is logged.
 - Input validation: a malformed contact is rejected; oversized fields are rejected;
@@ -171,8 +206,9 @@ gate — a performance budget is checked when the site is built, not asserted in
 ## Security Criteria
 
 1. **The waitlist procedure is the only unauthenticated write in DeanPOS.** It is enumerated
-   in the threat model, declared on `hardening`'s exemption list with a reason, and reaches
-   nothing but its own table.
+   in the threat model, declared on `hardening`'s exemption list with a reason, and **writes
+   nothing but its own table; its sole outbound call is the Slack webhook.** An earlier
+   draft said it "reaches nothing but its own table", which the notification contradicts.
 2. **It reads nothing.** No lookup, no existence check, no enumeration surface.
 3. **Rate-limited by IP** through `hardening`'s limiter, with rejections logged and alertable.
 4. **Honeypot detection is silent.** A caught bot receives the same response as a success.

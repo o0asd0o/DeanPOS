@@ -41,17 +41,20 @@ already a single versioned read-model payload from `catalog` — is cached in In
 refreshed by comparing versions, not by re-downloading. The terminal renders entirely
 from the cache; a network request never sits in the path of a tap.
 
-**Write side.** Every completed sale, and every void, refund, and manager Override created
-at the terminal, is written to a local **Outbox** in IndexedDB as part of the same
-transaction that completes it on screen. **Nothing is ever "sent instead of queued"** —
-the queue is the only path, online or off, so the offline case is not a special case that
+**Write side.** Every completed sale, and every void and refund created at the terminal, is
+written to a local **Outbox** in IndexedDB as part of the same transaction that completes it
+on screen. **An Override is not an entry kind** — it travels inside the payload of the
+action it authorised, per `checkout`. **Nothing is ever "sent instead of queued"** —
+the Outbox is the only path, online or off, so the offline case is not a special case that
 gets tested less.
 
 **Replay.** A background loop drains the Outbox in creation order, calling the idempotent
 endpoints `checkout` built. Entries are removed only on a server acknowledgement. Failures
 back off and retry forever; nothing is dropped because a retry limit was reached. A
-revoked Device's entries are quarantined server-side per `tenancy-identity`, and the
-terminal is told to stop and show it.
+revoked Device is refused **by this area, on the replay endpoint it owns**, and **this area
+writes the quarantine row**; the terminal is told to stop and show it. Per the amended
+ADR-0007: `tenancy-identity` owns the `revoked` flag and the check-every-request rule, this
+area enforces it on replay and records what it caught, and `hardening` adjudicates.
 
 **Durability.** The app requests persistent storage on first run and treats a refusal as a
 condition worth surfacing, because from that point on the Outbox is evictable.
@@ -78,7 +81,7 @@ waiting, when the last successful sync was, and whether anything is stuck.
 10. As a cashier, I want to see how many sales are waiting to sync, so that I know the terminal is holding money.
 11. As a cashier, I want to see when the last successful sync happened, so that "waiting" and "broken" are distinguishable.
 12. As a cashier, I want a visible warning if sales have been stuck for a long time, so that I raise it before end of day rather than after.
-13. As a manager, I want to be told before closing up if the terminal still holds unsynced sales, so that I do not end the day with cash the system has not recorded.
+13. As a cashier, I want the terminal to publish an accurate count of unsynced entries, so that `drawer-sessions` can warn me at close. **This area exposes the state; the close-time warning is area 6's.**
 14. As a cashier, I want the sync indicator to be unobtrusive while everything is fine, so that it does not compete with the sale screen.
 
 **Syncing**
@@ -95,7 +98,7 @@ waiting, when the last successful sync was, and whether anything is stuck.
 **Catalog freshness**
 
 23. As a cashier, I want menu changes to reach my terminal without me doing anything, so that a price change made in the office applies at the counter.
-24. As a manager, I want to know a terminal is running a stale menu, so that I can chase it rather than discover it in the numbers.
+24. As a cashier, I want the terminal to report its cached catalog version with its telemetry, so that a stale menu is detectable. **Surfacing it to a manager is `observability`'s Devices view** — this area ships `api` + `pos` only and has no back-office surface.
 25. As a cashier, I want a catalog refresh to never interrupt a sale in progress, so that a background update is invisible.
 26. As a cashier, I want an availability toggle made in the office to reach my terminal promptly, so that I stop offering something we ran out of.
 
@@ -121,27 +124,50 @@ a separate loop drains it. There is no "if online, post directly" branch. This i
 single most important structural decision in the area: a code path that only runs when the
 network is down is a code path that is tested least and fails when it matters most.
 
-**Local-first ordering.** The screen updates from local state, and the queue drains
+**Local-first ordering.** The screen updates from local state, and the Outbox drains
 behind it. A cashier never waits on a request, online or offline.
 
-**Storage layout.** IndexedDB holds: the catalog cache with its version; the Outbox; the
-current draft Order; the synced PIN hashes and lockout state from `tenancy-identity`; and
-Device identity. The Device token's storage is `tenancy-identity`'s decision; this area
+**Storage layout.** IndexedDB holds: the catalog cache with its version; **the cached
+Tenant sales settings**; the Outbox; the current draft Order; the synced PIN hashes and
+lockout state from `tenancy-identity`; and Device identity.
+
+**The Tenant sales settings are a cached payload this area owns**, because nothing else
+carried them offline and `checkout` cannot render without them: the **PaymentMethod list
+available at this Store**, and **VAT enablement and rate**. They live in `tenancy-identity`,
+not in the catalog read model, so the catalog version does not cover them — this payload
+carries its own version and refreshes on the same schedule. Without it an offline sale
+cannot draw its method chooser or its VAT line, and the browser-seam contract ("close and
+reopen the application entirely while offline; the terminal boots and sells") is
+unsatisfiable. The Device token's storage is `tenancy-identity`'s decision; this area
 provides the persistence mechanism, not a second one.
 
-**Outbox entry.** Each entry carries the client-generated UUID from `checkout`, an entry
-kind (`order` | `void` | `refund`), the payload, the Device timestamp of creation, an
-attempt count, the last error, and a status. Entries are immutable except for their
-attempt bookkeeping.
+**Outbox entry.** Each entry carries **its own client-generated UUID**, an entry kind, the
+payload, the Device timestamp of creation, how long it has sat in the Outbox, an attempt
+count, the last error, and a status. Entries are immutable except for their attempt
+bookkeeping.
+
+**Every kind carries its own UUID, not the Order's.** An earlier draft said each entry
+carries "the client-generated UUID from `checkout`" — but `checkout` stamps UUIDs on
+*Orders*, and an Order-UUID constraint cannot tell "a retry of refund X" from "a second,
+legitimate partial line refund on the same Order", which `checkout` explicitly allows. Under
+that scheme the replay-exactly-once property is unprovable for reversals.
+
+**Kinds:** `order` | `void` | `refund` | `session_open` | `session_close` | `cash_movement`.
+The last three are declared by `drawer-sessions`, which owns their ordering rules; this area
+owns the transport and the schema.
 
 **Replay is ordered per Device and dependency-aware.** Entries drain oldest-first. A
 reversal whose Order has not yet been acknowledged is not sent ahead of it. If the server
 rejects a reversal because it has never seen the Order, that is a retry, not a failure —
 the two must never be dropped independently.
 
-**Idempotency comes from `checkout`, not from here.** Replay may send the same entry any
-number of times; the server's uniqueness constraint on the Order UUID is what makes that
-safe. This area must not add a second deduplication scheme — one guarantee, one place.
+**Idempotency comes from the owning area, not from here — but it must cover every kind.**
+Replay may send the same entry any number of times; a server-side uniqueness constraint on
+**the entry's own UUID** is what makes that safe. `checkout` extends its idempotency
+guarantee from Order submission to **void and refund submission**, each keyed on the
+reversal's own UUID; `drawer-sessions` does the same for its three kinds. One guarantee, one
+place per kind — but a guarantee that covers only one of six kinds is not one guarantee, it
+is a gap in five.
 
 **Nothing is ever dropped.** There is no maximum attempt count that discards an entry.
 Retries back off exponentially with a ceiling (a few minutes) and jitter, and continue
@@ -226,7 +252,7 @@ and retries are injected. This is where "exactly once" is proven in general rath
 example.
 
 **What makes a good test here.** Assert what the cashier and the database can observe:
-a receipt appeared, one row exists, the queue is empty, the indicator says synced. Never
+a receipt appeared, one row exists, the Outbox is empty, the indicator says synced. Never
 assert that a retry function was called with a particular delay — assert that after N
 failures the entry is still present and still retrying.
 
@@ -264,6 +290,15 @@ signal; that area watches it). DrawerSession close with unsynced entries —
 9. **Untrusted input on the server side includes everything replayed**, including
    timestamps. A Device timestamp is stored as *what the device claimed*, never used to
    authorise anything, and never allowed to overwrite the server's own receipt time.
+
+   **One carve-out, stated because it looks like a contradiction of criterion 4.**
+   Re-verifying an offline Override needs the role and membership in force *at the time the
+   Override was given*, and the only record of that time is the Device's claim — an
+   untrusted value selecting an authorisation window. The mitigation is bounded, not
+   absent: a claimed time outside a skew bound measured against the server's receipt time,
+   minus the entry's Outbox dwell, **quarantines the entry for adjudication instead of
+   authorising it**. A forged timestamp therefore buys a human review, not a demoted
+   manager's approval.
 10. **Never logged:** Outbox payloads, tendered amounts, PIN hashes, Device tokens. Log
     entry UUID, kind, attempt count, and outcome.
 11. **Clearing local data is an explicit, audited action**, not something an error handler
@@ -279,7 +314,8 @@ signal; that area watches it). DrawerSession close with unsynced entries —
   could edit one record, that would be a new decision, not a feature of this area.
 - Server re-pricing of replayed Orders. Explicitly forbidden by ADR-0003.
 - Push notifications and background periodic sync.
-- Alerting when an Outbox stalls — `observability` watches the signal this area exposes.
+- Alerting when an Outbox stalls — this area exposes the Outbox state **on the terminal**;
+  `observability` builds the heartbeat reporter, the ingestion endpoint, and the rule.
 - DrawerSession behaviour with unsynced entries — `drawer-sessions`.
 - Reporting over device-versus-server timestamps — `reporting`.
 - Offline support for the landing site.

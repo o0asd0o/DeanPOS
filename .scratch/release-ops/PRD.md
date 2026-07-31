@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 10 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `observability`, `hardening`
+- **Depends on:** `foundation`, `offline-sync`, `observability`, `hardening`
 - **Blocks:** nothing
 
 ## Problem Statement
@@ -105,7 +105,7 @@ quarantine adjudication, and one entry per alert from `observability`.
 23. As a cashier, I want my terminal to pick up a new release without anyone visiting the store, so that fixes actually reach me.
 24. As a cashier, I want an update never to interrupt a sale in progress, so that a deploy during service is harmless.
 25. As an operator, I want to see which release each terminal is running, so that I can tell whether an update landed.
-26. As an operator, I want a terminal stuck on an old release to be visible, so that a broken cache is not invisible for weeks.
+26. As an operator, I want a terminal running a release older than the current one **by more than one deploy** to be flagged on `observability`'s Devices view, so that a broken cache is not invisible for weeks. The threshold is stated here and the check is `observability`'s to build — an earlier draft left it owned by neither.
 
 **Backup and restore**
 
@@ -169,8 +169,17 @@ device telemetry, sent to Sentry, and included in every log line's context.
 8. On timeout or failure, report clearly and leave the previous version's image present for
    an immediate rollback.
 
-Rollback is the same script with a previous release identifier. It performs no database
-change, which is exactly what ADR-0006's expand/contract discipline buys.
+**Rollback is a distinct branch of the script, and it neither builds nor re-runs the gate.**
+It pulls the already-published image for the given tag, applies no migration, and restarts.
+An earlier draft said it was "the same script with a previous release identifier" — but the
+script's first two steps refuse an ungated commit and then *build the images*, so running it
+for a previous tag would re-run the gate and rebuild an image in the middle of an incident.
+That breaks the whole point of a versioned artefact: what redeploys must be exactly what was
+tested (story 5), and recovery must be one command under pressure (story 14).
+
+**A published tag implies its gate passed** — that is what publishing means here — so
+skipping the gate on rollback is not skipping a check, it is not repeating one. It performs
+no database change, which is exactly what ADR-0006's expand/contract discipline buys.
 
 **The migration safety check** is a gate step that inspects migration SQL and fails on
 destructive statements — `DROP TABLE`, `DROP COLUMN`, `ALTER COLUMN ... SET NOT NULL`
@@ -187,8 +196,20 @@ there.
 
 **Backups.** Nightly `pg_dump`, encrypted before it leaves the machine, pushed with `rclone`
 to S3-compatible object storage. Retention: seven daily, four weekly, monthly beyond that.
-Pruning is automated. A failed backup raises an alert through the channel `observability`
-already configured — a silent backup failure is the worst kind.
+**Pruning runs at the storage provider, not on the VPS**, as a bucket lifecycle rule. This
+is forced by Security Criterion 4: the VPS credential is write-and-list only, precisely so a
+compromised box cannot delete backup history — and a prune executed on the VPS would need
+delete rights, which would make that criterion false. Where a provider offers no lifecycle
+rules, pruning runs from the same off-box machine that runs the restore rehearsal, with a
+separate delete-capable credential that never touches the VPS.
+
+**A failed backup raises an alert** through the channel `observability` already configured —
+a silent backup failure is the worst kind. **This is a fifth alert**, and `observability`
+says "four, and only four, in v1" and that adding one "should feel like a decision". It is
+one, taken here: a backup nobody is told failed is indistinguishable from no backup. The
+runbook rule is therefore **one entry per alert, all five** — an earlier draft scoped the
+runbook to "one entry per alert from `observability`", which excluded the only alert this
+PRD creates.
 
 The repository itself is pushed to its remote as part of the same nightly job, satisfying
 story 34 without a second mechanism.
@@ -200,8 +221,11 @@ Order, a reconciled DrawerSession), and record the result and the elapsed time i
 runbook. A backup nobody has restored is not a backup, and the elapsed time is what
 somebody will need to quote to a tenant one day.
 
-The rehearsal is repeated on a schedule and the runbook records the date of the last
-successful one.
+**The rehearsal repeats quarterly**, and the runbook records the date of the last successful
+one. **An overdue rehearsal is detectable rather than merely regrettable:** the deploy script
+reads that date and prints a warning when it is more than 120 days old. "Repeated on a
+schedule" with no interval and nothing that notices a lapse is a discipline that quietly
+stops.
 
 **The runbook** lives in the repository. It covers: first-run setup of a fresh environment,
 deploy, rollback, restore, each secret's rotation, mass device revocation, quarantine
@@ -281,7 +305,7 @@ it shares the box.
   Documented manual setup for one machine.
 - Horizontal scaling, load balancing, and multi-region anything. One box, and the rate
   limiter in `hardening` is documented as sharing that assumption.
-- Zero-downtime deploys. A few seconds of restart is acceptable; terminals hold their queue
+- Zero-downtime deploys. A few seconds of restart is acceptable; terminals hold their Outbox
   and keep selling, which is exactly what `offline-sync` was built for.
 - Blue-green and canary releases.
 - Point-in-time recovery and WAL archiving. **Deferred, trigger:** a tenant for whom losing
@@ -309,7 +333,8 @@ it shares the box.
 - **Staging shares the VPS, and that is a stated ceiling, not a hidden one.** It validates
   migrations and releases. It cannot validate capacity, and nobody should be told otherwise.
 - The runbook's alert entries are the payoff for `observability`'s discipline of only having
-  four alerts. Four alerts, four procedures, each one actionable.
+  a small fixed set of alerts. Five alerts, five procedures, each one actionable — the fifth
+  is the backup failure this PRD adds, deliberately.
 
 ## Comments
 

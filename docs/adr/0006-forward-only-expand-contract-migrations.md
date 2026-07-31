@@ -11,7 +11,9 @@ by someone who did not write the change.
 
 ## Decision
 
-- Path to production: `main` → CI gate → container image → VPS. One staging, one prod.
+- Path to production: `main` → **locally-run gate** → container image → VPS. One staging,
+  one prod. **Amended 2026-07-31:** this originally read "CI gate". There is no hosted CI —
+  decided in `release-ops`; the deploy script refuses a dirty tree and an ungated commit.
 - Migrations are **forward-only**. No down-migrations are written.
 - Every schema change is **expand then contract**, in separate releases:
   1. **Expand** — add the new column/table, backfill, write to both. Old code still runs.

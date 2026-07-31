@@ -2,7 +2,7 @@
 
 - **Status:** ready-for-agent
 - **Area:** 7 of 12 (`ORC2_BUILD_ORDER`)
-- **Depends on:** `foundation`, `tenancy-identity`, `catalog`, `checkout`, `drawer-sessions`
+- **Depends on:** `foundation`, `tenancy-identity`, `catalog`, `checkout`, `offline-sync`, `drawer-sessions`
 - **Blocks:** nothing
 
 ## Problem Statement
@@ -43,7 +43,7 @@ sidebar carries one `Reports` entry, which becomes a group with these children:
 | **Orders** | Which sales made up that number? A browsable, filterable list of every Order, with drill-in detail. |
 | **By item** | What sold? Per Variant, with a Modifier and Add-on breakdown. |
 | **By category** | What is the shape of the menu's performance? |
-| **By cashier** | Who was on the till? |
+| **By cashier** | Who took the money? |
 | **By payment method** | Cash versus everything else. Exists only when the Tenant has more than `cash`. |
 | **Discounts & overrides** | What came off the price, by whom, and with whose approval. |
 | **Drawer sessions** | Did the drawer agree? Owned by `drawer-sessions`; listed here because this is where a manager looks for it. |
@@ -84,17 +84,17 @@ can be wrong.
 2. As an owner, I want to see the split between cash and card-recorded payments, so that I know what should be in the drawer versus what went through a card machine.
 3. As an owner, I want the VAT included in the day's sales broken out, so that the figure is usable for tax without recomputing it.
 4. As an owner, I want the number of Orders and the average Order value, so that a quiet day and a cheap day are distinguishable.
-5. As an owner, I want to compare today with the same day last week, so that I have context rather than a bare number.
+5. As an owner, I want a single day compared with the same weekday a week earlier, and a week or month compared with the period immediately before it, so that context is a fair comparison rather than a bare number.
 6. As an owner, I want to choose a date range, so that I can look at a week or a month.
 7. As an owner, I want figures for all my Stores together and each one separately, so that I can see the business and the outlet.
 8. As an owner, I want a day to start when my store's day starts, so that late-night sales land on the right day.
-9. As an owner, I want all times shown in my own timezone, so that nothing needs mental arithmetic.
+9. As an owner, I want all times shown in my Tenant's timezone, so that nothing needs mental arithmetic. There is no per-User timezone.
 
 **Sessions and people**
 
-10. As a manager, I want a report per DrawerSession showing float, expected, counted, and Variance, so that I can review a shift's cash.
+10. As a manager, I want a report per DrawerSession showing float, expected, counted, and Variance, so that I can review a session's cash.
 11. As an owner, I want Variances listed across sessions with the approving manager and reason, so that I can spot a pattern.
-12. As an owner, I want takings by cashier, so that I know who is on the till when the numbers move.
+12. As an owner, I want takings by cashier, so that I know who was running the DrawerSession when the numbers move.
 13. As an owner, I want cash movements listed with their reasons, so that a payout can be traced.
 14. As a manager, I want to see which DrawerSessions are still open, so that I notice one left open overnight.
 15. As a cashier, I want to see a summary of my own completed session, so that I can check my own work.
@@ -150,7 +150,7 @@ can be wrong.
 47. As an owner, I want each Order to show its cashier, Device, DrawerSession, payment method, and the time it happened, so that a single sale is fully attributable.
 48. As an owner, I want to filter the list to sales, refunds, or voids, so that I can look at one kind of event at a time.
 49. As an owner, I want to filter by cashier, Device, DrawerSession, and payment method, so that I can narrow a question without exporting.
-50. As an owner, I want to search for an Order by its reference, so that a customer holding a receipt can be answered in one step.
+50. As an owner, I want to search for an Order by its **Order number**, so that a customer holding a receipt can be answered in one step. ("Reference" in this PRD always means a Discount's SC/PWD reference, which is personal data and is never a search key.)
 51. As an owner, I want a voided or refunded Order to be visibly marked in the list along with who approved it, so that reversals are not something I have to go looking for.
 52. As an owner, I want to export the Orders list one row per Order, so that I have a transaction register.
 53. As an owner, I want to export the Orders list one row per OrderLine, so that my bookkeeper gets item-level detail without me building it.
@@ -163,7 +163,7 @@ can be wrong.
 57. As an owner, I want every Discount applied in a period listed by name with its total, so that I know what my prices actually did.
 58. As an owner, I want statutory discounts separated from manual price overrides, so that honouring a senior citizen discount is not filed as somebody changing a price.
 59. As an owner, I want a discount that required a reference to show that reference, so that a claimed exemption is evidenced.
-60. As a VAT-registered owner, I want VAT backed out of every relevant total, including on VAT-exempt discounted sales, so that the figure I hand over is correct.
+60. As a VAT-registered owner, I want VAT backed out of every total that carries it, and VAT-exempt sales to report zero rather than being silently omitted, so that the figure I hand over is correct.
 61. As an owner who is not VAT-registered, I want no VAT column anywhere, so that I am not shown a number that does not apply to me and might imply a registration I do not have.
 
 **Slicing a period**
@@ -186,9 +186,11 @@ looks like a business event rather than a technical one. Device time can be wron
 detectable and reportable. Server time is *reliably* wrong about when a sale happened,
 which is worse.
 
-**Clock skew is measured and surfaced.** At replay, the server records the difference
-between the Device's claimed timestamp and its own receipt time, minus the time the entry
-sat in the Outbox where that is known. Skew beyond a threshold flags the Device and any
+**Clock skew is surfaced here and measured elsewhere.** `offline-sync` owns the replay
+endpoint and stores three timestamps on every entry: the Device's claimed time, the server's
+receipt time, and how long it sat in the Outbox. **This area derives skew from those stored
+columns at query time.** An earlier draft specified replay-time recording here, which is
+area 5's behaviour to own, not this one's to dictate. Skew beyond a threshold flags the Device and any
 report covering its sales. A flagged report still renders — it warns, it does not refuse.
 
 **Business day and timezone.** The Tenant carries a timezone, defaulting to `Asia/Manila`.
@@ -202,26 +204,57 @@ and nothing more. If a query becomes slow with real data, that is a measurement 
 justifies a change — not a reason to build a cache first. Any future precomputation must
 handle late-arriving rows, which is precisely the complexity being avoided here.
 
-**The Summary report's spine is a waterfall, not a grid of unrelated numbers.** Seven tiles
-in a fixed order, each showing the figure and its delta against the previous equal-length
-period:
+**The Summary report's spine is a waterfall, and it is anchored to figures that actually
+exist as stored data.** An earlier draft defined `Gross` as "the sum of recorded OrderLine
+totals **before any reduction**". That is self-contradictory: per `checkout`, the recorded
+OrderLine total is already *after* the line-scoped Discount and after a manual override, so
+subtracting the Discounts and Overrides tiles from it subtracted them a second time. The
+identity could not hold on any Order carrying either.
+
+The corrected waterfall separates **derived** figures from **stored** ones and subtracts
+each reduction exactly once:
 
 ```
-Gross  −  Discounts  −  Overrides  −  Refunds  =  Net        Orders · Average order · [VAT]
+  List value          derived   Σ line composition at catalog prices, before any
+                                line Discount and before any override
+− Line discounts      derived   Σ (list − recorded) on lines carrying a Discount
+− Overrides           derived   Σ (original − overridden) on lines carrying one
+= Gross               STORED    Σ recorded OrderLine totals
+− Order discounts     STORED    Σ the rounded Order-scoped Discount amounts
+= Net                 STORED    Σ Order totals
+− Refunds                       attributed to the original sale's day
+= Net after refunds
+
+  Voids                         EXCLUDED from every figure above.
+                                Reported beside it as a count and a value.
 ```
 
-`Gross` is the sum of recorded OrderLine totals before any reduction. `Net` is what was
-actually taken. The three subtractions are shown as their own tiles because "we took less
-than we rang up" always has a cause, and the cause is one of exactly three things. `VAT`
-appears only for a VAT-enabled Tenant. **Gross profit and margin do not appear** — DeanPOS
-knows prices, not costs, and a margin column computed from a missing cost is worse than no
-column.
+**Derived figures are computed in exact `Millicentavos` from the composition captured on
+each OrderLine, and rounded for display only.** They add no stored figure and therefore no
+rounding site — ADR-0005's "exactly two rounded figures" governs what is *stored on an
+Order*, and is unaffected.
+
+**Voids are excluded rather than subtracted.** A voided Order is cancelled, not reduced.
+Including it in Gross and subtracting it again would make every figure above depend on which
+of two conventions a query happened to use. They are counted and valued beside the
+waterfall, because an owner does want to see them.
+
+**Each tile carries a comparison, and the comparator depends on the period.** A single day
+compares against **the same weekday one week earlier**; every other period compares against
+the immediately preceding equal-length period. For a food business a Saturday and a Tuesday
+are not comparable, which is what story 5 asks for; for a week or a month the preceding
+period is the right baseline. One rule, stated once, both halves tested.
+
+`VAT` appears only for a VAT-enabled Tenant, and the discount tiles only where discounts
+exist — so the strip is **up to eight tiles in a fixed order, several of them conditional**,
+not a fixed seven. **Gross profit and margin do not appear** — DeanPOS knows prices, not
+costs, and a margin computed from a missing cost is worse than no column.
 
 Selecting a tile charts *that* figure over the period. This is a series change on the
 existing period chart, not a fourth chart.
 
 **The Orders list is a report, and it is the drill target for every other report.** One row
-per Order: local time, reference, cashier, Device, payment method, line count, discount if
+per Order: local time, Order number, cashier, Device, payment method, line count, gross, discount if
 any, total, and state. Filters: period, Store, type (`sale` \| `refund` \| `void`),
 cashier, Device, DrawerSession, and payment method. Selecting a row shows the full Order —
 every OrderLine with its Modifiers, Add-ons, recorded price, and any manual override, plus
@@ -251,8 +284,11 @@ bookkeeper actually asks for. Both come from the same query as the screen.
 **Optional features produce conditional reports, not empty ones.**
 
 - No VAT → no VAT tile, no VAT column, no VAT rows in any export.
-- No Discounts configured and none ever applied → no discount tile and no *Discounts &
-  overrides* report; manual overrides still report, under `hardening`'s audit needs.
+- No Discounts ever applied → the discount tiles vanish and the report **renames itself
+  *Overrides***, because manual overrides exist for every tenant and story 24 must still be
+  satisfiable. The report is suppressed only when there are neither discounts nor overrides
+  in the period. An earlier draft said overrides "still report" without naming a surface,
+  which left them unreachable for the default tenant — the likeliest tenant there is.
 - Only `cash` configured → no *By payment method* report and no method column in the Orders
   list.
 
@@ -321,7 +357,11 @@ is faster to read than a column of numbers.
    series and bucket both change; not one chart per metric.
 3. A sparkline on the daily-total tile, showing the preceding days for context.
 
-Nothing else gets a chart in v1. Rendering uses **shadcn's chart components (Recharts)** —
+Nothing else gets a chart in v1. Rendering uses **shadcn's chart components (Recharts)**,
+which is **a new runtime dependency this area owns and adds to `packages/ui`** —
+`foundation`'s scope for that package is "Tailwind preset, tokens, shadcn primitives" and
+carries no charting library, so an earlier claim that this was "not a new dependency
+decision" was wrong. It is —
 already in the stack via `packages/ui`, so this is not a new dependency decision and needs
 no ADR. It lands in `apps/backoffice` only, which never runs offline, so bundle weight is a
 minor concern rather than a design constraint.
@@ -342,7 +382,9 @@ is not a dashboard.
 
 **Visual reference.** `ORC2_DESIGN="lofi"`. Mocks are committed:
 `backoffice/reports-summary-{1440,390}`, `backoffice/reports-orders-1440`,
-`backoffice/reports-by-item-1440`. **Four of the eight reports are not drawn** — *By
+`backoffice/reports-by-item-1440`, and **`backoffice/drawer-sessions-1440`, which belongs
+to this area** — `drawer-sessions` writes the rows and owns the terminal's live view; the
+cross-day, cross-Store table is a report. **Four of the eight reports are not drawn** — *By
 category*, *By cashier*, *By payment method*, and *Discounts & overrides* share the
 filter-strip-plus-table shape of `reports-by-item-1440` and are that mock's translation.
 An implementer must flag them as translated in the build report rather than treat them as
@@ -405,8 +447,13 @@ suite that only exercises the configured tenant leaves the default product untes
 - A period spanning the moment a tenant enabled VAT sums both kinds of Order correctly, and
   the VAT figure covers only the Orders recorded with it.
 - Changing the Tenant's VAT rate does not change any already-recorded Order's VAT figure.
-- A VAT-exempt Discount removes VAT from its sale; the exempt and VATable portions are
-  reported separately and sum to the period's gross.
+- A VAT-exempt Discount removes VAT from its sale. **Exempt Net + VATable Net = Net**,
+  partitioning Orders by whether they carried a VAT-exempt Discount. An earlier draft
+  asserted the portions sum to *gross*, which no definition of "portion" satisfies once the
+  statutory computation has stripped VAT before discounting.
+- **Tile deltas:** a single-day period compares against the same weekday one week earlier; a
+  week and a month each compare against the immediately preceding equal-length period.
+  Asserted per case.
 - Discounts report by name with their totals; renaming a Discount does not rewrite the name
   on a past Order.
 - A Discount requiring a reference reports that reference.
@@ -422,8 +469,14 @@ suite that only exercises the configured tenant leaves the default product untes
 
 - Each filter — type, cashier, Device, DrawerSession, payment method — returns exactly the
   seeded Orders and no others.
-- **The Orders list total equals the Summary's gross for the same filters.** This is the
-  assertion that makes drill-down trustworthy, and it is the one to write first.
+- **The sum of Order totals in the list equals the Summary's NET for the same filters**,
+  with voided Orders excluded from both. This is the assertion that makes drill-down
+  trustworthy and it is the one to write first. It is stated against Net, not Gross, because
+  an Order's total is post-discount — an earlier draft asserted it against Gross, which could
+  never pass for any tenant that had ever applied one.
+- A per-Order **gross** column exists in the list and in the line-level export, so Gross is
+  reconcilable too: summing it over the same filters equals Summary Gross.
+- **A voided Order appears in the list and in no figure.** Asserted both ways.
 - Every drill link from every aggregate lands on a filter set whose total equals the figure
   that was clicked — asserted for a day, a Variant, a cashier, and a payment method.
 - An Order's detail payload contains its lines, Modifiers, Add-ons, recorded prices, manual
@@ -455,12 +508,18 @@ without sight.
 **Property-tested.** For any generated set of Orders, discounts, and reversals:
 
 - the sum of per-Store totals equals the all-Stores total;
-- **`gross − discounts − overrides − refunds = net`** — the waterfall identity, which is the
-  Summary report's entire claim;
+- **the waterfall identity, which is the Summary report's entire claim**, in two halves so
+  that a failure names which half broke:
+  `list − lineDiscounts − overrides = gross` (derived side) and
+  `gross − orderDiscounts = net` (stored side), then `net − refunds = netAfterRefunds`.
+  Voided Orders contribute to none of them;
 - the sum of per-hour buckets equals the day total, and the sum of chart buckets equals the
   period total at every bucketing level;
-- the sum of per-payment-method totals equals net;
-- the Orders list's total equals the Summary's gross for any filter set;
+- **the sum of per-payment-method totals equals Net** — not net-after-refunds. Refunds and
+  voids carry no PaymentMethod (`checkout` records reason and approver only), and a
+  cross-period refund would need a back-dated method attribution no data model defines. This
+  is the strongest identity the data supports, so it is the one asserted;
+- the sum of Order totals in the list equals Net, and the sum of the list's per-Order gross column equals Gross, for any filter set;
 - and every figure is an exact integer number of centavos with no accumulated rounding
   drift, with VAT enabled and with VAT disabled.
 
