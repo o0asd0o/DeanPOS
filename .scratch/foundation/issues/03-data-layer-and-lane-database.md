@@ -1,6 +1,6 @@
 # 03 — Data layer and the lane database
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -132,3 +132,60 @@ alongside the decision's own comment and `DATABASE_URI`; `.gitignore`'s
 generated-output comment now names `vp run -w codegen` instead of
 `bunx prisma generate`. The third minor (the migration-comment nit) was left
 alone per the reviewer's own verdict that it's optional.
+
+---
+
+**Closed by the pipeline.** One review round used. Reviewer verdict was REVISE in round 0 on a
+**blocking** finding, then PASS on both axes after round 1. Gate green cold in the lane
+worktree after the rebase, and again on `main` after the fast-forward. Merged to `main` at
+`3e97d2a`. Lane database `DeanPOS_lane_foundation_03_data_layer` dropped at close; no `_test`
+sibling was created.
+
+**The blocking finding, and why it mattered.** `vp exec prisma generate` — the command
+`.orc2/config.env` and ADR-0004 both declared, and the one the orchestrator runs at the
+repository root after every merge — did not work there. `prisma` is declared only in
+`packages/backend`, so Bun links its binary only into that workspace. Because the generated
+Kysely types are gitignored and `client.ts` imports them, a fresh clone plus `vp install`
+did not reach a green gate and `main` would have gone red after any merge touching the
+schema. The lane's own gate was green only because the implementer's local `generated/`
+directory still existed on disk.
+
+That was a contradiction between three binding documents — `config.env`/ADR-0004,
+`ORCHESTRATOR.md`'s merge procedure, and this issue's "everything lives inside
+`packages/backend`" — so it went to the `decider` rather than to a fixer.
+
+**Decisions made during this issue, both binding on later areas:**
+
+- `.scratch/decisions/004-postgres-driver.md` — **Stakes: high.** `pg@8.22.0` with Kysely's
+  built-in `PostgresDialect`, `packages/backend` only, no catalog pin, no dialect package,
+  no `pg-native`. Adopts the sibling project ApxDenta, which runs `pg` on Bun in production.
+  Carries a forward warning for area 2: the tenant variable must be set with
+  `set_config('app.tenant_id', $1, true)` — transaction-local — because a bare `SET`
+  persists on the pooled connection after release and hands the next request another
+  tenant's identity.
+- `.scratch/decisions/005-prisma-command-scope-and-env.md` — **Stakes: high.** Resolves the
+  contradiction above. The three `ORC2_*` commands become root `package.json` scripts
+  (`vp run -w codegen|migrate|migrate:status`), each scoping into the workspace with
+  `vp exec -F backend`; the migrate scripts source the root `.env` themselves, because
+  Prisma searches for `.env` in the working directory, the schema's directory, and
+  `./prisma/` only — it never walks up to a monorepo root. A root `prepare` hook makes
+  `vp install` alone regenerate the types. ADR-0008's layout and record 004 survive
+  untouched. ADR-0004 carries an amendment line pointing at the record.
+
+**Verified independently, not taken on report:** a genuinely fresh `git clone` with no
+`.env`, then `vp install` alone, now fires `prepare`, regenerates
+`packages/backend/src/db/prisma/generated/types.ts`, and passes `vp check` and
+`vp run -r check`. `vp run -r test` still fails there — the DB-backed test needs a
+provisioned database, which a bare clone has neither `.env` nor PostgreSQL for.
+
+The reviewer ruled that is **not** a defect of this issue: the PRD's "clean checkout plus
+`vp install` reaches a green gate with no manual step" clause sits inside the Vite+ licence
+paragraph and is about the toolchain holding no token, which is now satisfied; a running
+PostgreSQL is environment the PRD contemplates separately in stories 46 and 47. The failure
+is also loud rather than silent, which is the correct behaviour — a test that skipped itself
+when `DATABASE_URI` was absent would hide a real gate gap.
+
+**Obligation carried forward to issue 08:** stories 46 and 47 must document the database
+prerequisite and the one-command start — copy `.env.example`, set `DATABASE_URI`,
+`docker compose up`, then the gate — so the clean-clone-to-green path is closed there
+rather than going quiet.

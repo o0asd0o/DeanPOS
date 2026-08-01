@@ -67,3 +67,15 @@ _Sliced from `.scratch/foundation/PRD.md` (stories 46–49, 51, and the image ha
 security criteria 2, 3). Out of
 scope by decision: staging environments, backups, restore drills, rollback rehearsal, and the
 gated deploy script — all area 10._
+
+## Carried forward from issue 03
+
+The reviewer on issue 03 ruled that the clean-clone-to-green path is **this issue's** to
+close, under stories 46 and 47. A fresh `git clone` plus `vp install` now reaches a green
+`vp check` and `vp run -r check`, but `vp run -r test` fails, because the data layer's test
+reads a real database and a bare clone has neither a `.env` nor a running PostgreSQL.
+
+Document the full path here: copy `.env.example`, set `DATABASE_URI`, `docker compose up`,
+then the gate. Do **not** close the gap by making the database test skip itself when
+`DATABASE_URI` is absent — a silent skip hides a real gate gap and is strictly worse than a
+loud failure.
