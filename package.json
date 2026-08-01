@@ -33,6 +33,10 @@
   "catalog": {
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.5",
     "vite-plus": "0.2.5",
-    "fast-check": "4.9.0"
+    "fast-check": "4.9.0",
+    "@orpc/contract": "1.14.13",
+    "@orpc/client": "1.14.13",
+    "@orpc/server": "1.14.13",
+    "zod": "4.4.3"
   }
 }

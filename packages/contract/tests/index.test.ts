@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { workspaceName } from "../src/index.ts";
+import { contract, pingOutputSchema } from "../src/index.ts";
 
-describe("workspace placeholder", () => {
-  it("exports its own name", () => {
-    expect(workspaceName).toBe("contract");
+describe("contract", () => {
+  it("declares ping's output shape", () => {
+    const parsed = pingOutputSchema.parse({ id: 1, message: "pong", createdAt: new Date() });
+
+    expect(parsed.message).toBe("pong");
+  });
+
+  it("is the only contract entry, ready for implement()", () => {
+    expect(Object.keys(contract)).toStrictEqual(["ping"]);
   });
 });

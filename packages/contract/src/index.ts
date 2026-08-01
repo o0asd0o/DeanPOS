@@ -1,1 +1,2 @@
-export const workspaceName = "contract" as const;
+export { contract, pingOutputSchema } from "./contract.ts";
+export { createClient } from "./client.ts";

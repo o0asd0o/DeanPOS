@@ -7,6 +7,11 @@
     "check": "vp check",
     "test": "vp test"
   },
+  "dependencies": {
+    "@orpc/client": "catalog:",
+    "@orpc/contract": "catalog:",
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsconfig": "workspace:*",

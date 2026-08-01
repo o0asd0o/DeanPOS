@@ -1,1 +1,1 @@
-export const workspaceName = "error" as const;
+export { toSafeErrorResponse } from "./safe-response.ts";

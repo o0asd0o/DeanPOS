@@ -7,6 +7,13 @@
     "check": "vp check",
     "test": "vp test"
   },
+  "dependencies": {
+    "@orpc/server": "catalog:",
+    "backend": "workspace:*",
+    "contract": "workspace:*",
+    "error": "workspace:*",
+    "hono": "4.12.33"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsconfig": "workspace:*",

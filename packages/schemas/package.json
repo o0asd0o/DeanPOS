@@ -7,6 +7,9 @@
     "check": "vp check",
     "test": "vp test"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "fast-check": "catalog:",
