@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URI")
 }
 
 // Single-row table with no domain meaning; area 04 reads it through Kysely
