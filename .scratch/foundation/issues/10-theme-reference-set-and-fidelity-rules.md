@@ -93,3 +93,62 @@ on disk, because that table is what an implementer greps.
 QA frames in `.scratch/foundation/reference/`, assuming a theme change made them stale. It does not.
 Those four files are copies of greyscale lo-fi SVGs, not screenshots of the built app, and no skin
 change can invalidate them. That issue was dropped and this one replaced it.
+
+## Comments
+
+Implemented. All six frames under `.scratch/foundation/reference/inspo/` were present in the lane
+(precondition satisfied on `main`) and opened individually before writing anything.
+
+**Corrected mapping, as read off the images** (kept `dashoard.webp`'s on-disk misspelling rather
+than renaming, per the issue's "rename it or do not" — matching the filename on disk was the
+requirement, not the spelling):
+
+- `style.webp` — Manrope, the four raw swatches, the weight set. Its "color palette" framing does
+  *not* carry roles; the ADR's re-roling supersedes it, and the README says so explicitly.
+- `dashoard.webp` — sidebar with active pill, tinted-icon stat tiles, card surfaces, the line chart,
+  and status badges (`Open`/`Completed`) in a table. Corrected against the first-pass table: the
+  status badges observed on this frame are the concrete evidence (alongside every pressable control
+  across all six frames being black) that the ADR's palette re-roling matches what the reference
+  itself already does, not just what AA requires.
+- `orders.webp` — form controls, the filter strip, the black `Process All` button, the sidebar at
+  rest. Matched the first pass.
+- `orders2-with-table.webp` — table rows, sortable headers, pagination, and the
+  `Shipment Processing Actions` dialog. Matched the first pass; named the dialog explicitly since
+  "the dialog treatment" was otherwise vague.
+- `grid.webp` — the 8px grid and column-grid logic. Corrected against the first pass: the frame's
+  own labels ("Desktop (1.400px)", "Responsive (375px)") disagree with the pixel values actually
+  annotated on the grid (1320px content width on the desktop frame, 343px on the responsive one) —
+  neither pair matches DeanPOS's 1440/1280/390. The README reconciles this explicitly rather than
+  leaving two conflicting numbers.
+- `collage.webp` — context only, as the first pass said. Confirmed: three device mockups plus a
+  crop of the dashboard/orders frames already covered above, nothing new.
+
+**Where the first-pass table needed correcting:** mainly `grid.webp`'s labelled vs. annotated
+widths (four numbers on one frame, not the two the first pass implied) and `style.webp`'s status —
+it needed an explicit reconciliation section, not just a mapping-table entry, because a reader who
+finds it first and takes "color palette" at face value would conclude ADR-0013 is wrong.
+
+**Gate, observed directly in the lane:**
+
+```
+vp run -w codegen   → codegen ok (backend prisma generate, pos/backoffice tsr generate)
+vp check             → pass: 126 files formatted, 91 files lint/type-clean
+vp run -r check      → pass across all 10 packages/apps
+vp run -r test       → 2 failures on first run: tests/ping/get-ping.{handler,query}.test.ts,
+                        "relation \"Ping\" does not exist" — the fresh lane's Postgres DB had no
+                        migrations applied. Ran `bun run migrate` (applies the existing
+                        20260801154527_init migration, no schema edit), re-ran `vp run -r test`:
+                        all packages pass (10/10 cache hit on the unaffected ones). This is a lane
+                        setup gap, not a code or doc issue — no source file changed.
+```
+
+Self-check via `/code-review` (`main...HEAD`, two parallel sub-agents): **Standards** — no
+violations against `docs/agents/code-standards.md`; one judgement-call smell noted (mild duplication
+of the "tokens + reference set, never measure the SVGs" rule across the two amended READMEs), not
+treated as a finding since each file needs the rule stated locally for a reader who opens only one.
+**Spec** — no missing/partial acceptance criteria, no scope creep (diff touches exactly the three
+files named in "Relevant files," no source or token changes), no implemented-but-wrong findings.
+Both axes clean; nothing was changed as a result of the self-check.
+
+No source file changes, no token changes — documentation and the new `inspo/README.md` only, as
+scoped. Branch `f10-theme-reference-set`, committed as `2198d54`.
