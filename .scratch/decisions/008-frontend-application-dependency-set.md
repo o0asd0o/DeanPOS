@@ -438,7 +438,7 @@ already noted by record 007. No copyleft reaches a shipped bundle.
 `apps/pos/tsr.config.json` (and the same file in `apps/backoffice`):
 
 ```json
-{ "generatedRouteTree": "./src/generated/routeTree.gen.ts" }
+{ "generatedRouteTree": "./src/generated/routeTree.gen.ts", "addExtensions": ".tsx" }
 ```
 
 `routesDirectory` is left at its default, `./src/routes`, which is where ADR-0009 already
@@ -469,6 +469,7 @@ export default defineConfig({
     tanstackRouter({
       target: "react",
       generatedRouteTree: "./src/generated/routeTree.gen.ts",
+      addExtensions: ".tsx",
     }),
     react(),
     tailwindcss(),
@@ -493,6 +494,12 @@ Three notes, each of which would otherwise be discovered the hard way:
   does not depend on the spelling, and a rename is not a reason to reopen this record.
 - **`autoCodeSplitting` is deliberately off.** One route exists. Nothing measures bundle
   size until `release-ops`, and the option adds a Babel pass. Rung 1.
+
+**Amended 2026-08-02:** `addExtensions: ".tsx"` was omitted from both snippets above when
+this record was written. Issue 06 found it necessary: TanStack Router's codegen emits
+extension-less relative imports that fail to resolve under `moduleResolution: "nodenext"` —
+silently, because the generated file carries `@ts-nocheck`. Both apps now pin the
+behaviour with a typed-route fixture. The rest of this record is unchanged.
 
 ### The router registration, and the committed proof of the criterion
 

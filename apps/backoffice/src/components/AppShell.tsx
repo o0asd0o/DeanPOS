@@ -3,10 +3,9 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "ui";
 
 import { Nav } from "./Nav.tsx";
 
-// The shell frame, nav skeleton and skip link. Header content, landmark
-// count and copy: .scratch/decisions/009 — the header carries exactly one
-// child, same as apps/pos. The sidebar repeats on every screen, so —
-// unlike apps/pos — this shell also carries a skip link and a `<nav>`.
+// Unlike apps/pos, this sidebar repeats on every screen, so the shell also
+// carries a skip link and a `<nav>`. Header content and landmark count:
+// .scratch/decisions/009.
 export function AppShell() {
   return (
     <div className="flex h-dvh flex-col">
@@ -35,7 +34,7 @@ export function AppShell() {
         <aside className="hidden md:block md:w-64 md:shrink-0 md:overflow-y-auto md:border-r">
           <Nav />
         </aside>
-        <main id="main-content" className="flex-1 md:overflow-y-auto">
+        <main id="main-content" tabIndex={-1} className="flex-1 md:overflow-y-auto">
           <Outlet />
         </main>
       </div>

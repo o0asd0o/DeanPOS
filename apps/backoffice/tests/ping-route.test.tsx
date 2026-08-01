@@ -36,6 +36,7 @@ describe("the back-office shell's ping route", () => {
 
     const skipLink = screen.getByText("Skip to content") as HTMLAnchorElement;
     expect(skipLink.getAttribute("href")).toBe("#main-content");
+    expect(container.querySelector("main")?.getAttribute("tabindex")).toBe("-1");
 
     const { message } = await db.selectFrom("Ping").select("message").executeTakeFirstOrThrow();
     expect(screen.getByText(message)).toBeTruthy();
