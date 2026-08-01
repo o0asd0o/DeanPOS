@@ -196,3 +196,20 @@ testing and remains covered by the greppable one-line review check.
 **Decision made during this issue:**
 `.scratch/decisions/012-development-origins-and-the-dev-server.md` — **Stakes: high**, because
 it touches a security default. Amended the same day against what actually ran.
+
+**QA FAIL, fixed (three findings):**
+
+- `vp run -w dev` started nothing: `vp run -w dev` is already one `vp` process, and its `dev`
+  script calling `vp run --parallel ...` put `vp dev` (pos, backoffice) three `vp` processes
+  deep, where spawning fails (`os error 22`) — reproduced directly. `scripts/dev.sh` now
+  backgrounds each app's own `bun run dev` directly, keeping `vp dev` two deep, the depth
+  proven to work. Verified: all four ports bind; Ctrl-C does not reliably stop the children
+  (unverified upstream, per record 012), so the README's `lsof` fallback was re-verified and
+  is kept.
+- `VITE_API_URL` unset failed silently: both `lib/orpc.ts` now validate at first request
+  (inside the client's `fetch`, not at module load), so an unset variable throws naming
+  itself instead of producing `undefined/rpc`. `scripts/stack.sh` now appends the key to an
+  `.env` that predates it, without clobbering a customised file.
+- The documented dev loop dirtied `apps/landing/next-env.d.ts`: untracked and gitignored — it
+  is Next's own generated file, and its header already says not to edit it. Verified a dev
+  session on a clean tree leaves `git status --porcelain` empty.

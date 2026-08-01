@@ -19,6 +19,13 @@ EOF
   echo "Wrote .env with local defaults."
 fi
 
+# An .env from before VITE_API_URL existed never gains it, since the block
+# above only fires on a missing file — .scratch/decisions/012.
+if ! grep -q '^VITE_API_URL=' .env; then
+  echo "VITE_API_URL=http://localhost:6001" >> .env
+  echo "Added VITE_API_URL to existing .env."
+fi
+
 vp install
 docker compose up -d --wait
 vp run -w migrate

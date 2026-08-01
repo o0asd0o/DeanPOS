@@ -129,3 +129,8 @@ auth footer, store filter, date range, `Export CSV`, computed-at line, or any re
 
 Below `md` the nav moves into a `sheet` behind a `☰`; at `md`+ a persistent `<aside>` holds it.
 Only one `<nav>` exists in the DOM at rest, asserted rather than assumed.
+
+**QA FAIL, fixed:** `tests/typed-routes.types.ts`'s guard could not fail — `noUnusedLocals`
+made `TS6133` keep the `@ts-expect-error` directive alive regardless of whether `to` was
+typed. `_brokenLink` is now `export const brokenLink`, so only `TS2322` keeps the directive
+alive. Verified both directions.

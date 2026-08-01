@@ -189,3 +189,8 @@ the relative `theme.css` import with zero app config) but nothing **committed** 
 happy-dom applies no PostCSS, so the seam test cannot see computed styles. The obligation as
 written was to exercise rather than assume, which is met; a committed guard is net-new work no
 document requires.
+
+**QA FAIL, fixed:** `tests/typed-routes.types.ts`'s guard could not fail — `noUnusedLocals`
+made `TS6133` keep the `@ts-expect-error` directive alive regardless of whether `to` was
+typed, so a collapse to `string` would not have gone red. `_brokenLink` is now `export const
+brokenLink`, so only `TS2322` keeps the directive alive. Verified both directions.
