@@ -147,13 +147,19 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
 **One merge at a time, always.** Even with two lanes running, only one may be merging. Finish the whole sequence below — including `main` being green — before starting the other lane's merge. Two merges interleaved leave `main` in a state neither lane tested.
 
-**Merge `main` into the branch, never the branch into `main`.** Conflicts get resolved and re-verified inside the lane's worktree, where a failure costs nothing. `main` only ever moves forward to something already proven.
+**Rebase the branch onto `main`, never merge the branch into `main`.** Conflicts get resolved and re-verified inside the lane's worktree, where a failure costs nothing. `main` only ever moves forward to something already proven, and its history stays linear — no merge commits.
 
 1. **Gate green in the worktree, reviewer PASS.** Both, before anything below.
 
-2. **Bring `main` in.** In the lane's worktree, merge `main` into the branch. If nothing came in, the branch is already current and you can skip to step 5.
+2. **Bring `main` in.** In the lane's worktree:
 
-3. **Resolve conflicts deliberately — never take a side blindly.** Use the `/resolving-merge-conflicts` skill, whose discipline is: **find the primary source for each conflict before resolving it.** Read the commit messages, the issue each side came from, and the reasoning recorded there — understand *why* each change was made and what its intent was. Preserve both intents where possible; where genuinely incompatible, pick the one matching the merge's stated goal and note the trade-off. **Do not invent new behaviour, and never `--abort`** — a lane whose merge you abandoned still has to land.
+   ```
+   git rebase main
+   ```
+
+   If the branch was already on top of `main`, nothing moved and you can skip to step 5. Resolve each conflicting commit in turn (step 3), then `git rebase --continue`. Never `git rebase --skip` — a dropped commit is a silently lost slice.
+
+3. **Resolve conflicts deliberately — never take a side blindly.** Use the `/resolving-merge-conflicts` skill, whose discipline is: **find the primary source for each conflict before resolving it.** Read the commit messages, the issue each side came from, and the reasoning recorded there — understand *why* each change was made and what its intent was. Preserve both intents where possible; where genuinely incompatible, pick the one matching the rebase's stated goal and note the trade-off. **Do not invent new behaviour, and never `git rebase --abort`** — a lane whose rebase you abandoned still has to land.
 
    Then the three kinds, which have three different correct answers:
 
