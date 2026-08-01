@@ -83,6 +83,20 @@ is now deployable, so an operator who forgets to set it ships `deanpos`. Area 10
 (`release-ops`, production password-hardening) should make this fail closed rather than
 default.
 
+Review fix applied 2026-08-02: `postgres` now publishes `5433:5432` instead of
+`5432:5432` — it was colliding with a developer's own local PostgreSQL and defeating
+the one-command onboarding criterion. Verified end to end with the host's PostgreSQL
+still running on 5432: brought the stack up, ran `vp run -w migrate` with
+`DATABASE_URI` pointing at `localhost:5433`, confirmed the migration landed in the
+container's `DeanPOS_dev` (queried directly on 5433 — tables present) and not the
+host's `DeanPOS_dev` or lane database on 5432 (both unchanged), confirmed
+`GET /health` returns `{"live":true,"databaseReachable":true}` from inside the `api`
+container, then brought the stack down. `.scratch/decisions/011-...md` copied from
+main and amended to match shipped code (ca-certificates in the slim Bun stages, the
+`vp run -F <app> build` form, `apps/landing`'s `useTypeScriptCli` config, its
+`tsconfig.json` additions and `public/.gitkeep`, and the port). Gate green:
+`vp run -w codegen`, `vp check`, `vp run -r check`, `vp run -r test`.
+
 ## Carried forward from issue 03
 
 The reviewer on issue 03 ruled that the clean-clone-to-green path is **this issue's** to
