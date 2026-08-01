@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vp build",
     "check": "vp check",
+    "dev": "vp dev",
     "test": "vp test"
   },
   "dependencies": {

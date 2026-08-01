@@ -15,14 +15,19 @@ import { pingRoute } from "./routes/ping.ts";
 export type CreateAppOptions = {
   db: DatabaseInstance;
   appDomain: string;
+  /**
+   * Development-only extra origins, passed only by src/dev.ts. The production entry
+   * (src/index.ts) passes none, and nothing here reads the environment — record 012.
+   */
+  devOrigins?: string[];
 };
 
 /** Assembles the Hono shell (ADR-0008). Used by the production entry and, unchanged, by the in-process test seam. */
-export const createApp = ({ db, appDomain }: CreateAppOptions) => {
+export const createApp = ({ db, appDomain, devOrigins = [] }: CreateAppOptions) => {
   const ctx = createContext(db);
   const app = new Hono<{ Variables: { ctx: Ctx } }>();
 
-  app.use("*", cors({ origin: allowedOrigins(appDomain) }));
+  app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins] }));
   app.use("*", async (c, next) => {
     c.set("ctx", ctx);
     await next();

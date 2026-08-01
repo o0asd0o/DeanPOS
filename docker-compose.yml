@@ -60,6 +60,7 @@ services:
       dockerfile: docker/web.Dockerfile
       args:
         IMAGE_TAG: ${IMAGE_TAG:-dev}
+        APP_DOMAIN: ${APP_DOMAIN:-deanpos.localhost}
     image: deanpos/web:${IMAGE_TAG:-dev}
     restart: unless-stopped
     ports:

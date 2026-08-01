@@ -22,6 +22,30 @@ vp run -r test
 `vp run -r test` run each workspace's own `check` and `test` script. A type error, a lint
 error, or a failing test in any single workspace turns the whole gate red.
 
+## Development
+
+```
+vp run -w dev
+```
+
+Starts all four applications with hot reload against your **local** PostgreSQL — no Docker,
+no reverse proxy, no certificate to trust. Reads `DATABASE_URI` and `VITE_API_URL` from the
+root `.env`; use the "Local stack" section below to bring up Docker instead when you want the
+deployed shape (TLS, four origins behind Caddy) rather than the inner loop.
+
+| Application       | URL                     |
+| ----------------- | ----------------------- |
+| `apps/api`        | `http://localhost:3000` |
+| `apps/landing`    | `http://localhost:3001` |
+| `apps/pos`        | `http://localhost:5173` |
+| `apps/backoffice` | `http://localhost:5174` |
+
+Ports are pinned (`strictPort: true` in each front end's `vite.config.ts`), so a port already
+in use is a loud start-up failure, not a silent shift to the next free one.
+
+Stop everything with one Ctrl-C in the terminal running `vp run -w dev`. If a port stays bound
+afterwards: `lsof -ti:3000,3001,5173,5174 | xargs kill`.
+
 ## Local stack
 
 ```

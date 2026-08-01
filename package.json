@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "codegen": "vp exec -F backend prisma generate && vp exec -F pos tsr generate && vp exec -F backoffice tsr generate",
+    "dev": "set -a; [ -f .env ] && . ./.env; set +a; vp run --parallel -F api -F pos -F backoffice -F landing dev",
     "migrate": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate deploy",
     "migrate:status": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate status",
     "prepare": "vp run -w codegen",

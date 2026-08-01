@@ -15,6 +15,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   test: {
     environment: "happy-dom",
     setupFiles: [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))],

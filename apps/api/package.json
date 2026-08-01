@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "vp check",
+    "dev": "bun run --hot src/dev.ts",
     "test": "vp test"
   },
   "dependencies": {

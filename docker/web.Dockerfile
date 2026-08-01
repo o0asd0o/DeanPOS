@@ -4,6 +4,8 @@ COPY . .
 # vite-plus's prepare hook makes an HTTPS request; the slim base has no CA bundle.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN bun install --frozen-lockfile
+ARG APP_DOMAIN=deanpos.localhost
+ENV VITE_API_URL=https://api.${APP_DOMAIN}
 RUN bun run vp run -F pos build && bun run vp run -F backoffice build
 
 FROM caddy:2.11.4-alpine

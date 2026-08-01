@@ -8,6 +8,7 @@ import { requireEnv } from "./helpers.ts";
 export type TestSeamOptions = {
   databaseUrl?: string;
   appDomain?: string;
+  devOrigins?: string[];
 };
 
 // The server half of the one test seam. foundation PRD "Testing Decisions"; .scratch/decisions/006.
@@ -16,7 +17,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
   const appDomain = options.appDomain ?? requireEnv(ENV_KEYS.appDomain);
 
   const db = createDb({ databaseUrl });
-  const app = createApp({ db, appDomain });
+  const app = createApp({ db, appDomain, devOrigins: options.devOrigins });
 
   const client = createClient({
     url: `https://api.${appDomain}/rpc`,
