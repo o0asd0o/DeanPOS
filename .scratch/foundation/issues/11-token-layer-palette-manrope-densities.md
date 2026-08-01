@@ -1,6 +1,6 @@
 # 11 — The token layer: re-roled palette, Manrope, and two densities
 
-**Status:** needs-info
+**Status:** ready-for-agent
 
 ## What to build
 
@@ -56,6 +56,27 @@ re-reading this file:
 
 Implement the answers, link the record from this issue, and set `ready-for-agent` then. Do not
 pre-empt either.
+
+**Both answered.** `.scratch/decisions/013-density-mechanism-and-token-names.md` decides them
+together, and this issue is now `ready-for-agent`. In short:
+
+1. **Density** — one `data-density` attribute on `<html>`, `touch` in `apps/pos` and `compact` in
+   `apps/backoffice`. Compact is the base `@theme` scale; touch re-declares `--spacing` at ×1.25
+   plus six `--text-*` overrides inside `@layer base`. No `packages/ui` component reads the
+   attribute, branches on it, or takes a `density` prop. The record's four-clause contract is
+   binding, including why the attribute goes on `<html>` and never on a shell element.
+2. **Token names** — `accent` stays shadcn's, meaning *hover surface*. ADR-0013's accents take a
+   `status-` prefix, each as a `-tint`/`-tone` pair. The record carries the exact 35-token list and
+   38 pairings; **transcribe both verbatim** rather than re-deriving them.
+
+Three flags from the record that this issue must not discover the hard way:
+
+- `#35CCA6` measures 2.03:1 on white, so it **cannot** be `status-success-tone`. The tones are
+  darker siblings of the brand hues, the same move ADR-0013 already made for destructive.
+- No `--color-chart-*` set, and no vocabulary hidden behind `@theme inline` — `contrast.test.ts`'s
+  regex cannot see through it.
+- The ×1.25 touch scale is derived from the 44px floor but has never been seen on a real screen.
+  Its re-check trigger is issue 15, and the fix costs one number.
 
 ## Acceptance criteria
 
