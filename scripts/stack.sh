@@ -9,7 +9,7 @@ if [ ! -f .env ]; then
   # the same values as its own fallbacks, and .env is gitignored. See .env.example
   # for what each name is for.
   cat > .env <<'EOF'
-DATABASE_URI=postgresql://deanpos:deanpos@localhost:5432/DeanPOS_dev
+DATABASE_URI=postgresql://deanpos:deanpos@localhost:5433/DeanPOS_dev
 POSTGRES_USER=deanpos
 POSTGRES_PASSWORD=deanpos
 POSTGRES_DB=DeanPOS_dev

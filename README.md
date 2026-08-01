@@ -47,6 +47,11 @@ terminal's Device token and PIN hashes browser-isolated from the back office
 picks its certificate issuer from the hostname — its own internal CA for `.localhost`,
 Let's Encrypt for everything else.
 
+The container's PostgreSQL is published on **5433**, not 5432, so it does not collide
+with a local PostgreSQL already running on 5432 (the gate's database). If something
+else is already on 5433, `docker compose up -d` fails to bind the port; free it or
+change the published port in `docker-compose.yml`.
+
 ### Trusting the local certificate authority
 
 One-time, per machine, so the four URLs above load without a browser warning.

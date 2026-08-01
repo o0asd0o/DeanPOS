@@ -77,6 +77,12 @@ security criteria 2, 3). Out of
 scope by decision: staging environments, backups, restore drills, rollback rehearsal, and the
 gated deploy script — all area 10._
 
+`docker-compose.yml` defaults `POSTGRES_PASSWORD` to `deanpos` when unset. That is a
+documented dev default, not a committed secret — security criterion 3 holds. But the stack
+is now deployable, so an operator who forgets to set it ships `deanpos`. Area 10
+(`release-ops`, production password-hardening) should make this fail closed rather than
+default.
+
 ## Carried forward from issue 03
 
 The reviewer on issue 03 ruled that the clean-clone-to-green path is **this issue's** to

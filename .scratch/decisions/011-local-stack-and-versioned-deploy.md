@@ -5,6 +5,20 @@
 - **Date:** 2026-08-02
 - **Asked by:** human (routed from `.scratch/foundation/issues/08-local-stack-and-versioned-deploy.md`, including its "Carried forward from issue 03" section)
 
+**Amended 2026-08-02:** building the stack, not preference, forced five corrections to
+what is specified below, all now applied in place. All three slim Bun stages need
+`RUN apt-get install ca-certificates` — the slim base ships no CA bundle and `vp`'s
+prepare-hook HTTPS request aborts without it. The `web.Dockerfile` build command is
+`vp run -F pos build && vp run -F backoffice build`, not `vp build -F pos`, which is
+not a valid CLI form. `apps/landing/next.config.ts` also needs
+`experimental.useTypeScriptCli: true`, because this repository's TypeScript 7.0.2
+(typescript-go) has no compiler API and Next's typecheck step needs one.
+`apps/landing/tsconfig.json` needs `jsx`, the `dom` lib, and the `next` plugin, and
+`apps/landing/public/.gitkeep` must exist so the Dockerfile's `COPY public` does not
+fail. And `postgres` publishes `5433:5432`, not `5432:5432`, because the gate requires
+a developer's own PostgreSQL on 5432 (issue 09) and the container must not contend
+for that port. The rest of this record is unchanged.
+
 ## The question
 
 The whole stack has to run on a developer's laptop with no cloud account and no
@@ -277,7 +291,7 @@ Exact. Nothing here is re-decided downstream.
 
 | Service | Image | Publishes | Depends on |
 | --- | --- | --- | --- |
-| `postgres` | `postgres:18` *(unchanged from issue 03)* | `5432:5432` | — |
+| `postgres` | `postgres:18` *(unchanged from issue 03)* | `5433:5432` | — |
 | `api` | `deanpos/api:${IMAGE_TAG:-dev}` | **nothing** | `postgres` (`service_healthy`) |
 | `landing` | `deanpos/landing:${IMAGE_TAG:-dev}` | **nothing** | — |
 | `web` | `deanpos/web:${IMAGE_TAG:-dev}` | `80:80`, `443:443` | `api`, `landing` |
@@ -405,6 +419,7 @@ LABEL org.opencontainers.image.title="deanpos-api" \
       org.opencontainers.image.revision="${IMAGE_TAG}"
 WORKDIR /app
 COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN bun install --frozen-lockfile
 ENV NODE_ENV=production
 EXPOSE 3000
@@ -447,8 +462,9 @@ CMD ["bun", "run", "apps/api/src/index.ts"]
 FROM oven/bun:1.3.13-slim AS build
 WORKDIR /app
 COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN bun install --frozen-lockfile
-RUN bun run vp build -F pos && bun run vp build -F backoffice
+RUN bun run vp run -F pos build && bun run vp run -F backoffice build
 
 FROM caddy:2.11.4-alpine
 ARG IMAGE_TAG=dev
@@ -473,6 +489,7 @@ COPY docker/Caddyfile /etc/caddy/Caddyfile
 FROM oven/bun:1.3.13-slim AS build
 WORKDIR /app
 COPY . .
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN bun install --frozen-lockfile
 RUN bun run vp exec -F landing next build
 
@@ -491,6 +508,9 @@ CMD ["node", "apps/landing/server.js"]
 
 - `apps/landing/next.config.ts` sets **`output: "standalone"`**. This is Next's own
   documented Docker path and it is what produces the self-contained `server.js`.
+  It also sets **`experimental.useTypeScriptCli: true`**, because this repository's
+  TypeScript 7.0.2 (typescript-go) has no compiler API and Next's typecheck step
+  needs one.
 - **The runtime is Node, not Bun, and that is the one place this record deliberately
   uses two base images.** Next's official `with-docker` example runs the standalone
   output on `node:24.13.0-slim`; Bun-as-Next-runtime is supported according to
@@ -521,10 +541,15 @@ CMD ["node", "apps/landing/server.js"]
 Existing `@types/node`, `tsconfig`, `typescript`, `vite-plus` stay. Scripts gain
 `"build": "next build"`; `check` and `test` are unchanged.
 
-Files: `apps/landing/next.config.ts` (`output: "standalone"` and nothing else),
-`apps/landing/src/app/layout.tsx`, `apps/landing/src/app/page.tsx`. The page renders
-the site name and nothing else — **no content, no copy, no design; that is area 11**,
-and a placeholder that looks like a marketing page invites someone to keep it.
+Files: `apps/landing/next.config.ts` (`output: "standalone"`,
+`experimental.useTypeScriptCli: true`, and nothing else), `apps/landing/src/app/layout.tsx`,
+`apps/landing/src/app/page.tsx`. The page renders the site name and nothing else — **no
+content, no copy, no design; that is area 11**, and a placeholder that looks like a
+marketing page invites someone to keep it.
+
+`apps/landing/tsconfig.json` needs `"jsx"`, the `"dom"` lib, and the `"next"` plugin —
+Next's typecheck fails without them. `apps/landing/public/.gitkeep` must exist so the
+Dockerfile's `COPY public` does not fail against a directory that does not exist yet.
 
 Three traps, each of which would otherwise be found the hard way:
 
@@ -599,7 +624,7 @@ if [ ! -f .env ]; then
   # the same values as its own fallbacks, and .env is gitignored. See .env.example
   # for what each name is for.
   cat > .env <<'EOF'
-DATABASE_URI=postgresql://deanpos:deanpos@localhost:5432/DeanPOS_dev
+DATABASE_URI=postgresql://deanpos:deanpos@localhost:5433/DeanPOS_dev
 POSTGRES_USER=deanpos
 POSTGRES_PASSWORD=deanpos
 POSTGRES_DB=DeanPOS_dev
@@ -704,9 +729,9 @@ issues without one, and if expiry notifications are wanted that is area 10 addin
   with it.
 - **No `latest` tag on any image**, and no image tag that is not a git SHA.
 - **No published port on `api`, `landing` or `postgres` in production.** The
-  `5432:5432` publish on `postgres` exists so the host can run the gate and is a
-  local-development affordance; area 10 should remove it in the production
-  configuration.
+  `5433:5432` publish on `postgres` is a local-development affordance so a developer
+  can reach the container's database from the host; area 10 should remove it in the
+  production configuration.
 - **No secret in `docker-compose.yml`, `.env.example`, any Dockerfile, or the
   Caddyfile.**
 - **No apex origin on the CORS allowlist**, and no third caller. Issue 04, tested.

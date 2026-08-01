@@ -7,7 +7,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deanpos}
       POSTGRES_DB: ${POSTGRES_DB:-DeanPOS_dev}
     ports:
-      - "5432:5432"
+      # Published on 5433, not 5432, so the container does not contend with a
+      # developer's local PostgreSQL on 5432 (issue 09). Inside the compose
+      # network services still reach postgres:5432 unchanged.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
