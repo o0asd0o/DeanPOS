@@ -113,6 +113,9 @@ is four different totals.
 
 46. As a developer, I want the entire stack to run locally with Docker Compose and no cloud credentials, so that every test and every lane is honest.
 47. As a developer, I want a documented one-command start from a clean checkout, so that onboarding is not tribal knowledge.
+47a. As a developer, I want one command to run every application at once with hot reload, so that the inner loop is a file save rather than a container rebuild.
+47b. As a developer, I want the development stack to read the PostgreSQL already on my machine, so that I work against the data I have been looking at instead of an empty container volume.
+47c. As a developer, I want the front ends to call the API directly in development via `VITE_API_URL`, with no reverse proxy and no certificate to trust, so that the inner loop has nothing to set up.
 48. As an operator, I want the four origins — landing, terminal, back-office, API — served under one registrable domain with TLS, so that browser storage is isolated while cookies stay same-site.
 49. As an operator, I want CORS configured as an explicit allowlist of the origins that actually call the API, so that a permissive default never ships.
 49a. As an operator, I want a request from a non-allowlisted origin to be refused by an automated test in the gate, so that a permissive default cannot ship green while a reviewer is trusted to remember.
@@ -290,6 +293,30 @@ CORS.
 The registrable domain is **not decided**. The four-origin shape is. Configuration
 must read the domain from an environment variable so that settling it is a config
 change, not a code change.
+
+**Development runs beside the deployment stack, not through it** (added 2026-08-02, issue 09).
+Docker Compose plus Caddy is the right shape for production and the wrong shape for the inner
+loop — a container rebuild between edit and refresh is the cost that makes people stop running
+the thing they are building. So a second, simpler path exists alongside it, copied from the
+sibling project's `vp run -r --parallel dev`: every application serving at once, each on its
+own `localhost` port, with hot reload.
+
+It differs from the deployment stack in exactly three ways, and each one is deliberate:
+
+- **The database is the developer's local PostgreSQL**, `DeanPOS_dev`, read from
+  `DATABASE_URI`. No Docker is required to run it. The Compose `postgres` service stays for the
+  deployment stack and for anyone without a local install.
+- **The API is not proxied.** Both front ends read `VITE_API_URL` and call it directly — in
+  production that points at `https://api.<domain>` behind Caddy, in development at
+  `http://localhost:<port>` behind nothing. This replaces the `VITE_APP_DOMAIN`-derived base
+  URL that issue 06 left as an acknowledged placeholder.
+- **No TLS and no certificate to trust**, because nothing in the inner loop needs one.
+
+**How development origins reach the API is an open question, not a licence to widen the
+allowlist.** The CORS allowlist is exactly `pos.` and `admin.` on the registrable domain, it is
+asserted by a test, and security criterion 1 stands: a wildcard, or an origin echoed from the
+request, fails review. Admitting a development origin without weakening the production default
+is routed to the `decider` before any code assumes an answer.
 
 ## Testing Decisions
 
