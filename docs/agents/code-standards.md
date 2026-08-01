@@ -64,6 +64,16 @@ features/   the actual UI and logic, in one folder per capability.
 - **Explanations of the language.** The reader knows what `async` does.
 - **A docstring on every function because every function has one.** Document the surprising parameter, not the obvious three.
 
+**Hard ceiling: three lines.** No comment in this repository may exceed three lines, and no
+file may carry a multi-paragraph block comment. If what you have to say does not fit, it does
+not belong in the file — put it in the `.scratch/decisions/` record, the ADR, or the issue,
+and leave one line here pointing at it. A path is not a lesser comment than a paragraph; it is
+a better one, because it stays true when the reasoning changes.
+
+**Prefer no comment at all.** The bar is not "is this true and useful" — it is "would the next
+maintainer lose something real if I deleted this". Most comments fail that. Reach for a clearer
+name or a smaller function first.
+
 **Style:** plain sentences, the vocabulary from the project's glossary, and no hedging. Prefer one specific line over three general ones. If the comment is longer than the code it explains, the code needs restructuring, not prose.
 
 A useful test before you keep a comment: **delete it and re-read the code.** If nothing was lost, it was noise.
