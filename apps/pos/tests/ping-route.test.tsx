@@ -27,7 +27,9 @@ describe("the terminal shell's ping route", () => {
     expect(container.querySelector("header")?.textContent).toBe("DeanPOS");
     expect(container.querySelectorAll("main")).toHaveLength(1);
     expect(container.querySelector("main")?.id).toBe("main-content");
-    expect(screen.getByText("pong")).toBeTruthy();
+
+    const { message } = await db.selectFrom("Ping").select("message").executeTakeFirstOrThrow();
+    expect(screen.getByText(message)).toBeTruthy();
 
     await expectNoAxeViolations(container);
   });

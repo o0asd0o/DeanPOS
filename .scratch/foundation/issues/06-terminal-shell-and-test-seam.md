@@ -80,6 +80,13 @@ _Sliced from `.scratch/foundation/PRD.md` (stories 8, 13, 17, 28, 32–34, 36, 3
 licence criterion that used to open this issue was removed 2026-08-01: `vp` is installed and
 catalog-pinned (ADR-0001 amendment)._
 
+**2026-08-02 — fixer, two should-fix findings applied.** Trimmed the three over-ceiling
+block comments in `apps/api/src/test-seam-react.tsx` to ≤3 lines each, pointing at
+`.scratch/decisions/008`. Strengthened `apps/pos/tests/ping-route.test.tsx` to read the
+seeded `message` via the `db` handle instead of asserting the literal `"pong"`; proved it
+bites by rendering a hardcoded string in `Ping.tsx`, watching the test fail, then reverting.
+Gate green, `apps/pos` reports 3 tests.
+
 ## Carried forward from issue 05
 
 The Tailwind 4 preset wiring is **not yet proven by anything committed.** Issue 05 verified it

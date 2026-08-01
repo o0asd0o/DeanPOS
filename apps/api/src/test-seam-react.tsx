@@ -19,32 +19,9 @@ afterEach(cleanup);
 
 export { fireEvent, screen, waitFor, within };
 
-/**
- * The render half of the one test seam (server half: ./test-seam.ts).
- *
- * Renders `router` — a router your own app already built in its own
- * `src/router.tsx`, real routeTree and all — wired to a fresh, test-scoped
- * TanStack Query client whose oRPC client dispatches into the Hono
- * application in-process via `app.request()`, backed by the lane database.
- * No HTTP port, no mocked client, no mock of anything DeanPOS owns.
- *
- * The test-scoped `QueryClient` is built with `retry: false`, so a query
- * against a deliberately-broken database surfaces its error state in one
- * tick instead of retrying three times and timing the test out. It is
- * injected through TanStack Router's render-time `context` override, not by
- * rebuilding the router, so the router under test is byte-identical to the
- * one that ships.
- *
- * Usage, unchanged for every area that has a router:
- *
- *   import { renderRoute } from "api/src/test-seam-react.tsx";
- *   import { router } from "../src/router.tsx";
- *
- *   const { container, db } = renderRoute({ router });
- *
- * `options` also accepts `databaseUrl`/`appDomain` overrides, passed through
- * to `createTestSeam` — see ./test-seam.ts.
- */
+// The render half of the one test seam (server half: ./test-seam.ts).
+// Public surface, `retry: false` rationale, and usage: .scratch/decisions/008,
+// "The seam helper's public surface".
 export function renderRoute<TRouter extends AnyRouter>(
   options: { router: TRouter } & TestSeamOptions,
 ): { container: HTMLElement; db: ReturnType<typeof createTestSeam>["db"] } {
@@ -67,13 +44,8 @@ export function renderRoute<TRouter extends AnyRouter>(
   return { container, db: seam.db };
 }
 
-/**
- * Runs axe-core's WCAG 2.2 AA rule set against `container`. `color-contrast`
- * is the only disabled rule: no virtual DOM has a layout or a Range API to
- * sample rendered pixels with, so contrast is covered instead by
- * packages/ui/tests/contrast.test.ts over the token pairs. No other rule may
- * be disabled without a new .scratch/decisions/ record.
- */
+// Runs axe's WCAG 2.2 AA rule set against `container`. Disabled-rule list
+// and rationale: .scratch/decisions/008, "The accessibility assertion".
 export async function expectNoAxeViolations(container: Element): Promise<void> {
   const results = await axe.run(container, {
     runOnly: {
@@ -95,12 +67,8 @@ function collectFiles(dir: string): string[] {
   });
 }
 
-/**
- * The devDependency boundary, enforced rather than reviewed: no file under
- * an application's `src/` may import `api`, `backend`, `hono`, or
- * `@orpc/server` — those reach the seam and only the seam.
- * .scratch/decisions/006, made executable by .scratch/decisions/008.
- */
+// The devDependency boundary, enforced rather than reviewed.
+// .scratch/decisions/006, made executable by .scratch/decisions/008.
 export function assertNoServerImports(srcDir: string): void {
   const offenders = collectFiles(srcDir)
     .filter((filePath) => /\.tsx?$/.test(filePath))
