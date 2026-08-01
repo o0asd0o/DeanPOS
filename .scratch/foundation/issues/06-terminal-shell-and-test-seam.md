@@ -79,3 +79,22 @@ spacing, colour, and type come from `packages/ui`.
 _Sliced from `.scratch/foundation/PRD.md` (stories 8, 13, 17, 28, 32–34, 36, 37, 39). The Vite+
 licence criterion that used to open this issue was removed 2026-08-01: `vp` is installed and
 catalog-pinned (ADR-0001 amendment)._
+
+## Carried forward from issue 05
+
+The Tailwind 4 preset wiring is **not yet proven by anything committed.** Issue 05 verified it
+in a throwaway scratch app, then threw the app away — correctly, since no consuming app existed
+there. This issue is the first real consumer and inherits the burden.
+
+Exercise it rather than assume it: that `packages/ui/src/theme.css` imported by **relative**
+path gives the app its tokens with **zero** app-specific Tailwind configuration, that `@source`
+resolves relative to `theme.css` so class detection travels with the import, and that the
+`touch-min` / `target-min` utilities and the global `@layer base { :focus-visible }` rule
+actually emit. `.scratch/decisions/007-shared-ui-dependency-set.md` documents a one-line
+fallback for each of these three, so a failure is recoverable — but a silent failure would mean
+the shell renders unstyled and every later screen inherits the problem.
+
+Note also that `packages/ui` deliberately ships **only** `button` and `sheet`. If this shell
+genuinely cannot be built without a third primitive, that is worth reporting rather than
+quietly adding one — it would mean issue 05 mis-scoped, and the next area is supposed to
+install what it needs.

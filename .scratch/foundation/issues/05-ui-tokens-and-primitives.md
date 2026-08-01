@@ -1,6 +1,6 @@
 # 05 — `packages/ui`: tokens, Tailwind preset, primitives
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -78,3 +78,47 @@ ring instead — breaching both the token-focus-indicator criterion and record 0
 all four classes from the base and destructive `cva` strings; nothing else in the file
 changed. Gate: `vp check`, `vp run -r check`, `vp run -r test` all pass, `packages/ui` still
 18 tests.
+
+---
+
+**Closed by the pipeline.** One review round used (REVISE on a blocking finding, then PASS on
+both axes). Gate green cold in the lane after the rebase and again on `main`. Merged at
+`6d4650e`. Lane database dropped at close.
+
+**The blocking finding was an accessibility defect, not a style nit.** `button.tsx` kept
+shadcn's stock `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`. In
+Tailwind 4 `outline-none` sits in the utilities layer and beats the `@layer base`
+`:focus-visible` rule, so a focused button rendered a 3px box-shadow ring instead of the 2px
+token outline — `--color-ring` (`#000000`) at **50% alpha** composited over
+`--color-primary` (`#1d4ed8`), dark blue on dark blue, judged well under 3:1. Nothing in the
+repository measured it: the contrast test asserts the **opaque** `ring`/`primary` pairing, and
+axe cannot evaluate box-shadow contrast in a virtual DOM. Stripping four classes from
+`button.tsx` closed all four findings at once — the indicator is now an opaque 2px outline at
+2px offset, which renders on the surface *behind* the button and is covered by the declared
+`ring`/`background` and `ring`/`primary` pairings.
+
+This matters past one component: `button` is the first primitive, and every later area copies
+its shape. A per-component focus opt-in is one eleven areas would have inherited.
+
+**Decision made during this issue:** `.scratch/decisions/007-shared-ui-dependency-set.md` —
+**Stakes: high.** Fixes Tailwind 4.3.3 and how a "preset both applications extend" is
+expressed when v4 has no `presets` array (a shared `theme.css` `@theme` block imported by
+relative path, so `@source` resolution travels with it); shadcn via `--base radix` rather than
+the newer Base UI default; the two-primitive limit; token **names** (values left to this
+issue); `--min-target-size: 24px` (WCAG 2.2 SC 2.5.8, AA) and `--min-touch-size: 44px`
+(SC 2.5.5, AAA) in `px` not `rem`; a dependency-free contrast test; and **React 19.2.8**,
+which no manifest had declared until now. It also grants a narrow exemption to code-standards
+rule 2 for CLI-generated files under `packages/ui/src/components/`, since splitting them
+destroys the reviewable-regeneration diff that is the point of vendoring.
+
+**Tokens must stay six-digit sRGB hex** — never shadcn's default OKLCH — because the contrast
+test parses `theme.css` directly and cannot read it. The test also fails if any `--color-*`
+token appears in no pairing, so an untested token cannot ship. 14 pairings declared, all
+passing; `ring`/`primary` at 3.13 has near-zero headroom above the 3:1 threshold, which is
+correct today and will fail loudly if `--color-primary` is ever lightened.
+
+**Obligation carried forward to issue 06:** the Tailwind preset wiring — `@source` resolving
+relative to `theme.css`, `@utility` surviving an import, non-namespaced `@theme` emission —
+was verified only in a throwaway scratch app that was not committed. Issue 06 is the first
+real consumer and inherits that verification burden; its shell test should exercise the shared
+`@import` and the `touch-min`/`target-min` utilities rather than assume the wiring works.
