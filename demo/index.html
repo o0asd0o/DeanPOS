@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeanPOS · Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,system-ui,sans-serif;background:#F1F1EF;color:#1E1E1E;
+  min-height:100vh;display:grid;place-items:center;padding:24px}
+.wrap{width:min(760px,100%)}
+h1{font-size:30px;font-weight:800;letter-spacing:-.03em}
+p{color:#8A8A85;margin-top:6px;font-size:14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px}
+a{display:block;background:#fff;border-radius:22px;padding:24px;text-decoration:none;color:inherit;
+  box-shadow:0 1px 2px rgba(30,30,30,.04),0 8px 24px rgba(30,30,30,.05);transition:transform .15s}
+a:hover{transform:translateY(-2px)}
+a b{font-size:18px;font-weight:800;display:block}
+a span{font-size:13px;color:#8A8A85;display:block;margin-top:6px;line-height:1.5}
+.dot{width:11px;height:11px;border-radius:4px;background:#35CCA6;display:inline-block;margin-bottom:12px}
+.dot.r{background:#E14A77}
+small{display:block;margin-top:24px;color:#B4B3B8;font-size:12px}
+@media(max-width:640px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DeanPOS</h1>
+  <p>Contract demo — clickable shells built from the lo-fi mocks. Static, no backend, fake data.</p>
+  <div class="row">
+    <a href="backoffice.html"><i class="dot"></i><b>Back-office →</b>
+      <span>Sales summary, orders drill-down, catalog, drawer sessions, devices. Desktop 1440.</span></a>
+    <a href="pos.html"><i class="dot r"></i><b>Terminal →</b>
+      <span>Sale grid, modifiers &amp; add-ons, payment, receipt. Tablet landscape 1280.</span></a>
+  </div>
+  <small>Structure and order come from <code>design/lofi</code>. Colour, type and states are the theme, not the mocks.</small>
+</div>
+</body>
+</html>

@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeanPOS · Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --aqua:#35CCA6; --aqua-soft:#E4F7F1; --rose:#E14A77; --rose-soft:#FCE7EE;
+  --ink:#1E1E1E;
+  --bg:#F1F1EF; --surface:#FFFFFF; --surface-2:#F7F7F5;
+  --line:#E7E7E3; --text:#1E1E1E; --muted:#8A8A85; --faint:#B4B3B8;
+  --r-lg:22px; --r-md:14px;
+  --shadow:0 1px 2px rgba(30,30,30,.04), 0 8px 24px rgba(30,30,30,.05);
+}
+[data-theme="dark"]{
+  --bg:#141414; --surface:#1E1E1E; --surface-2:#252525;
+  --line:#2E2E2E; --text:#F2F2F0; --muted:#8F8F8A; --faint:#6A6A66;
+  --aqua-soft:#14352C; --rose-soft:#3A1626;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.mono{font-variant-numeric:tabular-nums}
+
+.app{height:100vh;display:flex;flex-direction:column;gap:12px;padding:12px}
+
+/* ---------- top bar ---------- */
+.top{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r-lg);
+  padding:10px 14px;box-shadow:var(--shadow);flex:none}
+.mark{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;
+  font-weight:800;font-size:13px;flex:none}
+[data-theme="dark"] .mark{background:var(--aqua);color:#0B231C}
+.brand b{font-weight:800;letter-spacing:-.02em}
+.brand span{color:var(--muted);font-weight:600}
+.top .sp{flex:1}
+.status{display:flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;font-size:12px;font-weight:700;
+  background:var(--rose-soft);color:var(--rose);cursor:pointer}
+.status.on{background:var(--aqua-soft);color:#1B8368}
+[data-theme="dark"] .status.on{color:var(--aqua)}
+.status i{width:7px;height:7px;border-radius:50%;background:currentColor;display:block}
+.who{display:flex;align-items:center;gap:9px;background:var(--surface-2);border-radius:999px;padding:5px 6px 5px 5px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--aqua);color:#0B231C;display:grid;place-items:center;
+  font-weight:800;font-size:12px}
+.who b{font-size:12.5px}
+.who .lock{padding:6px 13px;border-radius:999px;background:var(--surface);font-size:12px;font-weight:700}
+.themer{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:999px}
+.themer button{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted)}
+.themer button.on{background:var(--surface-2);color:var(--text)}
+
+/* ---------- screens ---------- */
+.screen{display:none;flex:1;min-height:0}
+.screen.on{display:flex;gap:12px}
+
+/* sale */
+.left{flex:1;min-width:0;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);
+  padding:16px;display:flex;flex-direction:column;gap:12px}
+.cats{display:flex;gap:8px;overflow-x:auto;padding:6px;background:var(--surface-2);border-radius:999px;flex:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{padding:9px 18px;border-radius:999px;font-size:13.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+.cat.on{background:var(--ink);color:#fff}
+[data-theme="dark"] .cat.on{background:var(--aqua);color:#0B231C}
+.search{display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:999px;padding:10px 16px;flex:none}
+.search input{border:0;background:none;outline:none;width:100%;font-size:14px}
+.search input::placeholder{color:var(--faint)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;overflow-y:auto;
+  padding-right:4px;align-content:start;flex:1}
+.grid::-webkit-scrollbar{width:6px}
+.grid::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.card{border:1px solid var(--line);border-radius:18px;padding:14px;text-align:left;min-height:118px;
+  display:flex;flex-direction:column;justify-content:space-between;transition:transform .12s,border-color .12s}
+.card:active{transform:scale(.97)}
+.card:hover{border-color:var(--faint)}
+.card .nm{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.card .cat{padding:0;font-size:11px;color:var(--muted);font-weight:600;background:none}
+.card .pr{font-weight:800;font-size:15px;color:var(--text)}
+.card .vr{font-size:11px;color:var(--muted);font-weight:600}
+.card.out{opacity:.5;cursor:not-allowed;border-style:dashed}
+.card.out:active{transform:none}
+.soldout{font-size:11px;font-weight:800;color:var(--rose);letter-spacing:.06em}
+.thumb{width:34px;height:34px;border-radius:11px;background:var(--aqua-soft);display:grid;place-items:center;
+  font-size:16px;margin-bottom:10px}
+
+/* cart */
+.cart{width:340px;flex:none;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);
+  padding:16px;display:flex;flex-direction:column}
+.cart h2{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.cart .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.lines{flex:1;overflow-y:auto;margin:14px -4px 0;padding:0 4px;min-height:0}
+.lines::-webkit-scrollbar{width:6px}
+.lines::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.line{padding:11px 0;border-bottom:1px solid var(--line)}
+.line .r1{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:13.5px}
+.line .mod{font-size:11.5px;color:var(--muted);padding-left:10px;display:flex;justify-content:space-between}
+.line .rm{font-size:11px;color:var(--rose);font-weight:700;margin-top:5px}
+.empty{color:var(--faint);font-size:13px;text-align:center;padding:40px 10px}
+.totals{padding-top:12px;margin-top:8px;border-top:1px dashed var(--line);flex:none}
+.tl{display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:var(--muted)}
+.tl b{color:var(--text)}
+.tl.big{font-size:19px;font-weight:800;color:var(--text);padding-top:8px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;flex:none}
+.btn{padding:13px;border-radius:14px;font-weight:700;font-size:13.5px;border:1px solid var(--line);text-align:center}
+.btn:hover{background:var(--surface-2)}
+.btn.pay{grid-column:1/-1;background:var(--ink);color:#fff;border-color:var(--ink);font-size:16px;padding:16px}
+[data-theme="dark"] .btn.pay{background:var(--aqua);color:#0B231C;border-color:var(--aqua)}
+.btn.pay:hover{opacity:.92;background:var(--ink)}
+[data-theme="dark"] .btn.pay:hover{background:var(--aqua)}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+.btn[disabled]:hover{background:var(--ink)}
+
+/* payment */
+.pane{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:22px;overflow-y:auto}
+.pane.l{flex:1;min-width:0}
+.pane.r{width:360px;flex:none}
+.lbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.due{font-size:40px;font-weight:800;letter-spacing:-.03em;margin-top:4px}
+.tender{display:flex;align-items:baseline;gap:8px;margin-top:6px;padding:14px 18px;border:1px solid var(--line);
+  border-radius:16px;font-size:28px;font-weight:800}
+.tender span{font-size:18px;color:var(--muted)}
+.quick{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
+.quick button{padding:14px 6px;border:1px solid var(--line);border-radius:14px;font-weight:700;font-size:14px}
+.quick button:hover{border-color:var(--ink)}
+.pads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;max-width:320px}
+.pads button{padding:16px;border:1px solid var(--line);border-radius:14px;font-weight:700;font-size:17px}
+.pads button:active{background:var(--surface-2)}
+.methods{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.m{padding:11px 20px;border:1px solid var(--line);border-radius:999px;font-weight:700;font-size:13.5px}
+.m.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+[data-theme="dark"] .m.on{background:var(--aqua);color:#0B231C;border-color:var(--aqua)}
+.note{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--surface-2);font-size:11.5px;
+  color:var(--muted);line-height:1.6}
+.change{margin-top:14px;padding:16px 18px;border-radius:18px;background:var(--aqua-soft)}
+.change .v{font-size:28px;font-weight:800;letter-spacing:-.02em;color:#1B8368}
+[data-theme="dark"] .change .v{color:var(--aqua)}
+.rl{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.rl.ind{padding-left:14px;color:var(--muted);font-size:12px}
+.rl.tot{font-weight:800;font-size:18px;padding-top:8px}
+hr{border:0;border-top:1px dashed var(--line);margin:10px 0}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(20,20,20,.45);display:none;place-items:center;padding:20px;z-index:20;
+  backdrop-filter:blur(2px)}
+.scrim.on{display:grid}
+.modal{background:var(--surface);border-radius:26px;padding:22px;width:min(520px,100%);max-height:90vh;overflow-y:auto;
+  box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.modal h2{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.modal .bc{font-size:11.5px;color:var(--muted);font-weight:600}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border:1px solid var(--line);
+  border-radius:14px;margin-top:8px;width:100%;font-weight:600;font-size:14px;text-align:left}
+.opt.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+[data-theme="dark"] .opt.on{border-color:var(--aqua);box-shadow:inset 0 0 0 1px var(--aqua)}
+.opt .d{color:var(--muted);font-weight:600;font-size:12.5px}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);font-weight:800;line-height:1}
+.step button[disabled]{opacity:.3;cursor:not-allowed}
+.step .n{width:24px;text-align:center;font-weight:800}
+.max{font-size:11px;color:var(--faint);font-weight:600;width:44px;text-align:right}
+.grp{margin-top:18px}
+.grp .t{font-size:12.5px;font-weight:700}
+.grp .h{font-size:11.5px;color:var(--muted)}
+.modal .acts{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:20px}
+
+/* receipt screen */
+.done{flex:1;display:grid;place-items:center}
+.slip{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:28px;width:min(460px,100%)}
+.tick{width:46px;height:46px;border-radius:50%;background:var(--aqua);color:#0B231C;display:grid;place-items:center;
+  font-size:22px;font-weight:800;margin-bottom:14px}
+.slip h2{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.slip .meta{font-size:12px;color:var(--muted);margin-top:2px}
+.slip .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+
+@media(max-width:900px){
+  .screen.on{flex-direction:column}
+  .cart,.pane.r{width:auto}
+  .quick{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <div class="mark">D</div>
+    <div class="brand"><b>DeanPOS</b> <span>· Malabon · Counter 2</span></div>
+    <div class="sp"></div>
+    <span style="font-size:11px;color:var(--faint);font-weight:600">build 3</span>
+    <button class="status" id="net"><i></i><span>OFFLINE · 3 queued</span></button>
+    <div class="themer">
+      <button class="on" data-theme-set="light">☀</button>
+      <button data-theme-set="dark">☾</button>
+    </div>
+    <div class="who"><div class="av">A</div><b>Ana (cashier)</b><span class="lock">Lock</span></div>
+  </div>
+
+  <!-- ============ SALE ============ -->
+  <section class="screen on" id="s-sale">
+    <div class="left">
+      <div class="cats" id="cats"></div>
+      <div class="search"><span style="color:var(--faint)">⌕</span><input id="q" placeholder="Search menu…"></div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="cart">
+      <h2>Order C2-0421</h2>
+      <div class="sub">Device-assigned · session 07-31 06:58 · Ana</div>
+      <div class="lines" id="lines"></div>
+      <div class="totals" id="totals"></div>
+      <div class="acts">
+        <button class="btn" id="clear">Clear</button>
+        <button class="btn">Manager</button>
+        <button class="btn pay" id="topay" disabled>PAY ₱0.00</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PAYMENT ============ -->
+  <section class="screen" id="s-pay">
+    <div class="pane l">
+      <div class="lbl">Amount due</div>
+      <div class="due mono" id="due">₱0.00</div>
+
+      <div style="margin-top:20px" class="lbl">Tendered</div>
+      <div class="tender"><span>₱</span><span class="mono" id="tend">0</span></div>
+      <div class="quick">
+        <button data-t="10000">₱100</button><button data-t="20000">₱200</button>
+        <button data-t="50000">₱500</button><button data-t="100000">₱1000</button>
+        <button data-t="exact">Exact</button>
+      </div>
+      <div class="pads">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="00">00</button><button data-k="0">0</button><button data-k="del">⌫</button>
+      </div>
+
+      <div class="change"><div class="lbl">Change</div><div class="v mono" id="chg">₱0.00</div></div>
+
+      <div style="margin-top:22px" class="lbl">Payment method — this tenant's configured list</div>
+      <div class="methods" id="methods">
+        <button class="m on" data-m="Cash">Cash</button>
+        <button class="m" data-m="GCash">GCash</button>
+        <button class="m" data-m="Maya">Maya</button>
+        <button class="m" data-m="Card">Card</button>
+      </div>
+      <div class="note">A recorded tender records an amount and authorises nothing — no gateway, no QR, no settlement.
+      Only cash asks for a tendered amount and computes change. A cash-only tenant — the default — sees no chooser at all.</div>
+    </div>
+
+    <div class="pane r">
+      <div class="lbl">Order summary (read-only)</div>
+      <div id="paysum" style="margin-top:10px"></div>
+      <div class="acts" style="display:grid;gap:8px;margin-top:18px">
+        <button class="btn pay" id="complete" disabled>COMPLETE SALE</button>
+        <button class="btn" id="back">Back to order</button>
+      </div>
+      <div class="note">Cash below the total cannot complete — the primary action is disabled, not warned after.
+      COMPLETE SALE is idempotent on the order UUID: a double tap yields one sale. Back to order returns to the cart
+      with the basket intact — it is not a void.</div>
+    </div>
+  </section>
+
+  <!-- ============ RECEIPT ============ -->
+  <section class="screen" id="s-done">
+    <div class="done">
+      <div class="slip">
+        <div class="tick">✓</div>
+        <h2>Sale complete</h2>
+        <div class="meta" id="rmeta">Order C2-0421 · 2026-07-31 12:41 · Malabon · Counter 2 · Ana</div>
+        <hr>
+        <div id="rlines"></div>
+        <hr>
+        <div id="rtot"></div>
+        <div class="note">On-screen only — there is no printer in v1. VAT is backed out of the total, never added,
+        and only when the tenant is VAT-registered. A non-VAT tenant's receipt has no VAT line at all.</div>
+        <div class="acts">
+          <button class="btn">Void order (manager)</button>
+          <button class="btn">Refund (manager)</button>
+          <button class="btn pay" id="neworder">NEW ORDER</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ MODIFIER / ADD-ON MODAL ============ -->
+<div class="scrim" id="scrim">
+  <div class="modal">
+    <div class="bc" id="mbc">Ulam › Adobo</div>
+    <h2 id="mtitle">Adobo ₱120</h2>
+
+    <div class="grp" id="mgroups"></div>
+
+    <div class="grp">
+      <div class="t">Quantity</div>
+      <div class="opt" style="justify-content:flex-end">
+        <div class="step">
+          <button id="qminus">−</button><span class="n" id="qty">1</span><button id="qplus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="acts">
+      <button class="btn" id="mcancel">Cancel</button>
+      <button class="btn pay" id="madd">Add to order ₱0.00</button>
+    </div>
+    <div class="note">A required group cannot be skipped — the primary action stays disabled until it is satisfied.
+    Add-on quantity is bounded by its configured max: the stepper stops, it does not warn. A Variant with no modifier
+    groups and no add-ons skips this modal entirely.</div>
+  </div>
+</div>
+
+<script>
+// money is integer centavos, PHP, never a float. millicentavos for deltas.
+const peso = c => '₱' + (c / 100).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const VAT_ON = true, VAT_RATE = 0.12;
+
+const SIZE = {name: 'Size', rule: 'required-one', opts: [
+  {n: 'Whole', mult: 1.0}, {n: 'Half', mult: 0.5}]};
+const ADDONS = [{n: 'Extra rice', d: 1500, max: 3}, {n: 'Itlog', d: 2000, max: 2}];
+
+// price lives on the Variant. A MenuItem is a concept and is never sold directly.
+const v = (n, price, out) => ({n, price, out});
+const MENU = [
+  {n: 'Ulam',       c: 'Ulam',   e: '🍲', mods: [SIZE], addons: ADDONS, vs: [
+    v('Adobo', 12000), v('Munggo', 11000), v('Menudo', 13000), v('Bistek', 14000), v('Ginataan', 11500),
+    v('Kaldereta', 14500), v('Sisig', 15000), v('Tinola', 12000), v('Pinakbet', 13000, true)]},
+  {n: 'Pancit',     c: 'Ulam',   e: '🍜', mods: [SIZE], addons: ADDONS, vs: [v('Bihon', 9000), v('Canton', 9500)]},
+  {n: 'Lumpia',     c: 'Ulam',   e: '🥟', addons: ADDONS, vs: [v('Lumpia', 6000)]},
+  {n: 'Halo-halo',  c: 'Ulam',   e: '🍧', vs: [v('Special', 9000, true), v('Regular', 7000, true)]},
+  {n: 'Rice',       c: 'Rice',   e: '🍚', vs: [v('Rice', 1500)]},
+  {n: 'Java rice',  c: 'Rice',   e: '🍛', vs: [v('Java rice', 2500)]},
+  {n: 'Softdrinks', c: 'Drinks', e: '🥤', vs: [v('Coke', 3500), v('Sprite', 3500), v('Royal', 3500), v('Coke Zero', 4000)]},
+  {n: 'Water',      c: 'Drinks', e: '💧', vs: [v('Water', 2000)]},
+  {n: 'Iced tea',   c: 'Drinks', e: '🧋', vs: [v('Iced tea', 3000)]},
+  {n: 'Itlog',      c: 'Sides',  e: '🥚', vs: [v('Itlog', 2000)]},
+  {n: 'Atchara',    c: 'Sides',  e: '🥗', vs: [v('Atchara', 1500)]},
+  {n: 'Turon',      c: 'Extras', e: '🍌', vs: [v('Turon', 1500)]},
+];
+const CATS = ['All', 'Ulam', 'Rice', 'Drinks', 'Sides', 'Extras'];
+
+let cat = 'All', query = '', cart = [], draft = null, drill = null, tendered = 0, method = 'Cash';
+
+/* ---------- grid ---------- */
+const $ = id => document.getElementById(id);
+
+$('cats').innerHTML = CATS.map(c => `<button class="cat${c === cat ? ' on' : ''}" data-c="${c}">${c}</button>`).join('');
+// choosing a category also exits the drill-down
+$('cats').onclick = e => {
+  const b = e.target.closest('.cat'); if (!b) return;
+  cat = b.dataset.c; drill = null;
+  $('cats').querySelectorAll('.cat').forEach(x => x.classList.toggle('on', x === b));
+  drawGrid();
+};
+$('q').oninput = e => { query = e.target.value.toLowerCase(); drill = null; drawGrid(); };
+
+const sellable = m => m.vs.filter(x => !x.out);
+const tile = (label, sub, price, out, attr) => `
+  <button class="card${out ? ' out' : ''}" ${attr} ${out ? 'disabled' : ''}>
+    <div><div class="thumb">${label.e || ''}</div><div class="nm">${label.n}</div><div class="vr">${sub}</div></div>
+    ${out ? '<div class="soldout">SOLD OUT</div>' : `<div class="pr">${price}</div>`}
+  </button>`;
+
+function drawGrid() {
+  // drill-down replaces the tile grid in place — same grid, one level down
+  if (drill) {
+    $('grid').innerHTML =
+      `<button class="card" data-up="1" style="min-height:auto;justify-content:center">
+         <div class="nm">‹ ${drill.n}</div><div class="vr">choose a variant</div></button>` +
+      drill.vs.map((x, i) => tile({n: x.n, e: drill.e}, drill.n, peso(x.price), x.out, `data-v="${i}"`)).join('');
+    return;
+  }
+  const rows = MENU.filter(m => (cat === 'All' || m.c === cat) && m.n.toLowerCase().includes(query));
+  $('grid').innerHTML = rows.map(m => {
+    const ok = sellable(m), ps = ok.map(x => x.price);
+    const range = !ps.length ? '' : Math.min(...ps) === Math.max(...ps)
+      ? peso(ps[0]) : peso(Math.min(...ps)) + '–';
+    const sub = m.vs.length > 1 ? `${m.vs.length} variants` : m.c;
+    return tile(m, sub, range, !ok.length, `data-i="${MENU.indexOf(m)}"`);
+  }).join('');
+}
+$('grid').onclick = e => {
+  const b = e.target.closest('.card'); if (!b || b.disabled) return;
+  if (b.dataset.up) { drill = null; return drawGrid(); }
+  if (b.dataset.v) return openItem(drill, drill.vs[+b.dataset.v]);
+  const m = MENU[+b.dataset.i], ok = sellable(m);
+  // a MenuItem with exactly one Variant skips the drill-down entirely
+  if (ok.length === 1) return openItem(m, ok[0]);
+  drill = m; drawGrid();
+};
+
+/* ---------- modal ---------- */
+function openItem(m, vr) {
+  // no modifier groups and no add-ons: straight to the cart
+  if (!m.mods && !m.addons) { cart.push({name: vr.n, base: vr.price, qty: 1, addons: []}); return drawCart(); }
+  draft = {m, vr, size: null, addons: m.addons ? m.addons.map(a => ({...a, q: 0})) : [], qty: 1};
+  $('mbc').textContent = m.n + ' › ' + vr.n;
+  $('mtitle').textContent = vr.n + '  ' + peso(vr.price);
+  drawModal();
+  $('scrim').classList.add('on');
+}
+function drawModal() {
+  const d = draft, m = d.m;
+  let h = '';
+  if (m.mods) for (const g of m.mods) {
+    h += `<div class="t">${g.name} — choose exactly one (required)</div>`;
+    h += g.opts.map(o => `<button class="opt${d.size === o.n ? ' on' : ''}" data-size="${o.n}">
+      <span>${d.size === o.n ? '◉' : '○'} &nbsp;${o.n}</span><span class="d">×${o.mult.toFixed(1)}</span></button>`).join('');
+  }
+  if (d.addons.length) {
+    h += `<div class="t" style="margin-top:18px">Add-ons — optional, up to each item's max</div>`;
+    h += d.addons.map((a, i) => `<div class="opt">
+      <span>${a.q ? '☑' : '☐'} &nbsp;${a.n}</span>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span class="d">+${peso(a.d)}</span>
+        <span class="step">
+          <button data-a="${i}" data-s="-1" ${a.q === 0 ? 'disabled' : ''}>−</button>
+          <span class="n">${a.q}</span>
+          <button data-a="${i}" data-s="1" ${a.q >= a.max ? 'disabled' : ''}>+</button>
+        </span>
+        <span class="max">max ${a.max}</span>
+      </span></div>`).join('');
+  }
+  $('mgroups').innerHTML = h;
+  $('qty').textContent = d.qty;
+  $('qminus').disabled = d.qty <= 1;
+  const ok = !m.mods || d.size;
+  $('madd').disabled = !ok;
+  $('madd').textContent = 'Add to order ' + peso(ok ? draftTotal() : 0);
+}
+function draftTotal() {
+  const d = draft, mult = d.size ? d.m.mods[0].opts.find(o => o.n === d.size).mult : 1;
+  // millicentavos: the multiplier survives composition unrounded, collapsed once at the line total
+  const mc = d.vr.price * 1000 * mult + d.addons.reduce((s, a) => s + a.d * 1000 * a.q, 0);
+  return Math.round(mc / 1000) * d.qty;
+}
+$('mgroups').onclick = e => {
+  const s = e.target.closest('[data-size]'), a = e.target.closest('[data-a]');
+  if (s) draft.size = s.dataset.size;
+  if (a && !a.disabled) draft.addons[+a.dataset.a].q += +a.dataset.s;
+  if (s || a) drawModal();
+};
+$('qplus').onclick = () => { draft.qty++; drawModal(); };
+$('qminus').onclick = () => { draft.qty--; drawModal(); };
+$('mcancel').onclick = () => $('scrim').classList.remove('on');
+$('scrim').onclick = e => { if (e.target === $('scrim')) $('scrim').classList.remove('on'); };
+$('madd').onclick = () => {
+  const d = draft;
+  cart.push({
+    name: d.vr.n + (d.size ? ' · ' + d.size : ''),
+    base: Math.round(draftTotal() / d.qty),
+    qty: d.qty,
+    addons: d.addons.filter(a => a.q).map(a => ({n: a.n, q: a.q, d: a.d})),
+  });
+  $('scrim').classList.remove('on');
+  drawCart();
+};
+
+/* ---------- cart ---------- */
+const lineTotal = l => l.base * l.qty;
+const subtotal = () => cart.reduce((s, l) => s + lineTotal(l), 0);
+
+function drawCart() {
+  $('lines').innerHTML = cart.length ? cart.map((l, i) => `
+    <div class="line">
+      <div class="r1"><span>${l.name} ×${l.qty}</span><span class="mono">${peso(lineTotal(l))}</span></div>
+      ${l.addons.map(a => `<div class="mod"><span>+ ${a.n} ×${a.q * l.qty}</span></div>`).join('')}
+      <button class="rm" data-rm="${i}">Remove</button>
+    </div>`).join('')
+    : `<div class="empty">Tap an item to start the order.<br>Search filters tiles in place — there is no results screen.</div>`;
+
+  const sub = subtotal();
+  const vat = VAT_ON ? Math.round(sub - sub / (1 + VAT_RATE)) : 0;
+  $('totals').innerHTML = `
+    <div class="tl"><span>Subtotal</span><b class="mono">${peso(sub)}</b></div>
+    ${VAT_ON ? `<div class="tl"><span>VAT included (12%)</span><span class="mono">${peso(vat)}</span></div>` : ''}
+    <div class="tl big"><span>TOTAL</span><span class="mono">${peso(sub)}</span></div>`;
+  $('topay').textContent = 'PAY ' + peso(sub);
+  $('topay').disabled = !cart.length;
+}
+$('lines').onclick = e => {
+  const b = e.target.closest('[data-rm]'); if (!b) return;
+  cart.splice(+b.dataset.rm, 1); drawCart();
+};
+$('clear').onclick = () => { cart = []; drawCart(); };
+
+/* ---------- payment ---------- */
+const show = id => document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+
+$('topay').onclick = () => { tendered = 0; drawPay(); show('s-pay'); };
+$('back').onclick = () => show('s-sale');
+
+function drawPay() {
+  const sub = subtotal();
+  const vat = VAT_ON ? Math.round(sub - sub / (1 + VAT_RATE)) : 0;
+  $('due').textContent = peso(sub);
+  $('tend').textContent = (tendered / 100).toLocaleString('en-PH', {minimumFractionDigits: 2});
+  const change = tendered - sub;
+  $('chg').textContent = peso(Math.max(0, change));
+  $('complete').disabled = method === 'Cash' && change < 0;
+  $('paysum').innerHTML = cart.map(l => `
+    <div class="rl"><span>${l.name} ×${l.qty}</span><span>${peso(lineTotal(l))}</span></div>
+    ${l.addons.map(a => `<div class="rl ind"><span>+ ${a.n} ×${a.q * l.qty}</span><span>included</span></div>`).join('')}`).join('')
+    + `<hr><div class="rl"><span>Subtotal</span><span>${peso(sub)}</span></div>`
+    + (VAT_ON ? `<div class="rl"><span>VAT included (12%)</span><span>${peso(vat)}</span></div>` : '')
+    + `<hr><div class="rl tot"><span>AMOUNT DUE</span><span>${peso(sub)}</span></div>`;
+}
+document.querySelector('.quick').onclick = e => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  tendered = b.dataset.t === 'exact' ? subtotal() : tendered + +b.dataset.t;
+  drawPay();
+};
+document.querySelector('.pads').onclick = e => {
+  const b = e.target.closest('[data-k]'); if (!b) return;
+  const k = b.dataset.k;
+  if (k === 'del') tendered = Math.floor(tendered / 10 / 100) * 100;
+  else tendered = tendered * (k === '00' ? 100 : 10) + (+k) * 100;
+  if (tendered > 99999999) tendered = 99999999;
+  drawPay();
+};
+$('methods').onclick = e => {
+  const b = e.target.closest('.m'); if (!b) return;
+  method = b.dataset.m;
+  $('methods').querySelectorAll('.m').forEach(x => x.classList.toggle('on', x === b));
+  if (method !== 'Cash') tendered = subtotal();  // a recorded tender is a typed amount, no change
+  drawPay();
+};
+
+/* ---------- receipt ---------- */
+$('complete').onclick = () => {
+  const sub = subtotal();
+  const vat = VAT_ON ? Math.round(sub - sub / (1 + VAT_RATE)) : 0;
+  $('rlines').innerHTML = cart.map(l => `
+    <div class="rl"><span>${l.name} ×${l.qty}</span><span>${peso(lineTotal(l))}</span></div>
+    ${l.addons.map(a => `<div class="rl ind"><span>+ ${a.n} ×${a.q * l.qty}</span><span></span></div>`).join('')}`).join('');
+  $('rtot').innerHTML =
+    `<div class="rl"><span>Subtotal</span><span>${peso(sub)}</span></div>`
+    + (VAT_ON ? `<div class="rl"><span>VAT (12%)</span><span>${peso(vat)}</span></div>` : '')
+    + `<div class="rl tot"><span>TOTAL</span><span>${peso(sub)}</span></div>`
+    + (method === 'Cash'
+        ? `<div class="rl" style="color:var(--muted)"><span>Cash · tendered ${peso(tendered)}</span><span>change ${peso(tendered - sub)}</span></div>`
+        : `<div class="rl" style="color:var(--muted)"><span>${method} · recorded ${peso(sub)}</span><span>no change</span></div>`);
+  show('s-done');
+};
+$('neworder').onclick = () => { cart = []; tendered = 0; drawCart(); show('s-sale'); };
+
+/* ---------- chrome ---------- */
+$('net').onclick = e => {
+  const on = $('net').classList.toggle('on');
+  $('net').querySelector('span').textContent = on ? 'ONLINE · synced' : 'OFFLINE · 3 queued';
+};
+document.querySelectorAll('[data-theme-set]').forEach(b => b.onclick = () => {
+  document.documentElement.dataset.theme = b.dataset.themeSet;
+  document.querySelectorAll('[data-theme-set]').forEach(x => x.classList.toggle('on', x === b));
+});
+
+drawGrid(); drawCart();
+
+/* ---------- self-check: the money path ---------- */
+(function demo() {
+  const a = (c, m) => { if (!c) throw new Error('FAIL ' + m); };
+  // Half Adobo (×0.5) + 1 extra rice, qty 2 → (12000*0.5 + 1500) = 7500 each
+  draft = {m: MENU[0], vr: MENU[0].vs[0], size: 'Half', addons: [{n: 'Extra rice', d: 1500, max: 3, q: 1}], qty: 2};
+  a(draftTotal() === 15000, 'multiplier + addon composition, got ' + draftTotal());
+  // multiplier survives unrounded: 3335 * 0.5 = 1667.5 mc → rounds half-up once
+  draft = {m: MENU[0], vr: {price: 3335}, size: 'Half', addons: [], qty: 1};
+  a(draftTotal() === 1668, 'half-up once at line total, got ' + draftTotal());
+  draft = null;
+  // a MenuItem whose Variants are all unavailable is a sold-out tile, not a drill-down
+  a(sellable(MENU.find(m => m.n === 'Halo-halo')).length === 0, 'all-variants-out tile');
+  a(sellable(MENU.find(m => m.n === 'Rice')).length === 1, 'single variant skips drill-down');
+  console.log('money path OK');
+})();
+</script>
+</body>
+</html>

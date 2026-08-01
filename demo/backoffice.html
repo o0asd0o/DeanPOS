@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeanPOS · Back-office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --aqua:#35CCA6; --aqua-soft:#E4F7F1; --rose:#E14A77; --rose-soft:#FCE7EE;
+  --ink:#1E1E1E; --white:#FFFFFF;
+  --bg:#F1F1EF; --surface:#FFFFFF; --surface-2:#F7F7F5;
+  --line:#E7E7E3; --text:#1E1E1E; --muted:#8A8A85; --faint:#B4B3B8;
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
+  --shadow:0 1px 2px rgba(30,30,30,.04), 0 8px 24px rgba(30,30,30,.05);
+}
+[data-theme="dark"]{
+  --bg:#141414; --surface:#1E1E1E; --surface-2:#252525;
+  --line:#2E2E2E; --text:#F2F2F0; --muted:#8F8F8A; --faint:#6A6A66;
+  --aqua-soft:#14352C; --rose-soft:#3A1626;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+a{color:inherit}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:248px 1fr;gap:14px;padding:14px;min-height:100vh}
+
+.side{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:14px;height:calc(100vh - 28px)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 16px}
+.mark{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;
+  font-weight:800;font-size:13px}
+[data-theme="dark"] .mark{background:var(--aqua);color:#0B231C}
+.brand b{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.tenant{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 4px 14px;
+  padding:9px 12px;border:1px solid var(--line);border-radius:999px;font-weight:600;font-size:13px}
+.tenant span{color:var(--muted);font-size:11px}
+
+.nav{overflow-y:auto;flex:1;margin:0 -2px;padding:0 2px}
+.nav::-webkit-scrollbar{width:6px}
+.nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.grp{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+  padding:14px 12px 6px;font-weight:700}
+.item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border-radius:var(--r-md);
+  color:var(--muted);font-weight:600;font-size:13.5px;text-align:left}
+.item:hover{background:var(--surface-2);color:var(--text)}
+.item.sub{padding-left:34px;font-size:13px}
+.item.on{background:var(--ink);color:#fff}
+[data-theme="dark"] .item.on{background:var(--aqua);color:#0B231C}
+.item.on .ic{opacity:1}
+.ic{width:16px;height:16px;flex:none;opacity:.65}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35;flex:none;margin-left:4px}
+.item.on .dot{opacity:1}
+
+.promo{margin-top:12px;padding:16px;border-radius:18px;background:linear-gradient(160deg,#2A2A2A,#1E1E1E 60%,#16302A);
+  color:#fff}
+.promo b{display:block;font-size:14px;font-weight:800;margin-bottom:6px}
+.promo p{font-size:11.5px;color:#B9B9B4;line-height:1.5}
+.promo button{margin-top:12px;background:#fff;color:var(--ink);font-weight:700;font-size:12px;
+  padding:7px 14px;border-radius:999px}
+.themer{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;padding:5px;
+  border:1px solid var(--line);border-radius:999px}
+.themer button{padding:7px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.themer button.on{background:var(--surface-2);color:var(--text)}
+
+/* ---------- top bar ---------- */
+.main{min-width:0;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;gap:14px;background:var(--surface);border-radius:var(--r-lg);
+  padding:12px 16px;box-shadow:var(--shadow)}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:10px;background:var(--surface-2);
+  border-radius:999px;padding:9px 12px}
+.search input{border:0;background:none;outline:none;width:100%;font-size:13.5px}
+.search input::placeholder{color:var(--faint)}
+.kbd{font-size:11px;font-weight:700;background:var(--ink);color:#fff;padding:4px 9px;border-radius:999px;white-space:nowrap}
+[data-theme="dark"] .kbd{background:#000}
+.top .sp{flex:1}
+.iconbtn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.iconbtn:hover{background:var(--surface-2);color:var(--text)}
+.who{display:flex;align-items:center;gap:9px;background:var(--surface-2);border-radius:999px;padding:5px 14px 5px 5px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--aqua);color:#0B231C;display:grid;place-items:center;
+  font-weight:800;font-size:12px}
+.who b{font-size:12.5px;font-weight:700;display:block}
+.who span{font-size:10.5px;color:var(--muted)}
+
+/* ---------- page ---------- */
+.page{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:24px;flex:1}
+.phead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+.btn{padding:9px 16px;border-radius:999px;font-weight:700;font-size:12.5px;border:1px solid var(--line)}
+.btn:hover{background:var(--surface-2)}
+.btn.dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+[data-theme="dark"] .btn.dark{background:var(--aqua);color:#0B231C;border-color:var(--aqua)}
+.btn.dark:hover{opacity:.9;background:var(--ink)}
+[data-theme="dark"] .btn.dark:hover{background:var(--aqua)}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0 0;
+  padding:8px;background:var(--surface-2);border-radius:999px}
+.chip{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.chip:hover{background:var(--surface);color:var(--text)}
+.chip.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+[data-theme="dark"] .chip.on{background:#3A3A3A}
+.filters .sp{flex:1}
+
+.notice{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:11.5px;color:var(--muted)}
+.warn{color:var(--rose);background:var(--rose-soft);padding:4px 10px;border-radius:999px;font-weight:600}
+
+/* waterfall tiles */
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:18px}
+.tile{border:1px solid var(--line);border-radius:18px;padding:14px 15px;background:var(--surface);
+  cursor:pointer;transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--faint);transform:translateY(-1px)}
+.tile.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+[data-theme="dark"] .tile.on{border-color:var(--aqua);box-shadow:inset 0 0 0 1px var(--aqua)}
+.tile.dash{border-style:dashed}
+.tile .lbl{display:flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:700}
+.sq{width:11px;height:11px;border-radius:3.5px;background:var(--aqua)}
+.sq.r{background:var(--rose)}
+.sq.k{background:var(--ink)}
+[data-theme="dark"] .sq.k{background:#fff}
+.tile .val{font-size:23px;font-weight:800;letter-spacing:-.02em;margin-top:9px}
+.tile .val.sm{font-size:19px}
+.delta{font-size:11px;font-weight:600;color:var(--muted);margin-top:3px}
+.up{color:var(--aqua)} .down{color:var(--rose)}
+.tiles2{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+
+.cards{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-top:12px}
+.card{border:1px solid var(--line);border-radius:18px;padding:16px}
+.card h3{font-size:13px;font-weight:700}
+.card .hint{font-size:11px;color:var(--muted);margin-top:2px}
+
+.bars{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:16px}
+.bars div{flex:1;background:var(--aqua-soft);border-radius:6px 6px 3px 3px;position:relative}
+.bars div i{position:absolute;inset:auto 0 0 0;background:var(--aqua);border-radius:6px 6px 3px 3px;display:block}
+.axis{display:flex;gap:6px;margin-top:8px;font-size:10px;color:var(--faint)}
+.axis span{flex:1;text-align:center}
+
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;
+  text-align:left;padding:0 10px 10px;border-bottom:1px solid var(--line)}
+th.r,td.r{text-align:right}
+td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:13px;font-weight:500}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr{cursor:pointer}
+td b{font-weight:700}
+.mono{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700}
+.pill.ok{background:var(--aqua-soft);color:#1B8368}
+[data-theme="dark"] .pill.ok{color:var(--aqua)}
+.pill.bad{background:var(--rose-soft);color:var(--rose)}
+.pill.mute{background:var(--surface-2);color:var(--muted)}
+.foot{margin-top:16px;font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+
+.split{display:grid;grid-template-columns:1fr 330px;gap:12px;margin-top:18px;align-items:start}
+.receipt{border:1px solid var(--line);border-radius:18px;padding:16px;font-size:12.5px}
+.receipt .rl{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-variant-numeric:tabular-nums}
+.receipt .rl.ind{padding-left:14px;color:var(--muted)}
+.receipt hr{border:0;border-top:1px dashed var(--line);margin:9px 0}
+.receipt .tot{font-weight:800;font-size:15px}
+.note{margin-top:12px;padding:12px;border-radius:14px;background:var(--surface-2);font-size:11.5px;color:var(--muted);line-height:1.6}
+
+.two{display:grid;grid-template-columns:220px 1fr;gap:12px;margin-top:18px;align-items:start}
+.list{border:1px solid var(--line);border-radius:18px;padding:10px}
+.list button{display:flex;justify-content:space-between;width:100%;padding:9px 11px;border-radius:10px;
+  font-size:13px;font-weight:600;color:var(--muted)}
+.list button.on{background:var(--surface-2);color:var(--text)}
+.list button:hover{background:var(--surface-2)}
+.view{display:none}
+.view.on{display:block}
+@media(max-width:1100px){.app{grid-template-columns:1fr}.side{display:none}
+  .tiles,.tiles2{grid-template-columns:repeat(2,1fr)}.cards,.split,.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="side">
+  <div class="brand"><div class="mark">D</div><b>DeanPOS</b></div>
+  <div class="tenant">Aling Nena's <span>▾</span></div>
+
+  <nav class="nav">
+    <div class="grp">Reports</div>
+    <button class="item on" data-view="summary"><span class="ic">◧</span>Summary</button>
+    <button class="item" data-view="orders"><span class="ic">▤</span>Orders</button>
+    <button class="item" data-report="byitem"><span class="ic">▦</span>By item</button>
+    <button class="item" data-report="bycategory"><span class="ic">▩</span>By category</button>
+    <button class="item" data-report="bycashier"><span class="ic">◍</span>By cashier</button>
+    <button class="item" data-report="bymethod"><span class="ic">◫</span>By payment method</button>
+    <button class="item" data-report="bydiscounts"><span class="ic">◈</span>Discounts &amp; overrides</button>
+
+    <div class="grp">Operations</div>
+    <button class="item" data-view="drawers"><span class="ic">▣</span>Drawer sessions</button>
+    <button class="item" data-view="catalog"><span class="ic">☰</span>Catalog</button>
+    <button class="item" data-view="addons"><span class="ic">＋</span>Add-ons</button>
+    <button class="item" data-view="discounts"><span class="ic">％</span>Discounts</button>
+    <button class="item" data-view="availability"><span class="ic">◷</span>Availability</button>
+
+    <div class="grp">Administration</div>
+    <button class="item" data-view="devices"><span class="ic">▭</span>Devices</button>
+    <button class="item" data-view="users"><span class="ic">◔</span>Users</button>
+    <button class="item" data-view="roster"><span class="ic">▨</span>Roster</button>
+    <button class="item" data-view="settings"><span class="ic">⚙</span>Settings</button>
+    <button class="item" data-view="quarantine"><span class="ic">⚠</span>Quarantine</button>
+  </nav>
+
+  <div class="promo">
+    <b>DeanPOS</b>
+    <p>Sales, cash control and rosters for one carinderia or fifty. Offline-first at the counter.</p>
+    <button>Get started</button>
+  </div>
+  <div class="themer">
+    <button class="on" data-theme-set="light">☀ Light</button>
+    <button data-theme-set="dark">☾ Dark</button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="top">
+    <div class="search"><span style="color:var(--faint)">⌕</span><input placeholder="Search orders, items, cashiers…"><span class="kbd">⌘ + Space</span></div>
+    <div class="sp"></div>
+    <span style="font-size:11px;color:var(--faint);font-weight:600">build 3</span>
+    <button class="iconbtn">⌕</button>
+    <button class="iconbtn">◔</button>
+    <div class="who"><div class="av">J</div><div><b>Jomel</b><span>admin · Aling Nena's</span></div></div>
+  </div>
+
+  <!-- ============ SUMMARY ============ -->
+  <section class="page view on" id="v-summary">
+    <div class="phead">
+      <div>
+        <h1>Sales summary — Thursday 31 July 2026</h1>
+        <div class="sub">Asia/Manila · business day starts 00:00</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn">Export CSV</button>
+        <button class="btn dark">All records</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <button class="chip on">All stores ▾</button>
+      <button class="chip">31 Jul 2026 · single day ▾</button>
+      <button class="chip">All day (11:00–14:00…) ▾</button>
+      <div class="sp"></div>
+      <button class="chip">Filters ⚟</button>
+    </div>
+
+    <div class="notice">
+      Computed 14:02
+      <span class="warn">⚠ contains a terminal that had not finished syncing</span>
+      <span class="warn">⚠ 1 device with implausible clock skew</span>
+    </div>
+
+    <div class="tiles">
+      <button class="tile on"><div class="lbl"><i class="sq k"></i>Gross</div><div class="val">₱46,180.00</div><div class="delta up">▲ 6.2% vs prev</div></button>
+      <button class="tile"><div class="lbl"><i class="sq r"></i>− Discounts</div><div class="val">₱1,240.00</div><div class="delta up">▲ 18%</div></button>
+      <button class="tile"><div class="lbl"><i class="sq r"></i>− Overrides</div><div class="val">₱180.00</div><div class="delta down">▼ 40%</div></button>
+      <button class="tile"><div class="lbl"><i class="sq r"></i>− Refunds</div><div class="val">₱620.00</div><div class="delta up">▲ 5%</div></button>
+      <button class="tile"><div class="lbl"><i class="sq"></i>= Net</div><div class="val">₱44,140.00</div><div class="delta up">▲ 5.4%</div></button>
+    </div>
+    <div class="tiles2">
+      <button class="tile dash"><div class="lbl"><i class="sq"></i>VAT (12%)</div><div class="val sm">₱4,729.29</div><div class="delta">conditional — only when the tenant is VAT-registered</div></button>
+      <button class="tile"><div class="lbl"><i class="sq k"></i>Orders</div><div class="val sm">214</div><div class="delta up">▲ 3.1%</div></button>
+      <button class="tile"><div class="lbl"><i class="sq k"></i>Average order</div><div class="val sm">₱206.26</div><div class="delta up">▲ 2.2%</div></button>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Net sales</h3>
+        <div class="hint">Bucketed automatically from the range — ≤31d daily · ≤26w weekly · else monthly. No bucket selector.</div>
+        <svg viewBox="0 0 640 180" style="width:100%;height:170px;margin-top:12px" preserveAspectRatio="none">
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#35CCA6" stop-opacity=".38"/><stop offset="1" stop-color="#35CCA6" stop-opacity="0"/>
+          </linearGradient></defs>
+          <path d="M0,140 L60,120 L120,132 L180,96 L240,110 L300,72 L360,88 L420,54 L480,66 L540,34 L600,50 L640,26 L640,180 L0,180 Z" fill="url(#g)"/>
+          <path d="M0,140 L60,120 L120,132 L180,96 L240,110 L300,72 L360,88 L420,54 L480,66 L540,34 L600,50 L640,26"
+                fill="none" stroke="#35CCA6" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="540" cy="34" r="4.5" fill="#fff" stroke="#35CCA6" stroke-width="3"/>
+        </svg>
+        <div class="hint">…and the same figures as a table directly below the chart. Charts are additions to tables, never replacements.</div>
+      </div>
+      <div class="card">
+        <h3>Sales by hour</h3>
+        <div class="hint">Device time decides the hour.</div>
+        <div class="bars">
+          <div><i style="height:22%"></i></div><div><i style="height:34%"></i></div><div><i style="height:41%"></i></div>
+          <div><i style="height:58%"></i></div><div><i style="height:86%"></i></div><div><i style="height:100%"></i></div>
+          <div><i style="height:74%"></i></div><div><i style="height:48%"></i></div><div><i style="height:39%"></i></div>
+          <div><i style="height:52%"></i></div><div><i style="height:67%"></i></div><div><i style="height:44%"></i></div>
+        </div>
+        <div class="axis"><span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>Top variants</h3>
+      <div class="hint">Every figure is a link — a variant, a cashier, a payment method opens Orders with that filter applied.</div>
+      <table>
+        <thead><tr><th>Variant</th><th class="r">Qty</th><th class="r">Revenue</th><th class="r">Share</th></tr></thead>
+        <tbody>
+          <tr><td><b>Adobo · Whole</b></td><td class="r mono">88</td><td class="r mono">₱10,560</td><td class="r mono">24%</td></tr>
+          <tr><td><b>Rice</b></td><td class="r mono">201</td><td class="r mono">₱3,015</td><td class="r mono">7%</td></tr>
+          <tr><td><b>Munggo · Half</b></td><td class="r mono">64</td><td class="r mono">₱4,480</td><td class="r mono">10%</td></tr>
+          <tr><td><b>Softdrinks</b></td><td class="r mono">97</td><td class="r mono">₱3,395</td><td class="r mono">8%</td></tr>
+        </tbody>
+      </table>
+      <div class="foot">
+        <span>Voids 4 · Refunds 3 (₱620) · Overrides 2 (₱180)</span>
+        <span>Discounts: Senior/PWD ×9 (₱1,240)</span>
+      </div>
+    </div>
+
+    <div class="note">
+      This screen is the back-office landing page — there is no separate dashboard. The strip is a waterfall:
+      gross − discounts − overrides − refunds = net. Discounts and overrides are separate tiles on purpose —
+      a statutory discount is not somebody changing a price. A sale belongs to the day the <b>device</b> says it happened.
+    </div>
+  </section>
+
+  <!-- ============ ORDERS ============ -->
+  <section class="page view" id="v-orders">
+    <div class="phead">
+      <div><h1>Orders</h1><div class="sub">31 Jul 2026 · 214 orders · ₱46,180.00</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn">Export ▾ order / order-line</button>
+        <button class="btn dark">All 214</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <button class="chip on">All stores ▾</button><button class="chip">31 Jul 2026 ▾</button>
+      <button class="chip">All cashiers ▾</button><button class="chip">All devices ▾</button>
+      <button class="chip">All methods ▾</button>
+      <div class="sp"></div>
+      <button class="chip">Sales 207</button><button class="chip">Refunds 3</button><button class="chip">Voids 4</button>
+    </div>
+
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th>Time</th><th>Order</th><th>Cashier</th><th>Method</th><th class="r">Lines</th><th class="r">Total</th><th>State</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">12:41</td><td><b>C2-0421</b></td><td>Ana</td><td>Cash</td><td class="r mono">3</td><td class="r mono">₱285.00</td><td><span class="pill ok">paid</span></td></tr>
+            <tr><td class="mono">12:38</td><td><b>C2-0420</b></td><td>Ana</td><td>GCash</td><td class="r mono">1</td><td class="r mono">₱120.00</td><td><span class="pill ok">paid</span></td></tr>
+            <tr><td class="mono">12:35</td><td><b>C1-0388</b></td><td>Dina</td><td>Cash</td><td class="r mono">5</td><td class="r mono">₱610.00</td><td><span class="pill ok">paid</span> <span class="pill mute">Senior/PWD</span></td></tr>
+            <tr><td class="mono">12:31</td><td><b>C2-0419</b></td><td>Ana</td><td>Cash</td><td class="r mono">2</td><td class="r mono">₱175.00</td><td><span class="pill bad">REFUNDED · Boy</span></td></tr>
+            <tr><td class="mono">12:26</td><td><b>C2-0418</b></td><td>Ana</td><td>Card</td><td class="r mono">4</td><td class="r mono">₱480.00</td><td><span class="pill ok">paid</span></td></tr>
+            <tr><td class="mono">12:22</td><td><b>C1-0387</b></td><td>Dina</td><td>Cash</td><td class="r mono">1</td><td class="r mono">₱15.00</td><td><span class="pill bad">VOIDED · Boy</span></td></tr>
+            <tr><td class="mono">12:19</td><td><b>C1-0386</b></td><td>Dina</td><td>Maya</td><td class="r mono">3</td><td class="r mono">₱330.00</td><td><span class="pill ok">paid</span></td></tr>
+            <tr><td class="mono">12:14</td><td><b>C2-0417</b></td><td>Ana</td><td>Cash</td><td class="r mono">2</td><td class="r mono">₱240.00</td><td><span class="pill ok">paid</span> <span class="pill mute">override</span></td></tr>
+          </tbody>
+        </table>
+        <div class="foot"><span>Paged — a range with no page limit is the cheapest denial-of-service here.</span></div>
+      </div>
+
+      <div class="receipt">
+        <div style="font-weight:800">C1-0388 · 12:35 · Dina</div>
+        <div style="color:var(--muted);font-size:11.5px;margin-bottom:10px">Malabon · Counter 1 · session 07-31 07:02</div>
+        <div class="rl"><span>Adobo · Whole ×2</span><span>₱240.00</span></div>
+        <div class="rl ind"><span>+ Extra rice ×1</span><span>₱15.00</span></div>
+        <div class="rl"><span>Munggo · Half ×1</span><span>₱55.00</span></div>
+        <div class="rl"><span>Rice ×2</span><span>₱30.00</span></div>
+        <div class="rl"><span>Softdrink ×1</span><span>₱45.00</span></div>
+        <hr>
+        <div class="rl"><span>Subtotal</span><span>₱385.00</span></div>
+        <div class="rl" style="color:var(--rose)"><span>Senior/PWD 20%</span><span>−₱77.00</span></div>
+        <div class="rl ind"><span>ref SC-0099213 (Senior ID)</span><span></span></div>
+        <div class="rl"><span>VAT — exempt on this sale</span><span>—</span></div>
+        <hr>
+        <div class="rl tot"><span>Total</span><span>₱308.00</span></div>
+        <div class="rl" style="color:var(--muted)"><span>Cash · tendered ₱500</span><span>change ₱192</span></div>
+        <div class="note">Recorded prices. Never re-priced.<br>No cancel. No edit. No delete.<br><br>
+        A paid Order is reversed by a Void or a Refund taken at the terminal, each with a reason and an approving manager.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CATALOG ============ -->
+  <section class="page view" id="v-catalog">
+    <div class="phead">
+      <div><h1>Catalog</h1><div class="sub">Malabon · Cubao</div></div>
+      <button class="btn dark">+ New menu item</button>
+    </div>
+
+    <div class="two">
+      <div class="list">
+        <div class="grp" style="padding:6px 11px">Categories</div>
+        <button class="on">Ulam <span>12</span></button>
+        <button>Rice <span>3</span></button>
+        <button>Drinks <span>8</span></button>
+        <button>Sides <span>5</span></button>
+        <button>Extras <span>4</span></button>
+        <button style="color:var(--muted)">+ New category</button>
+        <div class="hint" style="padding:8px 11px;font-size:11px;color:var(--muted)">Order here is the terminal's grid order.</div>
+      </div>
+
+      <div class="card">
+        <div class="filters" style="margin:0 0 12px">
+          <button class="chip on">All</button><button class="chip">Live</button><button class="chip">Archived</button>
+          <div class="sp"></div><button class="chip">Search menu items… ⌕</button>
+        </div>
+        <table>
+          <thead><tr><th>Menu item</th><th>Category</th><th class="r">Variants</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><b>Ulam</b></td><td>Ulam</td><td class="r mono">3</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Pancit</b></td><td>Ulam</td><td class="r mono">2</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Rice</b></td><td>Rice</td><td class="r mono">1</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Halo-halo</b></td><td>Extras</td><td class="r mono">0</td><td><span class="pill bad">not sellable — no variant</span></td></tr>
+            <tr><td><b>Turon</b></td><td>Extras</td><td class="r mono">1</td><td><span class="pill mute">archived</span></td></tr>
+          </tbody>
+        </table>
+        <div class="note">A MenuItem with no Variant is listed and flagged — it never reaches a terminal.
+        Price lives on the Variant, never on the MenuItem. Archived rows are filtered out by default and stay readable.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DRAWER SESSIONS ============ -->
+  <section class="page view" id="v-drawers">
+    <div class="phead">
+      <div><h1>Drawer sessions</h1><div class="sub">31 Jul 2026 · Malabon · 4 sessions · 1 open</div></div>
+      <button class="btn">Export CSV</button>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <table>
+        <thead><tr><th>Session</th><th>Cashier</th><th>Device</th><th class="r">Float</th><th class="r">Expected</th><th class="r">Counted</th><th class="r">Variance</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">07-31 06:58</td><td>Ana</td><td>Counter 2</td><td class="r mono">₱1,000.00</td><td class="r mono">—</td><td class="r mono">—</td><td class="r mono">—</td><td><span class="pill ok">open</span></td></tr>
+          <tr><td class="mono">07-31 07:02</td><td>Dina</td><td>Counter 1</td><td class="r mono">₱1,000.00</td><td class="r mono">₱18,420.00</td><td class="r mono">₱18,420.00</td><td class="r mono">₱0.00</td><td><span class="pill mute">closed</span></td></tr>
+          <tr><td class="mono">07-30 06:55</td><td>Ana</td><td>Counter 2</td><td class="r mono">₱1,000.00</td><td class="r mono">₱21,110.00</td><td class="r mono">₱20,960.00</td><td class="r mono" style="color:var(--rose)">−₱150.00</td><td><span class="pill bad">variance · Boy approved</span></td></tr>
+          <tr><td class="mono">07-30 07:10</td><td>Cris</td><td>Counter 1</td><td class="r mono">₱1,000.00</td><td class="r mono">₱16,840.00</td><td class="r mono">₱16,880.00</td><td class="r mono" style="color:var(--aqua)">+₱40.00</td><td><span class="pill mute">closed</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note">The expected total is withheld at the terminal — the cashier counts blind, then the Variance is computed.
+      A variance past the threshold needs a manager Override, named on the row. One open session per Device, enforced by the database.</div>
+    </div>
+  </section>
+
+  <!-- ============ REPORT CHILDREN (one shape, five reports — filled by JS) ============ -->
+  <section class="page view" id="v-report">
+    <div class="phead"><div><h1 id="rtitle"></h1><div class="sub" id="rsub"></div></div><button class="btn">Export CSV</button></div>
+    <div class="filters" id="rfilters"></div>
+    <div class="card" style="margin-top:12px">
+      <table><thead id="rhead"></thead><tbody id="rbody"></tbody></table>
+      <div class="note" id="rnote"></div>
+    </div>
+  </section>
+
+  <!-- ============ DEVICES ============ -->
+  <section class="page view" id="v-devices">
+    <div class="phead"><div><h1>Devices</h1><div class="sub">Malabon · Cubao</div></div><button class="btn dark">+ Enrol a device</button></div>
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th>Device</th><th>Store</th><th>Last seen</th><th class="r">Queue</th><th>Release</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Counter 1</b></td><td>Malabon</td><td class="mono">2 min ago</td><td class="r mono">0</td><td class="mono">r-118</td><td><span class="pill ok">active</span></td><td style="color:var(--muted)">rename · revoke</td></tr>
+            <tr><td><b>Counter 2</b></td><td>Malabon</td><td class="mono">39 min ago</td><td class="r mono">3 · oldest 31m</td><td class="mono">r-118</td><td><span class="pill bad">⚠ stalled</span></td><td style="color:var(--muted)">rename · revoke</td></tr>
+            <tr><td><b>Counter 1</b></td><td>Cubao</td><td class="mono">5 min ago</td><td class="r mono">0</td><td class="mono">r-117</td><td><span class="pill mute">⚠ old release</span></td><td style="color:var(--muted)">rename · revoke</td></tr>
+            <tr><td><b>Old tablet</b></td><td>Malabon</td><td class="mono">6 days ago</td><td class="r mono">2 held</td><td class="mono">r-102</td><td><span class="pill bad">REVOKED</span></td><td style="color:var(--muted)">review held</td></tr>
+          </tbody>
+        </table>
+        <div class="note">Queue depth and last-seen come from device telemetry — this is where a stalled terminal shows up.
+        Revoke needs a confirmation and is the response to a stolen tablet.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">Enrol a device</div>
+        <div style="font-size:30px;font-weight:800;letter-spacing:.06em;margin:14px 0 6px" class="mono">F4K9 — 2X7M</div>
+        <div class="rl"><span>Store</span><span>Malabon</span></div>
+        <div class="rl"><span>Expires in</span><span>09:41</span></div>
+        <div class="note">Single-use, short-lived, bound to one Store. Enter it on the terminal.<br><br>
+        Revoking is immediate and enforced on replay. Sales already queued on a revoked device are
+        <b>held for review</b> — never dropped, never auto-accepted. That money was really collected.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADD-ONS ============ -->
+  <section class="page view" id="v-addons">
+    <div class="phead"><div><h1>Add-ons</h1><div class="sub">tenant-wide</div></div><button class="btn dark">+ New add-on</button></div>
+    <div class="card" style="margin-top:18px">
+      <table>
+        <thead><tr><th>Add-on</th><th>Delta type</th><th class="r">Value</th><th class="r">Max qty</th><th class="r">Linked variants</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Extra rice</b></td><td><span class="pill mute">absolute</span></td><td class="r mono">+₱15.00</td><td class="r mono">3</td><td class="r mono">12</td><td style="color:var(--muted)">edit · archive</td></tr>
+          <tr><td><b>Itlog</b></td><td><span class="pill mute">absolute</span></td><td class="r mono">+₱20.00</td><td class="r mono">2</td><td class="r mono">8</td><td style="color:var(--muted)">edit · archive</td></tr>
+          <tr><td><b>Extra sabaw</b></td><td><span class="pill mute">absolute</span></td><td class="r mono">+₱10.00</td><td class="r mono">1</td><td class="r mono">4</td><td style="color:var(--muted)">edit · archive</td></tr>
+        </tbody>
+      </table>
+      <div class="note">An add-on with no linked variants is offered nowhere. Max quantity is enforced at the till by the
+      stepper, and again on the server. A Delta is typed — <b>absolute</b> (±centavos) or <b>multiplier</b> (×rate) — never inferred.</div>
+    </div>
+  </section>
+
+  <!-- ============ DISCOUNTS ============ -->
+  <section class="page view" id="v-discounts">
+    <div class="phead"><div><h1>Discounts</h1><div class="sub">tenant-wide · 3 configured</div></div><button class="btn dark">+ New discount</button></div>
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th class="r">Value</th><th>Scope</th><th>VAT-exempt</th><th>Reference</th><th>Manager</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><b>Senior citizen / PWD</b></td><td>percent</td><td class="r mono">20%</td><td>line</td><td><span class="pill ok">YES</span></td><td>required · Senior ID</td><td>no</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Staff meal</b></td><td>percent</td><td class="r mono">50%</td><td>order</td><td>no</td><td>—</td><td>yes</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Goodwill</b></td><td>amount</td><td class="r mono">(prompt)</td><td>order</td><td>no</td><td>—</td><td>yes</td><td><span class="pill ok">live</span></td></tr>
+            <tr><td><b>Fiesta 2025</b></td><td>percent</td><td class="r mono">10%</td><td>order</td><td>no</td><td>—</td><td>no</td><td><span class="pill mute">archived</span></td></tr>
+          </tbody>
+        </table>
+        <div class="note">Not a promotions engine: no conditions, no schedules, no codes, no BOGO, no segments, no stacking rules.
+        A person applies one, on purpose, every time. Archived, never deleted — an Order from March still references it.
+        A manual price override is <b>not</b> a Discount and stays a separate, manager-gated thing.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">Empty state — what every new tenant sees</div>
+        <div style="text-align:center;padding:26px 10px;color:var(--muted);font-size:12.5px">
+          No discounts configured.<br><br>Add one if your shop gives a senior citizen or staff discount.
+          <div style="margin-top:14px"><button class="btn">+ New discount</button></div>
+        </div>
+        <div class="note">Not an edge case — this is the <b>default</b>, and the configuration most tenants will keep.
+        The terminal shows no discount control at all in this state.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AVAILABILITY ============ -->
+  <section class="page view" id="v-availability">
+    <div class="phead"><div><h1>Availability</h1><div class="sub">Malabon</div></div><button class="btn">Mark all available</button></div>
+    <div class="filters"><button class="chip on">Store: Malabon ▾</button><button class="chip">Search variants… ⌕</button><div class="sp"></div><button class="chip">Sold out only</button></div>
+    <div class="card" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Variant</th><th>Menu item</th><th class="r">Price</th><th>Available at Malabon</th></tr></thead>
+        <tbody>
+          <tr><td><b>Adobo</b></td><td>Ulam</td><td class="r mono">₱120.00</td><td><span class="pill ok">ON</span></td></tr>
+          <tr><td><b>Munggo</b></td><td>Ulam</td><td class="r mono">₱110.00</td><td><span class="pill bad">OFF — sold out</span></td></tr>
+          <tr><td><b>Menudo</b></td><td>Ulam</td><td class="r mono">₱130.00</td><td><span class="pill ok">ON</span></td></tr>
+          <tr><td><b>Rice</b></td><td>Rice</td><td class="r mono">₱15.00</td><td><span class="pill ok">ON</span></td></tr>
+        </tbody>
+      </table>
+      <div class="note">Availability is per Store — Cubao is unaffected by anything set here. This is the F&amp;B sold-out
+      switch, <b>not</b> stock tracking. A manager may only toggle Stores they are assigned to.</div>
+    </div>
+  </section>
+
+  <!-- ============ USERS ============ -->
+  <section class="page view" id="v-users">
+    <div class="phead"><div><h1>Users</h1><div class="sub">Aling Nena's · 4 users</div></div><button class="btn dark">+ Add user</button></div>
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Stores</th><th>PIN</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Ana Reyes</b></td><td>ana@…</td><td>cashier</td><td>Malabon</td><td><span class="pill ok">set</span></td><td><span class="pill ok">active</span></td><td style="color:var(--muted)">edit · deactivate</td></tr>
+            <tr><td><b>Boy Santos</b></td><td>boy@…</td><td>manager</td><td>Malabon, Cubao</td><td><span class="pill ok">set</span></td><td><span class="pill ok">active</span></td><td style="color:var(--muted)">edit · deactivate</td></tr>
+            <tr><td><b>Cris Dela Cruz</b></td><td>cris@…</td><td>cashier</td><td>Cubao</td><td><span class="pill bad">not set</span></td><td><span class="pill ok">active</span></td><td style="color:var(--muted)">edit · deactivate</td></tr>
+            <tr><td><b>Dina Lim</b></td><td>dina@…</td><td>cashier</td><td>Malabon</td><td><span class="pill mute">set</span></td><td><span class="pill mute">deactivated</span></td><td style="color:var(--muted)">reactivate</td></tr>
+          </tbody>
+        </table>
+        <div class="note">Role answers <b>what kind</b> of action; Store assignment answers <b>where</b>.
+        Nothing is deleted — deactivation preserves the audit trail.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">Edit user</div>
+        <div class="rl"><span>Role</span><span>cashier ▾</span></div>
+        <div class="rl"><span>Stores</span><span>☑ Malabon &nbsp; ☐ Cubao</span></div>
+        <div style="display:grid;gap:8px;margin-top:14px">
+          <button class="btn">Reset password (temporary)</button>
+          <button class="btn">Reset PIN</button>
+        </div>
+        <div class="note">Deactivating is immediate: sessions revoked, PIN removed from devices on next sync —
+        and every past Order and Override stays attributed to them.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ROSTER ============ -->
+  <section class="page view" id="v-roster">
+    <div class="phead">
+      <div><h1>Roster — week of 3 Aug 2026</h1><div class="sub">Malabon · <span class="pill mute">DRAFT — not visible to staff</span></div></div>
+      <div style="display:flex;gap:8px"><button class="btn">Copy last week</button><button class="btn dark">Publish week</button></div>
+    </div>
+    <div class="filters"><button class="chip on">Store: Malabon ▾</button><button class="chip">◀ 3–9 Aug 2026 ▶</button></div>
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th></th><th>Mon 3</th><th>Tue 4</th><th>Wed 5</th><th>Thu 6</th><th>Fri 7</th><th>Sat 8</th><th>Sun 9</th></tr></thead>
+          <tbody>
+            <tr><td><b>Ana</b></td><td class="mono">06:30–15:00</td><td class="mono">06:30–15:00</td><td></td><td class="mono">06:30–15:00</td><td class="mono">06:30–15:00</td><td></td><td></td></tr>
+            <tr><td><b>Boy</b></td><td class="mono">14:30–23:00</td><td></td><td class="mono">14:30–23:00</td><td class="mono">14:30–23:00</td><td></td><td class="mono">10:00–19:00</td><td></td></tr>
+            <tr><td><b>Cris</b></td><td></td><td class="mono">14:30–23:00</td><td class="mono" style="color:var(--rose)">06:30–15:00</td><td></td><td class="mono">14:30–23:00</td><td class="mono">14:30–23:00</td><td></td></tr>
+            <tr><td><b>Dina</b></td><td class="mono">06:30–15:00</td><td class="mono">06:30–15:00</td><td></td><td class="mono">06:30–15:00</td><td></td><td class="mono">14:30–23:00</td><td></td></tr>
+            <tr><td><span class="pill mute">unassigned</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="mono" style="color:var(--muted)">evening</td></tr>
+          </tbody>
+        </table>
+        <div class="note">A Shift is rostered work. It is <b>not</b> a DrawerSession, and v1 does not link them.
+        Copy last week is the primary way a roster gets built. An unassigned row is legitimate — coverage laid out
+        before people are chosen.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">Before publishing</div>
+        <div style="margin-top:10px;display:grid;gap:8px;font-size:12px">
+          <div class="warn">⚠ Cris is rostered Wed 06:30–15:00 at Malabon <i>and</i> Cubao — overlap</div>
+          <div class="warn" style="background:var(--surface-2);color:var(--muted)">⚠ Sunday 9 Aug evening is unassigned</div>
+          <div class="warn">⛔ Dina is deactivated — cannot be rostered</div>
+        </div>
+        <div class="note">Warnings while drafting. Overlaps <b>block</b> publish. Overlap detection spans Stores —
+        the failure is a person in two places.<br><br>
+        Publish means <b>visible</b>. Nobody is notified — DeanPOS has no email or SMS transport, by decision.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="page view" id="v-settings">
+    <div class="phead"><div><h1>Settings — sales</h1><div class="sub">Aling Nena's · admin only, audited</div></div><button class="btn dark">Save</button></div>
+    <div class="split">
+      <div class="card">
+        <h3>VAT</h3>
+        <div class="rl" style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)">
+          <span>☐ This business is VAT-registered</span><span class="pill mute">OFF by default</span>
+        </div>
+        <div class="rl" style="display:flex;justify-content:space-between;padding:12px 0;color:var(--muted)">
+          <span>Rate</span><span class="mono">12 %</span>
+        </div>
+        <div class="note">A price is always what the customer pays. VAT is never <b>added</b> — where enabled it is
+        backed out of the recorded total for receipts and reports. Turning this on affects sales from now on;
+        last month stays as last month was sold.</div>
+
+        <h3 style="margin-top:22px">Payment methods</h3>
+        <table>
+          <thead><tr><th>Method</th><th>Kind</th><th>Malabon</th><th>Cubao</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Cash</b></td><td><span class="pill ok">cash</span></td><td>ON</td><td>ON</td><td><span class="pill ok">always on</span></td><td style="color:var(--muted)">cannot be renamed or removed</td></tr>
+            <tr><td><b>GCash</b></td><td><span class="pill mute">recorded</span></td><td>ON</td><td>ON</td><td><span class="pill ok">live</span></td><td style="color:var(--muted)">rename · deactivate</td></tr>
+            <tr><td><b>Maya</b></td><td><span class="pill mute">recorded</span></td><td>ON</td><td>OFF</td><td><span class="pill ok">live</span></td><td style="color:var(--muted)">rename · deactivate</td></tr>
+            <tr><td><b>Card</b></td><td><span class="pill mute">recorded</span></td><td>OFF</td><td>ON</td><td><span class="pill ok">live</span></td><td style="color:var(--muted)">rename · deactivate</td></tr>
+            <tr><td><b>Bank transfer</b></td><td><span class="pill mute">recorded</span></td><td>OFF</td><td>OFF</td><td><span class="pill mute">deactivated</span></td><td style="color:var(--muted)">reactivate</td></tr>
+          </tbody>
+        </table>
+        <div class="note">A new tenant starts <b>cash only</b>. Only cash reaches the drawer. Every other method records an
+        amount and authorises nothing — no gateway, no QR, no settlement. Code branches on <b>kind</b>, never on a name.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">Why VAT ships off</div>
+        <div class="note">Most carinderias sit below the ₱3,000,000 registration threshold and are not VAT-registered.<br><br>
+        Shipping VAT on by default would hand those tenants figures that are confidently wrong, and a receipt implying a
+        registration they do not hold.<br><br>So: off, until an owner says otherwise.<br><br>
+        Cash is seeded at tenant creation and is undeletable — enforced by a database constraint. The Discount list is not
+        here; it is back-office CRUD alongside the catalog.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUARANTINE ============ -->
+  <section class="page view" id="v-quarantine">
+    <div class="phead"><div><h1>Quarantined orders</h1><div class="sub">2 awaiting a decision · admin only</div></div></div>
+    <div class="split">
+      <div class="card">
+        <table>
+          <thead><tr><th>Order</th><th>Device</th><th>Cashier</th><th>Taken</th><th class="r">Total</th></tr></thead>
+          <tbody>
+            <tr><td><b>C9-0114</b></td><td>Old tablet <span class="pill bad">revoked</span></td><td>Dina</td><td class="mono">07-25 11:40</td><td class="r mono">₱240.00</td></tr>
+            <tr><td><b>C9-0115</b></td><td>Old tablet <span class="pill bad">revoked</span></td><td>Dina</td><td class="mono">07-25 11:52</td><td class="r mono">₱95.00</td></tr>
+          </tbody>
+        </table>
+        <div class="note">An unadjudicated order never appears in any report figure. This is the ending to the
+        stolen-tablet path.</div>
+      </div>
+      <div class="receipt">
+        <div style="font-weight:800">C9-0114</div>
+        <div class="rl"><span>Adobo · Whole ×2</span><span>₱240.00</span></div>
+        <div class="rl" style="color:var(--muted)"><span>Cash · tendered ₱250</span><span>change ₱10</span></div>
+        <hr>
+        <div class="rl"><span>Device revoked</span><span>07-24 18:00</span></div>
+        <div class="rl" style="color:var(--rose)"><span>Order taken</span><span>07-25 11:40 — after</span></div>
+        <div class="rl"><span>Arrived</span><span>07-31 09:12</span></div>
+        <div style="display:grid;gap:8px;margin-top:14px">
+          <button class="btn">Reason (required) ▾</button>
+          <button class="btn dark">Accept into ledger</button>
+          <button class="btn">Reject</button>
+        </div>
+        <div class="note">A revoked device may still hold sales a real customer really paid for. Accepting blindly lets a
+        stolen tablet inject revenue; rejecting blindly destroys takings. Every decision records who made it and why.</div>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script>
+// the five report children share one filter-strip-plus-table shape; only By item is drawn,
+// the rest are its translation and are flagged as such.
+const money = n => '₱' + n.toLocaleString('en-PH');
+const MONEY_COLS = new Set(['Gross', 'Discounts', 'Overrides', 'Net', 'Amount', 'Revenue']);
+const REPORTS = {
+  byitem: {
+    title: 'By item', sub: '31 Jul 2026 · All stores · drawn',
+    filters: ['All stores', '31 Jul 2026', 'All categories'],
+    cols: ['Variant', 'Category', 'Qty', 'Gross', 'Discounts', 'Net'],
+    rows: [['Adobo · Whole', 'Ulam', 88, 10560, 480, 10080], ['Munggo · Half', 'Ulam', 64, 4480, 210, 4270],
+           ['Rice', 'Rice', 201, 3015, 90, 2925], ['Softdrinks', 'Drinks', 97, 3395, 0, 3395],
+           ['Extra rice (add-on)', 'Extras', 143, 2145, 0, 2145]],
+    note: 'Add-ons report as their own line — an Extra rice sold 143 times is a figure an owner asks for.',
+  },
+  bycategory: {
+    title: 'By category', sub: '31 Jul 2026 · All stores · translated from By item',
+    filters: ['All stores', '31 Jul 2026', 'All categories'],
+    cols: ['Category', 'Items', 'Qty', 'Gross', 'Discounts', 'Net'],
+    rows: [['Ulam', 12, 219, 26840, 1050, 25790], ['Rice', 2, 214, 3465, 90, 3375],
+           ['Drinks', 4, 158, 5530, 0, 5530], ['Sides', 2, 71, 1420, 100, 1320],
+           ['Extras', 3, 44, 660, 0, 660]],
+    note: 'Category order here is the same order the terminal grid uses. Set it in Catalog.',
+  },
+  bycashier: {
+    title: 'By cashier', sub: '31 Jul 2026 · All stores · translated from By item',
+    filters: ['All stores', '31 Jul 2026', 'All cashiers'],
+    cols: ['Cashier', 'Orders', 'Gross', 'Discounts', 'Overrides', 'Net'],
+    rows: [['Ana', 118, 24980, 620, 180, 24180], ['Dina', 71, 15140, 620, 0, 14520],
+           ['Cris', 25, 6060, 0, 0, 6060]],
+    note: 'A cashier figure is an attribution, not an accusation. Overrides sit in their own column because a '
+        + 'manager approved them — the approving user is named on the order.',
+  },
+  bymethod: {
+    title: 'By payment method', sub: '31 Jul 2026 · All stores · translated from By item',
+    filters: ['All stores', '31 Jul 2026', 'All methods'],
+    cols: ['Method', 'Kind', 'Payments', 'Amount', 'Share', 'Reaches drawer'],
+    rows: [['Cash', 'cash', 168, 33420, '72%', 'yes'], ['GCash', 'recorded', 26, 6380, '14%', 'no'],
+           ['Maya', 'recorded', 12, 3120, '7%', 'no'], ['Card', 'recorded', 8, 3260, '7%', 'no']],
+    note: 'This report does not render at all for a cash-only tenant — the default. A recorded tender records an '
+        + 'amount and authorises nothing; only cash reaches the drawer, which is why expected cash stays correct.',
+  },
+  bydiscounts: {
+    title: 'Discounts & overrides', sub: '31 Jul 2026 · All stores · translated from By item',
+    filters: ['All stores', '31 Jul 2026', 'All cashiers'],
+    cols: ['Reduction', 'Kind', 'Times', 'Amount', 'Approved by', 'Reference'],
+    rows: [['Senior citizen / PWD', 'discount · VAT-exempt', 9, 1240, '—', 'Senior ID ×9'],
+           ['Staff meal', 'discount', 2, 310, 'Boy', '—'],
+           ['Manual price override', 'override', 2, 180, 'Boy', 'reason recorded'],
+           ['Refund', 'reversal', 3, 620, 'Boy', 'reason recorded']],
+    note: 'A configured Discount and a manual override are never mixed into one figure: a statutory discount is not '
+        + 'somebody changing a price. Both vanish entirely for a tenant with neither configured. A discount reference '
+        + 'is a real person’s ID number — shown here, never logged.',
+  },
+};
+
+function drawReport(key) {
+  const r = REPORTS[key];
+  document.getElementById('rtitle').textContent = r.title;
+  document.getElementById('rsub').textContent = r.sub;
+  document.getElementById('rfilters').innerHTML =
+    r.filters.map((f, i) => `<button class="chip${i ? '' : ' on'}">${f} ▾</button>`).join('')
+    + '<div class="sp"></div><button class="chip">Filters ⚟</button>';
+  document.getElementById('rhead').innerHTML =
+    '<tr>' + r.cols.map((c, i) => `<th class="${i ? 'r' : ''}">${c}</th>`).join('') + '</tr>';
+  document.getElementById('rbody').innerHTML = r.rows.map(row =>
+    '<tr>' + row.map((c, i) => i === 0
+      ? `<td><b>${c}</b></td>`
+      : `<td class="r mono">${MONEY_COLS.has(r.cols[i]) ? money(c) : c}</td>`).join('') + '</tr>').join('');
+  document.getElementById('rnote').innerHTML = r.note
+    + ' Same filter-strip-plus-table shape as the other report children.';
+}
+
+const views = document.querySelectorAll('.view');
+document.querySelectorAll('.item').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.item').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  const id = b.dataset.report ? 'v-report' : 'v-' + b.dataset.view;
+  if (b.dataset.report) drawReport(b.dataset.report);
+  views.forEach(v => v.classList.toggle('on', v.id === id));
+  window.scrollTo(0, 0);
+});
+document.querySelectorAll('[data-theme-set]').forEach(b => b.onclick = () => {
+  document.documentElement.dataset.theme = b.dataset.themeSet;
+  document.querySelectorAll('[data-theme-set]').forEach(x => x.classList.toggle('on', x === b));
+});
+document.querySelectorAll('.tiles .tile').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tiles .tile').forEach(x => x.classList.remove('on'));
+  t.classList.add('on');
+});
+// delegated — the report filter strip is re-rendered on every nav click
+document.addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  c.parentElement.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+  c.classList.add('on');
+});
+
+drawReport('byitem');
+</script>
+</body>
+</html>
