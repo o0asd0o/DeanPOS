@@ -46,3 +46,26 @@ on a tablet, at speed, by someone who is not looking carefully.
 
 _Sliced from `.scratch/foundation/PRD.md` (stories 30, 31, 36). Not a screen-fidelity issue,
 so it carries no visual reference — the mocks constrain screens, not tokens._
+
+**Implementer, 2026-08-02.** Built per decision record 007. `shadcn init` could not detect
+a framework in a bare library workspace, so the two primitives were transcribed from the
+CLI's own `new-york` style output (confirmed byte-for-byte via `shadcn add --dry-run --view`
+after fixing `components.json`'s `style` field) — the fallback the record names explicitly.
+`radix-nova` (the interactive default preset) was tried first and rejected: it emits
+`color-mix(in oklch, ...)` and an unlisted `--popover` token, which contradicts the
+sRGB-hex-only and fixed-token-name constraints.
+
+Chose token values (names were fixed): all 14 contrast pairings the record lists pass WCAG
+2.2 AA — see the commit and the report for the full ratio table. `cn` lives at
+`packages/ui/src/lib/utils.ts` per the record's no-gos ("No second cn. One helper, in
+packages/ui/src/lib/utils.ts") — a self-review flagged this against code-standards rule 3's
+default `helpers.ts`-next-to-callers placement, but the decision record's explicit path
+takes precedence over the general rule.
+
+Verified "no app-specific configuration" with a throwaway scratch app (not committed):
+a two-line stylesheet importing `theme.css` by relative path compiled `bg-primary`,
+`target-min`, `touch-min`, and the base `:focus-visible` rule with a bare `tailwindcss` CLI
+and no other config.
+
+Gate: `vp check`, `vp run -r check`, `vp run -r test` all pass (lane DB migrated first —
+it was unmigrated in the fresh worktree).
