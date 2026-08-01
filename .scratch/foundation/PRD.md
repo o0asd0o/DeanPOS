@@ -1,9 +1,24 @@
 # Foundation
 
-- **Status:** ready-for-agent
+- **Status:** awaiting-human-checkpoint — **no PASS recorded**
 - **Area:** 1 of 12 (`ORC2_BUILD_ORDER`)
 - **Depends on:** nothing
 - **Blocks:** every other area
+
+## Run record — 2026-08-02
+
+All 9 issues implemented, reviewed, and rebased onto `main`. `main` is at `d63f236`;
+the gate (`vp run -w codegen` → `vp check` → `vp run -r check` → `vp run -r test`) is
+green cold, tree clean.
+
+**QA round 1: FAIL**, four findings — typed-route guards that could not fail (issues 06/07),
+`vp run -w dev` starting nothing (09), `VITE_API_URL` unset and failing silently (09),
+the dev loop dirtying `apps/landing/next-env.d.ts` (09). All four were fixed at `d63f236`
+and each red command was re-run by the orchestrator; all now behave as QA specified.
+
+**QA round 2 was not run** — the QA agent was stopped before it could re-verify. No PASS
+exists for this PRD. The round-1 needs-human-eyes list stands unacted-on and goes to the
+human as written.
 
 ## Problem Statement
 
