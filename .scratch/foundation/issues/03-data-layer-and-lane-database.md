@@ -114,3 +114,21 @@ Implemented on branch `foundation-03-data-layer`, commit `c2b327b`.
   invocation (`package.json#prisma` config is deprecated in favour of a
   `prisma.config.ts` file, removed in Prisma 7). Cosmetic only, doesn't affect
   the gate; not part of this issue's scope to migrate config formats.
+
+### Fixer notes (2026-08-02)
+
+Applied `.scratch/decisions/005-prisma-command-scope-and-env.md` verbatim: root
+`package.json` gained `codegen`/`migrate`/`migrate:status`/`prepare` scripts,
+`.orc2/config.env`'s three command settings and the four matching strings in
+`.orc2/ORCHESTRATOR.md` now point at `vp run -w ...`, and
+`docs/adr/0004-prisma-schema-kysely-runtime.md` carries the amendment. Ran the
+record's acceptance test from a clean clone: `vp install` did fire the root
+`prepare` hook and left `packages/backend/src/db/prisma/generated/types.ts` in
+place, so `ORC2_GATE` was left as specified — the fallback was not needed.
+
+Also applied three minor review findings: `.env.example` now names
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` (values still blank)
+alongside the decision's own comment and `DATABASE_URI`; `.gitignore`'s
+generated-output comment now names `vp run -w codegen` instead of
+`bunx prisma generate`. The third minor (the migration-comment nit) was left
+alone per the reviewer's own verdict that it's optional.

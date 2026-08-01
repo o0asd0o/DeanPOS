@@ -172,7 +172,7 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 4. **Redo generated artifacts and migrations — do not merge them.** Each lane generated against the pre-merge state, so the second one may now assume a shape that no longer exists. After resolving conflicts:
 
    ```
-   vp exec prisma generate
+   vp run -w codegen
    ```
 
    Generated paths (`**/generated/**`) are never hand-merged. If the lane's own migration fails against the merged schema, delete it and regenerate.
@@ -181,7 +181,7 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
    ```
    <install dependencies>
-   vp exec prisma generate
+   vp run -w codegen
    ```
 
    The cause is that generated files are untracked, and a merge cannot update them — so any slice that changed a schema leaves `main`'s generated output stale, and any slice that added a dependency leaves it uninstalled. In both cases the first gate command fails on it. A red `main` you caused by skipping this is indistinguishable at a glance from a red one caused by a bad merge, which is the real cost.
@@ -191,8 +191,8 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
    After the merge is proven, if the slice added a migration:
 
    ```
-   vp exec prisma migrate status
-   vp exec prisma migrate deploy
+   vp run -w migrate:status
+   vp run -w migrate
    ```
 
    Applying a forward migration to the development database is **allowed and required** — it is additive forward motion, not a reset. Never drop or reset that database.

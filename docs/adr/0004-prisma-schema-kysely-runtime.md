@@ -26,6 +26,16 @@ ORC2_MIGRATE_STATUS_CMD vp exec prisma migrate status
 ORC2_CODEGEN_CMD        vp exec prisma generate
 ```
 
+**Amended 2026-08-02** (`.scratch/decisions/005-prisma-command-scope-and-env.md`): the
+commands above are now root `package.json` scripts — `vp run -w codegen`,
+`vp run -w migrate`, `vp run -w migrate:status`. `prisma` is installed only in
+`packages/backend`, so its binary does not resolve at the repository root; each script
+scopes into that workspace with `vp exec -F backend`. The two migrate scripts also
+source the root `.env` first, because Prisma searches for `.env` in the working
+directory, the schema's directory, and `./prisma/` only — it never walks up to a
+monorepo root. The decision itself (Prisma owns schema and migrations, Kysely owns
+runtime) is unchanged.
+
 ## Consequences
 
 - Generated Kysely types are build output. They are regenerated, never hand-edited,
