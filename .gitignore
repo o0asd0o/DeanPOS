@@ -26,3 +26,6 @@ __pycache__/
 
 # os
 .DS_Store
+
+# pipeline lane worktrees
+.worktrees/
