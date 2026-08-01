@@ -15,10 +15,7 @@ import { pingRoute } from "./routes/ping.ts";
 export type CreateAppOptions = {
   db: DatabaseInstance;
   appDomain: string;
-  /**
-   * Development-only extra origins, passed only by src/dev.ts. The production entry
-   * (src/index.ts) passes none, and nothing here reads the environment — record 012.
-   */
+  /** Extra origins, passed only by src/dev.ts. index.ts passes none — record 012. */
   devOrigins?: string[];
 };
 

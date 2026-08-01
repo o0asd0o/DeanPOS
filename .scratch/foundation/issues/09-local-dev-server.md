@@ -99,3 +99,17 @@ _Scope note: this is developer experience, not a product surface. It adds no pro
 screen, and no table. The one production-visible change is `VITE_API_URL` replacing the
 `VITE_APP_DOMAIN`-derived base URL — which issue 06 left as an acknowledged placeholder
 pointing at exactly this work._
+
+_Verification 2026-08-02, record 012 §5's two unresolved questions: `vp run -r --parallel dev`
+does **not** work here — `-r` self-selects the workspace root (which itself declares a `dev`
+script that runs `vp run -r --parallel dev`), so the command recurses into itself and fails
+with spawn errors. Reproduced repeatedly, independent of cache state, and confirmed against
+`../Fashio` running the identical command shape without the same root-level `dev` name
+collision. Applied record 012's pre-decided fallback verbatim: the explicit `-F api -F pos
+-F backoffice -F landing` filter form, which never selects root. Ran the real root `dev`
+script end to end against the lane database: all four origins responded, CORS admitted
+`http://localhost:5173` and refused `attacker.example.com`, and `-F` filtering silently
+omitted `packages/*` (no `dev` script) rather than erroring — confirming record 012's other
+prediction. Separately observed that killing the top-level `vp run` process with `SIGTERM`
+does not reliably terminate the spawned Vite/Next child processes; the README's documented
+`lsof -ti:... | xargs kill` fallback is therefore load-bearing, not just precautionary._
