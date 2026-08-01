@@ -1,6 +1,6 @@
 # 09 — One command runs every app against local PostgreSQL
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -141,3 +141,58 @@ deployment stack's internal `localhost:3000` (docker-compose.yml's `api` health 
 all four origins responded, `Origin: http://localhost:6003` got its own origin echoed back,
 `attacker.example.com` still got no header. `cors.ts`, `index.ts`, and `cors.test.ts` remain
 zero-line diffs. Gate green._
+
+---
+
+**Closed by the pipeline.** One fix round used; reviewer PASS on both axes, then PASS again
+after two minors I elected to take rather than merge past. Gate green cold in the lane after
+the rebase and again on `main`. Merged at `a152c52`. Lane database dropped at close.
+
+**Development origins are admitted by a second entry point, not by a setting.**
+`apps/api/src/dev.ts` passes literal development origins; `createApp` gained
+`devOrigins?: string[] = []`. **`apps/api/src/middlewares/cors.ts`, `apps/api/src/index.ts`, and
+`apps/api/tests/cors.test.ts` all have zero-line diffs against `main`** — verified
+independently, before and after every change. There is no environment variable and no
+`NODE_ENV` branch, so there is nothing to misconfigure and no way to widen production by
+forgetting to set something. The divergence between the two entry points **is** the security
+property.
+
+**Ports 6001–6004**, at the developer's request for the 600x range. **6000 is deliberately
+skipped**: it is on Chromium's and Firefox's restricted-port lists (X11), so a browser `fetch`
+to it fails with `ERR_UNSAFE_PORT`, which would have broken the API for all three front ends.
+The reason is recorded in the README so nobody tidies the range back later. `strictPort: true`
+on both Vite apps, because a silently-shifted port gets CORS-refused and the tempting fix is
+widening the allowlist.
+
+**A live production defect was found and fixed in passing.** Nothing set `VITE_APP_DOMAIN` at
+build time, so shipped bundles called `https://api.undefined/rpc`. Neither issue 08's reviewer
+nor I caught it; the `decider` did, while working out `VITE_API_URL`'s contract. Replacing the
+variable would have shipped the same broken URL under a new name, so `docker/web.Dockerfile`
+now takes the value as an `ARG`/`ENV` before the build step and `docker-compose.yml` passes it
+as a build arg derived from `APP_DOMAIN`.
+
+**`VITE_API_URL` holds the origin only** — no path, no trailing slash — with `/rpc` appended in
+code, because that prefix belongs to `app.use("/rpc/*")` and not to the environment.
+
+**Two of record 012's open questions were settled by running it, not by reasoning:**
+
+- `vp run -r --parallel dev` **does not work here.** `-r` selects the workspace root, whose own
+  `dev` script re-invokes the command, so it recurses and fails. The record's pre-decided
+  fallback — the explicit `-F api -F pos -F backoffice -F landing` filter form — was applied
+  verbatim, and record 012 was amended so the next area does not copy a script that recurses.
+- **`SIGTERM` to the top-level `vp run` does not reliably stop the spawned children.** The
+  README's `lsof -ti:… | xargs kill` fallback is therefore load-bearing rather than
+  precautionary.
+
+**One minor was worth taking even though the reviewer passed the issue.**
+`cors-dev-origins.test.ts` proved a development origin was echoed and an attacker origin
+refused — but both assertions would also have passed under a *replace* implementation, so
+additivity was guarded only by a human reading one line. It now asserts that a **production**
+origin is still echoed with `devOrigins` set. Two independent sabotages confirmed it bites:
+replace-semantics, and dropping `devOrigins` when non-empty. The reviewer notes the one class
+it still cannot catch — appending a specific new literal origin — is inherent to allowlist
+testing and remains covered by the greppable one-line review check.
+
+**Decision made during this issue:**
+`.scratch/decisions/012-development-origins-and-the-dev-server.md` — **Stakes: high**, because
+it touches a security default. Amended the same day against what actually ran.
