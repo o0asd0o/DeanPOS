@@ -25,26 +25,35 @@ which also owns environments, rollback rehearsal, backups, and the runbook.
 
 ## Acceptance criteria
 
-- [ ] `apps/landing` builds with Next.js's own build and deploys. No content.
-- [ ] Docker Compose brings up API, `apps/pos`, `apps/backoffice`, `apps/landing`, and
+- [x] `apps/landing` builds with Next.js's own build and deploys. No content.
+- [x] Docker Compose brings up API, `apps/pos`, `apps/backoffice`, `apps/landing`, and
       PostgreSQL locally, with **no cloud credentials required**.
-- [ ] One documented command starts the whole stack from a clean checkout — onboarding is not
+- [x] One documented command starts the whole stack from a clean checkout — onboarding is not
       tribal knowledge.
-- [ ] The reverse proxy serves four origins on one registrable domain with TLS, and the
+- [x] The reverse proxy serves four origins on one registrable domain with TLS, and the
       domain comes from an environment variable.
-- [ ] The **two** CORS-allowlisted callers — `pos.` and `admin.` — behave as issue 04
+- [x] The **two** CORS-allowlisted callers — `pos.` and `admin.` — behave as issue 04
       specifies once served through the proxy. The apex origin is still not on the allowlist,
       and `api.` does not need to be: an origin calling itself is not a cross-origin request.
-- [ ] Each front end is served from **its own origin, not a path** on another one. This is
+- [x] Each front end is served from **its own origin, not a path** on another one. This is
       what makes the terminal's Device token and PIN hashes browser-isolated from the
       back-office (ADR-0007); a path-based deployment defeats it and is not acceptable.
-- [ ] A deploy produces a **versioned** container image, tagged so a previous version can be
+- [x] A deploy produces a **versioned** container image, tagged so a previous version can be
       redeployed.
-- [ ] `.env.example` is committed with variable names and **no values**. No secret is
+- [x] `.env.example` is committed with variable names and **no values**. No secret is
       committed anywhere in the repository.
 - [ ] A manual smoke check against the health endpoint on the VPS is documented and its
       result recorded in the build report. The Docker deploy itself is not automated-tested,
       by decision.
+      **Status: documented; not executed — no VPS access, escalated to the human.** The
+      README's "Smoke check" section carries the exact command and the exact expected
+      response. The human must, on the VPS: (1) point four DNS A records at the server
+      — the apex, `pos`, `admin`, `api`; (2) confirm Caddy obtained publicly-trusted
+      certificates via `docker compose logs web` — the one claim that cannot be
+      exercised locally, since the laptop path never contacts an ACME server; (3) run
+      `curl -sS https://api.<APP_DOMAIN>/health` and confirm it returns exactly
+      `{"live":true,"databaseReachable":true}`, then record the output here or in the
+      build report. See `.scratch/decisions/011-local-stack-and-versioned-deploy.md`.
 
 ## Depends on
 

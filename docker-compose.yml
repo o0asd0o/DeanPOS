@@ -16,5 +16,62 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      args:
+        IMAGE_TAG: ${IMAGE_TAG:-dev}
+    image: deanpos/api:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+    environment:
+      DATABASE_URI: postgresql://${POSTGRES_USER:-deanpos}:${POSTGRES_PASSWORD:-deanpos}@postgres:5432/${POSTGRES_DB:-DeanPOS_dev}
+      APP_DOMAIN: ${APP_DOMAIN:-deanpos.localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "process.exit((await fetch('http://localhost:3000/health')).ok ? 0 : 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  landing:
+    build:
+      context: .
+      dockerfile: docker/landing.Dockerfile
+      args:
+        IMAGE_TAG: ${IMAGE_TAG:-dev}
+    image: deanpos/landing:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        IMAGE_TAG: ${IMAGE_TAG:-dev}
+    image: deanpos/web:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - landing
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-deanpos.localhost}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

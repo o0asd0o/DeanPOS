@@ -11,7 +11,8 @@
     "codegen": "vp exec -F backend prisma generate && vp exec -F pos tsr generate && vp exec -F backoffice tsr generate",
     "migrate": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate deploy",
     "migrate:status": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate status",
-    "prepare": "vp run -w codegen"
+    "prepare": "vp run -w codegen",
+    "stack": "bash scripts/stack.sh"
   },
   "devDependencies": {
     "vite": "catalog:",
