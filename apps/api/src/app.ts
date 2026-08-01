@@ -30,9 +30,7 @@ export const createApp = ({ db, appDomain }: CreateAppOptions) => {
 
   app.get("/health", healthRoute);
 
-  // `.router()` requires every contract key to be present — an
-  // unimplemented procedure fails typecheck here (ADR-0008; demonstrated in
-  // this issue's report, since hardening's coverage sweep relies on it).
+  // .router() requires every contract key present — .scratch/decisions/006.
   const router = implement(contract).$context<Ctx>().router({ ping: pingRoute });
   const rpcHandler = new RPCHandler(router);
 

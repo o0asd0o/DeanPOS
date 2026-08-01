@@ -78,3 +78,21 @@ _Sliced from `.scratch/foundation/PRD.md` (stories 11, 12, 14–16, 18–20, 38,
 security criteria 1, 4, 5, 8). Stories 13 and 17 are front-end and belong to issues 06 and 07.
 This is the fattest issue in the PRD and is deliberately not split — the ping proves nothing
 until it crosses all four layers._
+
+### Implementer notes (2026-08-02)
+
+Demonstrated the unimplemented-procedure typecheck property: added `pong: oc.input(z.void()).output(pingOutputSchema)`
+to `packages/contract/src/contract.ts` with no matching key in `apps/api/src/app.ts`'s
+`implement(contract).$context<Ctx>().router({ ping: pingRoute })`, ran `vp check`, and got:
+
+```
+x typescript(TS2741): Property 'pong' is missing in type '{ ping: ImplementedProcedure<...>; }'
+but required in type '{ ping: Lazyable<Procedure<...>>; pong: Lazyable<...>; }'.
+  apps/api/src/app.ts:34:61
+```
+
+Reverted both files immediately after capturing this. `vp check` is clean again.
+
+Seam helper: `createTestSeam(options?: { databaseUrl?: string; appDomain?: string })` in
+`apps/api/src/test-seam.ts`, returning `{ app, client, db }`. `apps/pos`/`apps/backoffice`
+(issues 06, 07) import it as a `devDependency` on `api` per `.scratch/decisions/006`.
