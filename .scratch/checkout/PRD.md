@@ -127,6 +127,8 @@ change tomorrow; the receipt stays true.
 32. As a cashier, I want that number to be assigned on the terminal, so that it exists even when we are offline.
 33. As a cashier, I want to start the next order in one tap from the receipt, so that the queue keeps moving.
 34. As a cashier, I want to look up a recent Order **from what this terminal already holds**, so that a returning customer is handled at the counter with no network and no wait.
+34a. As a cashier, I want to narrow that lookup to the orders I rang up myself, so that after a handover I am not scrolling through my colleague's sales to find mine.
+34b. As a manager, I want that filter to list whoever actually used this terminal today rather than every User in the Store, so that it is two taps and not a directory.
 
 **Corrections**
 

@@ -360,7 +360,7 @@ def build():
     e += [
         box(264, 88, 200, 36, "▾  All stores", W, align="l", size=11),
         box(474, 88, 210, 36, "▾  31 Jul 2026", W, align="l", size=11),
-        box(694, 88, 150, 36, "▾  All cashiers", W, align="l", size=11),
+        box(694, 88, 150, 36, "▾  Rung up by", W, align="l", size=11),
         box(854, 88, 150, 36, "▾  All devices", W, align="l", size=11),
         box(1014, 88, 170, 36, "▾  All methods", W, align="l", size=11),
         box(1194, 88, 222, 36, "Search order no.…", W, align="l", size=11),
@@ -413,6 +413,8 @@ def build():
         "Two export shapes: one row per Order (register) and one row per OrderLine (what a bookkeeper wants).",
         "A discount reference is a real person's ID number. Shown here, never logged.",
         "The method column disappears entirely for a cash-only tenant.",
+        "RUNG UP BY filters on the User attributed to the Order, whatever their Role — a manager's own sales are included.",
+        "The filter set survives opening a receipt and coming back. Twelve checks must not be twelve re-filters.",
     ]))
 
     # --------------------------------------------------------- reports: by item
@@ -453,7 +455,8 @@ def build():
     e += [
         box(264, 88, 230, 40, "▾  All stores", W, align="l", size=12),
         box(506, 88, 260, 40, "▾  1–31 Jul 2026", W, align="l", size=12),
-        box(778, 88, 250, 40, "▾  All managers", W, align="l", size=12),
+        box(778, 88, 200, 40, "▾  Rung up by", W, align="l", size=12),
+        box(990, 88, 200, 40, "▾  Approved by", W, align="l", size=12),
         box(X - 24 - 160, 88, 160, 40, "Export CSV", W, size=12),
     ]
     e += [
@@ -486,6 +489,7 @@ def build():
         "A PARTIAL refund names the lines returned; a whole-order refund says so rather than listing every line.",
         "Reason and approving manager are in the ROW. Money going back out is always attributable.",
         "This report reads the same records the Summary waterfall subtracts — one source, two questions.",
+        "TWO PEOPLE FILTERS, deliberately: who rang the original sale, and who approved the refund. Different questions.",
     ]))
 
     # ------------------------------------------------------------ receipt view
@@ -539,6 +543,7 @@ def build():
         "The SC/PWD reference is on the receipt and is personal data: shown, exported, never logged.",
         "Ticket label and fulfilment tag appear here because they were captured on the Order.",
         "Reached from an Order row, from a refund row, and from an order-number search.",
+        "Back returns to the list WITH ITS FILTERS INTACT — including the rung-up-by filter this was opened from.",
     ]))
 
     # --------------------------------------------------------------- discounts

@@ -682,8 +682,11 @@ def build():
     e += [
         txt(40, 104, "Recent orders on this terminal", 20, "l", "bold"),
         box(40, 124, 600, 46, "Search order number…", W, align="l"),
+        txt(40, 194, "Rung up by", 11),
     ]
-    e += rows(40, 186, 600, 56, [
+    for i, (t, f) in enumerate([("Anyone", W), ("Ana", S), ("Boy", W)]):
+        e.append(box(40 + i * 130, 202, 122, 40, t, f, size=12))
+    e += rows(40, 258, 600, 56, [
         "C2-0421   12:41   ₱310.00   Ana   synced",
         "C2-0420   12:33   ₱145.00   Ana   queued",
         "C2-0419   12:20   ₱210.00   Ana   VOIDED",
@@ -694,6 +697,9 @@ def build():
         "Scoped to this Device — order numbers are unique per Device, not per Store.",
         "Sync state is visible per order.",
         "Selecting an order opens the receipt view; corrections start from there.",
+        "RUNG UP BY lists only the Users who actually used this terminal in the window — not the Store's directory.",
+        "It filters on the User attributed to the Order, whatever their Role. A manager's own sales are in the list.",
+        "Defaults to the signed-in User after a handover, because 'find mine' is the reason the filter exists.",
     ]))
 
     # ------------------------------------------------------------ running summary

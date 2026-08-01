@@ -180,6 +180,10 @@ can be wrong.
 53j. As an owner, I want a receipt from last year to render exactly as it did then — old prices, old names, the VAT rate in force at the time, and the payment method as it was called — so that a reprint is a record and not a re-interpretation.
 53k. As an owner, I want a reprint marked as a reprint and recorded nowhere as a financial event, so that reprinting never touches a total.
 53l. As an owner, I want a voided or refunded Order's receipt to show that it was reversed, so that a reprint cannot be passed off as a live sale.
+53m. As an owner, I want to filter receipts by the person who rang them up, so that I can pull one employee's sales for a day without reading every row.
+53n. As an owner, I want that filter to catch sales rung by a manager as well as by a cashier, so that "everything Boy sold" is not silently missing the sales he took himself.
+53o. As an owner, I want the filter to survive opening a receipt and coming back, so that checking twelve of someone's sales is twelve taps and not twelve re-filters.
+53p. As an owner, I want to filter refunds by who **took the original sale** as well as by who approved the refund, so that "sales rung by X that later came back" is one question and not two reports.
 
 **Payment methods, discounts, and VAT — when they exist**
 
@@ -275,6 +279,23 @@ a bug. Voids are counted beside refunds and never summed into them.
 A partial refund lists the returned OrderLines; a whole-order refund says so rather than
 listing every line as if each were chosen. Every row links to the original Order, and from
 there to its receipt.
+
+**Filtering by employee means filtering by the User who took the sale, and that is not the
+same as filtering by Role.** Managers ring sales too — on a quiet afternoon, most of them —
+so a filter built over `Role = cashier` returns a confidently incomplete answer to "everything
+Boy sold today". The filter is over the **User attributed to the Order**, whatever their Role,
+and it is offered on the Orders list, the receipt view reached from it, and the Refunds report
+(where it is a *second* filter beside the approving manager — who rang the sale and who
+authorised the refund are different people and different questions).
+
+`employee` is the word the request used; **`User` is the canonical term** and the surface
+labels it by the person, not by the Role. Role gating is unchanged: a `cashier` cannot reach
+these reports at all, so this filter never becomes a way for one cashier to read another's
+takings.
+
+The filter **persists through the drill into a receipt and back**, along with every other
+filter. A filter set that resets on the back button turns twelve checks into twelve
+re-filters, which is how a report stops being used.
 
 **The receipt is rendered from the Order, and the template is shared with the terminal**
 (ADR-0012). Nothing is stored: no PDF, no image, no object storage, no receipt number sequence
@@ -524,6 +545,11 @@ suite that only exercises the configured tenant leaves the default product untes
 - Refund totals for a period equal the waterfall's `Refunds` figure for the same Stores and
   the same original-sale attribution.
 - A partial refund reports exactly the returned lines; a whole-order refund is marked as one.
+- **Filtering by the User who took the sale returns manager-rung sales too** — seed a sale
+  rung by a `manager` and assert it appears when filtering to that person. A filter built over
+  Role instead of over the attributed User fails this and is the reason it is written down.
+- The employee filter is asserted on the Orders list, on the Refunds report, and through the
+  drill into a receipt and back — **the filter set survives the round trip**.
 - **Voids never appear in any refund figure**, and refunds never appear in the void count.
 - A receipt rendered from an Order **years later reproduces the sale exactly** — assert it
   against a seeded Order whose Variant has since been renamed, whose price has since changed,
