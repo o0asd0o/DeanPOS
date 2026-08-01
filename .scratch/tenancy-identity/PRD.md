@@ -177,6 +177,14 @@ per Store, not a naming convention an admin is trusted to follow. It is also wha
 cashier find a sale rung on the *other* terminal (`checkout` order lookup) — without it there
 is nothing safe to search by. A code is not reused after a Device is revoked, because old
 receipts still carry it.
+
+**A Device is not moved between Stores.** It is revoked and re-enrolled, because a Device
+carries Store-scoped local state — cached catalog, sales settings, table labels, PIN hashes,
+and the recent-Orders store holding one Store's sales and their customer discount references.
+Re-pointing a Device at another Store without clearing that state would show the new Store's
+cashier the old Store's sales while offline, where no server check can intervene. **Enrolment
+starts from empty local state**, which makes re-enrolment the safe path and a move the unsafe
+one.
 - `EnrolmentCode` — short-lived, single-use, bound to a Store.
 - `Session` — back-office sessions, server-side, revocable.
 - `Override` — the approving User, the action type, a reason, a timestamp, the Device and

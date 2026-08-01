@@ -148,9 +148,18 @@ would think to test for.
 - **The window is the current DrawerSession plus the previous two business days.** Stated as a
   number so nobody has to guess what "recent" means. It covers the customer who comes back
   after the weekend, and it does not accumulate.
-- **Pruning happens at DrawerSession close**, when the terminal is already doing bookkeeping
-  and nothing is mid-sale. An Order still in the Outbox is **never** pruned regardless of age —
-  unacknowledged money stays on the Device until the server has it.
+- **Pruning happens at DrawerSession close and at the first unlock of a new business day**,
+  whichever comes first. Close alone is not enough: `drawer-sessions` has no automatic close by
+  decision — *a session ends because a person counted the drawer* — so a session left open for
+  a fortnight would otherwise keep a fortnight of sales, and their customer discount
+  references, on the tablet. The second trigger bounds the window even when nobody closes
+  anything.
+- An Order still in the Outbox is **never** pruned regardless of age — unacknowledged money
+  stays on the Device until the server has it. Pruning therefore reads the Outbox before it
+  deletes, and the two stores can never disagree about an Order the server has not seen.
+- **A pruned Order is not unreachable**, it is only not local: the lookup's Store-wide fallback
+  finds it while online (`checkout`), so an old sale can still be refunded — with a connection,
+  which is the honest trade for not hoarding customer data on a counter tablet.
 - **This store holds customer personal data** — an Order carrying a Discount carries its
   SC/PWD reference. That is why the window is bounded rather than "everything", and it is why
   `hardening` covers the Device as a place personal data rests. A revoked or wiped Device
@@ -227,8 +236,15 @@ may evict collected cash, and the operator deserves to know. Storage estimates a
 periodically and a low-space warning is raised.
 
 **Revocation.** Per `tenancy-identity`, the server rejects a revoked Device and quarantines
-its queued entries. The terminal handles that response by stopping replay, clearing nothing,
-and displaying an unmissable state — the entries stay locally as evidence.
+its queued entries. The terminal handles that response by stopping replay, **keeping the
+Outbox**, and displaying an unmissable state — unacknowledged entries stay locally as evidence
+of money collected, and deleting them would destroy the only record of it.
+
+**The recent-Orders store is the opposite case and is cleared on revocation.** It holds
+*already-acknowledged* sales as a convenience for lookups and refunds, so nothing is lost by
+dropping it — and it holds customer discount references, which is exactly what must not sit on
+a tablet that is no longer trusted. **Outbox kept as evidence, recent-Orders cleared as
+exposure**, and `hardening` states the same split from the security side.
 
 **Service worker.** Precaches the app shell so the terminal boots offline. API calls are
 **not** cached by the service worker; data caching is IndexedDB's job, and mixing the two

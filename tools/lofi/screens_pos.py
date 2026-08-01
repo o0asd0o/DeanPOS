@@ -695,14 +695,15 @@ def build():
     ], gap=8, align="l", size=12)
     e += [
         box(680, 140, 560, 300, "Selected order\n\n(receipt view, read-only,\nwith Void / Refund actions)", D, dash=1, size=14),
-        box(680, 460, 560, 224, "NOT ON THIS TERMINAL\n\n"
-                                "C1-0377 was rung up on Counter 1.\n\n"
-                                "  online   →  found in the Store and opened here,\n"
-                                "              with the same Void and Refund actions\n"
-                                "  offline  →  \"this sale was not rung on this terminal —\n"
-                                "              reconnect to find it\"\n\n"
-                                "Never a blank result. A cashier reads blank as a fake receipt.",
-            M, align="l", size=12),
+        box(680, 460, 560, 224, "NOT ON THIS TERMINAL — three worded outcomes\n\n"
+                                "  online, found    opens here, same Void / Refund actions\n"
+                                "  online, no row   \"not found in this store — it may still\n"
+                                "                   be waiting to sync on the terminal that\n"
+                                "                   rang it\"\n"
+                                "  offline          \"not rung on this terminal — reconnect\n"
+                                "                   to find it\"\n\n"
+                                "Never blank. A cashier reads blank as a fake receipt.",
+            M, align="l", size=11),
     ]
     out.append(screen("pos/order-lookup-1280.svg", T, TH, "POS · Order lookup", TABLET, e, notes=[
         "Scoped to this Device — order numbers are unique per Device, not per Store.",
@@ -734,9 +735,9 @@ def build():
     ], gap=8, align="l", size=12)
     e += [
         box(40, 552, 760, 130, "EACH LINE GIVES BACK WHAT WAS PAID FOR IT, NOT WHAT IT WAS LISTED AT.\n\n"
-                               "The ₱77.00 discount came off the whole bill, so a ₱240.00 line was really\n"
-                               "sold for ₱192.00.  120.00 x (1 - 77/385) = 96.00 for one of the two.\n"
-                               "Refunding the listed price would cost the tenant the difference, every time.",
+                               "share = line total x (ORDER TOTAL / sum of line totals).  Here 308/385,\n"
+                               "so a ₱240.00 line was really sold for ₱192.00 — ₱96.00 for one of the two.\n"
+                               "Stated against what was PAID, so the VAT-exempt case holds too.",
             D, dash=1, align="l", size=12),
         box(830, 140, 410, 240, "REFUND TOTAL\n\n₱96.00\n\n"
                                 "paid                ₱308.00\n"

@@ -25,7 +25,7 @@ names. The **Not** column lists synonyms that are decided against, not style pre
 | **Modifier** | An adjustment on a Variant that changes what is served, e.g. *Whole*, *Half*. Carries a typed delta. | size, option |
 | **Add-on** | An extra selected at sale time, e.g. *Extra rice*, *Itlog*. Configured once per Tenant, attachable to Variants. | extra, topping, upsell |
 | **Delta** | A Modifier's or Add-on's price adjustment. Typed as `absolute` (±centavos) or `multiplier` (an integer per-mille rate: `×0.5` is `500`) — never inferred, never a float. | adjustment, discount |
-| **Millicentavos** | Centavos × 1000, integer. The scale a Delta is applied in, so a `multiplier` fraction survives composition unrounded. Collapses to Centavos **once**, at the OrderLine total. | fixed point, decimal, float |
+| **Millicentavos** | Centavos × 1000, integer. The scale a Delta is applied in, so a `multiplier` fraction survives composition unrounded. Collapses to Centavos **once per stored figure** — the OrderLine total, the Order-scoped Discount amount, the Refund amount. | fixed point, decimal, float |
 
 ## Sales
 

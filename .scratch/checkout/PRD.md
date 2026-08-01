@@ -27,7 +27,8 @@ are new records — void and refund — each requiring a manager. Getting this w
 sales ledger into a set of numbers nobody can reconcile.
 
 **Money must be exactly right, once.** Integer centavos, and **every stored figure rounded
-exactly once** — the OrderLine total, and the Order-scoped Discount amount if there is one.
+exactly once** — the OrderLine total, the Order-scoped Discount amount if there is one, and
+the amount of any Refund.
 A cent of drift per line is a peso a day and an argument at drawer-session close.
 
 **The offline story starts here even though the Outbox does not.** If the submit endpoint
@@ -208,10 +209,24 @@ Void or Refund taken against a synced sale works offline for the same reason a s
 
 **The lookup falls back to the Store when the sale is not local, and says so when it cannot.**
 The local store answers instantly and offline; a number that is not in it is searched against
-the Store — the same query the back-office Orders list runs — and the result opens the same
-read-only receipt with the same Void and Refund actions. Offline, the fallback is impossible
-and the terminal says exactly that: **"this sale was not rung on this terminal — reconnect to
-find it"**, never a blank result, which a cashier reads as *this receipt is not real*.
+the Store — the same query the back-office Orders list runs, **authorised identically**, so it
+returns only Orders of the caller's Tenant and the Device's own Store — and the result opens
+the same read-only receipt with the same Void and Refund actions.
+
+**Three outcomes, and all three are worded, because a blank result reads to a cashier as
+*this receipt is not real*:**
+
+```
+found locally        opens immediately, online or offline
+not local, online    found in this Store and opened — same actions
+                     OR "no sale with this number in this store"
+not local, offline   "this sale was not rung on this terminal — reconnect to find it"
+```
+
+The middle case has a subtlety worth stating: the other terminal may have rung the sale and
+**not yet synced it**, so the server legitimately has no such row. That is not "no such sale" —
+the wording is *not found in this store; it may still be waiting to sync on the terminal that
+rang it*, and the cashier's move is that terminal, not a refusal to the customer.
 
 This works because a Device code is unique within its Store (`tenancy-identity`), so a printed
 `C2-0421` names exactly one sale in that shop. Without that constraint the fallback would be a
@@ -365,7 +380,7 @@ less than its recorded total. Refunding a line at its recorded total therefore h
 money the customer never paid.
 
 ```
-line share of the Order        = OrderLine total × (1 − orderDiscount / Σ OrderLine totals)
+line share of the Order        = OrderLine total × (Order total / Σ OrderLine totals)
                                  computed in exact Millicentavos
 
 refund amount for a selection  = Σ the shares of the selected lines and quantities
@@ -375,11 +390,23 @@ FINAL refund clearing the Order = Order total − everything already refunded
                                  (the remaining balance, not a recomputed share)
 ```
 
-Worked example, and a required test: ₱385.00 subtotal, a ₱77.00 Order-scoped senior discount,
-Order total ₱308.00. The customer returns one line recorded at ₱120.00.
-`120.00 × (1 − 77/385) = ₱96.00` goes back — **not ₱120.00**. Returning the listed price
-would cost the tenant ₱24.00 on that refund and on every discounted partial refund after it,
-invisibly.
+**The ratio is `Order total ÷ Σ line totals`, not `1 − discount ÷ Σ line totals`.** They
+agree for an ordinary Discount and they disagree for a VAT-exempt one, where the discount is
+computed on the VAT-exclusive base and the VAT comes off as well: on the ₱385.00 / 12% /
+20% SC-PWD sale the Order total is ₱275.00, and `1 − 68.75/385` would apportion ₱316.25
+across the lines — ₱41.25 more than the customer ever paid, refundable on a single-line order.
+The ratio form is stated against **what was actually paid over what was listed**, so it holds
+for every configuration this product has: VAT on or off, exempt or not, discount or none.
+
+Two worked examples, both required tests:
+
+- **Ordinary Discount.** ₱385.00 subtotal, ₱77.00 Order-scoped senior discount, Order total
+  ₱308.00. One line recorded at ₱120.00 comes back: `120.00 × (308/385) = ₱96.00` — **not
+  ₱120.00**. Returning the listed price costs the tenant ₱24.00 on that refund and on every
+  discounted partial refund after it, invisibly.
+- **VAT-exempt Discount.** Same subtotal, 12% VAT, 20% SC/PWD, Order total ₱275.00. The same
+  line comes back: `120.00 × (275/385) = ₱85.71`. The refund records **zero VAT**, because the
+  sale did.
 
 - **The last refund returns the remaining balance.** Apportioning to lines leaves a residue of
   a centavo or two that no line owns; if each refund recomputed its own share, refunding every
@@ -388,9 +415,22 @@ invisibly.
 - **Refundable remaining is per line and is shown**: a line already partly refunded shows what
   is left, and the running total of refunds may never exceed the Order total. Enforced
   server-side from persisted rows (SC10), never from a figure the terminal sent.
-- **Line-scoped Discounts and manual overrides need no apportionment.** Both are already inside
-  the recorded OrderLine total — that is what "recorded" means — so refunding that line at its
-  recorded total is already correct.
+- **Reversals against one Order serialise, and the check is inside the write.** Idempotency on
+  each reversal's own UUID makes a *retry* safe; it does nothing about two *different* refunds
+  arriving together, which is exactly what an Outbox drain after an outage produces. Two
+  requests can each read ₱100.00 remaining and each commit ₱100.00, returning ₱200.00 on a
+  ₱100.00 sale — and the same race lets a Void and a Refund both observe `paid` and both
+  commit, defeating the rule that one excludes the other. **Read-remaining and write-reversal
+  happen in one transaction that takes a lock on the Order**, so the second request sees the
+  first one's row and is refused. This is the one place in the product where two writers
+  contend for the same row, and it is where money is.
+- **Line-scoped Discounts and manual overrides need no *separate* step, and they are not an
+  exception to the ratio.** Both are already inside the recorded OrderLine total — that is what
+  "recorded" means — so they are apportioned exactly once by being part of the figure the ratio
+  multiplies. A line carrying one **still gets the Order ratio**, because an Order-scoped
+  Discount reduced it too. An earlier draft of this section said such lines refund at their
+  recorded total with no apportionment; that was wrong whenever both applied to the same line,
+  and it is the double-reduction confusion this bullet now exists to prevent.
 - **VAT follows the sale it is reversing, never the Tenant's current setting.** With VAT
   enabled, the refund's VAT is backed out of the refund amount at the rate **captured on the
   Order**. Where the sale recorded zero VAT — the VAT-exempt SC/PWD case — the refund records
@@ -578,6 +618,16 @@ sufficient for money.
 - **The apportionment case, as a named example:** ₱385.00 subtotal, ₱77.00 Order-scoped
   discount, ₱308.00 total, one ₱120.00 line returned → **₱96.00**. Asserting ₱120.00 is the
   bug this test exists to catch, and it is the one an implementer will write by default.
+- **The same order, VAT-exempt** — 12% VAT, 20% SC/PWD, total ₱275.00 — returns **₱85.71** for
+  that line and records zero VAT. Both examples are required, because a rule written as
+  `1 − discount/subtotal` passes the first and over-refunds the second by ₱41.25 across the
+  order.
+- **Two different refunds submitted concurrently against one Order cannot both succeed beyond
+  the remaining balance**, and a concurrent Void and Refund cannot both commit. Asserted with
+  genuinely parallel requests, not sequential ones — a sequential test passes against the
+  broken implementation.
+- A line carrying **both** a line-scoped Discount and an Order-scoped one refunds its ratio
+  share of the already-reduced recorded total — reduced once, not twice.
 - **Refunding every line individually returns exactly the Order total** — property-tested over
   generated carts and discounts, in any line order, with the final refund absorbing the
   apportionment residue. Off-by-a-centavo here is money, repeated per refund.
@@ -585,8 +635,9 @@ sufficient for money.
   and a request exceeding it is refused **server-side from persisted rows**.
 - A refund's VAT is backed out at the rate **captured on the Order**, not the Tenant's current
   rate; a refund of a VAT-exempt sale records zero VAT rather than omitting the field.
-- A line carrying a line-scoped Discount or a manual override refunds at its recorded total
-  with no apportionment — asserted, because it is the case where apportioning twice is tempting.
+- A line carrying a line-scoped Discount or a manual override refunds its **ratio share of the
+  already-reduced recorded total** — the line reduction is inside the recorded figure, the
+  Order ratio is applied on top of it, and neither is applied twice.
 - A manual line override requires a manager Override and stores the original price.
 - A Variant renamed or archived after a sale does not change the historical Order's
   rendering.
@@ -626,7 +677,7 @@ off-by-default configuration is the product most tenants will run.
 with VAT enabled and disabled, and with and without a Discount applied: the Order total
 always equals the sum of stored line totals minus the stored Order-scoped Discount amount;
 **exactly three figures are ever rounded — the OrderLine total, the Order-scoped Discount
-amount**; VAT backed out and re-applied returns the original total; a VAT-exempt Discount
+amount, and the Refund amount**; VAT backed out and re-applied returns the original total; a VAT-exempt Discount
 always yields a payable equal to `subtotal/(1+rate) × (1−percent)` to the centavo; no
 Discount can drive a total below zero.
 
