@@ -1,8 +1,6 @@
-# The registrable domain is not decided (ADR-0001, PRD). It arrives as APP_DOMAIN.
-# There is deliberately no local-vs-production switch here: Caddy picks the
-# certificate issuer from the hostname. Names under .localhost get Caddy's own
-# internal CA with no network and no credentials; public names get Let's Encrypt
-# over HTTP-01 on port 80. One file, both environments.
+# One file, both environments: Caddy picks the certificate issuer from the
+# hostname (internal CA for .localhost, Let's Encrypt otherwise). APP_DOMAIN
+# is not decided (ADR-0001, PRD); see decision record 011 for the full case.
 
 {$APP_DOMAIN:deanpos.localhost} {
 	reverse_proxy landing:3000
