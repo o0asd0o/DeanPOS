@@ -42,12 +42,16 @@ because fake data in a shell is what eleven later areas would build against:
 ## How to judge these
 
 `LOFI-CONTRACT.md` is binding: a mock fixes **what is on the screen and in what order, and
-nothing else.** Spacing, type scale, colour, radii, and every interaction state come from
-`packages/ui` tokens.
+nothing else.** Colour, spacing, type, and radii now have a named source too — `packages/ui`
+tokens and the theme reference set adopted by `docs/adr/0013-visual-design-system-and-palette-roles.md`
+(`.scratch/foundation/reference/inspo/`, mapped file-by-file in the README beside it) — so judging
+them is no longer an open question.
 
-So judge **structure, order, presence, state coverage, and accessibility** — never spacing or
-proportion. **Do not measure these SVGs.** A fidelity finding against a value the mock does not
-contain is not a finding; it is an open question, and it routes as one.
+So judge **structure, order, presence, state coverage, and accessibility — plus colour, spacing,
+type, and radii against `packages/ui` tokens and the theme reference.** What is still off-limits,
+unchanged: **do not measure these SVGs.** They are greyscale lo-fi and were never meant to carry a
+pixel value; a fidelity finding against a value neither the tokens nor the reference set specifies
+is not a finding, it is an open question, and it routes as one.
 
 The states the mocks do not draw were decided in writing, not left to the implementer:
 `.scratch/decisions/009-terminal-shell-chrome-states.md` covers loading, error, empty, hover,

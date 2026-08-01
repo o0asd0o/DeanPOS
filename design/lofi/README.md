@@ -5,9 +5,10 @@ for every screen-fidelity issue. Read `.claude/skills/lofi-to-code/SKILL.md` bef
 building from one.
 
 **A mock fixes what is on the screen and in what order. Nothing else.** Spacing, type
-scale, colour, radii, and every interaction state come from `packages/ui` tokens and from
-the nearest existing screen — never from measuring these files. They are deliberately
-greyscale and deliberately ugly so that measuring them is obviously wrong.
+scale, colour, radii, and every interaction state come from `packages/ui` tokens and, per
+`docs/adr/0013-visual-design-system-and-palette-roles.md`, the theme reference set in
+`.scratch/foundation/reference/inspo/` — never from measuring these files. They are
+deliberately greyscale and deliberately ugly so that measuring them is obviously wrong.
 
 Each mock carries **notes under the frame**. Those notes are part of the contract: they say
 what the drawing cannot, and several of them are the whole reason a screen exists (the
