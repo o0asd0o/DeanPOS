@@ -87,6 +87,14 @@ seeded `message` via the `db` handle instead of asserting the literal `"pong"`; 
 bites by rendering a hardcoded string in `Ping.tsx`, watching the test fail, then reverting.
 Gate green, `apps/pos` reports 3 tests.
 
+**2026-08-02 — fixer, decision record 010 applied.** Split `routes/__root.tsx` into itself
+plus `components/AppShell.tsx` per record 010's verbatim bodies: the root now hands the
+router one imported component and holds no JSX. Also carried record 010's two document edits
+(`docs/agents/code-standards.md` section 4, `docs/adr/0009-frontend-module-structure.md`) and
+its amendment sentence in `.scratch/decisions/009-terminal-shell-chrome-states.md`'s reversal
+section. `rg -n '</|/>' apps/*/src/routes` returns nothing. Gate green, `apps/pos` still
+reports 3 tests, no test or manifest changed.
+
 ## Carried forward from issue 05
 
 The Tailwind 4 preset wiring is **not yet proven by anything committed.** Issue 05 verified it

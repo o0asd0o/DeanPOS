@@ -16,8 +16,9 @@ will re-decide where a component belongs.
 Both applications use the same layout, adapted from ApxDenta's `apps/webapp`:
 
 ```
-src/routes/                  TanStack Router files. THIN — routing, guards, layout, and a
-                             single feature component. No business logic, no data shaping.
+src/routes/                  TanStack Router files. THIN — routing, guards, layout nesting,
+                             and one imported component. No markup, no business logic, no
+                             data shaping.
   _protected/                auth-gated group
   (auth)/                    route groups for layout, not for URLs
 
@@ -34,6 +35,19 @@ src/components/              shared across features within this app. NOT design 
                              those live in packages/ui
 src/hooks/  src/lib/  src/providers/  src/constants/
 ```
+
+**Amended 2026-08-02** (`.scratch/decisions/010-the-word-layout-in-the-routes-layer.md`): the
+`src/routes/` line above read "routing, guards, layout, and a single feature component", which
+contradicted code standard 4's "DON'T put layout, markup, or business logic in a route file".
+The word meant **layout nesting** — the `_protected/` and `(auth)/` files that declare which
+screens sit inside which shell, the same sense as "route groups for layout, not for URLs" two
+lines below it — and never layout markup. ApxDenta's `apps/webapp`, which this ADR is adapted
+from, holds no markup in any route file: `__root.tsx` renders `<Outlet />` and nothing else,
+`_protected/layout.tsx` is a redirect guard plus `component: Protected`, and the shell's JSX
+lives in `features/protected/Protected.tsx`. So: **no route file in either application contains
+JSX**, the root included. A shell frame is a component under `src/components/`; a screen is a
+component under `src/features/`; a route file names one of them and wires the route-level
+concerns around it. Code standard 4 carries the reviewer's test.
 
 ### Rules
 

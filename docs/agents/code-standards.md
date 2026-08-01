@@ -32,15 +32,30 @@ A file exports exactly one component.
 
 ```
 routes/     route-level concerns ONLY — params, guards, redirects, data loading,
-            metadata, error boundaries. Whatever this project's router calls
-            this directory (pages/, app/, routes/) is the same layer.
+            metadata, error boundaries, and which screens nest inside which
+            shell. Whatever this project's router calls this directory
+            (pages/, app/, routes/) is the same layer.
 features/   the actual UI and logic, in one folder per capability.
+components/ chrome shared across this app's features — the shell frame, the
+            header, the primary nav, the shared state blocks.
 ```
 
-- DO make a route file import one feature component and wire the route-level concerns around it.
-- DON'T put layout, markup, or business logic in a route file.
+**The test is mechanical: a route file contains no JSX.** Every component a route hands the router — `component`, `pendingComponent`, `errorComponent`, `notFoundComponent` — is a bare identifier imported from `features/` or `components/`, never an inline function returning markup. `rg -n '</|/>' apps/*/src/routes` returns nothing.
+
+This holds for all three kinds of route file, and the root is not an exception:
+
+- **`__root.tsx`** hands the router one imported shell component. That component renders the frame and the `<Outlet />`.
+- **Pathless layout routes** (`_protected.tsx`, `_protected/layout.tsx`, `(group)/route.tsx`) declare *which screens nest inside which shell*. That nesting **is** the layout the routes layer owns, and it is the whole of it. A layout route that only guards or only groups **omits `component` entirely** — TanStack Router renders an `<Outlet />` for it automatically.
+- **Ordinary leaf routes** hand the router one imported feature component.
+
+- DO make a route file import one component and wire the route-level concerns around it.
+- DO create a pathless layout route when several screens share a shell. That file is routing, not markup.
+- DON'T put markup, layout, or business logic in a route file. "Layout" as a route-level concern means the nesting; the shell's JSX is a component elsewhere (ADR-0009, amended 2026-08-02, and `.scratch/decisions/010-the-word-layout-in-the-routes-layer.md`).
+- DON'T hide chrome inside the routes directory under a `-` prefixed folder. Those files are excluded from the route tree but they are still the wrong layer.
 - DON'T import anything from `routes/` inside `features/`. **The dependency points one way: routes → features.** A feature reaching back into a route is a finding.
-- A route file that grows past wiring means a feature is missing. Create the feature; do not grow the route.
+- A route file that grows past wiring means a component is missing. Create it — in `features/` if it owns a capability's data and actions, in `components/` if it is chrome that several features sit inside — and do not grow the route.
+
+This section governs files under `src/routes/`. `src/router.tsx` is not a route file; a one-line `defaultErrorComponent` adapter there is not a breach.
 
 ## 5. Comment for the human who maintains this, not for a model reading it
 

@@ -395,8 +395,9 @@ Two halves with very different costs.
 
 Changing what the top bar renders, the four sentences of copy, the pending line, the
 error block's arrangement, or the `md` boundary is an edit to two files:
-`apps/pos/src/routes/__root.tsx` (the frame and the header) and the shared state component
-under `apps/pos/src/components/`. The seam test re-proves accessibility on the same run.
+`apps/pos/src/components/AppShell.tsx` (the frame and the header — moved out of
+`routes/__root.tsx` by record 010, which forbids JSX in any route file) and the shared state
+component under `apps/pos/src/components/`. The seam test re-proves accessibility on the same run.
 This does not get more expensive with time, because later areas add siblings to these
 regions rather than reimplementing them.
 
