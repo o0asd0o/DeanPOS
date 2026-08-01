@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "scripts": {
-    "codegen": "vp exec -F backend prisma generate",
+    "codegen": "vp exec -F backend prisma generate && vp exec -F pos tsr generate",
     "migrate": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate deploy",
     "migrate:status": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate status",
     "prepare": "vp run -w codegen"
@@ -37,6 +37,7 @@
     "@orpc/contract": "1.14.13",
     "@orpc/client": "1.14.13",
     "@orpc/server": "1.14.13",
+    "@orpc/tanstack-query": "1.14.13",
     "zod": "4.4.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -44,6 +45,12 @@
     "@types/react-dom": "19.2.4",
     "tailwindcss": "4.3.3",
     "@tailwindcss/vite": "4.3.3",
-    "lucide-react": "1.28.0"
+    "lucide-react": "1.28.0",
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/router-plugin": "1.168.23",
+    "@tanstack/router-cli": "1.167.21",
+    "@tanstack/react-query": "5.101.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "happy-dom": "20.11.1"
   }
 }

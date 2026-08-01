@@ -1,0 +1,4 @@
+{
+  "generatedRouteTree": "./src/generated/routeTree.gen.ts",
+  "addExtensions": ".tsx"
+}
