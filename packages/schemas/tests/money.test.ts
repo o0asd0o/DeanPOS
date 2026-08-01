@@ -60,7 +60,7 @@ describe("roundLineTotal", () => {
 
   it("is idempotent: re-rounding an already-rounded value changes nothing", () => {
     fc.assert(
-      fc.property(fc.integer({ min: 0, max: 100_000_000 }), (mc) => {
+      fc.property(fc.integer({ min: -100_000_000, max: 100_000_000 }), (mc) => {
         const once = roundLineTotal(mc as Millicentavos);
         const twice = roundLineTotal(centavosToMillicentavos(once));
         expect(twice).toBe(once);
@@ -70,7 +70,7 @@ describe("roundLineTotal", () => {
 
   it("never drifts more than a centavo from the unrounded value", () => {
     fc.assert(
-      fc.property(fc.integer({ min: 0, max: 100_000_000 }), (mc) => {
+      fc.property(fc.integer({ min: -100_000_000, max: 100_000_000 }), (mc) => {
         const rounded = roundLineTotal(mc as Millicentavos);
         const drift = Math.abs(rounded * 1000 - mc);
         expect(drift).toBeLessThanOrEqual(1000);
@@ -170,5 +170,53 @@ describe("applyDelta", () => {
         },
       ),
     );
+  });
+
+  it("composes order-independently: every Delta is measured against the same base price", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.array(deltaArb, { maxLength: 8 }),
+        (priceValue, deltas) => {
+          const price = priceValue as Centavos;
+          expect(applyDeltas(price, [...deltas].reverse())).toBe(applyDeltas(price, deltas));
+        },
+      ),
+    );
+  });
+
+  it("with at most one multiplier, equals the multiplier applied to the base plus the absolutes", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 1, max: 10_000 }),
+        fc.array(fc.integer({ min: -100_000, max: 100_000 }), { maxLength: 8 }),
+        (priceValue, perMille, absolutes) => {
+          const price = priceValue as Centavos;
+          const deltas: Delta[] = [
+            { kind: "multiplier", perMille: perMille as PerMille },
+            ...absolutes.map(
+              (amountCentavos): Delta => ({
+                kind: "absolute",
+                amountCentavos: amountCentavos as Centavos,
+              }),
+            ),
+          ];
+          const fold = price * perMille + absolutes.reduce((sum, a) => sum + a * 1000, 0);
+          expect(applyDeltas(price, deltas)).toBe(fold as Millicentavos);
+        },
+      ),
+    );
+  });
+
+  it("prices the canonical half-adobo with extra rice at ₱75.00", () => {
+    const adobo = 12_000 as Centavos;
+    const half: Delta = { kind: "multiplier", perMille: 500 as PerMille };
+    const extraRice: Delta = { kind: "absolute", amountCentavos: 1_500 as Centavos };
+
+    const line = applyDeltas(adobo, [half, extraRice]);
+
+    expect(line).toBe(7_500_000 as Millicentavos);
+    expect(roundLineTotal(line)).toBe(7_500 as Centavos);
   });
 });

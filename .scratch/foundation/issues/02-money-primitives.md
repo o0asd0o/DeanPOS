@@ -180,3 +180,23 @@ unrequested validator: constructing/validating tenant-entered rates reads as `ca
 job (where the configuration UI and its input boundary live), not this primitives package's.
 
 **Nothing else noticed but not folded in.**
+
+**Fixer pass — decision record 003 + one coverage finding, applied.**
+
+- `.scratch/decisions/003-delta-composition.md` ratified `applyDeltas`/`deltaContribution`
+  unchanged (contributions summed against the base price). Replaced the doc comment on
+  `applyDeltas` with the record's verbatim text and added the three verbatim tests
+  (order-independence, single-multiplier fold-equivalence, canonical half-adobo-plus-rice
+  at ₱75.00) to `packages/schemas/tests/money.test.ts`. No change to `deltaContribution`,
+  `applyDeltas`, the manifest, or any dependency. The `catalog`/`checkout` guard obligations
+  in the record are explicitly out of this lane and not implemented here.
+- Reviewer coverage finding (minor): extended the generator ranges on `roundLineTotal`'s
+  idempotency and drift properties (`packages/schemas/tests/money.test.ts`, the
+  `roundLineTotal` describe block) from `fc.integer({ min: 0, ... })` to
+  `fc.integer({ min: -100_000_000, max: 100_000_000 })`, since `roundLineTotal` also rounds
+  the Refund amount, which can be negative under apportionment (ADR-0005). Both properties
+  held under the extended range — no implementation defect surfaced; `divideRoundHalfUp`'s
+  Euclidean remainder is confirmed correct and idempotent on negatives.
+- Gate: `vp check` pass, `vp run -r check` pass (9/10 cache hit), `vp run -r test` pass
+  (`packages/schemas`: 20/20 tests, including the 3 new and the 2 range-extended
+  properties; all other workspaces cache-hit pass).

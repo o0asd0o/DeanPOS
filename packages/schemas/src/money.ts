@@ -120,9 +120,23 @@ export function applyDelta(price: Centavos, delta: Delta): Millicentavos {
 }
 
 /**
- * Applies a sequence of Deltas to `price`, summing each one's contribution against the
- * same unmodified price. Every step is exact integer multiplication and addition — no
- * division anywhere — so the result never needs rounding until it is stored.
+ * Applies a sequence of Deltas to `price`. **Every Delta is computed against the same
+ * unmodified `price` and the contributions are summed** — a `multiplier` scales the base
+ * price, an `absolute` adds a flat amount, and neither sees the other's result. This is
+ * `checkout`'s stated per-line rule ("Variant price + Modifier and Add-on Deltas"), and it
+ * is what makes `Centavos × per-mille` **be** `Millicentavos`: every step is exact integer
+ * multiplication and addition, nothing divides, and nothing rounds until the OrderLine
+ * total (ADR-0005).
+ *
+ * Composition is therefore **order-independent**. A chained fold — each Delta applied to
+ * the running total — is deliberately not what this does: a second multiplier in a fold
+ * lands at 10^6 scale and needs a division by 1000 whose remainder would round
+ * mid-sequence, which ADR-0005 forbids.
+ *
+ * **Precondition, enforced upstream and not here:** at most one `multiplier` Delta may
+ * reach one OrderLine. `catalog` rejects the configuration; `checkout` rejects the
+ * submission. While that holds, this rule and a multiplier-first fold agree exactly.
+ * See `.scratch/decisions/003-delta-composition.md`.
  */
 export function applyDeltas(price: Centavos, deltas: readonly Delta[]): Millicentavos {
   return deltas.reduce<Millicentavos>(
