@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -23,5 +25,8 @@ export default defineConfig({
   },
   run: {
     cache: true,
+  },
+  test: {
+    setupFiles: [fileURLToPath(new URL("./vitest.setup.ts", import.meta.url))],
   },
 });

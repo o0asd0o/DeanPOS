@@ -7,10 +7,20 @@
     "check": "vp check",
     "test": "vp test"
   },
+  "dependencies": {
+    "kysely": "^0.28.2",
+    "pg": "8.22.0"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/pg": "8.20.3",
+    "prisma": "^6.3.0",
+    "prisma-kysely": "^1.8.0",
     "tsconfig": "workspace:*",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:"
+  },
+  "prisma": {
+    "schema": "src/db/prisma/schema.prisma"
   }
 }

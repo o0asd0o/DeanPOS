@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-kysely"
+  output   = "./generated"
+  fileName = "types.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URI")
+}
+
+// Single-row table with no domain meaning; area 04 reads it through Kysely
+// to prove the connection pipe. Deleted when a real slice replaces it.
+model Ping {
+  id        Int      @id @default(autoincrement())
+  message   String   @default("pong")
+  createdAt DateTime @default(now())
+}
