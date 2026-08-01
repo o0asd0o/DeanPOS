@@ -1,0 +1,47 @@
+@source "./components";
+@source "./lib";
+
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #18181b;
+  --color-card: #f4f4f5;
+  --color-card-foreground: #18181b;
+  --color-primary: #1d4ed8;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #e4e4e7;
+  --color-secondary-foreground: #18181b;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #52525b;
+  --color-accent: #e0e7ff;
+  --color-accent-foreground: #1e3a8a;
+  --color-destructive: #b91c1c;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #71717a;
+  --color-input: #71717a;
+  --color-ring: #000000;
+
+  /* Target size. Values from WCAG 2.2 SC 2.5.8 (AA) and SC 2.5.5 (AAA). */
+  --min-target-size: 24px;
+  --min-touch-size: 44px;
+
+  /* Focus indicator. Values from WCAG 2.2 SC 2.4.13, adopted above the AA floor. */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}
+
+@utility target-min {
+  min-inline-size: var(--min-target-size);
+  min-block-size: var(--min-target-size);
+}
+
+@utility touch-min {
+  min-inline-size: var(--min-touch-size);
+  min-block-size: var(--min-touch-size);
+}
+
+@layer base {
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+}

@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { workspaceName } from "../src/index.ts";
+import { Button, cn, Sheet, SheetContent, SheetTrigger } from "../src/index.ts";
 
-describe("workspace placeholder", () => {
-  it("exports its own name", () => {
-    expect(workspaceName).toBe("ui");
+describe("packages/ui exports", () => {
+  it("exports the button and sheet primitives, and the cn helper", () => {
+    expect(typeof Button).toBe("function");
+    expect(typeof Sheet).toBe("function");
+    expect(typeof SheetTrigger).toBe("function");
+    expect(typeof SheetContent).toBe("function");
+    expect(typeof cn).toBe("function");
+  });
+
+  it("cn merges and dedupes Tailwind class strings", () => {
+    expect(cn("px-2", "px-4")).toBe("px-4");
   });
 });
