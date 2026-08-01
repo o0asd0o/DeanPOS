@@ -7,6 +7,13 @@
   before it is built"), and `.scratch/foundation/PRD.md` ("Development runs beside the deployment
   stack, not through it")
 
+**Amended 2026-08-02:** found by running it, not by preference — issue 09 confirmed that
+`vp run -r --parallel dev` recurses when the root workspace itself declares a `dev` script:
+`-r` selects the root workspace, whose own `dev` script re-invokes `vp run -r --parallel dev`,
+so the command spawns itself and fails. Section 4's primary form is now the explicit filter
+form, `vp run --parallel -F api -F pos -F backoffice -F landing dev`; the `-r` form is not
+usable here for that reason. The rest of this record is unchanged.
+
 ## The question
 
 A developer's front end runs on a plain `http://localhost` port. The API only accepts calls from
@@ -253,8 +260,12 @@ Dockerfile line with a default, not from anyone's configuration.
 Root `package.json`:
 
 ```json
-"dev": "set -a; [ -f .env ] && . ./.env; set +a; vp run -r --parallel dev"
+"dev": "set -a; [ -f .env ] && . ./.env; set +a; vp run --parallel -F api -F pos -F backoffice -F landing dev"
 ```
+
+The explicit filter form is primary, not the `-r` form section 5 originally proposed — see the
+amendment above. `-r` is not usable when the root workspace itself declares a `dev` script, because
+`-r` selects the root workspace and that script re-invokes the same command, recursing into itself.
 
 That prefix is copied character-for-character from the existing `migrate` script — record 005's
 established pattern, not a new mechanism. It is what gives `apps/api` its `DATABASE_URI` (Bun's own

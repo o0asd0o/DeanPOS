@@ -114,6 +114,22 @@ prediction. Separately observed that killing the top-level `vp run` process with
 does not reliably terminate the spawned Vite/Next child processes; the README's documented
 `lsof -ti:... | xargs kill` fallback is therefore load-bearing, not just precautionary._
 
+_Fix pass 2026-08-02, two minor findings taken despite the reviewer passing the issue:
+`apps/api/tests/cors-dev-origins.test.ts`'s echo test now also asserts a production origin
+(`https://pos.<appDomain>`) is still echoed back with `devOrigins` set, converting additivity
+from review-guarded to test-guarded. Proved it bites: temporarily changed `app.ts`'s spread to
+`devOrigins.length ? devOrigins : allowedOrigins(appDomain)` (replace-semantics), the new
+assertion failed with `expected null to be 'https://pos.deanpos.test'`, then reverted `app.ts`
+exactly — `git diff` against the prior commit is empty, and `cors.ts`, `index.ts`, and
+`cors.test.ts` remain zero-line diffs against `main`. Test count stayed at 10 because the
+assertion went inside the existing test rather than a new one. Separately, copied record 012
+from `main` (it never landed in this lane) and amended it: section 4's root `dev` script is now
+the `-F` filter form as primary, with a note that `-r` is not usable when the root workspace
+itself declares a `dev` script — it recurses into itself — and an `**Amended 2026-08-02**`
+paragraph after the front matter records that this was found by running it, not by preference.
+Gate green: `vp run -w codegen`, `vp check`, `vp run -r check`, `vp run -r test` (10/10
+workspaces, `apps/api` at 10 tests)._
+
 _Port change 2026-08-02: moved to the 600x range at the developer's request — `apps/api`
 6001, `apps/landing` 6002, `apps/pos` 6003, `apps/backoffice` 6004. `6000` itself is skipped:
 it's on Chromium's and Firefox's restricted-port list (X11), so a browser `fetch` to it fails
