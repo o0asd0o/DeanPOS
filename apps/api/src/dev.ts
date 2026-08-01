@@ -14,7 +14,7 @@ const app = createApp({
   appDomain: env.appDomain,
   // Literals, never configuration. These ports are pinned by `server.strictPort`
   // in each front end's vite.config.ts — record 012.
-  devOrigins: ["http://localhost:5173", "http://localhost:5174"],
+  devOrigins: ["http://localhost:6003", "http://localhost:6004"],
 });
 
-export default { port: 3000, fetch: app.fetch };
+export default { port: 6001, fetch: app.fetch };

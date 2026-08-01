@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "check": "vp check",
-    "dev": "next dev -p 3001",
+    "dev": "next dev -p 6002",
     "test": "vp test"
   },
   "dependencies": {

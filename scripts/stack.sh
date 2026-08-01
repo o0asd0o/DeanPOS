@@ -14,7 +14,7 @@ POSTGRES_USER=deanpos
 POSTGRES_PASSWORD=deanpos
 POSTGRES_DB=DeanPOS_dev
 APP_DOMAIN=deanpos.localhost
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:6001
 EOF
   echo "Wrote .env with local defaults."
 fi

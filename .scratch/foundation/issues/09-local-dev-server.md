@@ -113,3 +113,15 @@ omitted `packages/*` (no `dev` script) rather than erroring — confirming recor
 prediction. Separately observed that killing the top-level `vp run` process with `SIGTERM`
 does not reliably terminate the spawned Vite/Next child processes; the README's documented
 `lsof -ti:... | xargs kill` fallback is therefore load-bearing, not just precautionary._
+
+_Port change 2026-08-02: moved to the 600x range at the developer's request — `apps/api`
+6001, `apps/landing` 6002, `apps/pos` 6003, `apps/backoffice` 6004. `6000` itself is skipped:
+it's on Chromium's and Firefox's restricted-port list (X11), so a browser `fetch` to it fails
+outright with `ERR_UNSAFE_PORT`, which would break the API for every front end. Updated
+`apps/api/src/dev.ts`, both Vite configs, `apps/landing/package.json`, `.env.example`,
+`scripts/stack.sh`, `README.md`, and `apps/api/tests/cors-dev-origins.test.ts`. Left the
+deployment stack's internal `localhost:3000` (docker-compose.yml's `api` health check) alone
+— that's the container's own port, unaffected by the dev loop. Re-ran the fan-out end to end:
+all four origins responded, `Origin: http://localhost:6003` got its own origin echoed back,
+`attacker.example.com` still got no header. `cors.ts`, `index.ts`, and `cors.test.ts` remain
+zero-line diffs. Gate green._

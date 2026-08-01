@@ -35,16 +35,18 @@ deployed shape (TLS, four origins behind Caddy) rather than the inner loop.
 
 | Application       | URL                     |
 | ----------------- | ----------------------- |
-| `apps/api`        | `http://localhost:3000` |
-| `apps/landing`    | `http://localhost:3001` |
-| `apps/pos`        | `http://localhost:5173` |
-| `apps/backoffice` | `http://localhost:5174` |
+| `apps/api`        | `http://localhost:6001` |
+| `apps/landing`    | `http://localhost:6002` |
+| `apps/pos`        | `http://localhost:6003` |
+| `apps/backoffice` | `http://localhost:6004` |
 
 Ports are pinned (`strictPort: true` in each front end's `vite.config.ts`), so a port already
-in use is a loud start-up failure, not a silent shift to the next free one.
+in use is a loud start-up failure, not a silent shift to the next free one. `6000` itself is
+skipped — Chromium and Firefox both refuse `fetch` to it (`ERR_UNSAFE_PORT`, the X11 restricted
+list), which would break every front end's calls to the API.
 
 Stop everything with one Ctrl-C in the terminal running `vp run -w dev`. If a port stays bound
-afterwards: `lsof -ti:3000,3001,5173,5174 | xargs kill`.
+afterwards: `lsof -ti:6001,6002,6003,6004 | xargs kill`.
 
 ## Local stack
 
