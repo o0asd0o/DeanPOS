@@ -38,7 +38,7 @@ Carried into every PRD. A ticket that reaches for one of these is out of scope.
 
 | | |
 | --- | --- |
-| Stack | Bun + TS monorepo. `apps/landing` Next.js · `apps/pos` React+Vite+ PWA · `apps/backoffice` React+Vite+ · `apps/api` thin Hono shell · `packages/backend` server logic + db · `packages/contract` oRPC · `packages/schemas` zod · `packages/error` · `packages/ui` tokens + primitives · `packages/tsconfig` |
+| Stack | TS monorepo managed by **Vite+ (`vp`)**, Bun as runtime and package-manager backend, root `catalog` pinning versions, oxlint + oxfmt via `vp check` — shape copied from the sibling project **Fashio**. `apps/landing` Next.js · `apps/pos` React+Vite+ PWA · `apps/backoffice` React+Vite+ · `apps/api` thin Hono shell · `packages/backend` server logic + db · `packages/contract` oRPC · `packages/schemas` zod · `packages/error` · `packages/ui` tokens + primitives · `packages/tsconfig` |
 | Architecture | **CQRS-lite** (ADR-0008, amending ADR-0001): handler → db-operation → Kysely, commands and queries split at the db-operation layer. No ports, no adapters, no domain entities. Handlers are transport-pure; `apps/api/src/routes/*` is the only transport-aware code. Frontend: thin routes, fat features (ADR-0009). Layout adapted from the sibling project **ApxDenta** |
 | Origins | `deanpos.app` · `pos.deanpos.app` · `admin.deanpos.app` · `api.deanpos.app`. Separate origins are what makes the POS's Device token and PIN hashes browser-isolated from the back-office (ADR-0001, ADR-0007) |
 | Tests | Vitest primary, everywhere |
@@ -76,7 +76,7 @@ already use, focusing on sales and reporting. Five changes, three explicit refus
 
 | # | Slug | Covers | Lives in | Depends on |
 | - | ---- | ------ | -------- | ---------- |
-| 1 | `foundation` | Monorepo, Bun, Vite+ (and its licence token), Vitest, lint/typecheck gate, Docker Compose w/ Postgres, Hono skeleton + healthcheck, **two** React shells (`apps/pos` PWA + `apps/backoffice`), `packages/ui` tokens/preset/primitives, `packages/contract` oRPC wiring, Prisma+`prisma-kysely`+Kysely wiring, three-origin routing + wildcard TLS + CORS allowlist, one deployable end-to-end slice, the money/rounding helper with property tests | all | — |
+| 1 | `foundation` | Monorepo under `vp` (Bun beneath it), catalog-pinned Vite+, Vitest, `vp check` gate, Docker Compose w/ Postgres, Hono skeleton + healthcheck, **two** React shells (`apps/pos` PWA + `apps/backoffice`), `packages/ui` tokens/preset/primitives, `packages/contract` oRPC wiring, Prisma+`prisma-kysely`+Kysely wiring, three-origin routing + wildcard TLS + CORS allowlist, one deployable end-to-end slice, the money/rounding helper with property tests | all | — |
 | 2 | `tenancy-identity` | Tenant, Store, User, Role. RLS policies + the connection-level tenant variable. Back-office email+password sessions. Device enrolment and revocation. PIN set/change, PIN unlock, offline PIN hash sync. The authorisation model and Override mechanism. **Tenant settings: timezone, business-day start, VAT, PaymentMethods, Variance tolerance** | `api` + both apps | 1 |
 | 3 | `catalog` | MenuItem → Variant → Modifier, Add-ons, typed Deltas, **the Discount list**, back-office CRUD, catalog read model for the terminal | `api` + `backoffice` | 1, 2, 7 |
 | 4 | `checkout` | The sale screen. Cart, OrderLine build from Variant+Modifiers+Add-ons, price capture, **Payment against a configured PaymentMethod**, **Discount application**, order state machine, Void, Refund, manual line override, receipt view. **Two layouts: tablet landscape and phone** | `api` + `pos` | 1, 2, 3 |
@@ -123,10 +123,10 @@ and purge.
 
 ## Open, deliberately
 
-- **Vite+ licence in CI** — needs a token or a documented fallback to plain Vite. Settle it in `foundation`, not in a red pipeline.
+- ~~**Vite+ licence in CI**~~ — **closed 2026-08-01.** `vp` v0.2.5 is installed locally and pinned in the root catalog exactly as `../Fashio` pins it; there is no hosted CI to hold a token (ADR-0006). What `foundation` still proves is that a clean checkout plus `vp install` reaches a green gate unattended.
 - ~~**Device clock skew**~~ — **closed by `reporting`, 2026-07-31.** Device time is the business truth for when a sale occurred; server receipt time is retained only for sync lag and skew detection. Recorded in `CONTEXT.md`.
 - **Self-serve signup** — the eventual goal, not v1. Tenant provisioning is admin-run until a tenant asks otherwise.
 - **Domain name** — `deanpos.app` is a placeholder throughout. The three-subdomain shape is the decision; the registrable domain is not. Settle it in `foundation` before the TLS cert is issued.
 - **`packages/ui` boundary** — primitives and tokens only. The first component that knows what a cart or a report is has crossed the line, and that is a review finding.
-- ~~**Monorepo task runner**~~ — **closed in `foundation`, 2026-07-31.** Bun workspaces plus Vite+; no Turborepo. A remote-cached task graph solves a build-time problem this repo does not have. *Deferred, trigger:* the gate slow enough that somebody skips it.
-- ~~**Linter/formatter**~~ — **closed in `foundation`, 2026-07-31.** Biome. One binary for lint and format, and ApxDenta has a config to copy. Not reopened.
+- ~~**Monorepo task runner**~~ — **closed in `foundation`, 2026-07-31; revised 2026-08-01.** **Vite+ (`vp`) manages the monorepo** — installs, catalog, `vp run -r`, `vp check` — with **Bun as the runtime and package-manager backend**. No Turborepo; `vp` already caches tasks. *Deferred, trigger:* the gate slow enough that somebody skips it.
+- ~~**Linter/formatter**~~ — ~~**closed in `foundation`, 2026-07-31.** Biome.~~ **Revised 2026-08-01: oxlint + oxfmt via `vp check`.** They ship with the manager and are configured in one `vite.config.ts` block; Biome would be a second binary doing what `vp` already does. Shape copied from `../Fashio`. Not reopened.

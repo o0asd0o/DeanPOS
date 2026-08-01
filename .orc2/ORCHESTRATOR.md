@@ -30,11 +30,12 @@ Return to an already-running agent with `SendMessage` rather than spawning a fre
 
 ## Ground rules
 
-**You run the gate, not the agents.** Agents report on their own work, and a report is a claim. `bun run check`, `bun run test`, run by you, are the only ground truth. Never accept an agent's word that tests pass — run them.
+**You run the gate, not the agents.** Agents report on their own work, and a report is a claim. `vp check`, `vp run -r check`, `vp run -r test`, run by you, are the only ground truth. Never accept an agent's word that tests pass — run them.
 
 ```
-bun run check
-bun run test
+vp check
+vp run -r check
+vp run -r test
 ```
 
 Run every command in that list, in that order, every time. A subset is not the gate. If one of them is slow enough that you are tempted to skip it, say so in the cycle report rather than dropping it silently.
@@ -165,7 +166,7 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 4. **Redo generated artifacts and migrations — do not merge them.** Each lane generated against the pre-merge state, so the second one may now assume a shape that no longer exists. After resolving conflicts:
 
    ```
-   bunx prisma generate
+   vp exec prisma generate
    ```
 
    Generated paths (`**/generated/**`) are never hand-merged. If the lane's own migration fails against the merged schema, delete it and regenerate.
@@ -174,7 +175,7 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
    ```
    <install dependencies>
-   bunx prisma generate
+   vp exec prisma generate
    ```
 
    The cause is that generated files are untracked, and a merge cannot update them — so any slice that changed a schema leaves `main`'s generated output stale, and any slice that added a dependency leaves it uninstalled. In both cases the first gate command fails on it. A red `main` you caused by skipping this is indistinguishable at a glance from a red one caused by a bad merge, which is the real cost.
@@ -184,8 +185,8 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
    After the merge is proven, if the slice added a migration:
 
    ```
-   bunx prisma migrate status
-   bunx prisma migrate deploy
+   vp exec prisma migrate status
+   vp exec prisma migrate deploy
    ```
 
    Applying a forward migration to the development database is **allowed and required** — it is additive forward motion, not a reset. Never drop or reset that database.

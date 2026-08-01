@@ -52,7 +52,7 @@ Match structure and order exactly. Use tokens for everything else. Then:
 1. **Structure and order** against the mock, side by side, at every width it covers.
 2. **Contrast against WCAG 2.2 AA** for every text and background pair you used. Accessibility outranks anything drawn.
 3. **Keyboard** — reach every control, see focus on each one, complete the flow without a mouse.
-4. **The gate** — `bun run check`, `bun run test`. Document any pre-existing failure; never claim a clean gate when one was already failing.
+4. **The gate** — `vp check`, `vp run -r check`, `vp run -r test`. Document any pre-existing failure; never claim a clean gate when one was already failing.
 
 ## Report
 

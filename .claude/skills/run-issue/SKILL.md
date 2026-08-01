@@ -23,7 +23,7 @@ Find the matching issue. If a bare number matches issues in more than one PRD, d
 
 Read `.orc2/ORCHESTRATOR.md` and follow its per-issue section exactly — select, implement, gate, review, fix loop capped at 2 rounds, then close or escalate.
 
-Everything in that file applies, in particular: you run `bun run check`, `bun run test` yourself and treat the exit codes as ground truth, never an agent's claim that they passed.
+Everything in that file applies, in particular: you run `vp check`, `vp run -r check`, `vp run -r test` yourself and treat the exit codes as ground truth, never an agent's claim that they passed.
 
 Stop after this one issue. Do not pick up the next one even if it is unblocked and obvious.
 

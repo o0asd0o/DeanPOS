@@ -23,7 +23,8 @@ merged work is the expensive kind of mistake.
 
 ## Solution
 
-A Bun + TypeScript monorepo containing four applications and six shared packages, wired
+A TypeScript monorepo managed by Vite+ (`vp`) with Bun as its runtime and package-manager
+backend, containing four applications and six shared packages, wired
 end to end and deployed to a single VPS, with exactly one thin vertical slice running
 through it: a `ping` procedure that reads one row from PostgreSQL and renders on both
 front-end applications.
@@ -44,15 +45,15 @@ is four different totals.
 **Repository and toolchain**
 
 1. As an implementing agent, I want a single monorepo with a declared workspace layout, so that I know where a new module belongs without inventing a convention.
-2. As an implementing agent, I want Bun as the only package manager and runtime, so that I never have to reason about which lockfile is authoritative.
-3. As an implementing agent, I want one command that installs everything from a clean checkout, so that a fresh lane worktree is productive without a setup document.
+2. As an implementing agent, I want Vite+ (`vp`) as the one manager — installs, catalog, workspace tasks, check — with Bun as the runtime and package-manager backend beneath it, so that I never have to reason about which tool owns a command or which lockfile is authoritative.
+3. As an implementing agent, I want one command — `vp install` — that installs everything from a clean checkout, so that a fresh lane worktree is productive without a setup document.
 4. As an implementing agent, I want TypeScript configured in strict mode across every workspace, so that a type error is a build failure rather than a runtime surprise.
-5. As an implementing agent, I want `bun run check` to run typecheck and lint across all workspaces, so that the gate's first half is one command.
-6. As an implementing agent, I want `bun run test` to run every Vitest suite across all workspaces, so that the gate's second half is one command.
+5. As an implementing agent, I want `vp check` to run format, lint, and typecheck across all workspaces, so that the gate's first half is one command.
+6. As an implementing agent, I want `vp run -r test` to run every Vitest suite across all workspaces, so that the gate's second half is one command.
 7. As an implementing agent, I want the gate to fail on a type error in one workspace even when the others pass, so that a broken contract cannot merge behind a green partial run.
 8. As a developer, I want Vite+ configured as the runner for both React applications, so that the two front ends behave identically in development.
-9. As a developer, I want the Vite+ licence handled explicitly — a token in the local environment, or a documented and deliberate fallback to plain Vite — so that the build never silently degrades and nobody debugs it under time pressure.
-10. As a developer, I want formatting and linting to be non-negotiable and automatic, so that no review ever spends a comment on style.
+9. As a developer, I want the Vite+ version pinned in the root catalog exactly as the sibling project pins it, so that every workspace and every lane resolves the same `vp` and the build cannot silently degrade to plain Vite.
+10. As a developer, I want formatting and linting to be non-negotiable and automatic — oxfmt and oxlint under `vp check`, plus the staged-file hook — so that no review ever spends a comment on style.
 
 **Contract and typesafety**
 
@@ -126,7 +127,8 @@ is four different totals.
 Hono shell** holding no product logic) — and six packages: `packages/backend` (server logic
 and the database), `packages/contract` (oRPC contract), `packages/schemas` (zod shapes),
 `packages/error` (error taxonomy), `packages/ui` (Tailwind preset, tokens, shadcn
-primitives), and `packages/tsconfig`. Bun workspaces. This is ADR-0001 and ADR-0008 and is
+primitives), and `packages/tsconfig`. Declared as `workspaces` in the root `package.json`
+and managed by `vp`. This is ADR-0001 and ADR-0008 and is
 not open in this PRD.
 
 The internal shape of `packages/backend` and of both React applications is fixed by ADR-0008
@@ -136,31 +138,45 @@ each; every later area copies the nearest neighbour rather than inventing.
 `apps/landing` is scaffolded here only far enough to build and deploy; its content is
 area 11.
 
-**Toolchain.** Bun as package manager and runtime. Vite+ as runner and bundler for
-`apps/pos` and `apps/backoffice`; `apps/landing` keeps Next.js's own build. Vitest is the
-only test runner, configured as a workspace so one invocation covers every package.
-TypeScript strict everywhere.
+**Toolchain: `vp` manages, Bun runs.** Vite+ (`vp`) is the monorepo manager — `vp install`
+for dependencies, the root `catalog` for versions, `vp run -r` for workspace tasks,
+`vp check` for format + lint + typecheck, `vp test` for Vitest, `vp build` for production
+output. Bun sits underneath as the package-manager backend, declared in
+`devEngines.packageManager` and producing the committed `bun.lock`, and is the runtime
+`apps/api` serves on. Vite+ is the runner and bundler for `apps/pos` and `apps/backoffice`;
+`apps/landing` keeps Next.js's own build. TypeScript strict everywhere.
 
-The Vite+ licence must be resolved as part of this PRD — either a token is wired into the
-local environment and verified, or the repository deliberately pins plain Vite and records
-why. A build that degrades silently is a defect of this PRD, not a later surprise.
+**The shape is copied from the sibling project `../Fashio`, not designed here.** Root
+`package.json` declaring `workspaces`, a `catalog` pinning `vite-plus` and overriding `vite`
+to `@voidzero-dev/vite-plus-core` at the same version, `devEngines.packageManager` naming
+Bun with `onFail: download`, one root `vite.config.ts` holding the `fmt`, `lint`, `staged`,
+and `run.cache` blocks, and a `check` + `test` script in every workspace package. Read that
+repository before writing this one; a working configuration beats a derived one.
 
-**Linter and formatter: Biome.** One binary covering both, one config at the root, and the
-sibling project **ApxDenta** already has a working configuration to copy — which is the
-whole argument. oxlint ships with Vite+ and is a fine linter, but it is not a formatter, so
-choosing it means running two tools where one will do. The stakes are low either way; what
-matters is that the answer is written down. This closes the open item in `.scratch/APP-PLAN.md`
-and it is **not reopened by a later area**.
+The Vite+ licence is **resolved, not open**: `vp` v0.2.5 is installed on the development
+machine and the version is pinned in the catalog. There is no hosted CI to hold a token
+(ADR-0006). What this PRD must still prove is that a **clean checkout plus `vp install`**
+reaches a green gate with no manual step — if it does not, that is a defect of this PRD.
 
-**Task running: Bun workspaces plus Vite+, no Turborepo.** `bun run check` and
-`bun run test` must each be a single command that fails if *any* workspace fails. A
-remote-cached task graph is a solution to a build-time problem this repository does not
-have yet. **Deferred, trigger:** the gate taking long enough that somebody starts skipping
-it. This closes the second open item in `.scratch/APP-PLAN.md`.
+**Linter and formatter: oxlint and oxfmt, through `vp check`.** They ship with Vite+, are
+configured in one `vite.config.ts` block, run type-aware, and cost nothing to install
+because the manager is already there. **Biome was the earlier answer and is dropped**
+— it was chosen when Bun was the manager and a formatter had to come from somewhere; with
+`vp` managing, adding a second binary means two tools that can disagree about the same file.
+The `staged` hook runs `vp check --fix` so formatting never reaches a review. This closes
+the open item in `.scratch/APP-PLAN.md` and is **not reopened by a later area**.
 
-**Gate.** `bun run check` (typecheck + lint across all workspaces) and `bun run test`
-(Vitest across all workspaces). These are already recorded in `.orc2/config.env`; this
-PRD makes them real. Both must fail loudly when any single workspace fails.
+**Task running: `vp run -r`, no Turborepo.** `vp` already caches tasks (`run.cache`), so a
+remote-cached task graph solves a build-time problem this repository does not have.
+**Deferred, trigger:** the gate taking long enough that somebody starts skipping it. This
+closes the second open item in `.scratch/APP-PLAN.md`.
+
+**Gate.** `vp check` (format, lint, typecheck at the root) then `vp run -r check` and
+`vp run -r test` (each workspace's own check and Vitest suite). Recorded in
+`.orc2/config.env` as `ORC2_GATE`; this PRD makes it real. **The composition is not the
+requirement — the property is:** a type error, a lint error, or a failing test in *any
+single workspace* turns the whole gate red. If one root command can be shown to do that,
+use one.
 
 **Contract.** `packages/contract` hand-writes oRPC procedure definitions with their
 input and output schemas. `apps/api` implements against it; `apps/pos` and
@@ -362,10 +378,11 @@ every default.
 
 ## Further Notes
 
-- **Vite+ is the single most likely source of a mysterious build failure in this PRD.**
-  Resolve the licence explicitly and prove it on a clean machine before anything depends on the
-  build. If a token is unavailable, pin plain Vite and record the decision rather than
-  leaving a fallback that nobody knows is active.
+- **Copy `../Fashio` before designing anything about the toolchain.** Its root
+  `package.json`, `vite.config.ts`, and per-package `check`/`test` scripts are a working
+  `vp` + Bun monorepo. The licence question that used to sit here is answered by that pin.
+- **`vp` is on the critical path for every command.** One binary now installs, checks,
+  tests, and builds. Pin its version in the catalog and do not float it.
 - **The seam helper is the real deliverable.** Ten areas will use it. If it is awkward,
   every later test is awkward. Spend the time here.
 - **Do not let structure inflate the ping slice.** One handler, one query, one route binding.

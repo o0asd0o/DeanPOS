@@ -128,7 +128,8 @@ quarantine adjudication, and one entry per alert from `observability`.
 
 ## Implementation Decisions
 
-**There is no hosted CI, by decision.** The gate — `bun run check; bun run test` — is run by
+**There is no hosted CI, by decision.** The gate — `ORC2_GATE`, currently
+`vp check; vp run -r check; vp run -r test` — is run by
 the orc2 pipeline in a lane before anything merges, and by the deploy script against the
 exact commit being shipped. This is coherent: the gate is enforced, just not by a hosted
 service. The deploy script **refuses to deploy a commit whose gate has not passed on that

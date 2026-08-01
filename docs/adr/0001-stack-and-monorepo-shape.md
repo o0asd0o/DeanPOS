@@ -66,7 +66,17 @@ is an allowlist rather than a `SameSite=None` workaround.
 
 - Runner and bundler for `apps/app`: **Vite+** (VoidZero).
 - Primary test tool: **Vitest**, everywhere.
-- Package manager and runtime: **Bun**.
+- ~~Package manager and runtime: **Bun**.~~ **Amended 2026-08-01:** **Vite+ (`vp`) is the
+  monorepo manager; Bun is the runtime and the package-manager backend under it.** `vp`
+  owns installs, the dependency catalog, workspace task running, and `check` (format, lint,
+  typecheck in one command). Bun is declared in `devEngines.packageManager`, produces the
+  committed `bun.lock`, and is the runtime `apps/api` serves on. The sibling project
+  **Fashio** already runs exactly this shape, and copying a working configuration is the
+  whole argument.
+- ~~Linting and formatting by a separate tool.~~ **Amended 2026-08-01:** **oxlint and oxfmt
+  via `vp check`.** They ship with Vite+, are configured in one `vite.config.ts` block, and
+  run type-aware. Biome was the earlier answer and is dropped — adding a second binary to do
+  what the manager already does is a tool to install, configure, and keep in agreement.
 - Hosting: a single VPS running Docker Compose (app, api, Postgres). The whole stack
   must run locally with no cloud credentials.
 
@@ -84,9 +94,17 @@ Payload CMS was recommended and **rejected**; the back-office is hand-built insi
 - CQRS + hexagonal imposes per-slice ceremony (port, adapter, command/query handler)
   that an MVP does not strictly need. Accepted deliberately; it is the cost of the
   chosen architecture, not a finding for a reviewer to raise per ticket.
-- **Vite+ is commercial tooling with a licence tier.** CI needs its token or it silently
+- ~~**Vite+ is commercial tooling with a licence tier.** CI needs its token or it silently
   falls back to plain Vite. This must be handled in the Foundation PRD, not discovered
-  in a red pipeline.
+  in a red pipeline.~~ **Resolved 2026-08-01:** `vp` v0.2.5 is installed and working on the
+  development machine, and Fashio pins it through the root `catalog` as
+  `vite-plus@0.2.5` with `vite` overridden to `@voidzero-dev/vite-plus-core@0.2.5`.
+  DeanPOS pins the same way. There is no hosted CI to hold a token (ADR-0006), so the
+  remaining exposure is a new machine, not a red pipeline.
+- **`vp` is now on the critical path for every command in the repo.** Install, gate, test,
+  and build all route through one binary. That is the point — one manager, one config — but
+  it means a `vp` regression stops all work, and the version is pinned in the catalog for
+  exactly that reason.
 - `packages/contract` is the coupling point: a change there breaks two apps at once,
   which is the intent — the gate catches drift instead of production.
 
