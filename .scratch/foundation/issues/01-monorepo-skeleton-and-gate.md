@@ -58,5 +58,7 @@ Workspaces to create, empty but valid: `apps/landing`, `apps/pos`, `apps/backoff
 
 ## Comments
 
-_Sliced from `.scratch/foundation/PRD.md` (stories 1–10, 47). Toolchain revised 2026-08-01:
+_Sliced from `.scratch/foundation/PRD.md` (stories 1–10). Story 47 — one command to start the
+whole stack — belongs to issue 08; this issue's one command is `vp install` (story 3).
+Toolchain revised 2026-08-01:
 `vp` manages, Bun runs, oxlint + oxfmt replace Biome — see ADR-0001's amendments._

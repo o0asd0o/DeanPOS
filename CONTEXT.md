@@ -24,14 +24,19 @@ names. The **Not** column lists synonyms that are decided against, not style pre
 | **ModifierGroup** | A named set of Modifiers with one selection rule — `required-one`, `optional-one`, or `many`. Defined once, linked to many Variants. | option set, choice group, variant group |
 | **Modifier** | An adjustment on a Variant that changes what is served, e.g. *Whole*, *Half*. Carries a typed delta. | size, option |
 | **Add-on** | An extra selected at sale time, e.g. *Extra rice*, *Itlog*. Configured once per Tenant, attachable to Variants. | extra, topping, upsell |
-| **Delta** | A Modifier's or Add-on's price adjustment. Typed as `absolute` (±centavos) or `multiplier` (×rate) — never inferred. | adjustment, discount |
+| **Delta** | A Modifier's or Add-on's price adjustment. Typed as `absolute` (±centavos) or `multiplier` (an integer per-mille rate: `×0.5` is `500`) — never inferred, never a float. | adjustment, discount |
 | **Millicentavos** | Centavos × 1000, integer. The scale a Delta is applied in, so a `multiplier` fraction survives composition unrounded. Collapses to Centavos **once**, at the OrderLine total. | fixed point, decimal, float |
 
 ## Sales
 
 | Term | Means | Not |
 | --- | --- | --- |
-| **Order** | One customer's purchase. States: `draft → paid → (voided \| refunded)`. | ticket, transaction, sale (in code), bill |
+| **Order** | One customer's purchase. States: `draft → paid → (voided \| refunded)`. | transaction, sale (in code), bill |
+| **Ticket** | A `draft` Order set aside under a **ticket label**, so the cashier can serve someone else and come back. Not a separate entity and not a state — a Ticket *is* a draft. Local to the Device that opened it, invisible to every other Device, never sent to the server until `paid` (ADR-0011). | held order, tab, open bill, parked order |
+| **Ticket label** | What a Ticket is called: a table label or a customer's name. Free text, or picked from the Store's table list. Captured on the Order at sale time. | table (as the label itself), order name |
+| **Table** | An entry in a Store's optional, ordered list of table labels. **A label, not a resource** — no occupancy, no seating, no covers, and two Tickets may carry the same one. | seat, cover, area, section |
+| **Fulfilment tag** | An optional word recorded on an Order: `dine_in` \| `take_out` \| `delivery` \| `pick_up`. **v1 interprets it nowhere** — no routing, no fee, no separate pricing (ADR-0011). | order type, service type, channel |
+| **Receipt** | A **view over a paid Order**, rendered on demand and reprintable. Not a stored file — nothing is archived, and the Order's identity is the receipt's identity (ADR-0012). | invoice, bill, receipt file, PDF |
 | **OrderLine** | One Variant + its chosen Modifiers and Add-ons, with the price captured **at sale time**. | line item, cart item |
 | **Payment** | An amount tendered against an Order, under one PaymentMethod. | tender, transaction |
 | **PaymentMethod** | A tenant-configured way of paying: `cash`, or a named **recorded tender** (Card, GCash, Maya, Bank transfer). `cash` always exists and is the only one that reaches the drawer. DeanPOS authorises nothing. | payment type, tender type, gateway |
@@ -92,6 +97,12 @@ Shift — but they are separate records with separate lifecycles, and v1 does no
   statutory Philippine Senior Citizen / PWD computation. Discounting the VAT-inclusive
   price instead overcharges an entitled customer.
 - `paid` is irreversible. Nothing after it edits an Order.
+- **An open Ticket is not a sale.** It appears in no report, no total, and no DrawerSession
+  figure, and it never leaves the Device. Discarding one writes nothing — a draft the server
+  never saw cannot be Voided. A DrawerSession **cannot close** while Tickets are open.
+- **A receipt is rendered, never stored.** Every figure and every name on it was captured on
+  the Order at sale time, so re-rendering it years later reproduces it exactly. Reprinting is
+  not a financial event and writes no record.
 - **A sale happened when the Device says it happened.** Device time determines the business
   day, hour, and period in every report. Server receipt time is retained only to show sync
   lag and to detect implausible clock skew. Decided in `reporting`.

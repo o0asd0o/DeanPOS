@@ -35,7 +35,10 @@ packages/backend             the product's server logic. NO transport dependency
   src/<area>/handlers/<verb-noun>.ts        export { inputSchema, handler }
   src/<area>/db-operations/commands/*.command.ts
   src/<area>/db-operations/queries/*.query.ts
-  src/common/                errors, money primitives, pagination, Ctx and HandlerType
+  src/common/                errors, ~~money primitives,~~ pagination, Ctx and HandlerType
+                             (amended 2026-08-01: money primitives live in
+                             `packages/schemas` — the terminal computes totals offline and
+                             cannot import a server-only package. `foundation` PRD.)
 ```
 
 ### Rules

@@ -81,6 +81,23 @@ change tomorrow; the receipt stays true.
 16. As a cashier, I want to be warned before clearing a non-empty order, so that a stray tap does not lose a built basket.
 17. As a cashier, I want the draft order to survive a terminal reload, so that a crash mid-order does not cost the customer's time.
 
+**Tickets, tables, and how the order will be taken** (ADR-0011)
+
+17a. As a cashier, I want to set the current order aside under a name, so that a customer who is still deciding does not hold up the queue behind them.
+17b. As a cashier, I want to see every Ticket I have open, with its label, its total, and how long it has been open, so that nothing is forgotten at the counter.
+17c. As a cashier, I want to resume a Ticket in one tap and carry on building it, so that coming back to a customer costs nothing.
+17d. As a cashier, I want to label a Ticket with a table, so that I can match the order to where the customer is sitting.
+17e. As a cashier at a Store that does not use tables, I want to type any label — a name, "red shirt" — so that the feature works without a floor plan.
+17f. As a manager, I want the Store's table labels configured as a list, so that a cashier taps instead of typing and the labels stay consistent.
+17f1. As a cashier, I want a grid of my Store's tables showing which are free and what each occupied one owes, so that I can see the floor's state at a glance and resume the right order in one tap.
+17f2. As a cashier, I want a table that already has an open Ticket to be unavailable when labelling a new one, so that I cannot put two orders on Table 4 and lose track of which is which.
+17f3. As a cashier, I want to move a Ticket to a different table, so that customers changing seats is not a re-ring.
+17g. As a cashier, I want to discard a Ticket, so that a customer who walked away does not sit in my list forever.
+17h. As an owner, I want a discarded Ticket to leave no trace and no reversal record, so that my void report is about real cancelled sales and nothing else.
+17i. As a cashier, I want to be stopped from closing my drawer while Tickets are still open, so that I never leave money uncollected and unaccounted for.
+17j. As a cashier, I want to tag an order as dine in, take out, delivery, or pick up, so that the sale records how the food left the counter.
+17k. As an owner, I want that tag kept on the sale and filterable in the Orders list, so that the question can be answered later even though v1 does nothing else with it.
+
 **Payment**
 
 18. As a cashier, I want to take payment in cash, so that the ordinary case is fast.
@@ -91,6 +108,8 @@ change tomorrow; the receipt stays true.
 22a. As a cashier at a cash-only Store, I want no payment-method choice at all, so that the ordinary sale stays one tap.
 22b. As a cashier, I want a non-cash payment recorded as a typed amount with no change due, so that it is obvious DeanPOS did not charge anything.
 22c. As an owner, I want the method's name kept on the sale, so that renaming it next year does not rewrite last year's receipts.
+22d. As a cashier, I want the method chooser at the top of the payment panel, level with the amount due, so that I pick how they are paying before I touch the keypad instead of after.
+22e. As a cashier, I want GCash and Maya to carry their own mark and colour, so that I hit the right one at a glance in a queue instead of reading four similar words.
 23. As a cashier, I want to be able to cancel out of the payment step back to the order, so that a customer changing their mind at the last second is not a void.
 24. As a cashier, I want the sale to complete in one tap once the tender is entered, so that the queue moves.
 25. As a cashier, I want a clear confirmation that the sale completed, so that I do not charge twice out of doubt.
@@ -186,6 +205,61 @@ draft ──pay──▶ paid ──┬── voided    whole order, manager Ove
 lines is ever updated afterwards. Void and Refund are **separate records** referencing the
 Order. An Order that is voided cannot be refunded and vice versa; partial refunds
 accumulate and may not exceed what was paid.
+
+**A Ticket is a labelled draft, not a new entity** (ADR-0011). The Device may hold many
+drafts instead of one; each carries a **ticket label** and an opened-at time. Everything else
+about a draft is unchanged: it lives in local storage, it is **never sent to the server**, and
+it joins the Outbox only on `paid`. Resuming a Ticket opens a draft — it is not a state
+transition, and the `draft → paid` machine above is untouched.
+
+- **A Ticket belongs to the Device that opened it and is invisible to every other Device.**
+  No sharing, no takeover, no lock. This is what keeps the feature small: there is no shared
+  mutable draft, so there is no merge, and DeanPOS has no merge semantics anywhere by design.
+- **Discarding a Ticket writes nothing.** The server never saw it. A discard is not a Void,
+  produces no reversal record, and appears in no report — Voids and Refunds remain operations
+  on *paid* Orders (story 17h).
+- **A DrawerSession cannot close while Tickets are open** (story 17i). The guard lives in
+  `drawer-sessions`; this area supplies the count of open Tickets and the resolve-each flow.
+- **Table labels are a Store-scoped configured list, ordered, empty by default** — free
+  strings with **no stored state**, following the comparison product's predefined-ticket model
+  (Loyverse §2.14) rather than a floor plan. `tenancy-identity` owns the list; this area
+  consumes it.
+- **Occupancy is derived, never stored:** a table is occupied if an open Ticket on this Device
+  carries its label. A configured label holds **at most one** open Ticket and the picker
+  **hides labels already in use** (Loyverse §2.14.2). Free-text labels are unconstrained.
+- **The Tables view and the Tickets list are the same screen in two configurations.** With
+  table labels configured, the terminal shows a grid of them — free tiles start a new labelled
+  order, occupied tiles show their Ticket's item count and total and resume it on tap — with
+  any free-text Tickets listed beneath. With none configured, the grid is absent and the screen
+  is the plain list. One route, one set of objects, and the empty-list case is the default.
+- **Moving a Ticket to another label is supported** (Loyverse's *Move ticket*, §2.14.3) —
+  the customers moved tables, and a Ticket is a local draft, so this is editing a string.
+  **Splitting and merging Tickets are not built**; both are shared-draft operations and both
+  are where that product's complexity actually lives.
+- The label is **captured on the Order**, like every other configuration (ADR-0010).
+
+**The fulfilment tag is recorded and not interpreted** (ADR-0011). An Order may carry
+`dine_in` | `take_out` | `delivery` | `pick_up`, chosen on the sale screen and captured on the
+Order. **v1 branches on it nowhere**: no routing, no fee, no separate pricing, no service
+charge, no address, no preparation queue. `reporting` shows it as a column and a filter and
+builds no breakdown around it. **Noted for v2:** `take_out`, `pick_up`, and `delivery` overlap
+in ordinary usage and the distinction that will matter is who carries the food and who pays
+for that — settle the taxonomy when a tenant needs it to mean something. Nothing acts on the
+tag, so changing its meaning later is a backfill and not a behavioural risk.
+
+**Payment method sits at the top of the payment panel, level with the amount due** (story
+22d). *How are you paying* is the first question at the counter, not the last, and a chooser
+under the keypad is answered after the cashier has already typed a tendered amount that only
+makes sense for cash. The keypad, quick-tender row, and change display are **cash-only
+controls** and are not rendered for a recorded tender. A cash-only tenant — the default — sees
+no chooser at all and loses nothing to this layout.
+
+**GCash and Maya render with their own mark and brand colour** (story 22e); every other
+method is a plain chip. Two constraints on that, both non-negotiable: the marks come from each
+provider's **official brand kit**, never redrawn or approximated, and the colour is theirs, not
+one eyeballed from a screenshot. And the branding must not imply an integration — the panel's
+standing copy that a recorded tender **authorises nothing** stays exactly where it is, because
+a familiar logo is precisely what would make a cashier assume otherwise.
 
 **OrderLine captures everything at sale time** — Variant id *and* its name, the chosen
 Modifiers and Add-ons with their names and Deltas, the quantity, the unit price, and the
@@ -388,6 +462,19 @@ sufficient for money.
 - A required Modifier group cannot be skipped — rejected in the UI *and* rejected by the
   server when submitted directly.
 - An Add-on beyond its maximum is rejected server-side.
+- **Tickets, tested where they can actually go wrong** (ADR-0011): a labelled Ticket is set
+  aside and resumed with its lines and its label intact · two Tickets are open at once and
+  stay independent · an open Ticket appears in **no** total, no report query, and no
+  DrawerSession figure · a discarded Ticket leaves no row anywhere and no reversal record ·
+  Tickets survive a terminal reload, like any draft · a Ticket that is paid becomes an
+  ordinary Order carrying its label, and the label is captured on it · a second Device sees
+  none of the first Device's Tickets.
+- **The fulfilment tag is captured and inert**: an Order tagged `delivery` persists the tag
+  and produces byte-for-byte the same totals, receipt, and drawer effect as an untagged one.
+  If any figure moves, something branched on the tag and should not have.
+- **The payment panel's cash-only controls do not render for a recorded tender** — choosing
+  GCash removes the keypad, the quick-tender row, and the change display, and the
+  authorises-nothing copy is still present.
 - **An existing draft line is edited, not rebuilt** — changing its quantity, and changing
   its Modifiers and Add-ons, each recompute the line total and the running Order total, and
   the line keeps its identity in the cart. Stories 12 and 13 had no test; building a line
@@ -515,8 +602,9 @@ regression — the design contract is lo-fi.
 - Sales reports and aggregates of any kind. Area 7.
 - Structured logging, error tracking, and alerting on failed payment. Area 8.
 - Rate limiting and the threat model. Area 9.
-- Printed receipts and any hardware — printer, cash drawer, scanner, card terminal.
-  Non-goal for v1; the receipt is on-screen only.
+- **Receipt hardware of any kind** — thermal printer, ESC/POS, cash-drawer kick, scanner,
+  card terminal. Non-goal for v1. The receipt is the rendered view; "print" means the
+  browser's own print of that view, and nothing in this product talks to a device.
 - Integrated card, GCash, or Maya payment authorisation. Non-goal — every non-cash
   PaymentMethod **records an amount and authorises nothing**. No gateway, no QR generation,
   no settlement, no reconciliation against a provider's statement.
@@ -532,12 +620,19 @@ regression — the design contract is lo-fi.
   copy. Requires an email or SMS transport DeanPOS does not have.
 - Split tender across two payment methods. **Deferred, trigger:** first reported
   part-cash-part-card customer.
-- Dine-in tables, open tabs, kitchen tickets, split bills. Non-goals — this is
-  order-then-pay counter service.
-- **Parking an order to serve the next customer.** Not in v1, but this one is deferred with
-  a trigger rather than closed, because it has a daily cost the other non-goals do not.
-  **Deferred, trigger:** a tenant reporting that the counter stalls because a cashier cannot
-  set one order aside. See the note below on what the cheap version looks like.
+- Kitchen tickets, split bills, table service, and floor management. Non-goals — this is
+  still order-then-pay counter service, and Tickets did not change that.
+- **Shared Tickets.** A Ticket is owned by the Device that opened it and no other terminal can
+  see or resume it (ADR-0011). **Deferred, trigger:** a tenant with two or more terminals where
+  the customer orders at one and pays at another. That version is a shared mutable draft and
+  needs conflict resolution the current model deliberately has nowhere.
+- **Table state of any kind** — occupancy, seating, covers, turn time, a floor plan, or
+  preventing two Tickets on one table. A table is a label (ADR-0011).
+- **Anything acting on the fulfilment tag** — routing, delivery fees, service charges,
+  addresses, couriers, preparation queues, or a report broken down by it. v1 records the word
+  and nothing else, deliberately, and v2 decides what it means.
+- **Storing a rendered receipt** as a file, in object storage or anywhere else. A receipt is a
+  view over the Order, rendered on demand (ADR-0012).
 - Promotions, coupons, loyalty, and any **rule-based** discounting — conditions, schedules,
   codes, BOGO, segments. Non-goal. Configured Discounts (ADR-0010) and the manual line
   override are the only reductions, and both are applied by a person on purpose.
@@ -551,27 +646,25 @@ regression — the design contract is lo-fi.
   a mock has misread it.
 - **The double-submit test is the one to write first.** If it does not pass, nothing else
   in this area matters, and `offline-sync` cannot be built at all.
-- **The cost of having no parked order is real, and is written down here so nobody has to
-  rediscover it.** A customer mid-order says "wait, let me think" with a queue behind them,
-  and the cashier has exactly two options: hold the till, or clear the basket and re-ring it
-  later. That is a daily friction, not a hypothetical.
+- **The parked-order deferral was triggered and is now built** (ADR-0011, 2026-08-01). The
+  trigger this PRD wrote down — *a tenant reporting that the counter stalls because a cashier
+  cannot set one order aside* — was reported by the stakeholder before v1 shipped: customers
+  stand at the counter deciding while the queue builds.
 
-- **When it comes back, the cheap version is one parked draft per Device, local-only, never
-  shared** — and that distinction is the whole decision. A *parked draft* is still a private
-  object on one terminal, so it changes nothing about the architecture: no server state, no
-  merge, no conflict.
+  **It came back as the cheap version, exactly as this note said it should.** A Ticket is a
+  private draft on one terminal — many of them now instead of one — with a label. No server
+  state, no merge, no conflict. What stayed out is the expensive version: a *shared mutable
+  draft* that any Device can edit, which in an offline-first product means two terminals
+  editing one cart while disconnected, where last-write-wins silently drops a line the
+  customer ordered. The comparable product's own manual concedes its open tickets work offline
+  "but without synchronization with other devices".
 
-  An **open ticket** in the comparable product is something else entirely: a *shared mutable
-  draft* that any Device can edit. DeanPOS is offline-first, so two terminals can edit one
-  ticket while disconnected from each other — genuine conflict resolution on a live cart,
-  where last-write-wins means a line the customer ordered silently disappears. The current
-  model has no merge semantics anywhere, deliberately, and that product's own manual
-  concedes its open tickets work offline "but without synchronization with other devices".
-
-  So: **a parked draft is a small feature and an open ticket is a distributed-systems
-  problem.** If this comes back, it comes back as the first one, with its own decision
-  record. Reaching for the second without one is the failure mode this note exists to
-  prevent.
+  **A parked draft is a small feature and an open ticket is a distributed-systems problem.**
+  The line between them is where v1 stops, and the trigger for crossing it is written into
+  Out of Scope above.
+- **The most damaging possible bug in this feature is an open Ticket counted as a sale.**
+  Every total, every report, and every DrawerSession figure must be blind to drafts. Test it
+  directly rather than trusting that a query filters on `paid`.
 - **Speed is an acceptance criterion, and it is falsifiable.** Not "feels fast" — the
   assertion is that **building an order and looking one up issue zero network requests**.
   Tested by driving the flow with the transport stubbed to throw: building a three-line

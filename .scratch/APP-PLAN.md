@@ -54,7 +54,7 @@ Carried into every PRD. A ticket that reaches for one of these is out of scope.
 | Design | lo-fi mocks in `design/lofi` (44 SVGs, committed; regenerate with `python3 tools/lofi/generate.py`) · WCAG 2.2 AA |
 | Viewports | Back-office: fully responsive, phone → desktop. POS terminal: **tablet landscape and phone** — two designs, not one breakpoint |
 
-ADRs: `docs/adr/0001`–`0010`. Glossary: `CONTEXT.md`. Lo-fi mocks: `design/lofi/README.md`.
+ADRs: `docs/adr/0001`–`0012`. Glossary: `CONTEXT.md`. Lo-fi mocks: `design/lofi/README.md`.
 
 ### The Loyverse review, 2026-07-31
 
@@ -72,17 +72,30 @@ already use, focusing on sales and reporting. Five changes, three explicit refus
 | Per-table column customisation, saved views | **Rejected.** Fixed columns plus CSV |
 | Separate mobile dashboard app | **Rejected.** The back-office is responsive; its landing page is the Summary report |
 
+### The second Loyverse pass, 2026-08-01 — stakeholder changes
+
+Five requests, taken against the same manual. Two produced ADRs because they reverse
+earlier decisions.
+
+| Asked for | Outcome |
+| --- | --- |
+| Tickets, together with tables — customers stand at the counter deciding | **Built, as the cheap version** (ADR-0011). A Ticket is a labelled draft owned by one Device: no server state, no sharing, no merge. This is the trigger `checkout` wrote down for its own parked-order deferral, reported before v1 shipped |
+| Tables for the POS, referencing Loyverse | **A Tables grid over the same Tickets** (ADR-0011). Loyverse §2.14 makes tables a per-Store list of *predefined ticket names* with occupied ones hidden from the picker — not a floor plan. DeanPOS copies that: a label with no stored state, occupancy derived from open Tickets, `Move ticket` in, split and merge out |
+| Payment method at the top right, level with amount due; GCash and Maya branded | **Both** (`checkout`, story 22d/22e). Method is asked before the keypad, and the keypad, quick tender, and change become cash-only controls. Marks come from each provider's official brand kit, and the authorises-nothing copy stays put — a familiar logo is exactly what would imply an integration |
+| Dine in / take out / delivery / pick up as a tag, deeper in v2 | **A fixed four-value tag, interpreted nowhere** (ADR-0011). Loyverse §2.19 makes dining options a configurable per-Store list; that is the v2 shape. Nothing branches on it, so changing its meaning later is a backfill |
+| A refunds report, and customer receipts — record + print, or store in S3? | **Refunds report added** (ninth report). **Receipts are rendered from the Order on demand, never stored** (ADR-0012) — the Order already captures every input verbatim, so a bucket buys a second source of truth, a personal-data store to retain and delete, and a cloud dependency, for a document that is already derivable |
+
 ## The areas, in build order
 
 | # | Slug | Covers | Lives in | Depends on |
 | - | ---- | ------ | -------- | ---------- |
 | 1 | `foundation` | Monorepo under `vp` (Bun beneath it), catalog-pinned Vite+, Vitest, `vp check` gate, Docker Compose w/ Postgres, Hono skeleton + healthcheck, **two** React shells (`apps/pos` PWA + `apps/backoffice`), `packages/ui` tokens/preset/primitives, `packages/contract` oRPC wiring, Prisma+`prisma-kysely`+Kysely wiring, three-origin routing + wildcard TLS + CORS allowlist, one deployable end-to-end slice, the money/rounding helper with property tests | all | — |
-| 2 | `tenancy-identity` | Tenant, Store, User, Role. RLS policies + the connection-level tenant variable. Back-office email+password sessions. Device enrolment and revocation. PIN set/change, PIN unlock, offline PIN hash sync. The authorisation model and Override mechanism. **Tenant settings: timezone, business-day start, VAT, PaymentMethods, Variance tolerance** | `api` + both apps | 1 |
+| 2 | `tenancy-identity` | Tenant, Store, User, Role. RLS policies + the connection-level tenant variable. Back-office email+password sessions. Device enrolment and revocation. PIN set/change, PIN unlock, offline PIN hash sync. The authorisation model and Override mechanism. **Tenant settings: timezone, business-day start, VAT, PaymentMethods, Variance tolerance, per-Store table labels** | `api` + both apps | 1 |
 | 3 | `catalog` | MenuItem → Variant → Modifier, Add-ons, typed Deltas, **the Discount list**, back-office CRUD, catalog read model for the terminal | `api` + `backoffice` | 1, 2, 7 |
-| 4 | `checkout` | The sale screen. Cart, OrderLine build from Variant+Modifiers+Add-ons, price capture, **Payment against a configured PaymentMethod**, **Discount application**, order state machine, Void, Refund, manual line override, receipt view. **Two layouts: tablet landscape and phone** | `api` + `pos` | 1, 2, 3 |
+| 4 | `checkout` | The sale screen. Cart, OrderLine build from Variant+Modifiers+Add-ons, price capture, **Payment against a configured PaymentMethod** (chooser at the top, GCash/Maya branded), **Discount application**, order state machine, Void, Refund, manual line override, receipt view. **Tickets: labelled drafts, the Tables view, and the fulfilment tag** (ADR-0011). **Two layouts: tablet landscape and phone** | `api` + `pos` | 1, 2, 3 |
 | 5 | `offline-sync` | Service worker + app shell precache, local catalog cache, IndexedDB Outbox, client-UUID stamping, idempotent replay endpoint, reconnect/backoff, duplicate handling, **revoked-device enforcement on replay and writing the quarantine row**, offline-visible sync status | `api` + `pos` | 1, 2, 3, 4 |
 | 6 | `drawer-sessions` | DrawerSession open with Float, Orders bound to DrawerSession, close with Cash count, Variance calculation, Override on out-of-threshold variance, offline drawer-session close, **running summary + session history on the terminal** | `api` + `pos` | 1, 2, 4, 5 |
-| 7 | `reporting` | **Eight reports under one `Reports` section** — Summary (the back-office landing page), **Orders list + drill-in**, by item, by category, by cashier, by payment method, discounts & overrides, drawer sessions. Conditional VAT, CSV export in two shapes. Device timestamps are the business truth | `api` + `backoffice` | 1, 2, 3, 4, 5, 6 |
+| 7 | `reporting` | **Nine reports under one `Reports` section** — Summary (the back-office landing page), **Orders list + drill-in**, by item, by category, by cashier, by payment method, discounts & overrides, **refunds**, drawer sessions. **The customer receipt as the Orders drill leaf, rendered on demand and never stored** (ADR-0012). Conditional VAT, CSV export in two shapes. Device timestamps are the business truth | `api` + `backoffice` | 1, 2, 3, 4, 5, 6 |
 | 8 | `observability` | pino request-scoped structured logs with tenant/store/device/order ids, Sentry with release + tenant tagging, healthcheck, an alert on failed payment and on stalled Outbox replay | `api` + both apps | 1, 4, 5, 6 |
 | 9 | `hardening` | Written threat model. Wrong-tenant authorisation tests against every reachable object. **Quarantine adjudication** — revocation is enforced on replay by area 5, which owns the endpoint; area 9 owns the screen that decides what happens to what it caught. PIN throttling. Rate limits. CORS allowlist + origin-isolation tests. Secret handling + rotation. Dependency/advisory policy. Tenant export + purge path | all | 2, 3, 4, 5, 6, 7, 8, 11 |
 | 10 | `release-ops` | Environments, gated deploy script to VPS (no hosted CI), expand/contract migration safety check, rollback drill, **PWA cache-bust on deploy**, nightly backup, **rehearsed** restore, runbook | all | 1, 5, 8, 9 |

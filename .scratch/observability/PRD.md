@@ -127,6 +127,7 @@ pino and Sentry unopposed:
 | Passwords, PINs, PIN hashes, Device tokens, back-office **auth** session ids, enrolment codes | `tenancy-identity` |
 | Full Order payloads, tendered amounts | `checkout` |
 | **Discount references — Senior Citizen and PWD ID numbers, which identify a real person** | `checkout` SC17, `reporting` SC12 |
+| **Ticket labels** — a cashier types a customer's name or a description of them into one | `checkout` (ADR-0011) |
 | **Floats**, cash counts, and session totals in full payloads | `drawer-sessions` |
 | Report payloads and export contents | `reporting` |
 | Outbox payloads, full request bodies | `offline-sync` |
@@ -249,7 +250,7 @@ watching real incidents, not an assertion.
    serialisers and Sentry's `beforeSend`. A new field is excluded by default.
 2. **The adversarial scrubbing test is mandatory** and its fixture must carry **one instance
     of every row in the never-log table above** — including a discount reference, a Float,
-    and a tendered amount, which an earlier draft omitted. A SC/PWD ID reaching Sentry is
+    a tendered amount, and a ticket label, which earlier drafts omitted. A SC/PWD ID reaching Sentry is
     personal data at a third party. It must cover PIN, Device token, session
    id, enrolment code, and a full Order payload.
 3. **Log lines carry identifiers, never values.** `orderUuid`, not the order; `deviceId`,

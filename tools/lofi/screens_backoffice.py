@@ -18,6 +18,7 @@ NAV = [
     ("By cashier", 1),
     ("By payment method", 1),
     ("Discounts & overrides", 1),
+    ("Refunds", 1),
     ("Drawer sessions", 1),
     ("Catalog", 0),
     ("Add-ons", 0),
@@ -445,6 +446,99 @@ def build():
         "A Variant row expands to its Modifier split and Add-on attach rate.",
         "The DISCOUNTS column is absent for a tenant with none configured.",
         "Every row links into the Orders list filtered to that Variant.",
+    ]))
+
+    # -------------------------------------------------------- reports: refunds
+    e = shell("Refunds", "Refunds", "Jul 2026 · all stores")
+    e += [
+        box(264, 88, 230, 40, "▾  All stores", W, align="l", size=12),
+        box(506, 88, 260, 40, "▾  1–31 Jul 2026", W, align="l", size=12),
+        box(778, 88, 250, 40, "▾  All managers", W, align="l", size=12),
+        box(X - 24 - 160, 88, 160, 40, "Export CSV", W, size=12),
+    ]
+    e += [
+        box(264, 148, 270, 78, "REFUNDED\n₱2,940.00", M, align="l", size=18),
+        box(546, 148, 270, 78, "% OF NET\n0.9%", W, align="l", size=18),
+        box(828, 148, 270, 78, "REFUNDS\n17", W, align="l", size=18),
+        box(1110, 148, 306, 78, "VOIDS  (counted, never mixed in)\n9  ·  ₱1,180.00", W, align="l", size=14),
+    ]
+    e += table(264, 248, X - 288,
+               ["TAKEN", "SOLD", "ORDER", "WHAT WAS RETURNED", "AMOUNT", "REASON", "APPROVED BY"],
+               [["31 Jul 13:02", "31 Jul 12:31", "C2-0419", "whole order", "₱175.00", "wrong order", "Boy"],
+                ["31 Jul 11:20", "30 Jul 19:44", "C1-0377", "1 of 4 lines · Adobo ×1", "₱120.00", "spoiled", "Boy"],
+                ["30 Jul 18:05", "30 Jul 18:01", "C2-0402", "whole order", "₱310.00", "customer left", "Nena"],
+                ["29 Jul 12:44", "29 Jul 12:40", "C2-0388", "2 of 5 lines", "₱95.00", "wrong item", "Boy"]],
+               rh=34, colw=[150, 150, 120, 330, 130, 200, 12])
+    e += [
+        box(264, 424, 700, 120, "TWO DATES ON EVERY ROW, and they are different questions.\n\n"
+                                "The Summary waterfall attributes a refund to the day of the SALE.\n"
+                                "This report lists it on the day it was TAKEN — what left the drawer today.",
+            D, dash=1, align="l", size=12),
+        box(988, 424, 428, 120, "Voids are counted beside refunds and never\n"
+                                "summed into them.\n\n"
+                                "A cancelled sale and a returned one are\n"
+                                "different events.", D, dash=1, align="l", size=12),
+        box(264, 572, X - 288, 60, "Every row links to the original Order — and from there to the receipt "
+                                   "the customer was given.", M, align="l", size=13),
+    ]
+    out.append(screen("backoffice/reports-refunds-1440.svg", X, Y, "Back-office · Refunds", DESK, e, notes=[
+        "Filter-strip-plus-table shape, same as the other tabular reports.",
+        "A PARTIAL refund names the lines returned; a whole-order refund says so rather than listing every line.",
+        "Reason and approving manager are in the ROW. Money going back out is always attributable.",
+        "This report reads the same records the Summary waterfall subtracts — one source, two questions.",
+    ]))
+
+    # ------------------------------------------------------------ receipt view
+    e = shell("Orders", "Receipt · C1-0388", "31 Jul 2026 12:35 · Malabon · Counter 1")
+    e += [
+        box(264, 88, 200, 40, "← Back to Orders", W, size=12),
+        box(X - 24 - 340, 88, 160, 40, "Print", W, size=12),
+        box(X - 24 - 170, 88, 170, 40, "Export PDF", W, size=12),
+    ]
+    e += [
+        box(264, 148, 520, 600, "DEANPOS · MALABON\n"
+                                "31 Jul 2026  12:35\n"
+                                "Order C1-0388 · Counter 1 · Dina\n"
+                                "Table 4 · dine in\n"
+                                "\n"
+                                "Adobo · Whole            ×2      ₱240.00\n"
+                                "  + Extra rice           ×1       ₱15.00\n"
+                                "Munggo · Half            ×1       ₱55.00\n"
+                                "Rice                     ×2       ₱30.00\n"
+                                "Softdrink                ×1       ₱45.00\n"
+                                "                            ────────────\n"
+                                "Subtotal                         ₱385.00\n"
+                                "Senior citizen / PWD 20%         −₱77.00\n"
+                                "  ref SC-0099213 (Senior ID)\n"
+                                "VAT — exempt on this sale               —\n"
+                                "                            ────────────\n"
+                                "TOTAL                            ₱308.00\n"
+                                "Cash tendered                    ₱500.00\n"
+                                "Change                           ₱192.00\n",
+            W, align="l", size=12),
+        box(812, 148, 604, 168, "NOTHING IS STORED.\n\n"
+                                "This is rendered from the Order on demand (ADR-0012).\n"
+                                "No PDF in a bucket, no receipt number sequence — the\n"
+                                "Order's identity IS the receipt's.", D, dash=1, align="l", size=12),
+        box(812, 336, 604, 190, "It renders the same in 2030 because every input was\n"
+                                "captured at sale time:\n\n"
+                                "  the recorded prices · the names as they were\n"
+                                "  the VAT rate in force, or no VAT at all\n"
+                                "  the discount name and its reference\n"
+                                "  the payment method as it was called then",
+            D, dash=1, align="l", size=12),
+        box(812, 546, 604, 90, "A reprint is marked as a reprint, writes no record,\n"
+                               "and moves no total. It is not a financial event.",
+            M, align="l", size=12),
+        box(812, 656, 604, 92, "A voided or refunded Order's receipt says so.\n"
+                               "A reprint cannot be passed off as a live sale.", W, align="l", size=12),
+    ]
+    out.append(screen("backoffice/receipt-1440.svg", X, Y, "Back-office · Customer receipt", DESK, e, notes=[
+        "THE DRILL LEAF OF ORDERS, not a nav entry. A Receipts page would be the Orders list under a second name.",
+        "The same template renders on the terminal. If the two ever diverge, one sale prints two ways.",
+        "The SC/PWD reference is on the receipt and is personal data: shown, exported, never logged.",
+        "Ticket label and fulfilment tag appear here because they were captured on the Order.",
+        "Reached from an Order row, from a refund row, and from an order-number search.",
     ]))
 
     # --------------------------------------------------------------- discounts

@@ -20,9 +20,12 @@ on a tablet, at speed, by someone who is not looking carefully.
 
 - [ ] A Tailwind preset both applications extend, with tokens for colour, spacing, type
       scale, radii, and minimum touch-target size.
-- [ ] shadcn primitives installed and re-exported from this package.
-- [ ] Colour tokens meet WCAG 2.2 AA contrast for their intended pairings, and the visible
-      focus indicator is a token rather than a default.
+- [ ] shadcn primitives installed and re-exported — **only those the two shells actually
+      consume in issues 06 and 07**. No speculative component library; the next area installs
+      what it needs.
+- [ ] Colour tokens meet WCAG 2.2 AA contrast for their intended pairings, **asserted by a
+      contrast test over the token pairs** rather than eyeballed, and the visible focus
+      indicator is a token rather than a browser default.
 - [ ] Both `apps/pos` and `apps/backoffice` can import from it with no app-specific
       configuration.
 - [ ] **Nothing in the package is domain-aware.** No component knows about a cart, an order,

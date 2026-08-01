@@ -32,8 +32,12 @@ which also owns environments, rollback rehearsal, backups, and the runbook.
       tribal knowledge.
 - [ ] The reverse proxy serves four origins on one registrable domain with TLS, and the
       domain comes from an environment variable.
-- [ ] The three CORS-allowlisted callers behave as issue 04 specifies once served through the
-      proxy; the apex origin is still not on the allowlist.
+- [ ] The **two** CORS-allowlisted callers — `pos.` and `admin.` — behave as issue 04
+      specifies once served through the proxy. The apex origin is still not on the allowlist,
+      and `api.` does not need to be: an origin calling itself is not a cross-origin request.
+- [ ] Each front end is served from **its own origin, not a path** on another one. This is
+      what makes the terminal's Device token and PIN hashes browser-isolated from the
+      back-office (ADR-0007); a path-based deployment defeats it and is not acceptable.
 - [ ] A deploy produces a **versioned** container image, tagged so a previous version can be
       redeployed.
 - [ ] `.env.example` is committed with variable names and **no values**. No secret is
@@ -44,9 +48,10 @@ which also owns environments, rollback rehearsal, backups, and the runbook.
 
 ## Depends on
 
-- 04 — Ping through contract → api → backend, with health and CORS
 - 06 — Terminal shell (`apps/pos`) rendering ping, and the test seam
 - 07 — Back-office shell (`apps/backoffice`) rendering ping
+
+_(04 is a gate too, but transitively through both — it is not listed twice.)_
 
 ## Relevant files
 
@@ -58,6 +63,7 @@ which also owns environments, rollback rehearsal, backups, and the runbook.
 
 ## Comments
 
-_Sliced from `.scratch/foundation/PRD.md` (stories 46–51; security criteria 2, 3). Out of
+_Sliced from `.scratch/foundation/PRD.md` (stories 46–49, 51, and the image half of 50;
+security criteria 2, 3). Out of
 scope by decision: staging environments, backups, restore drills, rollback rehearsal, and the
 gated deploy script — all area 10._

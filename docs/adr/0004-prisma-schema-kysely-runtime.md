@@ -21,9 +21,9 @@ before it can isolate lane databases.
 Pipeline commands:
 
 ```
-ORC2_MIGRATE_CMD        bunx prisma migrate deploy
-ORC2_MIGRATE_STATUS_CMD bunx prisma migrate status
-ORC2_CODEGEN_CMD        bunx prisma generate
+ORC2_MIGRATE_CMD        vp exec prisma migrate deploy
+ORC2_MIGRATE_STATUS_CMD vp exec prisma migrate status
+ORC2_CODEGEN_CMD        vp exec prisma generate
 ```
 
 ## Consequences

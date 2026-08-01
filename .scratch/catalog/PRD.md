@@ -147,7 +147,14 @@ which Deltas may attach to which Variant; computing an OrderLine total is `check
 job, using `foundation`'s round-once-half-up rule. The two must not both implement the
 arithmetic.
 
-**Delta bounds, as numbers rather than adjectives.** A `multiplier` is `0 < m ≤ 10`; an
+**A `multiplier` is stored as an integer per-mille rate, never as a float** — `×0.5` is
+`500`, `×1.25` is `1250`. ADR-0005 prohibits floats in every layer including the wire format
+and IndexedDB, and per-mille is the encoding that makes `foundation`'s Delta application exact
+with no division at all: `Centavos × per-mille` **is** `Millicentavos`. A rate needing more
+than three decimal places is rejected at configuration time rather than silently truncated.
+
+**Delta bounds, as numbers rather than adjectives.** A `multiplier` is `0 < m ≤ 10` (that is,
+`0 < m ≤ 10000` per-mille); an
 `absolute` Delta is within `±100,000` centavos (±₱1,000) **and** may not drive a linked
 Variant's effective price below zero. "Sane bounds" is not a criterion a test can fail
 against, which is why these are digits.

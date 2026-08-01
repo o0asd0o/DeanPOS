@@ -23,16 +23,21 @@ copy of the test setup is the failure this issue exists to catch.
 
 - [ ] Vite+ runs and builds the application, wired identically to `apps/pos`.
 - [ ] TanStack Router with typed routes; TanStack Query on the oRPC client.
+- [ ] Thin routes, fat features per ADR-0009, matching the worked example issue 06
+      established — the ping route routes and renders, the feature holds the work, the query
+      hook lives in the feature's `__common/queries.ts`.
 - [ ] A route renders the ping value from the lane database, through the **existing** seam
       helper, with no app-specific test scaffolding introduced.
 - [ ] Responsive from phone to desktop.
 - [ ] Nav skeleton present with the `Reports` group first — structure only, no screens.
 - [ ] WCAG 2.2 AA at the shell level: landmarks, keyboard focus order, visible focus,
-      contrast.
+      contrast — asserted by the same automated accessibility check issue 06 introduced.
 - [ ] A legible error state when the API cannot be reached.
 - [ ] Visual language from `packages/ui`; nothing domain-aware added to that package.
-- [ ] It is served on its own origin, not a path on another one — a path-based deployment
-      defeats ADR-0007 and is not acceptable.
+- [ ] It builds as an independent application with its own bundle and its own API base URL
+      read from configuration — nothing in it assumes it shares an origin with the terminal.
+      That the two are *served* on separate origins is asserted in issue 08, where the proxy
+      exists; a path-based deployment defeats ADR-0007 and is not acceptable.
 
 ## Depends on
 

@@ -7,6 +7,10 @@
 A PostgreSQL database that any lane can create from checked-in migrations, drop, and read
 from through Kysely — with exactly one place in the codebase where a connection is opened.
 
+**Everything here lives inside `packages/backend`, at the paths ADR-0008 fixes** —
+`src/db/prisma/` for the schema, the migrations, and the generated types, and
+`src/db/client.ts` for the connection factory. That layout is not open in this PRD.
+
 `schema.prisma` is the source of truth (ADR-0004). Migrations are Prisma-generated SQL,
 checked in, applied with `prisma migrate deploy` through the manager (`vp exec`). `prisma-kysely`
 emits Kysely table interfaces into a `generated/` directory that review diffs exclude. Kysely
@@ -34,7 +38,8 @@ and the reverse proxy are issue 08.
       `ORC2_GENERATED_PATHS`; it is not hand-edited.
 - [ ] A test reads the ping row through Kysely against a live lane database.
 - [ ] A query naming a dropped or renamed column fails the gate rather than failing at runtime.
-- [ ] Exactly one function opens a database connection, and it is documented as the tenant
+- [ ] Exactly one function opens a database connection — `createDb` in
+      `packages/backend/src/db/client.ts`, per ADR-0008 — and it is documented as the tenant
       choke point for area 2. Grep proves there is no second path.
 - [ ] `packages/backend` does not depend on the Prisma client at runtime.
 - [ ] Docker Compose brings up PostgreSQL locally with no cloud credentials; connection
@@ -46,9 +51,10 @@ and the reverse proxy are issue 08.
 
 ## Relevant files
 
-- `prisma/schema.prisma`, `prisma/migrations/**`
-- `packages/backend/src/db/**`, `packages/backend/package.json`
-- `packages/backend/generated/**`
+- `packages/backend/src/db/prisma/**` — `schema.prisma`, migrations, and the `prisma-kysely`
+  generated types (ADR-0008; the generated output is still matched by `**/generated/**`)
+- `packages/backend/src/db/client.ts` — the single connection choke point
+- `packages/backend/package.json`
 - `docker-compose.yml` (database service only — issue 08 adds the rest)
 - `.env.example`
 

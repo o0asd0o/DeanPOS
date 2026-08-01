@@ -236,12 +236,18 @@ What lands there:
 - A `Centavos` **branded integer** type. Construction from a decimal string is validated
   and total — it returns a result, never throws past a boundary, and never yields a float.
 - `roundLineTotal` — round-half-up, applied **exactly once** at the OrderLine total.
-- **`vatBackout(total, ratePercent)` — pure on both arguments.** No global rate, no
+- **`vatBackout(total, ratePercent)` — pure on both arguments,** taking and returning
+  `Millicentavos` and returning the pair `{ base, vat }` where `base + vat` is exactly the
+  input. It is needed at that scale because `checkout`'s VAT-exempt path strips VAT *first*
+  and discounts the exclusive base as a millicentavo intermediate. No global rate, no
   default, no `12` anywhere in the implementation. VAT is a Tenant setting that is off by
   default and carries a configurable rate captured per Order (ADR-0010); a function that
   closes over a constant cannot express a non-VAT tenant and cannot render a receipt from
   before the rate changed.
 - A `Delta` type discriminated on `absolute` versus `multiplier`, with application logic.
+  **A `multiplier` is an integer per-mille rate** — `×0.5` is `500` — because ADR-0005 bans
+  floats in every layer, and because `Centavos × per-mille` **is** `Millicentavos` with no
+  division and therefore no rounding at all.
   **Applying a Delta returns `Millicentavos`, not `Centavos`** — an integer at 1000× scale.
   A `multiplier` on an integer-centavo price produces a fraction, and `catalog` requires
   that fraction to survive composition unrounded so that ADR-0005's *round once, at the
@@ -271,8 +277,9 @@ refuses a dirty tree and refuses a commit whose gate has not passed, then builds
 image. `foundation` builds the gate as two commands; `release-ops` builds the script that
 enforces them.
 
-**The CORS allowlist is three origins, not four.** `pos.` and `admin.` call the API and
-are allowlisted; **the apex landing origin is not**, because in v1 the landing site makes
+**The CORS allowlist is two of the four origins.** `pos.` and `admin.` call the API and
+are allowlisted. `api.` needs no entry — an origin calling itself is not a cross-origin
+request — and **the apex landing origin is deliberately excluded**, because in v1 the landing site makes
 no browser call to `api.` — its one write, the waitlist form, is area 11's work and adds
 itself to the allowlist then, with its own reason. Everything gets TLS; only callers get
 CORS.
@@ -343,9 +350,9 @@ notice. Story 49a.
 Per-area criteria, per the app-wide plan. Foundation crosses few boundaries but sets
 every default.
 
-1. **CORS is an explicit allowlist** of the three known origins. A wildcard origin, or
-   an origin read from the request, fails review.
-2. **The three origins are genuinely separate**, so that browser storage isolation is
+1. **CORS is an explicit allowlist** of the two calling origins, `pos.` and `admin.`. A
+   wildcard origin, or an origin read from the request, fails review.
+2. **The four origins are genuinely separate**, so that browser storage isolation is
    real. A path-based deployment on one origin defeats ADR-0007 and is not acceptable.
 3. **No secret is committed.** Configuration comes from environment variables with a
    checked-in `.env.example` that contains names and no values.

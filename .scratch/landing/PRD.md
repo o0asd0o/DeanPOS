@@ -114,7 +114,7 @@ write in DeanPOS — which stores the submission and posts a notification to the
 `observability` already configured.
 
 **This area adds the apex origin to the CORS allowlist, and it is the only reason to.**
-`foundation` deliberately allowlists three origins and excludes the apex, on the stated
+`foundation` deliberately allowlists only the two calling origins and excludes the apex, on the stated
 grounds that the landing site makes no browser call to `api.` in v1 and that area 11 would
 add itself when its form needed it. This is that moment. **The apex is allowlisted for the
 waitlist procedure and nothing else**, with the reason recorded — without it the form's POST

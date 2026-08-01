@@ -34,6 +34,11 @@ one without restructuring it; the worker is that area's work.
 - [ ] TanStack Router with typed routes: a link to a removed route fails the build.
 - [ ] TanStack Query wired to the oRPC client from `packages/contract`, so later areas add a
       query without re-solving data fetching.
+- [ ] **The ping route is the worked example of ADR-0009**: a thin route that routes, guards,
+      and renders, and a feature under `src/features/<area>/` that holds the work, with the
+      query hook in that feature's `__common/queries.ts`. Ten areas copy this shape, so a
+      component tree improvised in `routes/` here becomes the template for every screen in the
+      product.
 - [ ] A route renders the ping value that is actually in the lane database, proven through
       the seam described above.
 - [ ] The seam helper is a documented, reusable function — a rendered route wired to a live
@@ -41,7 +46,9 @@ one without restructuring it; the worker is that area's work.
       not for this issue.
 - [ ] Tablet-landscape and phone layouts exist as two layouts.
 - [ ] WCAG 2.2 AA at the shell level: landmark structure, keyboard focus order, visible focus
-      indicator, contrast. Verified, not assumed.
+      indicator, contrast. **Verified by an automated accessibility assertion in the shell's
+      own test** — axe or equivalent, run through the same happy-dom render — not by a claim
+      in the build report.
 - [ ] When the API cannot be reached, the shell shows a legible error state — never a blank
       screen.
 - [ ] Visual language comes from `packages/ui`; nothing domain-aware is added to that package.
@@ -69,6 +76,6 @@ spacing, colour, and type come from `packages/ui`.
 
 ## Comments
 
-_Sliced from `.scratch/foundation/PRD.md` (stories 8, 28, 32–34, 36, 37, 39). The Vite+
+_Sliced from `.scratch/foundation/PRD.md` (stories 8, 13, 17, 28, 32–34, 36, 37, 39). The Vite+
 licence criterion that used to open this issue was removed 2026-08-01: `vp` is installed and
 catalog-pinned (ADR-0001 amendment)._

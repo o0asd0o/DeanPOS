@@ -51,11 +51,20 @@ Copy these verbatim into an issue's `## Visual reference` section.
 - Image · whole-screen · 1280: `design/lofi/pos/payment-1280.svg`
 - Image · whole-screen · 390:  `design/lofi/pos/payment-390.svg`
 - Image · component: DiscountPicker · 1280: `design/lofi/pos/discount-picker-1280.svg`
+- Image · whole-screen · 1280: `design/lofi/pos/tickets-1280.svg`
+- Image · whole-screen · 390:  `design/lofi/pos/tickets-390.svg`
+- Image · whole-screen · 1280: `design/lofi/pos/tables-1280.svg`
+- Image · component: SetAsideDialog · 1280: `design/lofi/pos/set-aside-1280.svg`
 - Image · whole-screen · 1280: `design/lofi/pos/receipt-1280.svg`
 - Image · whole-screen · 390:  `design/lofi/pos/receipt-390.svg`
 - Image · component: ManagerOverrideDialog · 1280: `design/lofi/pos/manager-override-1280.svg`
 - Image · whole-screen · 1280: `design/lofi/pos/order-lookup-1280.svg`
 ```
+
+**`tables-1280` and `tickets-1280` are one route in two configurations, not two screens.**
+With table labels configured for the Store, the grid renders and free-text Tickets list
+beneath it; with none — the default — the grid is absent and the screen is the plain list.
+Building them as two routes is the mistake this note exists to prevent.
 
 `discount-picker` and the discount/VAT lines on `payment` and `receipt` are **conditional
 surfaces**. A tenant with no Discounts configured has no discount control anywhere, and a
@@ -108,6 +117,8 @@ reporting         design/lofi/backoffice/reports-summary-1440.svg
                   design/lofi/backoffice/reports-summary-390.svg
                   design/lofi/backoffice/reports-orders-1440.svg
                   design/lofi/backoffice/reports-by-item-1440.svg
+                  design/lofi/backoffice/reports-refunds-1440.svg
+                  design/lofi/backoffice/receipt-1440.svg
 hardening         design/lofi/backoffice/quarantine-1440.svg
 workforce         design/lofi/backoffice/roster-1440.svg
                   design/lofi/backoffice/roster-mine-390.svg
@@ -116,12 +127,16 @@ workforce         design/lofi/backoffice/roster-1440.svg
 The back-office shell — sidebar, tenant switcher, top bar — is drawn on every back-office
 mock. It is built once in `foundation` and every later screen inherits it.
 
-**`Reports` is a nav group, not a leaf.** Its eight children are the sales reports, and
+**`Reports` is a nav group, not a leaf.** Its nine children are the sales reports, and
 `Summary` is also the back-office landing page — there is no separate dashboard route.
-Only four of the eight are drawn; `By category`, `By cashier`, `By payment method`, and
+Five of the nine are drawn; `By category`, `By cashier`, `By payment method`, and
 `Discounts & overrides` are the same filter-strip-plus-table shape as
 `reports-by-item-1440` and are that mock's translation. **Flag them as translated in the
 build report** rather than treating them as drawn.
+
+**`receipt-1440` is a drill leaf of `Orders`, not a nav entry.** A separate `Receipts` page
+would be the Orders list under a second name. The same receipt renders on the terminal from
+the same template (`pos/receipt-1280`), which is the coupling ADR-0012 accepts on purpose.
 
 `By payment method` does not render at all for a cash-only tenant, and the discount columns
 and the VAT tile do not render for a tenant without them. Every back-office report mock is

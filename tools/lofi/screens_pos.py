@@ -24,7 +24,10 @@ def build():
     e = topbar(T)
     e += [box(0, 56, 180, TH - 56, "", D)]
     e += rows(10, 68, 160, 52, ["All", ("Ulam", S), "Rice", "Drinks", "Sides", "Extras"], gap=8)
-    e += [box(190, 68, 730, 44, "Search menu…", W, align="l")]
+    e += [
+        box(190, 68, 560, 44, "Search menu…", W, align="l"),
+        box(760, 68, 160, 44, "Tickets · 3", W, size=12),
+    ]
     e += grid(190, 124, 232, 150, 3, [
         "Ulam\n₱120–", "Rice\n₱15", "Pancit\n₱90", "Lumpia\n₱60",
         "Softdrinks\n₱35", "Water\n₱20", "Itlog\n₱20",
@@ -43,6 +46,12 @@ def build():
         "Softdrinks  ×1                        ₱35",
     ], gap=8, align="l", size=12)
     e += [
+        txt(940, 400, "How it's going out — optional", 11),
+        box(940, 408, 160, 38, "Dine in", S, size=12),
+        box(1110, 408, 160, 38, "Take out", W, size=12),
+        box(940, 452, 160, 38, "Delivery", W, size=12),
+        box(1110, 452, 160, 38, "Pick up", W, size=12),
+        box(940, 502, 330, 44, "Set aside as a ticket…", W, size=12),
         box(940, 560, 330, 30, "Subtotal                        ₱310", W, align="l", size=12),
         box(940, 592, 330, 30, "VAT included (12%)         ₱33.21", W, align="l", size=12),
         box(940, 624, 330, 44, "TOTAL                            ₱310", M, align="l"),
@@ -55,6 +64,9 @@ def build():
         "Unavailable Variants render but are not tappable (Munggo tile).",
         "Search filters tiles in place; no separate results screen.",
         "Order number is device-assigned and visible before payment.",
+        "TICKETS COUNT is visible from the sale screen — an order set aside is never out of sight.",
+        "The fulfilment tag is OPTIONAL and v1 acts on it nowhere: no fee, no routing, no pricing (ADR-0011).",
+        "Set aside labels the draft and clears the cart for the next customer. It is not a void and writes nothing.",
     ]))
 
     # phone sale grid
@@ -199,20 +211,25 @@ def build():
     # ------------------------------------------------------------------ payment
     e = topbar(T)
     e += [
-        box(40, 96, 580, 120, "AMOUNT DUE\n₱308.00", M, size=28),
-        txt(40, 250, "Tendered", 13),
+        txt(40, 92, "Amount due", 12),
+        box(40, 100, 290, 116, "₱308.00", M, size=30),
+        txt(620, 92, "Payment method", 12, "r"),
+        box(346, 100, 132, 54, "Cash", S, size=13),
+        box(488, 100, 132, 54, "GCash ⬤", W, size=13),
+        box(346, 162, 132, 54, "Maya ⬤", W, size=13),
+        box(488, 162, 132, 54, "Card", W, size=13),
+        txt(40, 250, "Tendered  —  cash only", 13),
         box(40, 262, 580, 84, "₱ 500", W, size=26),
     ]
     e += grid(40, 396, 108, 60, 5, ["₱100", "₱200", "₱500", "₱1000", "Exact"], gx=10)
     e += [
         box(40, 474, 580, 84, "CHANGE\n₱192.00", W, size=24),
-        txt(40, 586, "Payment method  —  this tenant's configured list", 12),
-    ]
-    for i, (t, f) in enumerate([("Cash", S), ("GCash", W), ("Maya", W), ("Card", W)]):
-        e.append(box(40 + i * 147, 596, 139, 52, t, f, size=13))
-    e += [
-        box(40, 662, 580, 36, "A recorded tender records an amount and authorises nothing — "
-                              "no gateway, no QR, no settlement.", D, dash=1, size=11),
+        box(40, 578, 580, 118, "Keypad, quick tender, and change are CASH-ONLY controls.\n"
+                               "A recorded tender asks for one amount and nothing else.\n"
+                               "\n"
+                               "A recorded tender authorises nothing — no gateway,\n"
+                               "no QR, no settlement.",
+            D, dash=1, align="l", size=11),
         box(40, 712, 285, 52, "Back to order", W, size=13),
         box(660, 96, 580, 424, "Order summary  (read-only)\n\n"
                                "Adobo · Whole  ×2                     ₱240.00\n"
@@ -231,7 +248,11 @@ def build():
         box(660, 548, 580, 216, "COMPLETE SALE", S, size=22),
     ]
     out.append(screen("pos/payment-1280.svg", T, TH, "POS · Payment", TABLET, e, notes=[
+        "METHOD SITS AT THE TOP, level with the amount due. How are you paying is asked BEFORE the keypad, not after.",
         "The method row is the TENANT'S list. A cash-only tenant — the default — sees no chooser at all.",
+        "GCASH AND MAYA CARRY THEIR OWN MARK AND BRAND COLOUR — GCash blue, Maya black. Every other method is a plain chip.",
+        "Those marks come from each provider's OFFICIAL BRAND KIT. Never redrawn, never a colour eyeballed from a screenshot.",
+        "Branding must not imply an integration. The authorises-nothing copy stays exactly where it is, for that reason.",
         "Only cash asks for a tendered amount and computes change. A recorded tender is a typed amount, no change.",
         "Nothing here authorises anything. The copy must make that unmistakable or a tenant will assume otherwise.",
         "Cash below the total cannot complete — the primary action is disabled, not warned after.",
@@ -241,17 +262,22 @@ def build():
     ]))
 
     e = topbar(P, 48) + [
-        box(8, 56, P - 16, 88, "AMOUNT DUE\n₱308.00", M, size=24),
-        txt(10, 168, "Tendered", 11),
+        box(8, 56, 180, 88, "AMOUNT DUE\n₱308.00", M, size=20),
+        txt(196, 72, "Payment method", 10),
+        box(196, 80, 88, 30, "Cash", S, size=11),
+        box(290, 80, 92, 30, "GCash ⬤", W, size=11),
+        box(196, 114, 88, 30, "Maya ⬤", W, size=11),
+        box(290, 114, 92, 30, "Card", W, size=11),
+        txt(10, 168, "Tendered  —  cash only", 11),
         box(8, 176, P - 16, 62, "₱ 500", W, size=24),
     ]
     e += grid(8, 250, 70, 44, 5, ["100", "200", "500", "1000", "Exact"], gx=8, size=11)
     e += [box(8, 306, P - 16, 68, "CHANGE\n₱192.00", W, size=20)]
-    for i, (t, f) in enumerate([("Cash", S), ("GCash", W), ("Maya", W), ("Card", W)]):
-        c, r = i % 2, i // 2
-        e.append(box(8 + c * 190, 388 + r * 52, 182, 44, t, f, size=12))
     e += [
-        box(8, 500, P - 16, 30, "cash-only tenant: no chooser", D, dash=1, size=10),
+        box(8, 388, P - 16, 44, "cash-only tenant: no chooser, and this row is not rendered",
+            D, dash=1, size=10),
+        box(8, 446, P - 16, 44, "keypad, quick tender, and change are cash-only controls",
+            D, dash=1, size=10),
         box(8, 542, P - 16, 140, "Order summary (read-only)\n\n"
                                  "…lines…\nSubtotal            ₱385.00\n"
                                  "Senior/PWD 20%      −₱77.00\nVAT — exempt              —\n"
@@ -260,8 +286,127 @@ def build():
         box(8, PH - 92, P - 16, 68, "COMPLETE SALE", S, size=17),
     ]
     out.append(screen("pos/payment-390.svg", P, PH, "POS · Payment", PHONE, e, notes=[
-        "Same order of sections as the tablet; methods wrap to two rows; summary moves below.",
+        "Same order of sections as the tablet: method beside the amount due, at the TOP, before the keypad.",
+        "Methods wrap to a 2×2 block at this width. GCash and Maya keep their mark and brand colour here too.",
         "Quick-tender row must stay reachable with the on-screen keypad open.",
+    ]))
+
+    # ----------------------------------------------------------------- tickets
+    e = topbar(T) + [
+        box(0, 56, T, TH - 56, "", D),
+        txt(40, 108, "Open tickets on this terminal", 20, "l", "bold"),
+        txt(40, 136, "3 open  ·  ₱905 not yet collected", 12),
+        box(T - 40 - 240, 92, 240, 52, "New order", S, size=14),
+    ]
+    e += rows(40, 168, T - 80, 78, [
+        "Table 4        4 items      ₱310      open 6 min          [ Resume ]   [ Discard ]",
+        "Aling Nena     2 items      ₱175      open 14 min         [ Resume ]   [ Discard ]",
+        "Red shirt      6 items      ₱420      open 31 min         [ Resume ]   [ Discard ]",
+    ], gap=10, align="l", size=13)
+    e += [
+        box(40, 440, 600, 132, "A ticket is a DRAFT with a label.\n\n"
+                               "It never leaves this terminal, appears in no report and\n"
+                               "no total, and reaches the server only when it is paid.",
+            D, dash=1, align="l", size=12),
+        box(660, 440, 580, 132, "Discarding writes NOTHING — no record, no reversal.\n\n"
+                                "A void is for a sale that happened. Nothing happened here.",
+            D, dash=1, align="l", size=12),
+        box(40, 600, T - 80, 88, "The drawer cannot be closed while any ticket is open.\n"
+                                 "Pay it or discard it first — the close screen lists them with both actions.",
+            M, align="l", size=13),
+    ]
+    out.append(screen("pos/tickets-1280.svg", T, TH, "POS · Open tickets", TABLET, e, notes=[
+        "Reached from the sale screen's Tickets count. Empty state: this screen says so and offers New order.",
+        "AGE IS SHOWN because a ticket open for 40 minutes is usually a customer who left.",
+        "Resume opens the draft with its lines and its label intact. It is not a state transition.",
+        "Tickets belong to THIS DEVICE. Another terminal shows none of these, by construction (ADR-0011).",
+        "Sorted oldest first — the one most likely to be forgotten is at the top.",
+    ]))
+
+    e = topbar(P, 48) + [
+        box(0, 48, P, 44, "Open tickets · 3", M),
+    ]
+    e += rows(8, 100, P - 16, 76, [
+        "Table 4          4 items    ₱310\nopen 6 min      [ Resume ]  [ Discard ]",
+        "Aling Nena       2 items    ₱175\nopen 14 min     [ Resume ]  [ Discard ]",
+        "Red shirt        6 items    ₱420\nopen 31 min     [ Resume ]  [ Discard ]",
+    ], gap=8, align="l", size=11)
+    e += [
+        box(8, 356, P - 16, 74, "Never leaves this terminal. In no report, no total,\n"
+                                "and no drawer figure until it is paid.", D, dash=1, align="l", size=11),
+        box(8, PH - 92, P - 16, 68, "New order", S, size=15),
+    ]
+    out.append(screen("pos/tickets-390.svg", P, PH, "POS · Open tickets", PHONE, e, notes=[
+        "Same rows and same order as the tablet; actions stack inside the row.",
+        "New order stays reachable one-handed at the bottom.",
+    ]))
+
+    # ------------------------------------------------------------------ tables
+    e = topbar(T) + [
+        box(0, 56, T, TH - 56, "", D),
+        txt(40, 108, "Tables", 20, "l", "bold"),
+        txt(40, 136, "Malabon · 3 of 8 tables occupied · 5 tickets open · ₱1,230 uncollected", 12),
+        box(T - 40 - 240, 92, 240, 52, "New order", S, size=14),
+    ]
+    tiles = [
+        ("Table 1\nfree", W), ("Table 2\nfree", W),
+        ("Table 3\n4 items · ₱310\n6 min", S), ("Table 4\nfree", W),
+        ("Table 5\n6 items · ₱420\n31 min", S), ("Table 6\nfree", W),
+        ("Counter\n2 items · ₱175\n14 min", S), ("Takeout\nfree", W),
+    ]
+    for i, (t, f) in enumerate(tiles):
+        c, r = i % 4, i // 4
+        e.append(box(40 + c * 300, 176 + r * 150, 280, 130, t, f, size=13))
+    e += [
+        box(40, 500, T - 80, 34, "Other open tickets  —  labels typed at the counter", M,
+            align="l", size=12),
+    ]
+    e += rows(40, 542, T - 80, 58, [
+        "Aling Nena        3 items      ₱240      open 8 min       [ Resume ]  [ Move… ]  [ Discard ]",
+        "Red shirt         1 item        ₱85      open 22 min      [ Resume ]  [ Move… ]  [ Discard ]",
+    ], gap=8, align="l", size=12)
+    e += [
+        box(40, 676, T - 80, 96, "A TABLE IS A LABEL. Nothing is stored on it — occupied means "
+                                 "an open ticket on this terminal carries that label.\n"
+                                 "No floor plan, no seating, no covers, no turn time. This is the "
+                                 "comparison product's predefined-ticket model (Loyverse §2.14), not a table-service system.",
+            D, dash=1, align="l", size=12),
+    ]
+    out.append(screen("pos/tables-1280.svg", T, TH, "POS · Tables", TABLET, e, notes=[
+        "SAME ROUTE AS `tickets-1280`, in the configuration where the Store HAS table labels. Not a second screen.",
+        "With no table labels configured — the default — the grid is absent entirely and this is the plain ticket list.",
+        "A free tile starts a new order already labelled. An occupied tile resumes its ticket.",
+        "An occupied label is NOT offered when labelling another order — one open ticket per table (Loyverse §2.14.2).",
+        "Occupancy is DERIVED from this Device's open tickets. Another terminal's tickets are invisible, so its tables read free.",
+        "Move… changes a ticket's label. Split and merge are deliberately absent — both are shared-draft operations.",
+    ]))
+
+    # ------------------------------------------------------------ set aside
+    dw, dh = 660, 470
+    dx, dy = (T - dw) / 2, 56 + (TH - 56 - dh) / 2
+    e = topbar(T) + [box(0, 56, T, TH - 56, "", D, dash=1), box(dx, dy, dw, dh, "", W)]
+    e += [
+        txt(dx + 16, dy + 36, "Set this order aside", 16, "l", "bold"),
+        txt(dx + 16, dy + 62, "Order C2-0421 · 4 items · ₱310", 12),
+        txt(dx + 16, dy + 100, "Table  —  this Store's list", 11),
+    ]
+    e += grid(dx + 16, dy + 110, 148, 44, 4,
+              ["Table 1", "Table 2", "Table 4", "Table 6", "Takeout", "Table 7", "Table 8"],
+              gx=8, gy=8, size=12)
+    e += [txt(dx + 16, dy + 258, "Tables 3 and 5 and Counter are not listed — they already have a ticket", 11)]
+    e += [
+        box(dx + 16, dy + 268, dw - 32, 74, "Or type a label\n\n"
+                                            "[ Aling Nena                                    ]",
+            W, align="l", size=12),
+        box(dx + 16, dy + dh - 68, (dw - 42) / 2, 52, "Cancel", W),
+        box(dx + 26 + (dw - 42) / 2, dy + dh - 68, (dw - 42) / 2, 52, "Set aside", S),
+    ]
+    out.append(screen("pos/set-aside-1280.svg", T, TH, "POS · Set aside as a ticket", TABLET, e, notes=[
+        "TABLE LIST IS OPTIONAL AND EMPTY BY DEFAULT. With no tables configured, only the free-text field renders.",
+        "OCCUPIED LABELS ARE NOT OFFERED — one open ticket per table (Loyverse §2.14.2, ADR-0011).",
+        "A table is a LABEL with no stored state. Occupied is derived from this Device's open tickets.",
+        "A label may be a customer's name — it is personal data, shown and exported, never logged.",
+        "Setting aside clears the cart for the next customer. It is not a void and writes nothing to the server.",
     ]))
 
     # ----------------------------------------------------------- discount picker

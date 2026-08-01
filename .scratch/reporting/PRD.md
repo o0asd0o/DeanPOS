@@ -33,7 +33,7 @@ A small set of reports that answer the questions an owner actually asks — what
 who took it, what did we sell, what went back out, and did the drawer agree — scoped by
 Store and by period, with a CSV export for anything the screen cannot hold.
 
-**Eight reports, one `Reports` section.** Sales reporting is not a separate area of the
+**Nine reports, one `Reports` section.** Sales reporting is not a separate area of the
 back-office from "reports"; the sales reports *are* the Reports section. `foundation`'s
 sidebar carries one `Reports` entry, which becomes a group with these children:
 
@@ -46,7 +46,15 @@ sidebar carries one `Reports` entry, which becomes a group with these children:
 | **By cashier** | Who took the money? |
 | **By payment method** | Cash versus everything else. Exists only when the Tenant has more than `cash`. |
 | **Discounts & overrides** | What came off the price, by whom, and with whose approval. |
+| **Refunds** | What money went back out, for what, and who approved it. Voids are counted beside it — a cancelled sale and a returned one are different events. |
 | **Drawer sessions** | Did the drawer agree? Owned by `drawer-sessions`; listed here because this is where a manager looks for it. |
+
+**The customer receipt is a drill leaf of Orders, not a tenth nav entry.** Any Order opens
+its receipt exactly as the customer saw it, printable and exportable, rendered on demand from
+the Order itself (ADR-0012 — nothing is archived, there is no bucket, and the Order's identity
+*is* the receipt's). A separate `Receipts` page would be the Orders list under a second name,
+with the same rows, the same filters, and the same search — and a customer holding a receipt is
+answered by searching the Order number, which the Orders list already does (story 50).
 
 **Orders is the spine.** Every aggregate above drills into it with its filters pre-applied.
 A figure a person cannot get behind is a figure they will not trust, and "₱12,340 on
@@ -154,6 +162,24 @@ can be wrong.
 51. As an owner, I want a voided or refunded Order to be visibly marked in the list along with who approved it, so that reversals are not something I have to go looking for.
 52. As an owner, I want to export the Orders list one row per Order, so that I have a transaction register.
 53. As an owner, I want to export the Orders list one row per OrderLine, so that my bookkeeper gets item-level detail without me building it.
+53a. As an owner, I want the ticket label and the fulfilment tag shown on an Order and available as filters, so that "how much of last month was delivery" is answerable (ADR-0011).
+
+**Refunds**
+
+53b. As an owner, I want every Refund in a period listed with its amount, its reason, the approving manager, and the original sale, so that money going back out is as visible as money coming in.
+53c. As an owner, I want a partial refund to show which lines were returned, so that a one-dish refund is not indistinguishable from a whole-order one.
+53d. As an owner, I want refunds totalled for the period and shown against the period's Net, so that I can see what proportion of takings came back.
+53e. As an owner, I want a Refund attributed to the day of the **original sale** in the waterfall, and listed on the day it was **taken** in this report, so that neither question is distorted by the other. Both dates are shown on every row.
+53f. As an owner, I want Voids counted beside refunds but never mixed into them, so that a sale that was cancelled and a sale that was returned stay different events.
+53g. As an owner, I want to click any Refund and land on the original Order, so that I can see what was actually sold.
+
+**The customer receipt**
+
+53h. As an owner, I want to open any Order's receipt exactly as the customer received it, so that I can answer a question about a specific purchase without reconstructing it.
+53i. As an owner, I want to reprint or export that receipt, so that a customer who lost theirs is served.
+53j. As an owner, I want a receipt from last year to render exactly as it did then — old prices, old names, the VAT rate in force at the time, and the payment method as it was called — so that a reprint is a record and not a re-interpretation.
+53k. As an owner, I want a reprint marked as a reprint and recorded nowhere as a financial event, so that reprinting never touches a total.
+53l. As an owner, I want a voided or refunded Order's receipt to show that it was reversed, so that a reprint cannot be passed off as a live sale.
 
 **Payment methods, discounts, and VAT — when they exist**
 
@@ -238,6 +264,30 @@ Order*, and is unaffected.
 Including it in Gross and subtracting it again would make every figure above depend on which
 of two conventions a query happened to use. They are counted and valued beside the
 waterfall, because an owner does want to see them.
+
+**The Refunds report reads the same records the waterfall already subtracts, and shows two
+dates on every row.** A Refund is attributed to **the original sale's business day** in the
+Summary waterfall — that is where the revenue it reverses was counted — and is **listed on the
+day it was taken** in this report, because "what went out of the drawer today" is the question
+this report answers. Showing both dates on every row is what stops the two figures looking like
+a bug. Voids are counted beside refunds and never summed into them.
+
+A partial refund lists the returned OrderLines; a whole-order refund says so rather than
+listing every line as if each were chosen. Every row links to the original Order, and from
+there to its receipt.
+
+**The receipt is rendered from the Order, and the template is shared with the terminal**
+(ADR-0012). Nothing is stored: no PDF, no image, no object storage, no receipt number sequence
+— the Order's identity is the receipt's. Re-rendering a sale from last year reproduces it
+exactly because every input was captured on the Order at sale time: recorded prices, Variant
+and Modifier names as they were, the VAT enablement and rate in force, the Discount name and
+reference, and the PaymentMethod name as it was called.
+
+The coupling this creates is real and is the price of the decision: the terminal and the back
+office must render the same sale the same way, so the template lives in one place and is tested
+on one worked example carrying a Discount, a VAT-exempt line, and a non-cash tender. A reprint
+is marked as a reprint, writes no record, and moves no total. A receipt for a voided or
+refunded Order shows that it was reversed.
 
 **Each tile carries a comparison, and the comparator depends on the period.** A single day
 compares against **the same weekday one week earlier**; every other period compares against
@@ -382,9 +432,10 @@ is not a dashboard.
 
 **Visual reference.** `ORC2_DESIGN="lofi"`. Mocks are committed:
 `backoffice/reports-summary-{1440,390}`, `backoffice/reports-orders-1440`,
-`backoffice/reports-by-item-1440`, and **`backoffice/drawer-sessions-1440`, which belongs
+`backoffice/reports-by-item-1440`, `backoffice/reports-refunds-1440`,
+`backoffice/receipt-1440`, and **`backoffice/drawer-sessions-1440`, which belongs
 to this area** — `drawer-sessions` writes the rows and owns the terminal's live view; the
-cross-day, cross-Store table is a report. **Four of the eight reports are not drawn** — *By
+cross-day, cross-Store table is a report. **Four of the nine reports are not drawn** — *By
 category*, *By cashier*, *By payment method*, and *Discounts & overrides* share the
 filter-strip-plus-table shape of `reports-by-item-1440` and are that mock's translation.
 An implementer must flag them as translated in the build report rather than treat them as
@@ -465,10 +516,33 @@ suite that only exercises the configured tenant leaves the default product untes
 - A cash-only tenant gets no *By payment method* report — the procedure declines rather
   than returning a single row.
 
+**Refunds and receipts.**
+
+- A Refund taken **the day after** the sale appears on the sale's day in the Summary
+  waterfall and on the day it was taken in the Refunds report — **one seeded refund, both
+  assertions**, because this is the pair a reader will otherwise report as a bug.
+- Refund totals for a period equal the waterfall's `Refunds` figure for the same Stores and
+  the same original-sale attribution.
+- A partial refund reports exactly the returned lines; a whole-order refund is marked as one.
+- **Voids never appear in any refund figure**, and refunds never appear in the void count.
+- A receipt rendered from an Order **years later reproduces the sale exactly** — assert it
+  against a seeded Order whose Variant has since been renamed, whose price has since changed,
+  whose Discount has since been deleted, whose PaymentMethod has since been renamed, and whose
+  Tenant has since turned VAT on. Every one of those must be invisible in the reprint. This
+  single test is what ADR-0012 is buying, so it is not optional.
+- The terminal's receipt and the back office's receipt for the same Order render the same
+  figures and the same lines — the shared template asserted at both ends, on the worked
+  example carrying a Discount, a VAT-exempt line, and a non-cash tender.
+- A reprint writes no row and changes no total: assert the period's figures are identical
+  before and after one.
+- A voided or refunded Order's receipt is marked as reversed.
+- An open **Ticket** appears in no report, no total, and no export — a draft is not a sale
+  (ADR-0011). Seeded alongside a real sale so the assertion cannot pass vacuously.
+
 **The Orders list and drill-down.**
 
-- Each filter — type, cashier, Device, DrawerSession, payment method — returns exactly the
-  seeded Orders and no others.
+- Each filter — type, cashier, Device, DrawerSession, payment method, **fulfilment tag** —
+  returns exactly the seeded Orders and no others.
 - **The sum of Order totals in the list equals the Summary's NET for the same filters**,
   with voided Orders excluded from both. This is the assertion that makes drill-down
   trustworthy and it is the one to write first. It is stated against Net, not Gross, because
@@ -554,7 +628,13 @@ and a performance test written now would be measuring a fixture, not a workload.
 12. **Discount references are personal data.** A Senior Citizen or PWD ID number identifies a
     real person and is not the tenant's to publish. It is visible in the Orders list and in
     exports because a claimed exemption has to be evidenced, but it is **never logged**, and
-    it is covered by `hardening`'s export and deletion procedures.
+    it is covered by `hardening`'s export and deletion procedures. **The rendered receipt
+    carries it too** (ADR-0012), so the receipt view and its export are authorised exactly as
+    the Orders list is — and because nothing is archived, there is no second store of it to
+    protect, expire, or delete.
+12a. **A ticket label is free text a cashier typed, and it may be a customer's name.** It is
+    shown in the Orders list, exported, and **never logged** (ADR-0011). It is not a search
+    key and it is not a filter value offered as an autocomplete over other people's labels.
 13. **Pagination on the Orders list is mandatory and server-enforced.** An unbounded date
     range on the busiest report is the cheapest denial-of-service in the product.
 14. **The absence of a back-office cancel/edit/delete procedure is asserted**, not merely

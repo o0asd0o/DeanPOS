@@ -80,6 +80,8 @@ like any other record.
 21. As a tenant admin, I want to set the Variance tolerance for my Tenant, so that a busy store and a quiet one are not held to the same figure. **Admin-only**, per `tenancy-identity`, which owns every Tenant setting.
 22. As a cashier, I want to close with no network, so that an outage does not prevent ending the day.
 23. As a cashier, I want to be warned at close if sales are still waiting to sync, so that I do not walk away from a terminal holding unrecorded money.
+23a. As a cashier, I want to be **stopped** — not warned — from closing while Tickets are still open on this terminal, so that I never count a drawer against orders I have not collected for (ADR-0011).
+23b. As a cashier, I want the close screen to list those open Tickets so I can pay or discard each one, so that being blocked comes with the way out.
 24. As a manager, I want a closed DrawerSession to be final, so that figures cannot be quietly adjusted afterwards.
 25. As a manager, I want to add a note to a closed DrawerSession, so that context can be captured without altering the numbers.
 
@@ -222,6 +224,16 @@ tenant that wants slack opts into it. **`tenancy-identity` owns it and it is adm
 an earlier draft here said manager-or-above, which contradicted the owning PRD. Beyond tolerance, a manager Override with a reason is required to
 close, via `tenancy-identity`'s mechanism; this area consumes it and must not build a
 second one.
+
+**Open Tickets block a close; unsynced sales only warn** (ADR-0011). The two look similar
+and are opposites. An unsynced sale is money that *was* collected and will reach the server —
+warning is right, because refusing to close would strand a cashier at the end of a shift over
+a network problem they cannot fix. An open Ticket is an order that was **never paid for**:
+closing over it means counting a drawer against a sale that has not happened, and the cart
+then belongs to whoever opens the terminal next. So the close is refused until each open
+Ticket is paid or discarded, and the close screen lists them with both actions (stories 23a,
+23b). Discarding writes nothing — a draft the server never saw cannot be Voided. The count of
+open Tickets comes from `checkout`, which owns them.
 
 **A closed DrawerSession is immutable**, consistent with ADR-0005's treatment of paid
 Orders. Corrections are notes appended by a manager, never edits to Float, count, expected,

@@ -205,7 +205,7 @@ that: it is offboarding, exercised on request, and the export is what carries th
 retention obligation with them. DeanPOS does not delete a live tenant's history, and does
 not hold a departed tenant's data indefinitely on the theory that they might need it.
 
-**Personal data has three categories, and all three are named here** — the threat model,
+**Personal data has four categories, and all of them are named here** — the threat model,
 the export, the purge, the retention schedule, and the never-log list each cover all of them,
 because two sibling PRDs delegate their handling to this area and a delegation that lands
 nowhere is worse than none:
@@ -214,7 +214,14 @@ nowhere is worse than none:
 | --- | --- | --- |
 | User records — names, emails, password and PIN hashes | `tenancy-identity` | yes |
 | **Discount references — Senior Citizen and PWD ID numbers** | `checkout` SC17, `reporting` SC12 | yes, but they identify a **customer**, not a User |
+| **Ticket labels** — free text a cashier typed, often a customer's name or a description of them | `checkout` (ADR-0011) | yes, and they identify a **customer** |
 | **Waitlist submissions** — name, business, contact, city | `landing` SC7 | **no** — outside tenant RLS |
+
+**A rendered receipt is not a fifth category and deliberately not a second store.** It carries
+a discount reference and a ticket label, but nothing is archived — it is a view over the Order,
+rendered on demand (ADR-0012). So there is no bucket to hold a retention schedule over, no
+object to expire, and a purged Order takes its receipt with it. Had receipts been stored as
+files, every rule in this section would need a second implementation against object storage.
 
 **Waitlist rows need their own retention rule, because Tenant purge cannot reach them.**
 Tenant export and purge are Tenant-scoped by construction; a row belonging to no Tenant is

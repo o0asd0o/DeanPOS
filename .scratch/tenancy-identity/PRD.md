@@ -192,6 +192,13 @@ The settings:
 | PaymentMethod list | **`cash` only** | `checkout`, `drawer-sessions`, `reporting` |
 | Variance tolerance | `0` **centavos** | `drawer-sessions` |
 | Cash-movement Override threshold | `0` **centavos** | `drawer-sessions` |
+| Table labels (per Store) | **empty list** | `checkout` |
+
+**Table labels are a Store-scoped ordered list of free strings, empty by default** (ADR-0011).
+A label is not a resource: nothing tracks occupancy, nothing prevents two Tickets carrying the
+same label, and an empty list means the terminal shows no table control at all and the cashier
+types a label instead. Editing or removing a label never rewrites a past sale, because the
+label is captured on the Order like every other configuration.
 
 **VAT defaults to off** (ADR-0010) because most target tenants sit below the ₱3,000,000
 registration threshold. A product that ships VAT on hands those tenants figures that are

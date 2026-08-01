@@ -128,8 +128,16 @@ network is down is a code path that is tested least and fails when it matters mo
 behind it. A cashier never waits on a request, online or offline.
 
 **Storage layout.** IndexedDB holds: the catalog cache with its version; **the cached
-Tenant sales settings**; the Outbox; the current draft Order; the synced PIN hashes and
-lockout state from `tenancy-identity`; and Device identity.
+Tenant sales settings** (including the Store's table labels); the Outbox; the current draft
+Order **and any open Tickets**; the synced PIN hashes and lockout state from
+`tenancy-identity`; and Device identity.
+
+**Tickets add storage and nothing else** (ADR-0011). A Ticket is a labelled draft, drafts are
+local, and **no Ticket ever enters the Outbox** — an entry appears only when an Order becomes
+`paid`, exactly as before. Nothing here syncs, merges, resolves, or reconciles a Ticket, and a
+Ticket is invisible to every other Device by construction rather than by filtering. If a
+future version shares Tickets across terminals it is a new decision with a new record, and it
+is the first thing in this product that would need merge semantics.
 
 **The Tenant sales settings are a cached payload this area owns**, because nothing else
 carried them offline and `checkout` cannot render without them: the **PaymentMethod list
