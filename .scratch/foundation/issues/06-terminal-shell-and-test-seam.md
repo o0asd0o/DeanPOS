@@ -1,6 +1,6 @@
 # 06 — Terminal shell (`apps/pos`) rendering ping, and the test seam
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -113,3 +113,79 @@ Note also that `packages/ui` deliberately ships **only** `button` and `sheet`. I
 genuinely cannot be built without a third primitive, that is worth reporting rather than
 quietly adding one — it would mean issue 05 mis-scoped, and the next area is supposed to
 install what it needs.
+
+---
+
+**Closed by the pipeline.** One review round used (REVISE on two should-fix findings, then PASS
+on both axes). Gate green cold in the lane after the rebase and again on `main`. Merged at
+`5b042f3`. Lane database dropped at close.
+
+**The seam is complete, and it is what ten later areas inherit.**
+`renderRoute<TRouter extends AnyRouter>({ router, ...seamOptions }) => { container, db }`,
+plus `expectNoAxeViolations(container)` and `assertNoServerImports(srcDir)`, at
+`apps/api/src/test-seam-react.tsx` — beside the server half, because ADR-0009 rule 6 blocks an
+app→app import and an eleventh workspace would contradict the PRD's ten. It renders the
+caller's **own** router and injects `{ queryClient, orpc }` through TanStack Router's
+render-time context override rather than rebuilding it, so the app under test is byte-identical
+to production and nothing is `apps/pos`-specific. Issue 07 consumes it unchanged.
+
+**The ADR-0009 worked example**: thin route (`routes/index.tsx` wires one feature and nothing
+else) → fat feature (`features/ping/Ping.tsx`) → query hook in `features/ping/__common/queries.ts`.
+
+**Two review findings, both in files the whole product copies:**
+
+1. The seam helper carried three multi-paragraph JSDoc blocks, breaching the three-line comment
+   ceiling in the file every later seam test is read against. Trimmed to pointers at record 008,
+   which already holds the prose.
+2. The ping test asserted `getByText("pong")` — a hardcoded literal — while holding a live `db`
+   handle it never read. The behaviour was genuinely live, but the *guard* would have kept
+   passing if the render stopped reflecting the database and started printing a constant. Now
+   reads the seeded value through the handle and asserts against it. Proven to bite by making
+   the component render a divergent constant and watching the test fail.
+
+**A contradiction surfaced and was settled: `.scratch/decisions/010-the-word-layout-in-the-routes-layer.md`.**
+ADR-0009 called `src/routes/` "THIN — routing, guards, **layout**, and a single feature
+component"; code-standards rule 4 said "DON'T put **layout**, markup, or business logic in a
+route file." Same word, opposite instruction. The decider ruled rule 4's reading wins — "layout"
+in ADR-0009 means layout *nesting*, never markup — and made the rule **zero-exception, root
+included: a route file contains no JSX**, testable by `rg -n '</|/>' apps/*/src/routes` returning
+nothing.
+
+It overruled the reviewer, which had judged `__root.tsx` acceptable as a framework-mandated file
+with nothing to delegate to. Its grounds: issue 06 calls that file the worked example ten areas
+copy, so a worked example carrying the sole exception means **the exception is what gets
+copied** — and the premise was false anyway, since `ErrorState` and `NotFoundState` already lived
+in `components/` and the frame was the lone holdout. The frame moved to
+`apps/pos/src/components/AppShell.tsx`; `docs/agents/code-standards.md` section 4 and ADR-0009
+were rewritten so the two documents now say one thing, and record 009 was amended to match.
+
+**Also decided during this issue**, both binding on issue 07 and later areas:
+
+- `.scratch/decisions/008-frontend-application-dependency-set.md` — **Stakes: high.** TanStack
+  Router/Query, the React plugin, happy-dom, Testing Library, and `axe-core@4.12.1`. Makes the
+  `routeTree.gen.ts` codegen part of the root `codegen` script, so `ORC2_GATE` now begins
+  `vp run -w codegen` — without it the router plugin regenerates at Vitest startup, *after* both
+  typecheck steps, and `vp check` would go green against a stale route tree. axe runs the five
+  WCAG tags with **only** `color-contrast` disabled, because axe cannot evaluate contrast in a
+  virtual DOM and `packages/ui`'s token-pair test is what covers it.
+- `.scratch/decisions/009-terminal-shell-chrome-states.md` — **Stakes: medium.** What the shell
+  renders in the states the lo-fi mock does not draw. The mock's `OFFLINE · 3 queued` and
+  `Ana (cashier) · Lock` render **no element at all** — not dimmed placeholders — because there
+  is no tenancy, offline sync, or auth yet, and fake data in a shell is what eleven areas would
+  then build against.
+
+**A trap issue 07 will hit identically.** Under `moduleResolution: "nodenext"`, TanStack
+Router's codegen emits extension-less relative imports that fail to resolve **silently**,
+because the generated file carries `@ts-nocheck`. That collapses `routeTree`, `router`, and
+everything touching `Register`/`RegisteredRouter` to `any` — including `useRouteContext` in
+unrelated files — while the gate stays green. Fixed with `addExtensions: ".tsx"` in **both**
+`tsr.config.json` and the Vite plugin's inline config. A regression is caught by
+`apps/pos/tests/typed-routes.types.ts`: the collapse makes a link to a non-existent route legal,
+which turns its `@ts-expect-error` into an unused directive and reds the gate.
+
+**Standing minor, not fixed:** the Tailwind preset wiring was exercised (a production build,
+grepped for `--color-background`, `.touch-min`, and the `:focus-visible` rule, all emitted from
+the relative `theme.css` import with zero app config) but nothing **committed** guards it —
+happy-dom applies no PostCSS, so the seam test cannot see computed styles. The obligation as
+written was to exercise rather than assume, which is met; a committed guard is net-new work no
+document requires.
