@@ -44,7 +44,7 @@ Carried into every PRD. A ticket that reaches for one of these is out of scope.
 | Tests | Vitest primary, everywhere |
 | Data | Postgres · Prisma schema+migrations · `prisma-kysely` types · Kysely at runtime |
 | Tenancy | Shared DB, `tenant_id` on every row, Postgres RLS |
-| Money | PHP, integer centavos; exact `Millicentavos` intermediates. Round half-up **once per stored figure** — exactly two: the OrderLine total and the Order-scoped Discount amount. A price is always what the customer pays; VAT is never added |
+| Money | PHP, integer centavos; exact `Millicentavos` intermediates. Round half-up **once per stored figure** — exactly three: the OrderLine total, the Order-scoped Discount amount, and the Refund amount. A price is always what the customer pays; VAT is never added |
 | Optional by tenant | **VAT** (off by default, rate configurable) · **Discounts** (empty list by default, typed and person-applied) · **PaymentMethods** (`cash` only by default; others are recorded tenders, never authorised). ADR-0010. The out-of-the-box product is cash, no VAT, no discounts |
 | Offline | IndexedDB Outbox, client UUID, idempotent replay, server honours recorded price |
 | Auth | Device enrolment token + per-User PIN unlock (offline-capable); back-office email+password |

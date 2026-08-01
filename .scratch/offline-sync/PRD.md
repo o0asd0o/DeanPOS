@@ -73,6 +73,9 @@ waiting, when the last successful sync was, and whether anything is stuck.
 5. As a cashier, I want the terminal to load at all after being closed and reopened offline, so that a reboot mid-outage is survivable.
 6. As a cashier, I want my draft order to survive a reload or a crash, so that a half-built basket is not lost in front of the customer.
 7. As a manager, I want to void, refund, and approve overrides while offline, so that an outage does not stop me doing my job.
+7a. As a cashier, I want a completed sale to stay findable on this terminal **after it syncs**, so that a customer returning at 2pm can be served even though the 11am sale reached the server hours ago.
+7b. As a manager, I want to void or refund a synced sale with no network, so that an outage does not stop a correction any more than it stops a sale.
+7c. As an owner, I want the terminal to hold only a recent window of sales, so that a stolen or lost tablet is not a copy of my whole sales history.
 8. As a cashier, I want to unlock the terminal with my PIN while offline, so that a shift can start during an outage.
 
 **Knowing what is happening**
@@ -128,9 +131,30 @@ network is down is a code path that is tested least and fails when it matters mo
 behind it. A cashier never waits on a request, online or offline.
 
 **Storage layout.** IndexedDB holds: the catalog cache with its version; **the cached
-Tenant sales settings** (including the Store's table labels); the Outbox; the current draft
-Order **and any open Tickets**; the synced PIN hashes and lockout state from
-`tenancy-identity`; and Device identity.
+Tenant sales settings** (including the Store's table labels); the Outbox; **the recent-Orders
+store**; the current draft Order **and any open Tickets**; the synced PIN hashes and lockout
+state from `tenancy-identity`; and Device identity.
+
+**The recent-Orders store is a separate thing from the Outbox, and this area owns it.** The
+Outbox holds what has **not been acknowledged** and drains as it syncs. The recent-Orders store
+holds **completed sales regardless of sync state** and is what `checkout`'s order lookup reads.
+Without it the terminal loses a sale the moment it syncs successfully — the lookup would work
+during an outage and return nothing once everything was healthy, which is the failure nobody
+would think to test for.
+
+- An Order is written here when it becomes `paid`, at the same moment its Outbox entry is
+  created, and **stays after acknowledgement**. Voids and Refunds attach to their Order here
+  too, so a partially-refunded sale shows what is left refundable while offline.
+- **The window is the current DrawerSession plus the previous two business days.** Stated as a
+  number so nobody has to guess what "recent" means. It covers the customer who comes back
+  after the weekend, and it does not accumulate.
+- **Pruning happens at DrawerSession close**, when the terminal is already doing bookkeeping
+  and nothing is mid-sale. An Order still in the Outbox is **never** pruned regardless of age —
+  unacknowledged money stays on the Device until the server has it.
+- **This store holds customer personal data** — an Order carrying a Discount carries its
+  SC/PWD reference. That is why the window is bounded rather than "everything", and it is why
+  `hardening` covers the Device as a place personal data rests. A revoked or wiped Device
+  clears it along with everything else.
 
 **Tickets add storage and nothing else** (ADR-0011). A Ticket is a labelled draft, drafts are
 local, and **no Ticket ever enters the Outbox** — an entry appears only when an Order becomes
@@ -237,6 +261,13 @@ running.
 
 - Go offline mid-session, complete a cash sale, and see a receipt.
 - Reload the tab while offline; the queued sale is still there and the draft is intact.
+- **A sale is completed, the terminal reconnects, the Outbox drains — and the sale is still
+  findable in the order lookup.** This is the test that catches the recent-Orders store being
+  confused with the Outbox, and it fails on the "healthy" path, not the outage path.
+- **A synced sale is voided and refunded with the network off**, from the lookup, and both
+  reversals leave as their own Outbox entries on reconnect.
+- An Order older than the window is gone after a DrawerSession close; **an unacknowledged
+  Order of the same age is still there**.
 - Close and reopen the application entirely while offline; the terminal boots and sells.
 - Come back online; the sale uploads and lands **exactly once**.
 - Come back online with several queued sales, and a void that applies to one of them;

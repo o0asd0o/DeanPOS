@@ -681,25 +681,86 @@ def build():
     e = topbar(T)
     e += [
         txt(40, 104, "Recent orders on this terminal", 20, "l", "bold"),
-        box(40, 124, 600, 46, "Search order number…", W, align="l"),
-        txt(40, 194, "Rung up by", 11),
+        txt(40, 126, "this drawer session and the previous two business days", 12),
+        box(40, 140, 600, 46, "Search order number…", W, align="l"),
+        txt(40, 210, "Rung up by", 11),
     ]
     for i, (t, f) in enumerate([("Anyone", W), ("Ana", S), ("Boy", W)]):
-        e.append(box(40 + i * 130, 202, 122, 40, t, f, size=12))
-    e += rows(40, 258, 600, 56, [
+        e.append(box(40 + i * 130, 218, 122, 40, t, f, size=12))
+    e += rows(40, 274, 600, 56, [
         "C2-0421   12:41   ₱310.00   Ana   synced",
         "C2-0420   12:33   ₱145.00   Ana   queued",
         "C2-0419   12:20   ₱210.00   Ana   VOIDED",
         "C2-0418   12:11   ₱80.00    Ana   synced",
     ], gap=8, align="l", size=12)
-    e += [box(680, 124, 560, 560, "Selected order\n\n(receipt view, read-only,\nwith Void / Refund actions)", D, dash=1, size=14)]
+    e += [
+        box(680, 140, 560, 300, "Selected order\n\n(receipt view, read-only,\nwith Void / Refund actions)", D, dash=1, size=14),
+        box(680, 460, 560, 224, "NOT ON THIS TERMINAL\n\n"
+                                "C1-0377 was rung up on Counter 1.\n\n"
+                                "  online   →  found in the Store and opened here,\n"
+                                "              with the same Void and Refund actions\n"
+                                "  offline  →  \"this sale was not rung on this terminal —\n"
+                                "              reconnect to find it\"\n\n"
+                                "Never a blank result. A cashier reads blank as a fake receipt.",
+            M, align="l", size=12),
+    ]
     out.append(screen("pos/order-lookup-1280.svg", T, TH, "POS · Order lookup", TABLET, e, notes=[
         "Scoped to this Device — order numbers are unique per Device, not per Store.",
+        "READS THE RECENT-ORDERS STORE, NOT THE OUTBOX. The Outbox empties on sync; a lookup built on it "
+        "would lose a sale the moment the terminal caught up.",
+        "The window is stated on screen: this DrawerSession plus the previous two business days.",
+        "A number not held locally FALLS BACK TO A STORE-WIDE SEARCH — and says so honestly when offline.",
+        "That fallback is only safe because a Device code is unique within its Store (tenancy-identity).",
         "Sync state is visible per order.",
         "Selecting an order opens the receipt view; corrections start from there.",
         "RUNG UP BY lists only the Users who actually used this terminal in the window — not the Store's directory.",
         "It filters on the User attributed to the Order, whatever their Role. A manager's own sales are in the list.",
         "Defaults to the signed-in User after a handover, because 'find mine' is the reason the filter exists.",
+    ]))
+
+    # ------------------------------------------------------------ refund picker
+    e = topbar(T) + [
+        box(0, 56, T, TH - 56, "", D),
+        txt(40, 104, "Refund — order C1-0388", 20, "l", "bold"),
+        txt(40, 130, "31 Jul 12:35 · Dina · paid ₱308.00 · senior/PWD 20% applied to the whole bill", 12),
+        txt(40, 176, "What is coming back?", 12),
+    ]
+    e += rows(40, 188, 760, 62, [
+        "Adobo · Whole   listed ₱240.00   paid ₱192.00    [ − ] 1 of 2 [ + ]     ₱96.00",
+        "  + Extra rice ×1  listed ₱15.00   paid ₱12.00     rides with its line",
+        "Munggo · Half   listed ₱55.00    paid ₱44.00     [ − ] 0 of 1 [ + ]      ₱0.00",
+        "Rice ×2         listed ₱30.00    REFUNDED 30 Jul  nothing left",
+        "Softdrink ×1    listed ₱45.00    paid ₱36.00      [ − ] 0 of 1 [ + ]     ₱0.00",
+    ], gap=8, align="l", size=12)
+    e += [
+        box(40, 552, 760, 130, "EACH LINE GIVES BACK WHAT WAS PAID FOR IT, NOT WHAT IT WAS LISTED AT.\n\n"
+                               "The ₱77.00 discount came off the whole bill, so a ₱240.00 line was really\n"
+                               "sold for ₱192.00.  120.00 x (1 - 77/385) = 96.00 for one of the two.\n"
+                               "Refunding the listed price would cost the tenant the difference, every time.",
+            D, dash=1, align="l", size=12),
+        box(830, 140, 410, 240, "REFUND TOTAL\n\n₱96.00\n\n"
+                                "paid                ₱308.00\n"
+                                "already refunded     ₱24.00\n"
+                                "refundable now      ₱284.00\n"
+                                "left after this     ₱188.00\n"
+                                "VAT on this refund        —\n"
+                                "  (the sale recorded none)",
+            W, align="l", size=13),
+        box(830, 400, 410, 130, "Reason  (required)\n\n[ spoiled                          ]",
+            W, align="l", size=12),
+        box(830, 552, 410, 62, "Manager approval required", M, size=13),
+        box(830, 626, 410, 56, "REFUND ₱96.00", S, size=17),
+        box(830, 700, 410, 48, "Cancel", W, size=13),
+    ]
+    out.append(screen("pos/refund-picker-1280.svg", T, TH, "POS · Refund", TABLET, e, notes=[
+        "PER LINE, WITH QUANTITY. Returning one of two portions is one action, not a whole-order refund.",
+        "The paid column is the line's share AFTER a whole-bill discount. That share is what comes back.",
+        "A line already fully refunded is shown and disabled — history is visible, not hidden.",
+        "Still refundable is computed SERVER-side from persisted rows; the terminal never asserts it.",
+        "The refund that clears the order returns the REMAINING BALANCE, so residue is never lost or duplicated.",
+        "VAT follows the original sale: the rate captured on the Order, or none where the sale recorded none.",
+        "Reason is required, and manager approval opens the same override dialog as a void.",
+        "Add-ons ride with their line — they were never separately priced.",
     ]))
 
     # ------------------------------------------------------------ running summary

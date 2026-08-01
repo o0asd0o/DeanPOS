@@ -225,6 +225,15 @@ an earlier draft here said manager-or-above, which contradicted the owning PRD. 
 close, via `tenancy-identity`'s mechanism; this area consumes it and must not build a
 second one.
 
+**A cash Refund reduces expected cash for the DrawerSession that pays it out, which is not
+always the session that took the sale.** A customer can be refunded at a different terminal
+from the one that rang the sale (`checkout`'s Store-wide lookup). The cash physically leaves
+*this* drawer, so it reduces *this* session's expected cash, on the day it was paid out.
+`reporting` separately attributes that refund to the **original sale's** business day, because
+that is the revenue it reverses. Both are correct and they will look contradictory to whoever
+reconciles the first cross-terminal refund — which is exactly why it is stated in all three
+places rather than left to be inferred.
+
 **Open Tickets block a close; unsynced sales only warn** (ADR-0011). The two look similar
 and are opposites. An unsynced sale is money that *was* collected and will reach the server —
 warning is right, because refusing to close would strand a cashier at the end of a shift over

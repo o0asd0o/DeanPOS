@@ -34,7 +34,7 @@ names. The **Not** column lists synonyms that are decided against, not style pre
 | **Order** | One customer's purchase. States: `draft → paid → (voided \| refunded)`. | transaction, sale (in code), bill |
 | **Ticket** | A `draft` Order set aside under a **ticket label**, so the cashier can serve someone else and come back. Not a separate entity and not a state — a Ticket *is* a draft. Local to the Device that opened it, invisible to every other Device, never sent to the server until `paid` (ADR-0011). | held order, tab, open bill, parked order |
 | **Ticket label** | What a Ticket is called: a table label or a customer's name. Free text, or picked from the Store's table list. Captured on the Order at sale time. | table (as the label itself), order name |
-| **Table** | An entry in a Store's optional, ordered list of table labels. **A label, not a resource** — no occupancy, no seating, no covers, and two Tickets may carry the same one. | seat, cover, area, section |
+| **Table** | An entry in a Store's optional, ordered list of table labels. **A label, not a resource** — nothing is stored on it; "occupied" is derived from the open Tickets on this Device, and a taken label is not offered again until its Ticket is paid or discarded. | seat, cover, area, section |
 | **Fulfilment tag** | An optional word recorded on an Order: `dine_in` \| `take_out` \| `delivery` \| `pick_up`. **v1 interprets it nowhere** — no routing, no fee, no separate pricing (ADR-0011). | order type, service type, channel |
 | **Receipt** | A **view over a paid Order**, rendered on demand and reprintable. Not a stored file — nothing is archived, and the Order's identity is the receipt's identity (ADR-0012). | invoice, bill, receipt file, PDF |
 | **OrderLine** | One Variant + its chosen Modifiers and Add-ons, with the price captured **at sale time**. | line item, cart item |
@@ -89,8 +89,8 @@ Shift — but they are separate records with separate lifecycles, and v1 does no
 - **Whatever configuration was in force is captured on the Order** — VAT enablement and
   rate, Discount name/type/value, PaymentMethod name. A report reads what the sale said,
   never what the settings say now. Same principle as *recorded price*.
-- Rounding happens **once per stored figure, half-up**. Exactly two figures are rounded:
-  the **OrderLine total** and the **Order-scoped Discount amount**. A sum of already-rounded
+- Rounding happens **once per stored figure, half-up**. Exactly three figures are rounded:
+  the **OrderLine total**, the **Order-scoped Discount amount**, and the **Refund amount**. A sum of already-rounded
   integers is exact and is never a rounding site. Every intermediate is exact
   **Millicentavos**.
 - **A VAT-exempt Discount strips VAT first**, then discounts the VAT-exclusive base — the

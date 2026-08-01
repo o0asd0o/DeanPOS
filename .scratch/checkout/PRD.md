@@ -127,6 +127,10 @@ change tomorrow; the receipt stays true.
 32. As a cashier, I want that number to be assigned on the terminal, so that it exists even when we are offline.
 33. As a cashier, I want to start the next order in one tap from the receipt, so that the queue keeps moving.
 34. As a cashier, I want to look up a recent Order **from what this terminal already holds**, so that a returning customer is handled at the counter with no network and no wait.
+34c. As a cashier, I want "recent" to mean a stated window — this DrawerSession and the previous two business days — so that I know without asking whether a sale will be findable here.
+34d. As a cashier at a second terminal, I want to find a sale rung up on the other counter by typing its number, so that a customer is not sent back to a till that has a queue.
+34e. As a cashier, I want to be told plainly that a sale was rung elsewhere and needs a connection, so that an empty result never looks like a fake receipt.
+34f. As a manager, I want to void or refund a sale I found this way, so that finding it is actually worth something.
 34a. As a cashier, I want to narrow that lookup to the orders I rang up myself, so that after a handover I am not scrolling through my colleague's sales to find mine.
 34b. As a manager, I want that filter to list whoever actually used this terminal today rather than every User in the Store, so that it is two taps and not a directory.
 
@@ -140,6 +144,11 @@ change tomorrow; the receipt stays true.
 40. As a manager, I want to refund individual lines, so that a customer returning one of three dishes is handled.
 41. As a manager, I want refunds to require my PIN and a reason, so that money leaving the drawer is always attributable.
 42. As a manager, I want to be prevented from refunding more than was paid, so that repeated partial refunds cannot exceed the sale.
+42a. As an owner, I want a refunded line to give back what the customer actually paid for it after a whole-bill discount — not its listed price — so that every discounted partial refund does not quietly cost me the difference.
+42b. As a manager, I want to choose which lines and how many of each I am refunding, so that returning one of three portions is one action.
+42c. As a manager, I want each line to show what is still refundable after an earlier partial refund, so that I am not doing subtraction in front of a customer.
+42d. As an owner, I want refunding every line one at a time to return exactly what was paid — no more, no less — so that the arithmetic cannot drift by a centavo per refund.
+42e. As a VAT-registered owner, I want a refund's VAT backed out at the rate captured on the original sale, and a refund of a VAT-exempt sale to record no VAT, so that reversals match what was actually charged.
 43. As a manager, I want to be prevented from voiding an Order that has already been refunded, so that the two mechanisms cannot double-count.
 44. As a cashier, I want a clear prompt that a manager is required, so that I call one instead of improvising.
 45. As a manager, I want to apply a manual price override to a line, so that a legitimate one-off adjustment is possible without a promotions engine.
@@ -189,6 +198,31 @@ forbidden from inventing its own deduplication, so the guarantee has to be compl
 
 Written and tested in this area even though nothing replays yet, because retrofitting
 idempotency onto a live sales endpoint is not something anyone should have to do.
+
+**Order lookup reads the recent-Orders store, not the Outbox.** The Outbox holds
+unacknowledged entries and empties as they sync; a lookup built on it would find a sale during
+an outage and lose it the moment the terminal caught up. `offline-sync` owns that store and its
+window — **the current DrawerSession plus the previous two business days**, pruned at
+DrawerSession close, with unacknowledged Orders never pruned. This area consumes it, and a
+Void or Refund taken against a synced sale works offline for the same reason a sale does.
+
+**The lookup falls back to the Store when the sale is not local, and says so when it cannot.**
+The local store answers instantly and offline; a number that is not in it is searched against
+the Store — the same query the back-office Orders list runs — and the result opens the same
+read-only receipt with the same Void and Refund actions. Offline, the fallback is impossible
+and the terminal says exactly that: **"this sale was not rung on this terminal — reconnect to
+find it"**, never a blank result, which a cashier reads as *this receipt is not real*.
+
+This works because a Device code is unique within its Store (`tenancy-identity`), so a printed
+`C2-0421` names exactly one sale in that shop. Without that constraint the fallback would be a
+way to refund the wrong Order, so it is a dependency and not a nicety.
+
+**A refund taken on one terminal for a sale rung on another takes the cash out of the drawer
+performing it.** That is physically what happens, so it is what the drawer records: the cash
+movement belongs to today's DrawerSession on *this* Device, while `reporting` still attributes
+the refund to the original sale's business day. The two are consistent and they look
+inconsistent — which is why it is written here, in `drawer-sessions`, and in `reporting`,
+rather than discovered by whoever reconciles the first one.
 
 **Order number.** A short human-readable identifier assigned **on the Device** — a device
 code plus a per-Device incrementing sequence, e.g. `C2-0421`. It is not globally unique
@@ -287,8 +321,9 @@ per order    Σ OrderLine totals                    exact integer sum, no roundi
              Order total, Centavos
 ```
 
-**The rule is "once per stored figure", not "once per Order".** There are exactly two
-rounded figures — the OrderLine total and the Order-scoped Discount amount — and neither is
+**The rule is "once per stored figure", not "once per Order".** There are exactly three
+rounded figures — the OrderLine total, the Order-scoped Discount amount, and the Refund
+amount (see *Refund arithmetic* below) — and none is
 ever rounded twice. A sum of already-rounded integers needs no rounding, which is why the
 Order total itself is never a rounding site. `CONTEXT.md`, ADR-0005, and
 `.scratch/APP-PLAN.md` were amended on 2026-07-31 to say this; they previously said "once,
@@ -321,6 +356,47 @@ overcharge an entitled customer by ₱33.00.
 
 When VAT is disabled, there is no base to strip: a `vatExempt` Discount behaves as an
 ordinary percent Discount, and no VAT figure exists.
+
+**Refund arithmetic — a partial refund returns what the line actually cost, not what it was
+listed at.** This is the rule that was missing, and it is where money silently goes wrong.
+
+An Order-scoped Discount came off the **whole bill**, so every line was effectively sold for
+less than its recorded total. Refunding a line at its recorded total therefore hands back
+money the customer never paid.
+
+```
+line share of the Order        = OrderLine total × (1 − orderDiscount / Σ OrderLine totals)
+                                 computed in exact Millicentavos
+
+refund amount for a selection  = Σ the shares of the selected lines and quantities
+                                 ROUND ONCE, half-up  →  Centavos          ← rounded figure 3
+
+FINAL refund clearing the Order = Order total − everything already refunded
+                                 (the remaining balance, not a recomputed share)
+```
+
+Worked example, and a required test: ₱385.00 subtotal, a ₱77.00 Order-scoped senior discount,
+Order total ₱308.00. The customer returns one line recorded at ₱120.00.
+`120.00 × (1 − 77/385) = ₱96.00` goes back — **not ₱120.00**. Returning the listed price
+would cost the tenant ₱24.00 on that refund and on every discounted partial refund after it,
+invisibly.
+
+- **The last refund returns the remaining balance.** Apportioning to lines leaves a residue of
+  a centavo or two that no line owns; if each refund recomputed its own share, refunding every
+  line one at a time could return more or less than was paid. The refund that clears the Order
+  absorbs it, so **refunding every line individually returns exactly the Order total**.
+- **Refundable remaining is per line and is shown**: a line already partly refunded shows what
+  is left, and the running total of refunds may never exceed the Order total. Enforced
+  server-side from persisted rows (SC10), never from a figure the terminal sent.
+- **Line-scoped Discounts and manual overrides need no apportionment.** Both are already inside
+  the recorded OrderLine total — that is what "recorded" means — so refunding that line at its
+  recorded total is already correct.
+- **VAT follows the sale it is reversing, never the Tenant's current setting.** With VAT
+  enabled, the refund's VAT is backed out of the refund amount at the rate **captured on the
+  Order**. Where the sale recorded zero VAT — the VAT-exempt SC/PWD case — the refund records
+  zero VAT too. A refund never invents a VAT figure the sale did not have.
+- **A whole-order refund is the Order total**, full stop. No apportionment, no summing of
+  shares, no opportunity to be off by a centavo.
 
 **No other module in DeanPOS implements any of this.**
 
@@ -447,8 +523,8 @@ one for this area.
 
 **Money, property-tested.** The composition rules get property tests over generated
 catalogs and carts: a line total is always a non-negative integer number of centavos;
-**every stored figure is rounded exactly once — the OrderLine total and the Order-scoped
-Discount amount, and nothing else**; the Order total always equals the sum of the stored
+**every stored figure is rounded exactly once — the OrderLine total, the Order-scoped
+Discount amount, and the Refund amount, and nothing else**; the Order total always equals the sum of the stored
 line totals minus the stored discount amount; VAT backed out and re-applied returns the
 original total; every intermediate is an exact `Millicentavos` integer. Examples are not
 sufficient for money.
@@ -499,6 +575,18 @@ sufficient for money.
   unchanged and a reversal exists.
 - Refund whole and per-line; cumulative partial refunds cannot exceed the paid amount;
   refund after void and void after refund are both refused.
+- **The apportionment case, as a named example:** ₱385.00 subtotal, ₱77.00 Order-scoped
+  discount, ₱308.00 total, one ₱120.00 line returned → **₱96.00**. Asserting ₱120.00 is the
+  bug this test exists to catch, and it is the one an implementer will write by default.
+- **Refunding every line individually returns exactly the Order total** — property-tested over
+  generated carts and discounts, in any line order, with the final refund absorbing the
+  apportionment residue. Off-by-a-centavo here is money, repeated per refund.
+- A line already partly refunded reports the correct remaining refundable quantity and amount,
+  and a request exceeding it is refused **server-side from persisted rows**.
+- A refund's VAT is backed out at the rate **captured on the Order**, not the Tenant's current
+  rate; a refund of a VAT-exempt sale records zero VAT rather than omitting the field.
+- A line carrying a line-scoped Discount or a manual override refunds at its recorded total
+  with no apportionment — asserted, because it is the case where apportioning twice is tempting.
 - A manual line override requires a manager Override and stores the original price.
 - A Variant renamed or archived after a sale does not change the historical Order's
   rendering.
@@ -537,7 +625,7 @@ off-by-default configuration is the product most tenants will run.
 **Money, property-tested — both configurations.** Every property in this area is asserted
 with VAT enabled and disabled, and with and without a Discount applied: the Order total
 always equals the sum of stored line totals minus the stored Order-scoped Discount amount;
-**exactly two figures are ever rounded — the OrderLine total and the Order-scoped Discount
+**exactly three figures are ever rounded — the OrderLine total, the Order-scoped Discount
 amount**; VAT backed out and re-applied returns the original total; a VAT-exempt Discount
 always yields a payable equal to `subtotal/(1+rate) × (1−percent)` to the centavo; no
 Discount can drive a total below zero.

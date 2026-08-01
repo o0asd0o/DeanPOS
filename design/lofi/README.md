@@ -59,6 +59,7 @@ Copy these verbatim into an issue's `## Visual reference` section.
 - Image · whole-screen · 390:  `design/lofi/pos/receipt-390.svg`
 - Image · component: ManagerOverrideDialog · 1280: `design/lofi/pos/manager-override-1280.svg`
 - Image · whole-screen · 1280: `design/lofi/pos/order-lookup-1280.svg`
+- Image · whole-screen · 1280: `design/lofi/pos/refund-picker-1280.svg`
 ```
 
 **`tables-1280` and `tickets-1280` are one route in two configurations, not two screens.**

@@ -98,6 +98,8 @@ are needed.
 21. As a tenant admin, I want to enrol a terminal against a specific Store, so that every sale it takes is attributed correctly.
 22. As a tenant admin, I want enrolment to use a short-lived, single-use code, so that an enrolment link cannot be reused or shared.
 23. As a tenant admin, I want to name each Device, so that "Counter 2" is meaningful in reports and in the device list.
+23a. As a tenant admin, I want each Device to carry a short code that is **unique within its Store**, so that the order numbers it prints — `C2-0421` — identify one sale in that shop and not two.
+23b. As a tenant admin, I want enrolment to refuse a code already used by another Device in the same Store, so that uniqueness is enforced rather than remembered.
 24. As a tenant admin, I want to see every enrolled Device with the time it was last seen, so that I notice a terminal that stopped reporting.
 25. As a tenant admin, I want to revoke a Device immediately, so that a lost or stolen tablet stops being a till.
 26. As a tenant admin, I want a revoked Device to be unable to sync anything further, so that revocation is real and not advisory.
@@ -164,8 +166,17 @@ are reachable only through platform-admin paths.
 - `UserRole` — the User's role over time. **Append-only with an `effective_from`
   timestamp.** `User` carries the current role as a denormalised convenience; `UserRole`
   is the truth.
-- `Device` — belongs to a Store; has a name, a hashed token, a last-seen timestamp, and a
-  revoked flag.
+- `Device` — belongs to a Store; has a name, a **short code unique within its Store**, a
+  hashed token, a last-seen timestamp, and a revoked flag.
+
+**The Device code is load-bearing, not decoration.** `checkout` builds every Order number from
+it — the code plus a per-Device sequence, because a server-allocated sequence is impossible
+offline. If two Devices in one Store share a code, `C2-0421` names two different sales, and a
+refund can be paid against the wrong one. **Uniqueness is a constraint enforced at enrolment**,
+per Store, not a naming convention an admin is trusted to follow. It is also what lets a
+cashier find a sale rung on the *other* terminal (`checkout` order lookup) — without it there
+is nothing safe to search by. A code is not reused after a Device is revoked, because old
+receipts still carry it.
 - `EnrolmentCode` — short-lived, single-use, bound to a Store.
 - `Session` — back-office sessions, server-side, revocable.
 - `Override` — the approving User, the action type, a reason, a timestamp, the Device and

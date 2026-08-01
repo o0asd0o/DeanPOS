@@ -18,7 +18,9 @@ What lands:
 - **`Centavos`** — a branded integer. Construction from a decimal string is validated and
   total: it returns a result, never throws past a boundary, and never yields a float.
 - **`roundLineTotal`** — round-half-up. The single place a fractional scale collapses to
-  `Centavos`, applied exactly once per stored figure.
+  `Centavos`, applied exactly once per stored figure. There are **three** such figures in the
+  product — the OrderLine total, the Order-scoped Discount amount, and the Refund amount — so
+  the name describes the function's rule, not a single call site.
 - **`vatBackout(total, ratePercent)`** — pure on **both** arguments. No global rate, no
   default, no `12` in the implementation. VAT is a Tenant setting, off by default, with a rate
   captured per Order (ADR-0010); a function closing over a constant cannot express a non-VAT

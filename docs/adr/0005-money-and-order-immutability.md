@@ -24,8 +24,12 @@ forever.
   below the ₱3,000,000 registration threshold.
 - **Rounding happens once per stored figure, half-up.** **Amended by ADR-0010,
   2026-07-31:** originally "once, at the OrderLine total", which was complete before an
-  Order-scoped Discount existed. There are now exactly **two** rounded figures — the
-  OrderLine total and the Order-scoped Discount amount — and neither is ever rounded twice.
+  Order-scoped Discount existed. **Amended again 2026-08-01:** a partial Refund of a
+  discounted Order apportions the discount and is therefore fractional, so the Refund amount
+  is a stored figure too. There are now exactly **three** rounded figures — the OrderLine
+  total, the Order-scoped Discount amount, and the Refund amount — and none is ever rounded
+  twice. The **final** Refund that clears an Order returns the remaining balance rather than a
+  freshly computed share, so apportionment residue can be neither lost nor duplicated.
   The Order total is the sum of already-rounded integers minus the rounded discount amount,
   so it is exact and is not itself a rounding site. Intermediates are exact `Millicentavos`
   (centavos × 1000); floats remain prohibited in every layer.

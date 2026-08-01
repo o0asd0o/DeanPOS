@@ -103,7 +103,7 @@ is four different totals.
 **Money primitives**
 
 41. As an implementing agent, I want money represented as integer centavos with a dedicated type, so that a float can never reach a total.
-42. As an implementing agent, I want a single half-up rounding function, called once per stored figure — the OrderLine total, and the Order-scoped Discount amount — so that four areas cannot produce four different totals.
+42. As an implementing agent, I want a single half-up rounding function, called once per stored figure — the OrderLine total, the Order-scoped Discount amount, and the Refund amount — so that four areas cannot produce four different totals.
 43. As an implementing agent, I want a VAT-backout function taking the rate as an argument, so that reporting does not reinvent the tax arithmetic and a non-VAT tenant is expressible (ADR-0010).
 43a. As an implementing agent, I want VAT backout to be a pure function of a total and a rate — never of a global constant — so that a Tenant setting change cannot silently re-interpret a past sale.
 44. As an implementing agent, I want typed `Delta` support — `absolute` and `multiplier` — so that `catalog` and `checkout` apply modifiers using the same primitive.
@@ -235,7 +235,10 @@ What lands there:
 
 - A `Centavos` **branded integer** type. Construction from a decimal string is validated
   and total — it returns a result, never throws past a boundary, and never yields a float.
-- `roundLineTotal` — round-half-up, applied **exactly once** at the OrderLine total.
+- `roundLineTotal` — round-half-up, and the **single place** a `Millicentavos` scale
+  collapses to `Centavos`. It is applied **exactly once per stored figure**: the OrderLine
+  total, the Order-scoped Discount amount, and the Refund amount. The name is historical —
+  it is one function, not one call site.
 - **`vatBackout(total, ratePercent)` — pure on both arguments,** taking and returning
   `Millicentavos` and returning the pair `{ base, vat }` where `base + vat` is exactly the
   input. It is needed at that scale because `checkout`'s VAT-exempt path strips VAT *first*

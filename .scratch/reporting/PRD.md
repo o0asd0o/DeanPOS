@@ -261,7 +261,7 @@ each reduction exactly once:
 
 **Derived figures are computed in exact `Millicentavos` from the composition captured on
 each OrderLine, and rounded for display only.** They add no stored figure and therefore no
-rounding site — ADR-0005's "exactly two rounded figures" governs what is *stored on an
+rounding site — ADR-0005's "exactly three rounded figures" governs what is *stored on an
 Order*, and is unaffected.
 
 **Voids are excluded rather than subtracted.** A voided Order is cancelled, not reduced.
@@ -276,8 +276,16 @@ day it was taken** in this report, because "what went out of the drawer today" i
 this report answers. Showing both dates on every row is what stops the two figures looking like
 a bug. Voids are counted beside refunds and never summed into them.
 
-A partial refund lists the returned OrderLines; a whole-order refund says so rather than
-listing every line as if each were chosen. Every row links to the original Order, and from
+A partial refund lists the returned OrderLines **and the amount actually returned**, which for
+a discounted Order is the line's share after the Order-scoped Discount, not its recorded total
+(`checkout`'s refund arithmetic). A whole-order refund says so rather than listing every line
+as if each were chosen.
+
+**A refund can be paid out at a different terminal from the one that took the sale**, so a row
+carries both: the Device that rang the sale and the Device that paid the refund. The refund
+lands in *that* DrawerSession's cash figures (`drawer-sessions`) while this report and the
+waterfall attribute it to the original sale's day. Stated here so the two are not read as a
+discrepancy. Every row links to the original Order, and from
 there to its receipt.
 
 **Filtering by employee means filtering by the User who took the sale, and that is not the

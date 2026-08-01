@@ -217,6 +217,16 @@ nowhere is worse than none:
 | **Ticket labels** — free text a cashier typed, often a customer's name or a description of them | `checkout` (ADR-0011) | yes, and they identify a **customer** |
 | **Waitlist submissions** — name, business, contact, city | `landing` SC7 | **no** — outside tenant RLS |
 
+**Personal data rests on the terminal too, not only on the server.** The recent-Orders store
+(`offline-sync`) keeps completed sales in IndexedDB for the current DrawerSession plus the
+previous two business days so a returning customer can be refunded offline — and a sale that
+carried a Discount carries its SC/PWD reference with it. Three obligations follow, and they are
+this area's: the window is **bounded and pruned** rather than accumulating, a **revoked or
+wiped Device clears it** along with its token and PIN hashes, and a lost tablet is therefore a
+two-day exposure rather than a copy of the tenant's sales history. Tenant purge must reach it
+by revoking Devices, since a purge that only clears the server leaves customer references
+sitting on the counter.
+
 **A rendered receipt is not a fifth category and deliberately not a second store.** It carries
 a discount reference and a ticket label, but nothing is archived — it is a view over the Order,
 rendered on demand (ADR-0012). So there is no bucket to hold a retention schedule over, no
