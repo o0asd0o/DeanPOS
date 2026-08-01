@@ -79,6 +79,11 @@ security criteria 1, 4, 5, 8). Stories 13 and 17 are front-end and belong to iss
 This is the fattest issue in the PRD and is deliberately not split — the ping proves nothing
 until it crosses all four layers._
 
+Applied review round 2: added `apps/api/tests/router-contract.types.ts`, a committed
+`@ts-expect-error` fixture pinning the unimplemented-procedure property (decision 006);
+centralized the `DATABASE_URI`/`APP_DOMAIN` key names as `ENV_KEYS` in `env.ts`; moved
+`opaque-errors.test.ts` teardown into `afterAll` to match the sibling tests.
+
 ### Implementer notes (2026-08-02)
 
 Demonstrated the unimplemented-procedure typecheck property: added `pong: oc.input(z.void()).output(pingOutputSchema)`

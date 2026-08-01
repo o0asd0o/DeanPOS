@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
+import { ENV_KEYS } from "../src/env.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 const seam = createTestSeam();
-const appDomain = process.env.APP_DOMAIN!;
+const appDomain = process.env[ENV_KEYS.appDomain]!;
 
 afterAll(async () => {
   await seam.db.destroy();

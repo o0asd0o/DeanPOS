@@ -2,6 +2,7 @@ import { createDb } from "backend/src/db/client.ts";
 import { createClient } from "contract/src/index.ts";
 
 import { createApp } from "./app.ts";
+import { ENV_KEYS } from "./env.ts";
 import { requireEnv } from "./helpers.ts";
 
 export type TestSeamOptions = {
@@ -11,8 +12,8 @@ export type TestSeamOptions = {
 
 // The server half of the one test seam. foundation PRD "Testing Decisions"; .scratch/decisions/006.
 export const createTestSeam = (options: TestSeamOptions = {}) => {
-  const databaseUrl = options.databaseUrl ?? requireEnv("DATABASE_URI");
-  const appDomain = options.appDomain ?? requireEnv("APP_DOMAIN");
+  const databaseUrl = options.databaseUrl ?? requireEnv(ENV_KEYS.databaseUrl);
+  const appDomain = options.appDomain ?? requireEnv(ENV_KEYS.appDomain);
 
   const db = createDb({ databaseUrl });
   const app = createApp({ db, appDomain });
