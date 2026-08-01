@@ -1,6 +1,6 @@
 # 02 — Money primitives in `packages/schemas`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -200,3 +200,34 @@ job (where the configuration UI and its input boundary live), not this primitive
 - Gate: `vp check` pass, `vp run -r check` pass (9/10 cache hit), `vp run -r test` pass
   (`packages/schemas`: 20/20 tests, including the 3 new and the 2 range-extended
   properties; all other workspaces cache-hit pass).
+
+---
+
+**Closed by the pipeline.** One fix round used. Reviewer PASS on both axes after round 1;
+gate green cold (`vp check`, `vp run -r --no-cache check`, `vp run -r --no-cache test`, all
+exit 0, 0% cache) in the worktree and again on `main` after the fast-forward. No lane
+database was needed — these are pure functions with no I/O. Merged to `main` at `ac76f9a`.
+
+`packages/schemas` now reports 20 passing tests.
+
+Two decision records were made during this issue and both are binding on later areas:
+
+- `.scratch/decisions/002-property-testing-for-money.md` — **Stakes: high.** Adopts
+  `fast-check@4.9.0` as a catalog-pinned devDependency, `fast-check` alone rather than
+  `@fast-check/vitest` (which would pull a second Vitest copy alongside the one
+  `vite-plus@0.2.5` hard-pins). `fc.float()` and `fc.double()` are banned; `fc.integer` and
+  `fc.bigInt` only. `fast-check` may not be imported outside `tests/**`.
+- `.scratch/decisions/003-delta-composition.md` — **Stakes: high.** Settles how multiple
+  Deltas compose, which this issue required but never specified. The rule is **each Delta
+  computed against the same unmodified base price, summed** — which turned out to be
+  `checkout`'s already-written per-line rule (`Variant price + Modifier and Add-on Deltas`),
+  so the implementation was ratified unchanged rather than redesigned. The record adds a new
+  precondition — **at most one `multiplier` Delta per OrderLine** — enforced upstream by
+  `catalog` (configuration) and `checkout` (submission), deliberately **not** by
+  `packages/schemas`. Those are forward obligations on areas 3 and 4.
+
+One reviewer finding was raised and fixed in round 1: the rounding property generators were
+bounded to non-negative inputs, leaving the Refund-apportionment case — which ADR-0005 makes
+a fractional and potentially negative stored figure — uncovered. Ranges widened to
+`[-100_000_000, 100_000_000]`; no counterexample surfaced, so this closed a coverage gap on
+already-correct code rather than a defect.
