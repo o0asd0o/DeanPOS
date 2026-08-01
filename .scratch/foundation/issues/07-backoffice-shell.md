@@ -1,6 +1,6 @@
 # 07 — Back-office shell (`apps/backoffice`) rendering ping
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -72,3 +72,60 @@ absent; the attribute check is the seam that actually bites (verified red withou
 green with it). `.scratch/decisions/008` gained the omitted `addExtensions: ".tsx"` in
 both config snippets plus an amendment line. Gate green; `apps/backoffice` still reports
 4 tests. Commit `af525b8`.
+
+---
+
+**Closed by the pipeline.** One review round used (REVISE on two should-fix findings, then PASS
+on both axes). Gate green cold in the lane and again on `main`. Merged at `dc26616`. The rebase
+was clean — `main` had not moved. Lane database dropped at close.
+
+**The headline result: the seam helper was consumed completely unchanged.**
+`git diff main...HEAD -- apps/api/` was **empty**. That is what this issue existed to prove, and
+it is the strongest signal in the PRD that the seam is genuinely reusable rather than merely
+un-edited — the reviewer additionally confirmed no app-specific scaffolding crept in by another
+route: no local `QueryClient`, no copied render wrapper, no second axe invocation, no workaround
+against the helper's signature. `renderRoute({ router })` took the second app's own router as-is.
+
+**Two review findings, both fixed:**
+
+1. **The skip link's target could not receive focus.** `<main id="main-content">` had no
+   `tabindex`, so the link record 009 requires would not reliably move focus into the content.
+   Nothing in the gate caught it: the test asserted the link's `href` but never the focus
+   outcome, and axe's `bypass` rule passes on the landmark alone.
+2. A four-line comment in `AppShell.tsx` breached the three-line ceiling and restated what the
+   JSX already showed.
+
+**An honest deviation worth recording, because it is the right kind.** Asked to prove the skip
+link with a `document.activeElement` assertion, the fixer built exactly that — then ran the
+prove-it-bites step and found **it could not fail**. It read `happy-dom@20.11.1`'s
+`HTMLElementUtility.ts` and found `focus()` checks only `isConnected`, `disabled`, and `inert`,
+never `tabindex` or focusability, and confirmed a real link click leaves `activeElement` at
+`BODY` while only `location.hash` updates. Rather than ship a guard that passes whether or not
+the fix is present, it substituted `expect(main.getAttribute("tabindex")).toBe("-1")` and
+reported the substitution plainly. I verified that assertion does bite: stripping `tabIndex`
+fails the suite with `expected null to be '-1'`.
+
+The reviewer accepted it — a test that cannot fail reads as coverage while proving nothing, and
+is strictly worse than a weaker test that is honestly coupled to the fix. **The real-browser
+skip-link focus transition remains unproven**, correctly, since `foundation` deliberately does
+no real-browser testing; it should be picked up by whichever area stands up the real-browser
+harness (the PRD points at `offline-sync`).
+
+**A stale record was corrected.** Record 008's two config snippets omitted
+`"addExtensions": ".tsx"`, while both shipped apps carry it — added in issue 06 to stop
+TanStack Router's codegen collapsing route types to `any` silently under
+`moduleResolution: "nodenext"`. Since the snippet is what the next front-end area would copy,
+it was amended in place with a dated note. I directed that correction rather than spending a
+decider round on it: there were no degrees of freedom, the correct value being proven by
+committed `@ts-expect-error` fixtures in both apps, and the reviewer had already ruled the
+shipped config correct and the snippet merely stale. The reviewer agreed with that handling.
+
+**The nav skeleton** renders the mock's order exactly — a `Reports` group (Summary, Orders, By
+item, By category, By cashier, By payment method, Discounts & overrides, Refunds, Drawer
+sessions) followed by Catalog, Add-ons, Discounts, Availability, Devices, Users, Roster,
+Settings, Quarantine — as plain `<li>` text rather than links, since no route exists behind any
+of them and a link would be a fake affordance. Nothing renders for the mock's tenant switcher,
+auth footer, store filter, date range, `Export CSV`, computed-at line, or any report figure.
+
+Below `md` the nav moves into a `sheet` behind a `☰`; at `md`+ a persistent `<aside>` holds it.
+Only one `<nav>` exists in the DOM at rest, asserted rather than assumed.
