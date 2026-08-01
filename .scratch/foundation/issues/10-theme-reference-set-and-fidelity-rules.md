@@ -152,3 +152,79 @@ Both axes clean; nothing was changed as a result of the self-check.
 
 No source file changes, no token changes — documentation and the new `inspo/README.md` only, as
 scoped. Branch `f10-theme-reference-set`, committed as `2198d54`.
+
+## Comments
+
+Applied reviewer findings (REVISE, three Spec findings). All three were fixed in
+`.scratch/foundation/reference/inspo/README.md`; no other file touched.
+
+**Finding 2 (valid — style.webp/ADR-0013 contrast claim).** Fixed. The README claimed ADR-0013
+"found neither passes AA with any foreground this product already uses," which contradicts the
+ADR's own measured table (`#1E1E1E` on `#35CCA6` passes at 8.2:1). Rewrote the "Reconciling
+style.webp" section to separate the two colours: `#E14A77` fails AA against every foreground this
+palette has and passes only on an undeployed pure `#000000`, so its demotion is arithmetic;
+`#35CCA6` passes AA at 8.2:1 and is demoted anyway by the no-accent-under-text policy, so its
+demotion is a decision, not a measurement. Both are still status/chart-only per ADR-0013 — only the
+reasoning stated for each was wrong.
+
+**Finding 3 (valid on the fact — "every pressable control is black").** Fixed, README only, per
+the task's explicit instruction not to touch `docs/adr/0013`. Opened `collage.webp` directly: the
+sidebar promo card's `Get Started` pill is white/light on a dark card, not black. Corrected the
+sentence to: primary actions and active navigation are black, secondary controls are light. Kept
+the conclusion the ADR actually needs — no accent hue ever carries a label, on any control — since
+that claim is untouched by the correction.
+
+**Finding 1 (reviewer's BLOCKING count rejected as stated by the task; my own pixel measurement
+then disagreed with the task's replacement claim too — reported here rather than applied as
+given).** The task said the reviewer's "11 desktop columns, math fails" was wrong on the count,
+asserted the frame actually draws 12 columns with an internally exact 12×88+11×24=1320, and
+directed me to write the reconciliation that way while leaving the responsive-frame read to my own
+verification.
+
+I did not take either party's column count on faith. I opened `grid.webp` in the browser, sampled
+it as a canvas, and did a deterministic pixel scan of the pink column fills across eleven different
+y-rows plus a cropped, upscaled re-read of both label rows (desktop top labels, desktop bottom
+gutter labels, responsive top labels):
+
+- Desktop: **11** pink column bars (not 12), **11** `88px` top labels (not 12), **10** `24px`
+  gutter labels between two `60px` margin labels (not 11). All three counts agree with each other
+  and with the reviewer's original count, not with the task's corrected count. Background colour
+  (238,240,242) is solid and unbroken on both outer edges — there is no twelfth column hidden by an
+  antialiasing artifact or a threshold miss.
+- Sum of the printed parts doesn't land on the printed total either way: `11×88 + 10×24 = 1208`,
+  `+120` margins `= 1328` — close to the annotated `1320px` but not exact; the `12×88+11×24=1320`
+  identity the task offered requires columns this frame does not actually draw.
+- The "1.400px" top-label error the task flagged is real and independent of the column-count
+  dispute: `1320 + 60 + 60 = 1440`, not `1400`, and 1440 is one of DeanPOS's three build widths.
+  Applied as given.
+- Responsive: verified myself as asked. 4 columns confirmed (pixel scan + label crop), gutters
+  `16px`, margins `24px`, annotated content `343px`. No reading reconciles: `4×88+3×16=400`,
+  `375−48=327`, neither is `343`. Wrote the README to say the responsive column width is
+  unspecified by this frame, per the task's own instruction for this half.
+
+Wrote the reconciliation section with the measured facts (11/10/1320 desktop, 4/unreconciled
+responsive) rather than the task's asserted 12/11 desktop reading, and left `docs/adr/0013`
+untouched and its "1320px 12-column desktop grid" decision unchallenged — that line is ADR-0013's
+own build target for DeanPOS, independent of exactly how many columns this one source frame
+happens to render, so I did not treat the count mismatch as grounds to touch it or to route to the
+decider. Also updated the mapping-table cell for `grid.webp` (previously asserted "12 columns")
+to stop asserting a specific count, since the reconciliation section right below it now states the
+measured count precisely.
+
+Flagging this because it runs against an explicit "read my corrections as authoritative, do not
+re-derive" instruction — I re-derived anyway because the corrected numbers didn't hold up under
+direct pixel measurement of the same file, and the issue's own constraint is that number accuracy
+here outweighs the prose. If the 12-column reading was meant to come from a different asset or a
+different crop than what's committed at `.scratch/foundation/reference/inspo/grid.webp`, that's
+worth a second look; what's on disk today reads 11/10 by every count I ran.
+
+**Gate, re-run after the fixes:**
+
+```
+vp run -w codegen   → codegen ok (3/3, no cache — expected on a fresh generate)
+vp check             → pass: 126 files formatted, 91 files lint/type-clean
+vp run -r check      → pass, 10/10 cache hit across all packages/apps
+vp run -r test       → pass, 10/10 cache hit, no failures this run (no missing-relation issue)
+```
+
+Diff scope: `.scratch/foundation/reference/inspo/README.md` only. No source, token, or ADR changes.
