@@ -61,3 +61,14 @@ table inside the content region is `reporting`'s work. Do not measure the SVGs.
 _Sliced from `.scratch/foundation/PRD.md` (stories 29, 32, 33, 35–37, 39). Depends on 06
 rather than on 04+05 deliberately: the seam needs a second consumer to prove it is not
 awkward, and that is exactly what this issue is._
+
+**Fixer, 2026-08-02:** applied two review findings and a directed record correction.
+`AppShell.tsx` gained `tabIndex={-1}` on `<main>` so the skip link's target can receive
+focus (record 009), and its over-ceiling comment was trimmed to three lines. The
+regression test asserts `main`'s `tabindex="-1"` attribute rather than `document.activeElement`
+after activation — happy-dom's `focus()` (`HTMLElementUtility.ts`) never checks
+focusability, so an activeElement assertion passed identically with the fix present or
+absent; the attribute check is the seam that actually bites (verified red without the fix,
+green with it). `.scratch/decisions/008` gained the omitted `addExtensions: ".tsx"` in
+both config snippets plus an amendment line. Gate green; `apps/backoffice` still reports
+4 tests. Commit `af525b8`.
