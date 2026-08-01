@@ -62,3 +62,55 @@ and the reverse proxy are issue 08.
 
 _Sliced from `.scratch/foundation/PRD.md` (stories 21–27). `docker-compose.yml` is shared
 with issue 08; the two must not run in parallel._
+
+### Implementer notes (2026-08-01)
+
+Implemented on branch `foundation-03-data-layer`, commit `c2b327b`.
+
+- Versions landed: `kysely@^0.28.2`, `pg@8.22.0` (exact, per
+  `.scratch/decisions/004-postgres-driver.md`), `prisma@^6.3.0`,
+  `prisma-kysely@^1.8.0` — matching the ApxDenta floor named in this issue's
+  brief.
+- `createDb({ databaseUrl }): Kysely<DB>` in `packages/backend/src/db/client.ts`
+  is the only place `pg`, `Pool`, or `Kysely` is constructed anywhere in the
+  repo. Grep proof: `grep -rn 'from "pg"' --include="*.ts" .` (excluding
+  `node_modules`) returns exactly one hit, `client.ts`. Same for
+  `grep -rn "new Pool(" ...` and `grep -rn "new Kysely" ...`.
+- `prisma-kysely` output lands at `packages/backend/src/db/prisma/generated/`
+  (matched by `**/generated/**`, gitignored, not committed) and regenerates
+  from a clean checkout via `vp exec prisma generate` alone — verified by
+  deleting the directory and regenerating it.
+- Demonstrated the dropped-column criterion: changed `get-ping.query.ts` to
+  select a non-existent `not_a_real_column`, ran `vp check`, got
+  `TS2769: No overload matches this call` pointing at the `.select([...])`
+  call — a compile-time failure, not a runtime one — then reverted.
+- `vp exec` and `vp test` do not read the workspace-root `.env` themselves
+  (`vp exec` never loads it; `vp test` runs each package with that package's
+  directory as `cwd`, and Bun's own `.env` autoload only checks `cwd`). Added
+  `vitest.setup.ts` (workspace root, wired via `vite.config.ts`'s
+  `test.setupFiles`) that reads the root `.env` with `node:fs` and fills in
+  `process.env` for whichever keys aren't already set. No new dependency —
+  this is the shared point every package's test run goes through, so it was
+  fixed there once rather than per-package.
+- `docker compose up` needed one fix beyond the ApxDenta-style default: the
+  `postgres:18` image refuses to start against a volume mounted at
+  `/var/lib/postgresql/data` (it wants `/var/lib/postgresql` since 18, so it
+  can lay out `pg_ctlcluster`-style version directories underneath). Mounted
+  the volume at `/var/lib/postgresql` instead. Verified end to end with
+  `docker compose -p deanpos-verify -f docker-compose.yml up -d`, waited for
+  the healthcheck to report `healthy`, ran `pg_isready` inside the container,
+  then `down -v`. It bound host port 5432 as `0.0.0.0:5432` without
+  colliding with the locally-running Postgres 18.3 (which listens on
+  `127.0.0.1:5432` only) — the lane database was unaffected, verified by
+  reading the seeded `Ping` row through `psql` before and after.
+- No extra database was created. The provisioned lane database
+  (`DeanPOS_lane_foundation_03_data_layer`) was migrated, read, and left in
+  place; the only other Postgres instance touched was the throwaway Docker
+  Compose verification above (`deanpos-verify`, already torn down with
+  `down -v`, nothing left running).
+- Ran `/code-review` (Standards + Spec axes, both against `main`): both came
+  back with zero findings.
+- Noticed but did not fold in: the deprecation warning Prisma prints on every
+  invocation (`package.json#prisma` config is deprecated in favour of a
+  `prisma.config.ts` file, removed in Prisma 7). Cosmetic only, doesn't affect
+  the gate; not part of this issue's scope to migrate config formats.
