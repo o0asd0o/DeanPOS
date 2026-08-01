@@ -1,6 +1,6 @@
 # 01 — Monorepo skeleton and the gate
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -174,3 +174,25 @@ review.
 
 Nothing else was noticed worth reporting outside the issue's scope. Worktree is clean;
 committed as `d5f9f16` on branch `foundation-01-monorepo-skeleton`.
+
+---
+
+**Closed by the pipeline.** Reviewer PASS on both axes in round 0; gate green cold
+(`vp check`, `vp run -r --no-cache check`, `vp run -r --no-cache test`, all exit 0, 0% cache)
+in the worktree and again on `main` after the fast-forward. No lane database was needed.
+Merged to `main` at `322b886`.
+
+Three minor findings were raised and deliberately **not** fixed, because neither axis was
+blocking and folding them in would have been unrequested work (code-standards rule 1). They
+are recorded here so a later issue can pick them up:
+
+1. `packages/tsconfig/tsconfig.json` does not extend its own `base.json` — it inlines a
+   weaker subset, so the config-holder's two files are checked less strictly than every
+   other workspace. Criterion 4's letter is met by the nine consumers; its spirit is not.
+2. The root `vite.config.ts` `fmt.ignorePatterns` block carries no comment explaining why it
+   diverges from `../Fashio`'s empty `fmt: {}`. The reason (scope discipline over
+   pre-existing `.scratch/`, `docs/`, `.claude/` content) lives only in this report, so
+   someone reconciling against the reference could delete the list and re-break rule 1.
+   The reviewer confirmed no workspace path escapes the formatter, so it hides nothing today.
+3. Root `tsconfig.json` omits `strict`. Only `vite.config.ts` is checked at the root, so the
+   exposure is one file.
