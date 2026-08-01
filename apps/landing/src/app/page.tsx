@@ -1,3 +1,3 @@
 export default function Home() {
-  return <p>DeanPOS</p>;
+  return <p>DeanPOS (rollback demo marker B)</p>;
 }
