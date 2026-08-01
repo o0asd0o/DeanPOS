@@ -1,0 +1,16 @@
+{
+  "name": "pos",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vp check",
+    "test": "vp test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsconfig": "workspace:*",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

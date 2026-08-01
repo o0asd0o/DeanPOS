@@ -1,0 +1,19 @@
+{
+  "name": "tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json"
+  ],
+  "type": "module",
+  "exports": {
+    "./base.json": "./base.json"
+  },
+  "scripts": {
+    "check": "vp check",
+    "test": "vp test"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}
