@@ -118,6 +118,17 @@ describe("vatBackout", () => {
   });
 });
 
+const deltaArb = fc.oneof(
+  fc
+    .integer({ min: -100_000, max: 100_000 })
+    .map(
+      (amountCentavos): Delta => ({ kind: "absolute", amountCentavos: amountCentavos as Centavos }),
+    ),
+  fc
+    .integer({ min: 1, max: 10_000 })
+    .map((perMille): Delta => ({ kind: "multiplier", perMille: perMille as PerMille })),
+);
+
 describe("applyDelta", () => {
   it("applies a per-mille multiplier, rounding once at the end (₱121.00 × 500‰)", () => {
     const price = 12_100 as Centavos;
@@ -130,18 +141,6 @@ describe("applyDelta", () => {
   });
 
   it("any sequence of Deltas yields an exact Millicentavos integer with no rounding at any step", () => {
-    const deltaArb = fc.oneof(
-      fc.integer({ min: -100_000, max: 100_000 }).map(
-        (amountCentavos): Delta => ({
-          kind: "absolute",
-          amountCentavos: amountCentavos as Centavos,
-        }),
-      ),
-      fc
-        .integer({ min: 1, max: 10_000 })
-        .map((perMille): Delta => ({ kind: "multiplier", perMille: perMille as PerMille })),
-    );
-
     fc.assert(
       fc.property(
         fc.integer({ min: 0, max: 1_000_000 }),
@@ -157,18 +156,6 @@ describe("applyDelta", () => {
   });
 
   it("rounding that sequence once at the end never differs from the exact value by more than half a centavo", () => {
-    const deltaArb = fc.oneof(
-      fc.integer({ min: -100_000, max: 100_000 }).map(
-        (amountCentavos): Delta => ({
-          kind: "absolute",
-          amountCentavos: amountCentavos as Centavos,
-        }),
-      ),
-      fc
-        .integer({ min: 1, max: 10_000 })
-        .map((perMille): Delta => ({ kind: "multiplier", perMille: perMille as PerMille })),
-    );
-
     fc.assert(
       fc.property(
         fc.integer({ min: 0, max: 1_000_000 }),
