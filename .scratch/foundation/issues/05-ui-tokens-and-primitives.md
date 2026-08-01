@@ -69,3 +69,12 @@ and no other config.
 
 Gate: `vp check`, `vp run -r check`, `vp run -r test` all pass (lane DB migrated first —
 it was unmigrated in the fresh worktree).
+
+**Fixer, 2026-08-02.** Blocking finding: `button.tsx` opted out of the global token focus
+outline with `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50` (plus
+`focus-visible:ring-destructive/20` on the destructive variant), so `theme.css`'s
+`:focus-visible` outline never won and a focused button showed a hardcoded 3px box-shadow
+ring instead — breaching both the token-focus-indicator criterion and record 007. Deleted
+all four classes from the base and destructive `cva` strings; nothing else in the file
+changed. Gate: `vp check`, `vp run -r check`, `vp run -r test` all pass, `packages/ui` still
+18 tests.
