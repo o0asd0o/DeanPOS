@@ -1,6 +1,6 @@
 # 08 — Local stack, four origins, and a versioned deploy
 
-**Status:** ready-for-agent
+**Status:** done — except the VPS smoke check, escalated to the human
 
 ## What to build
 
@@ -108,3 +108,74 @@ Document the full path here: copy `.env.example`, set `DATABASE_URI`, `docker co
 then the gate. Do **not** close the gap by making the database test skip itself when
 `DATABASE_URI` is absent — a silent skip hides a real gate gap and is strictly worse than a
 loud failure.
+
+---
+
+**Closed by the pipeline, with one criterion deliberately incomplete.** One review round used
+(REVISE on two should-fix findings, then PASS on both axes). Gate green cold in the lane after
+the rebase and again on `main`. Merged at `67df9bc`. Lane database dropped at close.
+
+**8 of 9 acceptance criteria are complete and proven locally.** The ninth — the manual smoke
+check against the health endpoint on the VPS — is **documented but not executed**, because
+there is no VPS, no credentials, and no access, and deploying to one is outward-facing. It was
+escalated rather than performed or ticked silently.
+
+**What a human must do to close it — exactly three things:**
+
+1. Point four DNS A records at the server: the apex, `pos`, `admin`, and `api`.
+2. Confirm Caddy obtained public certificates — `docker compose logs web`. **This is the only
+   claim in the whole issue that cannot be exercised locally at all**, because the laptop path
+   uses Caddy's internal certificate authority and never contacts an ACME server.
+3. `curl -sS https://api.<APP_DOMAIN>/health` and expect exactly
+   `{"live":true,"databaseReachable":true}`.
+
+**Things that looked like they needed a VPS and did not, so they were done:**
+
+- **The versioned-image and rollback criterion.** Two images were built at different commits,
+  and switching by tag alone made a marker appear and disappear with no rebuild and no code
+  revert. A local Docker daemon is a Docker daemon. The demo commits net to zero change.
+- **CORS through the proxy.** `pos.` and `admin.` origins get exactly their own origin echoed
+  back; the apex and an arbitrary origin get no allow header — issue 04's behaviour, now
+  observed through Caddy rather than only in-process.
+- **Four origins with TLS**, from `APP_DOMAIN`, with Caddy's internal CA issuing for all four
+  `.localhost` names in under 20ms and no ACME attempted. The multi-label `.localhost` risk
+  record 011 flagged did not materialise, so its `tls {$CADDY_TLS:internal}` fallback was not
+  needed.
+
+**The review's most valuable finding was operational, not architectural.** `docker-compose.yml`
+published PostgreSQL on `5432:5432`, which collides with the local PostgreSQL that this
+project's own gate requires. Docker binds the port without error, but host connections still
+resolve to the host's server — so `vp run -w migrate` silently migrated the wrong database
+while the API container talked to an unmigrated one. The implementer had needed an uncommitted
+override to get a working stack, which means the documented one-command path required knowledge
+that was not written down — exactly what story 47 forbids.
+
+Fixed by publishing `5433:5432` and documenting it. Nothing inside the compose network moved;
+services still reach `postgres:5432`. Verified by confirming the container database gained the
+tables while both host databases on 5432 were untouched — the step that had failed silently
+before.
+
+**Decision made during this issue:** `.scratch/decisions/011-local-stack-and-versioned-deploy.md`
+— **Stakes: high.** Caddy `2.11.4-alpine` as one container serving as both proxy and static file
+server; four enumerated site blocks and never a wildcard, since a wildcard would force DNS-01
+and an API token; no local mode and no production mode, because Caddy picks its issuer from the
+hostname; Next.js `16.2.12` with `output: "standalone"`; image tags from
+`git rev-parse --short=12 HEAD` with no `latest`; and nothing whatsoever between the API and
+PostgreSQL, because record 004 established that a statement-mode pooler would silently break
+the `SET LOCAL` that area 2's tenant isolation depends on.
+
+**The record was corrected against shipped reality**, the second time this run that a record
+went stale before the next area could copy it. Five corrections, each forced by actually
+building: `ca-certificates` in all three slim Bun stages (the slim base ships no CA bundle and
+`vp`'s prepare hook aborts without one), the invalid `vp build -F` CLI form, Next's
+`experimental.useTypeScriptCli` under this repo's typescript-go compiler, the landing
+`tsconfig`/`public` scaffold requirements, and the port reality.
+
+**The clean-clone obligation from issue 03 is discharged.** A fresh clone plus `vp install`
+reaches green `vp check` and `vp run -r check`; `vp run -r test` **fails loudly** without a
+database rather than skipping; and the README documents the full path. Nothing was made to skip
+when `DATABASE_URI` is absent — a silent skip would have hidden a real gate gap.
+
+**Carried to area 10:** `POSTGRES_PASSWORD` defaults to `deanpos` when unset. Not a committed
+secret and `.env.example` carries names only, so security criterion 3 holds — but the stack is
+now deployable, so area 10 should make it **fail closed** rather than default.
