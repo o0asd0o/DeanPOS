@@ -34,6 +34,11 @@ export async function hashPassword(password: string): Promise<string> {
   return `$scrypt$ln=${ln},r=${r},p=${p}$${toUnpaddedBase64(salt)}$${toUnpaddedBase64(hash)}`;
 }
 
+// A fixed, precomputed hash (never a real password's) — sign-in verifies
+// against this when no account matches, for timing parity (issue 03 AC 5).
+export const DUMMY_PASSWORD_HASH =
+  "$scrypt$ln=17,r=8,p=1$NMqZd4gjS3WWBoA+FjDObw$R6csWajqnn+qt9upBUceIVZpwEMHHKbRDuj8mBxVmJY";
+
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const match = /^\$scrypt\$ln=(\d+),r=(\d+),p=(\d+)\$([^$]+)\$([^$]+)$/.exec(stored);
   if (!match) return false;

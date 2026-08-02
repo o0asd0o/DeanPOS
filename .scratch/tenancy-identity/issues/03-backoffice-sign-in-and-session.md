@@ -68,3 +68,53 @@ so there is nothing for a foreign origin to ride.
 _Sliced from `.scratch/tenancy-identity/PRD.md` (stories 14–20), Security criteria 9, 10, 20.
 Multi-factor authentication and email-based self-service password reset are out of scope for
 v1; admin-initiated reset arrives in issue 06._
+
+### Implementer notes (2026-08-02)
+
+Four decisions had no existing record or explicit spec answer and were made to keep this
+issue moving. Flagging each plainly rather than presenting it as pre-decided — the `decider`
+should confirm or override:
+
+1. **`User.email` is globally unique, not merely unique per Tenant.** Back-office sign-in
+   takes only an email and a password, with no tenant selector, and the PRD forbids deriving
+   the tenant from client input — so the sign-in lookup needs exactly one account per email
+   across every Tenant, or it is ambiguous which Tenant a coincidentally-shared email belongs
+   to. Enforced as a `@unique` Postgres index (`User_email_key`), the same "database
+   constraint, not an application check" shape record 029 and the `cash` PaymentMethod
+   pattern already use elsewhere.
+2. **The cross-tenant lookups sign-in and every session-authenticated request need — email →
+   account, session id → Tenant — reuse record 029's exact pattern**: `withTenantScope`'s
+   single `app.tenant_id` GUC, with the scope value set to the email or the session id
+   instead of a real Tenant id, and a narrow, additive RLS policy on `User`
+   ("user_login_lookup") and `Session` ("session_self_lookup") that only matches that one
+   value. No second session variable, `packages/backend/src/db/client.ts` has a zero-line
+   diff, and the existing tenant-matching policies are untouched (see the migration file's
+   own comments). This is an extension of record 029's reasoning to two new tables rather
+   than a re-decision, but it is a new application of it and worth the reviewer's own look.
+3. **Session idle and absolute lifetimes are 30 minutes and 30 days.** No number is named
+   anywhere in the PRD, this issue, or a decision record — acceptance criterion 4 requires
+   both timers to exist and be tested, so a number had to be picked. See
+   `packages/backend/src/auth/session-policy.ts`.
+4. **`auth.me`** (`{authenticated, mustChangePassword}`) was added to the contract. It isn't
+   named by the issue, but `_shell.tsx`'s `beforeLoad` guard (record 030's requirement) has
+   no other way to learn the session's state — the cookie is httpOnly and unreadable from the
+   client by design. It carries no other information and is exempt from the
+   forced-password-change gate for the obvious reason.
+
+**Known test-environment gap, not a product gap:** the back-office's `happy-dom` test
+environment enforces the WHATWG rule that a script cannot read or set the `Cookie` or
+`Set-Cookie` headers, so a real, cookie-driven, end-to-end "sign in, land in the shell"
+round trip cannot be exercised from `apps/backoffice`'s test suite. That exact round trip
+**is** proven end-to-end server-side, under Node, in `apps/api/tests/sign-in.test.ts` and
+`apps/api/tests/forced-password-change.test.ts`. The front-end tests instead render the
+shell directly through the test seam's existing direct-principal path (`actors.asTenant`,
+extended with an optional `mustChangePassword` flag) and drive the sign-in/set-password
+*screens'* own states through real form submissions against the real handlers. Worth a
+second look if a future issue needs a true end-to-end front-end auth test.
+
+**Nineteen routes moved under `_shell/`, not eighteen** — record 030 counted eighteen; a
+nineteenth (`reports/by-item.tsx`) exists in the current tree. `git mv` with no content
+edit, per the record, except for the two mechanical adjustments record 030 didn't
+anticipate: the `createFileRoute` path string (already documented as tsr's own job) and
+each moved file's relative import depth, which the move itself changes by one or two
+levels regardless of tooling.

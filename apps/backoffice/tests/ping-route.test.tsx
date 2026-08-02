@@ -1,7 +1,13 @@
+import { randomUUID } from "node:crypto";
+
 import { expectNoAxeViolations, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { router } from "../src/router.tsx";
+
+// The shell's routes require a signed-in session since issue 03 —
+// `renderRoute`'s `tenantId` renders as that Tenant's session.
+const tenantId = randomUUID();
 
 describe("the back-office shell's ping route", () => {
   let cleanup: (() => Promise<void>) | undefined;
@@ -12,7 +18,7 @@ describe("the back-office shell's ping route", () => {
   });
 
   it("shows the pending line, then the ping value read from the lane database", async () => {
-    const { container, db } = renderRoute({ router });
+    const { container, db } = renderRoute({ router, tenantId });
     cleanup = () => db.destroy();
 
     // TanStack Router's initial match runs in a layout effect after the first
@@ -57,21 +63,37 @@ describe("the back-office shell's ping route", () => {
     await expectNoAxeViolations(container);
   });
 
-  it("shows a legible error state, with header intact and retry enabled, when the API cannot be reached", async () => {
+  // `_shell`'s own session check (`auth.me`) is a database round trip too,
+  // so an unreachable database fails before the shell mounts — no sidebar.
+  it("shows a legible error state when the API cannot be reached, with no chrome it cannot vouch for", async () => {
     const { container, db } = renderRoute({
       router,
+      tenantId,
       databaseUrl: "postgresql://nobody:wrongpassword@127.0.0.1:1/does-not-exist",
     });
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
 
-    expect(container.querySelectorAll("header")).toHaveLength(1);
     const retry = screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement;
     expect(retry.disabled).toBe(false);
 
     const alertText = screen.getByRole("alert").textContent ?? "";
     expect(alertText).not.toMatch(/\d{3}|http|Error:|ECONNREFUSED|wrongpassword/i);
+
+    await expectNoAxeViolations(container);
+  });
+
+  it("with no session at all, redirects to the sign-in screen instead of rendering the shell", async () => {
+    const { container, db } = renderRoute({ router });
+    cleanup = () => db.destroy();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "DeanPOS back-office" })).toBeTruthy(),
+    );
+    expect(container.querySelectorAll("header")).toHaveLength(0);
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+    expect(screen.getByLabelText("Password")).toBeTruthy();
 
     await expectNoAxeViolations(container);
   });

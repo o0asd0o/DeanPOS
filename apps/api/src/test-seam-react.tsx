@@ -20,17 +20,25 @@ afterEach(cleanup);
 export { fireEvent, screen, waitFor, within };
 
 // The render half of the one test seam (server half: ./test-seam.ts).
-// Public surface, `retry: false` rationale, and usage: .scratch/decisions/008,
-// "The seam helper's public surface".
+// Public surface: .scratch/decisions/008. `tenantId` (issue 03) is the
+// direct-principal path, not a real cookie — see the issue's `## Comments`.
 export function renderRoute<TRouter extends AnyRouter>(
-  options: { router: TRouter } & TestSeamOptions,
+  options: {
+    router: TRouter;
+    tenantId?: string;
+    mustChangePassword?: boolean;
+    initialLocation?: string;
+  } & TestSeamOptions,
 ): { container: HTMLElement; db: ReturnType<typeof createTestSeam>["db"] } {
-  const { router, ...seamOptions } = options;
+  const { router, tenantId, mustChangePassword, initialLocation, ...seamOptions } = options;
+  if (initialLocation) window.history.pushState(null, "", initialLocation);
+
   const seam = createTestSeam(seamOptions);
+  const actor = tenantId ? seam.actors.asTenant(tenantId, { mustChangePassword }) : seam;
 
   const client = createClient({
     url: "http://api.test/rpc",
-    fetch: async (request, init) => seam.app.request(request, init),
+    fetch: async (request, init) => actor.app.request(request, init),
   });
   const orpc = createTanstackQueryUtils(client);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

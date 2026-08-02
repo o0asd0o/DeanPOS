@@ -46,19 +46,35 @@ enum Role {
   admin
 }
 
-// Belongs to a Tenant. Provisioning (issue 02) creates the first `admin`
-// User with a temporary password; sign-in and further management arrive in
-// issues 03 and 06.
+// Belongs to a Tenant. `email` is globally unique, not merely unique per
+// Tenant — see issue 03's `## Comments` for why sign-in requires that.
 model User {
-  id                 String   @id
-  tenantId           String   @map("tenant_id")
-  email              String
-  passwordHash       String   @map("password_hash")
-  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  id                 String    @id
+  tenantId           String    @map("tenant_id")
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
   role               Role
-  active             Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  sessions           Session[]
+
+  @@index([tenantId])
+}
+
+// Back-office session (issue 03): an opaque server-side id, persistent with
+// an explicit absolute expiry plus a sliding idle expiry. Revocation is a
+// column, never a delete, so a revoked row still explains itself in an audit.
+model Session {
+  id         String    @id
+  userId     String    @map("user_id")
+  tenantId   String    @map("tenant_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  user       User      @relation(fields: [userId], references: [id])
 
   @@index([tenantId])
 }

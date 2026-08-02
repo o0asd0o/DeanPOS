@@ -1,8 +1,14 @@
 import type { DatabaseInstance } from "../db/client.ts";
 
-// The tenant is read from here and nowhere else — never a header, a query
-// parameter, a request body, or the hostname (issue 01, tenant-isolation-spine).
-export type Principal = { tenantId: string };
+// The tenant is read from here and nowhere else — never a header, a query,
+// a body, or the hostname (issue 01). The other fields arrive with a real
+// session (issue 03) and are optional because `asTenant(tenantId)` omits them.
+export type Principal = {
+  tenantId: string;
+  userId?: string;
+  sessionId?: string;
+  mustChangePassword?: boolean;
+};
 
 // A platform admin is a distinct principal, never a Tenant's User with a
 // special role — no `tenantId`, and no code path derives one from it
@@ -17,4 +23,7 @@ type Identity =
   | { kind: "tenant"; principal: Principal }
   | { kind: "platform-admin"; platformAdmin: PlatformAdminPrincipal };
 
-export type Ctx = { db: DatabaseInstance } & Identity;
+// `resHeaders` is oRPC's ResponseHeadersPlugin injection (issue 03): the
+// sign-in/sign-out routes append `Set-Cookie` to it. Absent outside a real
+// HTTP request (e.g. the test seam's direct handler calls).
+export type Ctx = { db: DatabaseInstance; resHeaders?: Headers } & Identity;
