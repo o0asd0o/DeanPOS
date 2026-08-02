@@ -1,9 +1,8 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-// Password hashing parameters, declared once (issue 02). PIN hashing (issue
-// 10) gets its own parameters in its own file — the two must not share a knob.
-// scrypt over node:crypto (record 028): argon2/argon2Sync throw on Bun 1.3.x
-// (no BoringSSL Argon2 KDF), and production runs under bun.
+// Password hashing parameters, declared once (issue 02, record 028). PIN
+// hashing (issue 10) gets its own parameters in its own file — the two must
+// not share a knob.
 const PASSWORD_HASH_PARAMS = {
   ln: 17,
   r: 8,
@@ -12,11 +11,10 @@ const PASSWORD_HASH_PARAMS = {
   saltLength: 16,
 };
 
-// maxmem must exceed 128 * N * r bytes; scryptSync's 32 MiB default throws
-// for N = 2^17. OpenSSL's actual peak is slightly above that figure, so pad
-// by 1 MiB rather than chase its exact internal overhead.
+// maxmem must exceed 128 * N * r bytes or scryptSync throws (record 028's
+// conservative cap: 128 * N * r * 2).
 function scryptMaxmem(ln: number, r: number): number {
-  return 128 * 2 ** ln * r + 1024 * 1024;
+  return 128 * 2 ** ln * r * 2;
 }
 
 function toUnpaddedBase64(buffer: Buffer): string {

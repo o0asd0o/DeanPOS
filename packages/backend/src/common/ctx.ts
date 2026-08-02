@@ -10,10 +10,11 @@ export type Principal = { tenantId: string };
 export type PlatformAdminPrincipal = { platformAdminId: string };
 
 // Built once per app instance, not per request (issue 03 moves this). ADR-0008.
-// `principal` and `platformAdmin` are optional because no authentication
-// exists yet; ping and health construct a bare `{ db }` today and keep working.
-export type Ctx = {
-  db: DatabaseInstance;
-  principal?: Principal | null;
-  platformAdmin?: PlatformAdminPrincipal | null;
-};
+// The three states are mutually exclusive by construction — a Ctx can never
+// carry both a tenant and a platform-admin principal (issue 02 review round 1).
+type Identity =
+  | { kind: "unauthenticated" }
+  | { kind: "tenant"; principal: Principal }
+  | { kind: "platform-admin"; platformAdmin: PlatformAdminPrincipal };
+
+export type Ctx = { db: DatabaseInstance } & Identity;

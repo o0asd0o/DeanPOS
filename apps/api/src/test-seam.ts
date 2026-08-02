@@ -1,4 +1,4 @@
-import type { PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
+import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
 import { createDb } from "backend/src/db/client.ts";
 import { createClient } from "contract/src/index.ts";
 
@@ -53,5 +53,14 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
         buildActor({ platformAdmin: { platformAdminId } }),
       asUnauthenticated: () => buildActor({}),
     },
+    // No actor above can build this — they're exclusive by construction, and
+    // createContext throws on both. It exists to prove a handler's own guard
+    // refuses a mixed principal even if construction elsewhere didn't.
+    buildMixedPrincipalCtx: (tenantId: string, platformAdminId: string): Ctx =>
+      ({
+        db,
+        principal: { tenantId },
+        platformAdmin: { platformAdminId },
+      }) as unknown as Ctx,
   };
 };

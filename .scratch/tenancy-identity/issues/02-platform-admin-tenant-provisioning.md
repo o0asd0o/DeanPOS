@@ -150,3 +150,23 @@ Bun round-trip proof, run directly under `bun 1.3.13` (not through the `vp test`
 `hashPassword("correct horse battery staple")` produced
 `$scrypt$ln=17,r=8,p=1$years1Y9Nh3LaBhDgJ3Rzw$Mq0AzcUc0sRNJ3e1G6mSRePkoJ/wWaCvw6/nFt2RDTE`;
 `verifyPassword` returned `true` for the matching password and `false` for a wrong one.
+
+**Fixer, 2026-08-02 — round 1 of 2, review REVISE, all 8 findings applied.**
+
+**Spec 1 (blocking logic defect, principal mutual exclusivity).** `Ctx` (`packages/backend/src/common/ctx.ts`) is now a discriminated union on `kind: "unauthenticated" | "tenant" | "platform-admin"`, each variant carrying only its own principal — the mixed state is unrepresentable through normal construction. `apps/api/src/context.ts`'s `createContext` builds the right `kind` and throws if ever handed both a `principal` and a `platformAdmin` (never expected in real traffic, defensive). `provision-tenant.ts`'s handler now asserts `ctx.kind !== "platform-admin"` rather than `!platformAdmin`; `get-store.ts` reads `ctx.kind === "tenant" ? ctx.principal.tenantId : null`. Two existing handler tests (`get-ping.handler.test.ts`, `get-health.handler.test.ts`) updated their bare `{ db }` fixture to `{ db, kind: "unauthenticated" }` to keep compiling.
+
+**Spec 2 (admin origin never asserted).** New test in `apps/api/tests/platform-admin-provision-tenant.test.ts`: a tenant-scoped actor's client, with its `fetch` wrapped to force `Origin: https://admin.<domain>` on the request, still gets refused calling `provisionTenant` — proves the CORS allowlist admitting the admin origin (for the tenant-facing backoffice) grants no provisioning authority by itself.
+
+**Spec 3 (logging ruling) — no code change.** Left the zero-`console` rule as the standard; criterion 5 unedited. Addressed by widening the grep (Standards 4) instead, per your ruling.
+
+**Spec 4 (maxmem).** `password.ts`: `scryptMaxmem` now returns `128 * (2**ln) * r * 2`, comment trimmed to point at record 028's cap rather than defend the old 1 MiB pad.
+
+**Standards 1 & 2 (over-ceiling comments).** Both cut to within three lines: `password.ts`'s params comment now cites record 028 by number instead of restating the argon2/Bun evidence; `provision-tenant.ts`'s handler comment is one line pointing at ADR-0008 rule 2 and the issue number.
+
+**Standards 3 (mixed-context test).** `apps/api/src/test-seam.ts` gained `buildMixedPrincipalCtx(tenantId, platformAdminId)` — deliberately outside the exclusive actor builders, built with a type-assertion bypass since the fixed `Ctx` type itself refuses to represent this state. New test calls the exported `handler` from `provision-tenant.ts` directly with this malformed ctx and asserts `null` plus no leaked `Tenant` row — this is what actually exercises the `ctx.kind !== "platform-admin"` guard rather than relying on the type system alone.
+
+**Standards 4 (grep too narrow).** `platform-admin-no-password-logging-grep.test.ts` now matches `console\.|process\.(stdout|stderr)\.write` — every logging sink that exists anywhere in this codebase today (no logger dependency exists yet, so nothing further to cover).
+
+**Gate:** `vp run -w codegen` pass. `vp run -r check` pass, 0 lint/type errors. `vp run -r test` pass, all green — `apps/api` now 28/28 (was 26), `packages/backend` 17/17. Lane database was the one you rebuilt clean; no checksum workaround this round, migrations applied straight from `vp run -w migrate`.
+
+Nothing skipped, nothing blocked. No acceptance criterion, PRD text, or design reference touched.

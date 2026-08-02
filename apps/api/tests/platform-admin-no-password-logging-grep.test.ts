@@ -21,9 +21,13 @@ function collectSourceFiles(path: string): string[] {
 
 const files = scanDirs.flatMap(collectSourceFiles);
 
+// Every logging sink this codebase actually has today (no logger dependency
+// exists yet) — console.* and a direct write to stdout/stderr.
+const LOGGING_SINK = /console\.|process\.(stdout|stderr)\.write/;
+
 describe("platform-admin provisioning: no password logging", () => {
-  it("contains no console call anywhere in the provisioning or password-hashing path", () => {
-    const offenders = files.filter((f) => /console\./.test(readFileSync(f, "utf8")));
+  it("contains no logging call anywhere in the provisioning or password-hashing path", () => {
+    const offenders = files.filter((f) => LOGGING_SINK.test(readFileSync(f, "utf8")));
 
     expect(offenders).toStrictEqual([]);
   });

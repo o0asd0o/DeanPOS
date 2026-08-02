@@ -6,8 +6,11 @@ export const createContext = (
   db: DatabaseInstance,
   principal: Principal | null = null,
   platformAdmin: PlatformAdminPrincipal | null = null,
-): Ctx => ({
-  db,
-  principal,
-  platformAdmin,
-});
+): Ctx => {
+  if (principal && platformAdmin) {
+    throw new Error("Ctx cannot carry both a tenant principal and a platform-admin principal");
+  }
+  if (principal) return { db, kind: "tenant", principal };
+  if (platformAdmin) return { db, kind: "platform-admin", platformAdmin };
+  return { db, kind: "unauthenticated" };
+};

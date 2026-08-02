@@ -3,11 +3,15 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { handler as provisionTenantHandler } from "backend/src/platform-admin/handlers/provision-tenant.ts";
+import { createClient } from "contract/src/index.ts";
+import { ENV_KEYS } from "../src/env.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
+const appDomain = process.env[ENV_KEYS.appDomain]!;
 
 const platformAdminId = randomUUID();
 const existingTenantId = randomUUID();
@@ -122,6 +126,53 @@ describe("platformAdmin.provisionTenant", () => {
         seam.actors.asUnauthenticated().client.platformAdmin.provisionTenant({
           tenantName: "Should Also Not Exist",
           adminEmail: "still-nope@example.test",
+          adminPassword: "irrelevant-password",
+        }),
+      (result) => result === null,
+    );
+  });
+
+  it("refuses a Ctx that somehow carries both a tenant and a platform-admin principal", async () => {
+    const mixedCtx = seam.buildMixedPrincipalCtx(existingTenantId, platformAdminId);
+
+    const result = await provisionTenantHandler({
+      ctx: mixedCtx,
+      input: {
+        tenantName: "Should Never Exist",
+        adminEmail: "mixed-principal@example.test",
+        adminPassword: "irrelevant-password",
+      },
+    });
+
+    expect(result).toBeNull();
+    const leaked = await ownerDb
+      .selectFrom("Tenant")
+      .selectAll()
+      .where("name", "=", "Should Never Exist")
+      .execute();
+    expect(leaked).toStrictEqual([]);
+  });
+
+  it("the admin origin grants nothing by itself: a tenant-scoped principal calling from the admin origin is still refused", async () => {
+    const tenantActor = seam.actors.asTenant(existingTenantId);
+    const fromAdminOrigin = createClient({
+      url: `https://api.${appDomain}/rpc`,
+      fetch: async (request, init) => {
+        const withAdminOrigin = new Request(request, {
+          headers: new Headers({
+            ...Object.fromEntries(request.headers),
+            Origin: `https://admin.${appDomain}`,
+          }),
+        });
+        return tenantActor.app.request(withAdminOrigin, init);
+      },
+    });
+
+    await expectWrongTenantRefusal(
+      () =>
+        fromAdminOrigin.platformAdmin.provisionTenant({
+          tenantName: "Should Not Exist From Admin Origin",
+          adminEmail: "nope-admin-origin@example.test",
           adminPassword: "irrelevant-password",
         }),
       (result) => result === null,

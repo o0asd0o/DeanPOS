@@ -18,16 +18,12 @@ export const inputSchema = z.object({
 type ProvisionTenantInput = z.infer<typeof inputSchema>;
 type ProvisionTenantOutput = { tenantId: string; userId: string };
 
-// Platform-admin only — a distinct principal from any Tenant's User, never
-// derived from a tenant session (issue 02). Refuses with `null`, the same
-// not-found shape store.get uses for a wrong-tenant lookup (ADR-0008 rule 2:
-// handlers are transport-pure, so no ORPCError here — that belongs to the route).
+// Platform-admin only, refused with `null` (ADR-0008 rule 2). Issue 02.
 export const handler: Handler<ProvisionTenantInput, ProvisionTenantOutput | null> = async ({
   ctx,
   input,
 }) => {
-  const platformAdmin = ctx.platformAdmin;
-  if (!platformAdmin) return null;
+  if (ctx.kind !== "platform-admin") return null;
 
   const tenantId = randomUUID();
   const userId = randomUUID();
@@ -48,7 +44,7 @@ export const handler: Handler<ProvisionTenantInput, ProvisionTenantOutput | null
     });
     await insertPlatformAuditLog(db, {
       id: randomUUID(),
-      platformAdminId: platformAdmin.platformAdminId,
+      platformAdminId: ctx.platformAdmin.platformAdminId,
       action: "provision_tenant",
       tenantId,
     });

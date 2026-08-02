@@ -17,9 +17,8 @@ type StoreOutput = {
 // Not-found or empty, never another Tenant's row — the wrong-tenant probe
 // this issue's own procedure demonstrates (issue 01, tenant-isolation-spine).
 export const handler: Handler<{ id: string }, StoreOutput | null> = async ({ ctx, input }) => {
-  const store = await withTenantScope(ctx.db, ctx.principal?.tenantId ?? null, (scopedDb) =>
-    getStore(scopedDb, input.id),
-  );
+  const tenantId = ctx.kind === "tenant" ? ctx.principal.tenantId : null;
+  const store = await withTenantScope(ctx.db, tenantId, (scopedDb) => getStore(scopedDb, input.id));
   if (!store) return null;
   // "tenant_id" (schema.prisma @map) is the physical column; the contract's
   // response shape stays camelCase (issue 01, findings on the tenant_id rename).
