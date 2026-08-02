@@ -1,13 +1,34 @@
 # Foundation
 
-- **Status:** awaiting-human-checkpoint — **no PASS recorded**
+- **Status:** awaiting-human-checkpoint — **QA PASS recorded**, one issue escalated (12)
 - **Area:** 1 of 12 (`ORC2_BUILD_ORDER`)
 - **Depends on:** nothing
 - **Blocks:** every other area
 
-## Run record — 2026-08-02
+## Run record — 2026-08-02 (issues 10–15, theme)
 
-All 9 issues implemented, reviewed, and rebased onto `main`. `main` is at `d63f236`;
+Issues 10, 11, 13, 14, 15 implemented, reviewed by `codex-review` (gpt-5.6-sol), and
+fast-forwarded onto `main`. **Issue 12 hit the 2-round cap and is escalated** — its guard
+was merged, but the round cap was exceeded reaching it. Issue 11 was reopened after merge
+on two post-merge Codex findings and both were closed.
+
+**PRD QA: PASS on round 2 of 2.** Round 1 returned FAIL on one finding — F1, the back-office
+`☰` rendering in a second chrome row below `<header>` at 390, putting `<main>` at y=117.
+Fixed at `f6ea2b9` (`SheetTrigger` moved inside `<header>`; `<main>` now at y=61, token-derived).
+The orchestrator re-ran the gate and both of QA's reproduction values; the same QA agent
+re-verified and passed.
+
+`main` is at `f6ea2b9`; the gate (`vp run -w codegen` → `vp check` → `vp run -r check` →
+`vp run -r test`) is green cold, tree clean. `packages/ui` 107 tests, `apps/pos` 5,
+`apps/backoffice` 6.
+
+**QA's needs-human-eyes list and its risks-no-requirement-covers list stand unacted-on** and
+go to the human as written. No fixer has seen either. Decision records from this run:
+`.scratch/decisions/013`–`017`.
+
+## Run record — 2026-08-02 (issues 01–09, the slice)
+
+All 9 issues implemented, reviewed, and rebased onto `main`. `main` was at `d63f236`;
 the gate (`vp run -w codegen` → `vp check` → `vp run -r check` → `vp run -r test`) is
 green cold, tree clean.
 
@@ -16,9 +37,9 @@ green cold, tree clean.
 the dev loop dirtying `apps/landing/next-env.d.ts` (09). All four were fixed at `d63f236`
 and each red command was re-run by the orchestrator; all now behave as QA specified.
 
-**QA round 2 was not run** — the QA agent was stopped before it could re-verify. No PASS
-exists for this PRD. The round-1 needs-human-eyes list stands unacted-on and goes to the
-human as written.
+**QA round 2 was not run in that run** — the QA agent was stopped before it could re-verify.
+Superseded: the theme run above re-ran QA over the whole PRD and recorded a PASS. That
+round's needs-human-eyes list still stands unacted-on.
 
 ## Problem Statement
 
