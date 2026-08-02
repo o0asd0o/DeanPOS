@@ -1,6 +1,22 @@
 # 15 — Re-skin both app shells
 
-**Status:** ready-for-agent
+**Status:** done — both shells wear the skin, the back-office nav is mounted on the pulled `sidebar`
+under `SidebarProvider`, and `packages/ui` is byte-identical to issue 14's merge.
+
+**Record 013's re-check trigger is discharged.** The ×1.25 touch scale was verified in a live browser
+for the first time: computed `--tap-size: 44px` and `--spacing: 0.3125rem` under
+`data-density="touch"`. It holds the 44px floor as derived; no correction needed. Manrope confirmed
+served from `packages/ui/src/fonts/`, no network request.
+
+**How the sidebar is mounted is decided by `.scratch/decisions/017`.** The apparent contradiction
+between this issue's criterion 3 and record 009's CSS-only layout switch was false: `collapsible="none"`
+short-circuits before `isMobile` is read. Criterion 3 was amended to record 017's wording; record 009
+is untouched.
+
+**Carried to the human, not fixed here:** `aria-modal` has never been present on the `Sheet` — the
+pinned Radix `DialogContentImpl` never sets it — yet issue 07 recorded choosing `sheet` partly for it.
+Focus trapping, `Escape`, scroll lock and focus restoration were all re-verified working at 375×812,
+so the accessibility commitment holds in practice; the record's claim does not.
 
 ## What to build
 
