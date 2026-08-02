@@ -1,6 +1,6 @@
 # 04 — Roles, Store membership, and the authorisation gate
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -114,3 +114,37 @@ the live gate. It exists so a UI can show "current role" without a history join,
 remaining consumer is display. Issue 06's role-change procedure must still write both — a new
 `UserRole` row (the truth) and an updated `User.role` (the display copy) — in the same
 transaction, or the two silently diverge and the convenience copy starts lying.
+
+**Closed 2026-08-03.** Merged to `main`; gate green at 311 tests, migration proven from an empty
+database. 2 fix rounds; both review rounds by a second model, which returned three BLOCKING
+findings on the first pass — all three were real.
+
+What the review caught, because these are the shape of defect this area produces:
+
+1. **The live gate authorised from the denormalised `User.role`** while `provisionTenant` wrote no
+   `UserRole` row at all. The gate and the truth could disagree with nothing to notice, and a freshly
+   provisioned admin had no history for issue 12 to re-verify against. The gate now resolves from
+   `UserRole` and **fails closed**; `provisionTenant` writes both rows in one transaction.
+2. **Independent foreign keys let a Tenant A transaction write history pointing at a Tenant B User or
+   Store** — the `WITH CHECK` on `tenant_id` passes because it really is A's, and **PostgreSQL
+   foreign-key checks bypass RLS**. Now composite: `User` and `Store` carry `UNIQUE (tenant_id, id)`
+   and the history tables reference that pair.
+3. **`FOR ALL` policies authorised UPDATE and DELETE at the policy layer**, so append-only bound only
+   `deanpos_app` through its grant. Now explicit `FOR SELECT` and `FOR INSERT` policies only, so both
+   commands default-deny for a non-superuser owner under `FORCE`. The `REVOKE` is kept — belt, and
+   the policies are the braces.
+
+**No backfill was written, by the human's direct decision.** A `User` with no `UserRole` row cannot
+sign in — refused with the same indistinguishable `{ ok: false }` as a wrong password, and **no
+`Session` row is created**, which is what stops the redirect loop the second review round found.
+`DeanPOS_dev` holds 2 such rows, both stale test residue; a data backfill would have needed human
+escalation and stranded nothing real.
+
+**`User.role` is now a display copy read by nothing on the live gate.** Issue 06 owns the
+role-change procedure and must write `UserRole` (the truth) and `User.role` (the copy) in the **same
+transaction**, or the copy silently diverges with nothing to catch it.
+
+**Carried into the run, not lost:** `main` moved four commits under this lane while it was building
+(dev-origin sessions, password reveal, sign-out confirmation, animations). The rebase surfaced one
+real collision — `dev-origin-session.test.ts` seeded a `User` with no `UserRole` row and its sign-in
+was refused. Fixed by pointing it at `seedTenantUser`; the test's intent is unchanged.
