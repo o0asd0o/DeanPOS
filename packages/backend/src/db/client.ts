@@ -15,11 +15,9 @@ export const createDb = ({ databaseUrl }: { databaseUrl: string }): DatabaseInst
   return new Kysely<DB>({ dialect });
 };
 
-// The only place `app.tenant_id` is ever set (issue 01, tenant-isolation-spine).
-// `set_config(..., true)` is transaction-local — record 004 — so a connection
-// returned to the pool at the end of `fn` carries no tenant into the next
-// request. `tenantId: null` opens the transaction without setting it, which is
-// how the wrong-tenant probe proves RLS denies by default rather than by filter.
+// `set_config(..., true)` is transaction-local (record 004): a pooled connection
+// carries no tenant into the next request. `tenantId: null` opens the
+// transaction without setting it — how the probe proves RLS denies by default.
 export const withTenantScope = <T>(
   db: DatabaseInstance,
   tenantId: string | null,
