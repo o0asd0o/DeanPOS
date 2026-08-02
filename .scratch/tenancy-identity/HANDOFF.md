@@ -1,8 +1,67 @@
-# Handoff — `tenancy-identity`, issues 01–03
+# Handoff — `tenancy-identity`, issues 01–04
 
-Written 2026-08-02 at the end of an unattended `/run-prd tenancy-identity` run.
-Scope of this document: **issues 01, 02 and 03 only** — what merged, what was decided, and
-what the next session must not re-derive or accidentally undo.
+> **Superseded section below.** The original handoff covered 01–03. Issues **03a** and **04** have
+> since merged and **QA checkpoint A was deferred without being run**. Read this block first; the
+> older text after it is still accurate for 01–03.
+
+## Update, 2026-08-03
+
+| | |
+|---|---|
+| **Merged** | 01, 02, 03, 03a, 04 — all closed, `main` green at **311** tests |
+| **In progress** | **nothing** — no agent running, no worktree open, no lane database |
+| **Next** | issue **05** (Store management), unblocked; then 06, 07, 08 |
+| **QA checkpoint A** | **DEFERRED — not run, not passed.** See `QA-PLAN.md`; no verdict was recorded because none was earned |
+
+**Checkpoint B now covers 01–08, not 05–08**, unless A is run first. The unverified surface is
+named in `QA-PLAN.md` — the important one is that **sign-in has never been exercised in a real
+browser**, and the `happy-dom` cookie blind spot has already hidden exactly that bug once.
+
+### Decisions made since the last handoff — both `Stakes: high`, both taken by the human directly
+
+- [**034** — the throttle holds under concurrency](../decisions/034-the-throttle-under-concurrency.md).
+  The shipped ordering read the counter, ran a **measured 259 ms** `scryptSync` blocking the whole
+  API, then wrote the counter — so N concurrent requests all read "not locked" and all reached the
+  hash. The reservation is now the check: one atomic upsert before the hash, released by
+  **decrementing** on success, never clearing.
+- [**035** — the self-lifting lock is deferred to `hardening`](../decisions/035-the-throttle-lock-is-deferred-to-hardening.md).
+  Implementing 034 also removed record 033's lock. Refused attempts now advance `updated_at`, so an
+  attacker attempting once every 29 minutes keeps a known address locked indefinitely. **Merged
+  knowingly**; the fix, the dead `locked_until` column, and the missing test are all named on
+  `.scratch/hardening/PRD.md`.
+
+### Three invariants issue 04 added — do not undo them
+
+8. **`UserRole` is the sole authority for the live gate.** `User.role` is a display copy read by
+   nothing. **Issue 06 must write both in the same transaction** or the copy silently diverges.
+9. **A `User` with no `UserRole` row cannot sign in** — refused with the same indistinguishable
+   `{ ok: false }`, and **no `Session` row is created**. This is by design; no backfill was written.
+10. **`UserRole` and `UserStore` are append-only structurally** — `FOR SELECT` / `FOR INSERT`
+    policies only, plus `REVOKE UPDATE, DELETE`. Their foreign keys are **composite**
+    `(tenant_id, user_id)` / `(tenant_id, store_id)`, because plain FK checks bypass RLS.
+
+### Two traps found this session, worth not repeating
+
+- **`vp run -w migrate` cache-hits and prints "All migrations have been successfully applied"
+  without running.** It cost an hour. Migrate directly instead:
+  `set -a && . ./.env && set +a && cd packages/backend && bunx prisma migrate deploy --schema=src/db/prisma/schema.prisma`,
+  and verify with `psql "$DATABASE_URI" -c "select count(*) from pg_tables where schemaname='public'"`.
+- **`codex exec` hangs on "Reading additional input from stdin…"** when launched detached. Redirect
+  `< /dev/null`. A run that hangs this way produces a large `trace.log` and no findings file, which
+  reads exactly like a model failure and is not one.
+
+### Open for the human
+
+- **`DeanPOS_dev` holds 2 `User` rows with no `UserRole` row.** They are stale test residue and they
+  can no longer sign in. Harmless, but that is why, not a bug.
+- **Commit `6320b07` added a password reveal toggle.** [Record 032](../decisions/032-the-password-policy.md)
+  says "**No reveal toggle** — see the follow-up". Worth reconciling: either the record is overturned
+  or the toggle comes out. Nobody has decided it.
+- **Decision records are now capped at 300 lines** (`.claude/agents/decider.md`). Records 034 and 035
+  are the first written under it. Records 001–033 were deliberately left untouched — rewriting them
+  would damage the audit trail that makes reversal real.
+
+---
 
 ## Where the run stopped
 
