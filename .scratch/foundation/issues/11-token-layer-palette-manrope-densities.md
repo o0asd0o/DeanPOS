@@ -1,8 +1,10 @@
 # 11 — The token layer: re-roled palette, Manrope, and two densities
 
 **Status:** done — palette re-roled to record 013's 35 tokens (verified name-for-name), Manrope
-self-hosted as one variable woff2, both densities in `theme.css`. 41 contrast assertions green.
-`ring`/`primary` confirmed at 3.88:1, up from the old palette's 3.13:1.
+self-hosted as one variable woff2, both densities in `theme.css`. 48 contrast assertions green.
+`--color-ring`/`--color-sidebar-ring` are `#1e1e1e` per record 014 — the ring is asserted against
+every surface it can be drawn on, never against `primary`, whose pixels `outline-offset` guarantees
+it never touches.
 
 ## What to build
 
@@ -145,6 +147,27 @@ test, and that is a later issue's problem.
 issue 05 recorded that it would fail loudly if primary were ever lightened. Primary is becoming
 `#1E1E1E`, which moves that pairing the safe direction. Confirm it rather than assume it.
 
+**Reopened 2026-08-02, two defects found post-merge.** `.scratch/decisions/014-the-focus-indicator-colour.md`
+ruled the shipped `--color-ring: #7a7a7a` wrong: a positive `outline-offset` means the ring's pixels
+never land on `primary`, so pairing `ring` against `primary`/`sidebar-primary` measured a geometry
+that does not occur. Fix: `--color-ring` and `--color-sidebar-ring` both `#1e1e1e` (ADR-0013's own
+action colour — the issue's acceptance criterion was already correct and is unchanged);
+`:focus-visible` stays byte-identical, only the two hex values moved; `contrast.test.ts`'s pairing
+table now asserts `ring` against every ground it can sit beneath (`background`, `card`, `popover`,
+`secondary`, `muted`, `accent`, `sidebar`, `sidebar-accent`, the four `status-*-tint`s) instead of
+against `primary`/`sidebar-primary`, taking the suite from 38 to 45 pairings and 41 to 48
+assertions; added a 49th assertion that `--focus-ring-offset` stays ≥1px, since at 0 the ring is
+invisible against `primary` while the contrast test would stay green. Separately: this issue's
+mechanical rename of `touch-min` (unconditional 44px) to `tap-target` (24px unless
+`[data-density="touch"]`) left `apps/pos`'s minimum target at 24px, because no app set the density
+attribute — issue 15's job, not yet done. Fixed at the root, ahead of issue 15, per record 013's own
+clause 1: `data-density="touch"` on `apps/pos/index.html`'s `<html>`, `data-density="compact"` on
+`apps/backoffice/index.html`'s, both explicit, neither on a shell element (Radix portals `sheet`,
+`sidebar`, `select` into `document.body`, so a shell-scoped attribute would leave portalled surfaces
+compact). This activates the ×1.25 touch scale across the whole of `apps/pos` for the first time;
+issue 15 still owns the visual re-check and the `index.html` assertions record 013 named as its
+trigger — nobody has looked at it rendered yet.
+
 ## Implementation notes
 
 Branch `f11-token-layer`. `packages/ui/src/theme.css` and `packages/ui/tests/contrast.test.ts`
@@ -155,17 +178,19 @@ verbatim from the record. Values (mine to choose):
 - `secondary`/`muted`/`accent` distinct near-white greys (`#eaeae6`/`#f0f0ed`/`#e4e4df`) so hover
   and quiet-fill surfaces stay visually distinguishable from each other
 - `destructive` `#c0264f` (the brand pink's darker sibling, per ADR-0013)
-- `border`/`input` `#8a8a8a`, `ring` `#7a7a7a` — chosen by solving for a grey that clears 3:1
-  against both the near-white surfaces and the near-black `primary` simultaneously
+- `border`/`input` `#8a8a8a`; `ring`/`sidebar-ring` `#1e1e1e` — the action colour, per record 014:
+  `outline-offset` keeps the ring's pixels off `primary`, so it is asserted against every ground it
+  can actually sit on, not solved to also clear a fill it never touches
 - Status tones are darker siblings of the brand hues, not the raw brand values: `success-tone`
   `#0f7a55` (brand green `#35CCA6` measures 2.03:1 on white and fails outright), `warning-tone`
   `#8a5a00`, `info-tone` `#1d5fc2`, `danger-tone` `#a31c46` (distinct from `destructive`, per the
   record's "state you read vs. button you press" distinction)
 
 Measured ratios (all pass, computed with the same relative-luminance/contrast formulas as
-`contrast.test.ts`, cross-checked by the 41 passing assertions in that file):
-`ring`/`background` 4.10:1, `ring`/`card` 4.29:1, **`ring`/`primary` 3.88:1** (confirmed, not
-assumed — comfortably over the 3:1 floor and well clear of the old palette's 3.13:1 near-miss),
+`contrast.test.ts`, cross-checked by the 48 passing assertions in that file, per record 014):
+`ring` (`#1e1e1e`) against every ground it can sit beneath — `background` 15.95:1, `card`/
+`popover`/`sidebar` 16.68:1, `muted` 14.60:1, `secondary` 13.83:1, `accent`/`sidebar-accent`
+13.07:1 (worst case), the four `status-*-tint`s 14.00–14.68:1 — all far clear of the 3:1 floor;
 `border`/`background` 3.30:1, status tones on their tints 4.69–6.27:1, status tones on
 `background`/`card` 5.10–7.47:1. Full pairing list and margins are in the scratchpad script used
 to derive the values (not committed — the authoritative check is `contrast.test.ts` itself).

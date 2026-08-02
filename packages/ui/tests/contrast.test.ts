@@ -54,7 +54,10 @@ const pairings: [string, string, number, string][] = [
   ["input", "background", 3.0, "1.4.11"],
   ["ring", "background", 3.0, "1.4.11"],
   ["ring", "card", 3.0, "1.4.11"],
-  ["ring", "primary", 3.0, "1.4.11"],
+  ["ring", "popover", 3.0, "1.4.11"],
+  ["ring", "secondary", 3.0, "1.4.11"],
+  ["ring", "muted", 3.0, "1.4.11"],
+  ["ring", "accent", 3.0, "1.4.11"],
   ["popover-foreground", "popover", 4.5, "1.4.3"],
   ["sidebar-foreground", "sidebar", 4.5, "1.4.3"],
   ["sidebar-primary-foreground", "sidebar-primary", 4.5, "1.4.3"],
@@ -62,7 +65,11 @@ const pairings: [string, string, number, string][] = [
   ["sidebar-border", "sidebar", 3.0, "1.4.11"],
   ["sidebar-ring", "sidebar", 3.0, "1.4.11"],
   ["ring", "sidebar", 3.0, "1.4.11"],
-  ["ring", "sidebar-primary", 3.0, "1.4.11"],
+  ["ring", "sidebar-accent", 3.0, "1.4.11"],
+  ["ring", "status-success-tint", 3.0, "1.4.11"],
+  ["ring", "status-warning-tint", 3.0, "1.4.11"],
+  ["ring", "status-info-tint", 3.0, "1.4.11"],
+  ["ring", "status-danger-tint", 3.0, "1.4.11"],
   ["foreground", "status-success-tint", 4.5, "1.4.3"],
   ["foreground", "status-warning-tint", 4.5, "1.4.3"],
   ["foreground", "status-info-tint", 4.5, "1.4.3"],
@@ -142,5 +149,11 @@ describe("colour token contrast (WCAG 2.2 AA)", () => {
     const testedNames = new Set(pairings.flatMap(([fg, bg]) => [fg, bg]));
     const untested = [...tokens.keys()].filter((name) => !testedNames.has(name));
     expect(untested).toEqual([]);
+  });
+
+  it("keeps --focus-ring-offset at 1px or more (record 014: at 0 the ring vanishes into primary)", () => {
+    const match = themeCss.match(/--focus-ring-offset:\s*(\d+(?:\.\d+)?)px;/);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1])).toBeGreaterThanOrEqual(1);
   });
 });

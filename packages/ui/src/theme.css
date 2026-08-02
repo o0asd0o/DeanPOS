@@ -30,7 +30,7 @@
   --color-destructive-foreground: #ffffff;
   --color-border: #8a8a8a;
   --color-input: #8a8a8a;
-  --color-ring: #7a7a7a;
+  --color-ring: #1e1e1e;
   --color-sidebar: #ffffff;
   --color-sidebar-foreground: #1e1e1e;
   --color-sidebar-primary: #1e1e1e;
@@ -38,7 +38,7 @@
   --color-sidebar-accent: #e4e4df;
   --color-sidebar-accent-foreground: #1e1e1e;
   --color-sidebar-border: #8a8a8a;
-  --color-sidebar-ring: #7a7a7a;
+  --color-sidebar-ring: #1e1e1e;
 
   /* Status hues (ADR-0013). A `-tone` is a dot, an icon, or a chart series and has
      no foreground partner because nothing may be written on it. Record 013. */
@@ -61,7 +61,9 @@
   --min-touch-size: 44px;
   --tap-size: var(--min-target-size);
 
-  /* Focus indicator. Values from WCAG 2.2 SC 2.4.13, adopted above the AA floor. */
+  /* Focus indicator. Values from WCAG 2.2 SC 2.4.13, adopted above the AA floor.
+     The offset is load-bearing: at 0 the ring is painted flush against the black
+     action fill and vanishes. Record 014. */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 }
