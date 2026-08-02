@@ -53,6 +53,7 @@ export function SignIn() {
               name="email"
               type="email"
               autoComplete="username"
+              placeholder="name@example.com"
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -64,6 +65,7 @@ export function SignIn() {
               id="password"
               name="password"
               autoComplete="current-password"
+              placeholder="••••••••"
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}

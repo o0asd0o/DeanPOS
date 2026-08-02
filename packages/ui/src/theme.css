@@ -33,8 +33,10 @@
   --color-accent-foreground: #1e1e1e;
   --color-destructive: #c0264f;
   --color-destructive-foreground: #ffffff;
-  --color-border: #8a8a8a;
-  --color-input: #8a8a8a;
+  /* Hairline, at 1.13:1 — a knowing deviation from WCAG 1.4.11, taken by the
+     human against a supplied reference. Record 036. */
+  --color-border: #e5e7eb;
+  --color-input: #e5e7eb;
   --color-ring: #1e1e1e;
   --color-sidebar: #ffffff;
   --color-sidebar-foreground: #1e1e1e;
@@ -71,11 +73,25 @@
      action fill and vanishes. Record 014. */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+  --focus-glow-width: 3px;
 }
 
 @utility tap-target {
   min-inline-size: var(--tap-size);
   min-block-size: var(--tap-size);
+}
+
+/* Fields replace record 014's outline ring with a darkened border plus a glow
+   that grows on focus. Both are animatable properties, which an `outline` is
+   not — that is the whole reason the ring cannot do this. */
+@utility field-focus {
+  box-shadow: 0 0 0 0 transparent;
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 var(--focus-glow-width) color-mix(in srgb, var(--color-ring) 14%, transparent);
+  }
 }
 
 /* Thumb only — no track fill, no track border. Both properties inherit, so one

@@ -74,6 +74,7 @@ export function SetPassword() {
               id="new-password"
               name="new-password"
               autoComplete="new-password"
+              placeholder="Your new password"
               required
               minLength={8}
               aria-describedby="new-password-hint"
@@ -87,6 +88,7 @@ export function SetPassword() {
               id="confirm-password"
               name="confirm-password"
               autoComplete="new-password"
+              placeholder="Re-enter your new password"
               required
               minLength={8}
               aria-invalid={mismatch}

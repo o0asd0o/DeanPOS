@@ -50,8 +50,11 @@ const pairings: [string, string, number, string][] = [
   ["secondary-foreground", "secondary", 4.5, "1.4.3"],
   ["accent-foreground", "accent", 4.5, "1.4.3"],
   ["destructive-foreground", "destructive", 4.5, "1.4.3"],
-  ["border", "background", 3.0, "1.4.11"],
-  ["input", "background", 3.0, "1.4.11"],
+  // Not 1.4.11: record 036 lowers both to a hairline on purpose. 1.1 keeps them
+  // from sliding all the way into the background, which is the failure this
+  // pair can still be tested for.
+  ["border", "background", 1.1, "036 (deviates from 1.4.11)"],
+  ["input", "background", 1.1, "036 (deviates from 1.4.11)"],
   ["ring", "background", 3.0, "1.4.11"],
   ["ring", "card", 3.0, "1.4.11"],
   ["ring", "popover", 3.0, "1.4.11"],
