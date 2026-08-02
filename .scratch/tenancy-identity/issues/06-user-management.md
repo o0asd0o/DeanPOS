@@ -60,3 +60,15 @@ nothing about any other User — the system does not depend on their restraint.
 _Sliced from `.scratch/tenancy-identity/PRD.md` (stories 7–13, 19), Security criterion 16.
 The PIN half of a User — setting, changing, resetting, and the removal of a deactivated User's
 hash from Devices — is issue 10, which is where a Device exists to sync to._
+
+**Orchestrator note, 2026-08-02 — inherited from [record 031](../../decisions/031-how-a-query-with-no-tenant-reads-a-row.md).**
+
+Admin-initiated password reset is the likely **third pre-auth lookup**. Two named GUCs
+(`app.login_email`, `app.session_id`) are a pair; a third is a pattern that gets copied badly.
+Record 031's named trigger fires here: **the answer is a narrowly-scoped `SECURITY DEFINER`
+function, not `app.something_else`.** Route to the `decider` before adding a GUC.
+
+Also inherited: `User.email` is **globally** unique, and record 031 found that is a hard
+precondition of `user_login_lookup` being a one-row read — per-tenant uniqueness would make the
+same policy text match one row per sharing tenant, an actual cross-tenant read. Do not change
+one without the other; they move together in a single record.

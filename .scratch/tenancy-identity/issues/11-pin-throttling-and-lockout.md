@@ -46,3 +46,17 @@ screen itself is issue 10.
 
 _Sliced from `.scratch/tenancy-identity/PRD.md` (stories 33, 34), ADR-0007, Security
 criterion 8._
+
+**Orchestrator note, 2026-08-02 — scope may widen; a decision record is pending.**
+
+Sign-in (issue 03, merged) has **no throttling of any kind**. The human delegated that decision;
+it is being settled now and the leading direction is to **fold password throttling into this
+issue's mechanism** rather than build a second one. Read the resulting record before starting —
+it may extend this issue's scope from PIN-only to both credentials.
+
+Two constraints that record will carry, both easy to get wrong:
+- Issue 03's criterion 5 requires unknown-email and wrong-password to be identical **in message
+  and in timing**. A throttle that short-circuits before the scrypt hash is a *new* timing oracle
+  on that same path.
+- Record 028's scrypt costs **128 MiB per hash**, so unthrottled sign-in is a denial-of-service
+  surface. That pulls against the timing requirement above; the record resolves the tension.

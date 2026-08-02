@@ -66,3 +66,12 @@ _Sliced from `.scratch/tenancy-identity/PRD.md` — "Store membership, per role 
 Security criteria 13 and 21. DeanPOS has no per-User permissions; "the right to see expected
 cash" is the Role (`manager` and `admin`), not a grantable flag, and `drawer-sessions` and
 `reporting` both read that rule from here._
+
+**Orchestrator note, 2026-08-02 — inherited from [record 029](../../decisions/029-how-a-tenant-row-is-created-under-rls.md).**
+
+A pre-existing premise nothing asserts: the whole suite's `ownerDb` reads work **only because the
+migrating role is a superuser under `FORCE ROW LEVEL SECURITY`**. The day a hardened environment
+migrates as a non-superuser owner, every failure will read as an RLS bug rather than a setup one.
+
+Add one assertion in the test setup that the migrating role is superuser, so the premise fails
+loudly and in the right place. Cheap here; expensive to diagnose later.
