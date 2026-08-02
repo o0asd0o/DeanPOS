@@ -141,7 +141,7 @@ touched — new and overwritten alike — was written with the literal, non-reso
 so this is not an artifact of the real write). `tsc` fails on it (`TS2307`). This is the same
 "cannot resolve the workspace" case issue 05 hit and fixed the same way: rewrote every occurrence
 to the relative form issue 05 already established, `"../lib/utils.ts"` (and, inside `sidebar.tsx`
-only, its five sibling-component imports: `./button.tsx`, `./input.tsx`, `./separator.tsx`,
+only, its six sibling-component imports: `./button.tsx`, `./input.tsx`, `./separator.tsx`,
 `./sheet.tsx`, `./skeleton.tsx`, `./tooltip.tsx`, `../hooks/use-mobile.ts`). No JSX, class list, or
 component logic was touched — `git diff` against a scratch pre-fix copy showed only import lines
 changed. `vp check --fix` then normalized quote/semicolon style to match the rest of the package
@@ -173,7 +173,8 @@ these are wired into either app yet, so the defect is unreachable. Issue 14 stri
 
 **`contrast.test.ts`: still 49 assertions, unchanged token set, green.** `vp test
 tests/contrast.test.ts` → 49 passed. Full gate: `vp run -w codegen`, `vp check`, `vp run -r
-check`, `vp run -r test` all pass repo-wide (`packages/ui` alone: 20 tests across 2 files).
+check`, `vp run -r test` all pass repo-wide (`packages/ui` alone: 51 tests across 2 files —
+49 in `contrast.test.ts`, 2 in `index.test.ts`).
 
 **`index.ts`** now re-exports all seven required parts (`sidebar` and its full sub-part list,
 `card`, `badge`, `table`, `tabs`, `select`, `input`) plus the pre-existing `button`/`sheet`/`cn`.
@@ -182,3 +183,71 @@ they're `sidebar`'s internal dependencies, not one of the seven parts this issue
 outside `sidebar.tsx` can reach them yet.
 
 Nothing in the package became domain-aware; neither app was touched.
+
+---
+
+**Fixer, round 1.** Applied the reviewer's finding as re-analyzed by the issue owner (not as the
+second model originally proposed): `sidebar.tsx` and `tabs.tsx` carried a stray `"use client";`
+plus its blank line at the top; every other pulled file was already correct. Deleted both lines
+from both files. Left `separator.tsx`, `tooltip.tsx`, `select.tsx`, `table.tsx`, `badge.tsx`,
+`card.tsx`, `input.tsx`, `skeleton.tsx` untouched, as directed.
+
+**Vanilla check, redone against a real CLI write, not just a source diff.** Copied
+`packages/ui` (same `components.json`, same `node_modules`, same `shadcn@4.16.1`) into a scratch
+worktree and ran `shadcn add sidebar card badge table tabs select input --yes` for real — not
+`--dry-run --view`, which turned out to apply the RSC transform inconsistently to
+registry-dependency files and is not trustworthy for this check. The real write confirms:
+
+| file | `"use client"` in real CLI output | committed (after this round) | match |
+| --- | --- | --- | --- |
+| `badge.tsx` | absent | absent | yes |
+| `card.tsx` | absent | absent | yes |
+| `input.tsx` | absent | absent | yes |
+| `select.tsx` | absent | absent | yes |
+| `table.tsx` | absent | absent | yes |
+| `tabs.tsx` | absent | absent (fixed this round) | yes |
+| `sidebar.tsx` | absent | absent (fixed this round) | yes |
+| `skeleton.tsx` | absent (never in registry source) | absent | yes |
+| `separator.tsx` | **present**, one real run; absent, another real run | absent | see below |
+| `tooltip.tsx` | **present**, one real run; absent, another real run | absent | see below |
+
+Every file's only other delta from the real CLI write is the already-documented one: the literal
+`"src/lib/utils"` specifier (and, in `sidebar.tsx`, its six sibling imports) rewritten to the
+relative form, plus this repo's Prettier settings (semicolons, trailing commas, line width) versus
+the CLI's own unformatted emit. No JSX, class list, or component logic differs.
+
+**`separator.tsx`/`tooltip.tsx` are not settled by this table, and I did not touch them.** Running
+the identical `add` command against a fresh scratch copy of this exact package multiple times
+produced different results file-to-file and run-to-run for these two: sometimes `"use client"`
+survived on them, sometimes not, with no change on my end between runs. `sidebar.tsx` and
+`tabs.tsx` were consistent in every run I made (always stripped) once isolated from whatever state
+the original CLI invocation left them in, which is why I'm confident in that fix. But I cannot
+extend the same confidence to `separator`/`tooltip` — the CLI itself is nondeterministic for at
+least those two files, likely because `shadcn add`'s RSC-strip transform is applied per top-level
+requested target and does not reliably re-run on files reached only as a `registryDependencies`
+transitive pull, so which pass "wins" depends on write-order or caching inside the CLI, not on
+anything in this project's config. Flagging this rather than re-arguing the original finding: the
+instruction was explicit that `separator`/`tooltip` are correct and out of scope for this round,
+and nothing above contradicts that with the confidence this table implies for the other eight
+files — it only means "vanilla" for those two specific files is a moving target upstream, worth a
+`.scratch/decisions/` note if a future regeneration disagrees with what's committed now.
+
+**How `sidebar.tsx`/`tabs.tsx` likely picked up the stray directive originally:** the round-1
+report describes rewriting every CLI-touched file's import specifier by hand, file by file, after
+the initial `add`. Given the CLI's demonstrated nondeterminism above, the simplest explanation is
+that the original `add` run happened to land `"use client"` on `sidebar.tsx` and `tabs.tsx` that
+time (as it did on the file-count check earlier in this file's history), and the import-path fix —
+which only touched specifier lines — never removed a directive that was never its target. No
+evidence of a different code path (e.g. hand-transcription from `shadcn view`) was found; the
+simpler explanation is that the CLI's own strip pass simply missed those two files on that run.
+
+**Gate, this worktree, after both fixes:** `vp run -w codegen` (Prisma + tsr generate, all pass),
+`vp check` (138 files formatted, 102 files lint/type clean), `vp run -r check` (10/10 packages
+pass, 6 cache hits), `vp run -r test` (all packages pass; `packages/ui` uncached: 51 tests across
+2 files — 49 `contrast.test.ts`, 2 `index.test.ts`).
+
+Two issue-comment corrections applied: "five sibling-component imports" → "six" (list already
+enumerated six); "20 tests" → "51 tests across 2 files (49 + 2)", confirmed by forcing
+`packages/ui`'s test task uncached in this round's gate run.
+
+Root checkout untouched — `git status` there is clean; all work stayed in this worktree.
