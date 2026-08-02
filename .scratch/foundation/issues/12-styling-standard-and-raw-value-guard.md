@@ -1,6 +1,47 @@
 # 12 — A styling standard, and a test that enforces it
 
-**Status:** ready-for-agent
+**Status:** needs-info — **escalated to the human. Round cap reached, not merged.**
+
+The work is built and the gate is green on branch `f12-styling-standard` (worktree and lane database
+kept alive so this can be resumed rather than rebuilt). Two fix rounds were spent and the guard
+still mis-classifies real code. The written standard — rule 6 in `docs/agents/code-standards.md` —
+is complete and uncontested; **only the executable guard is outstanding.**
+
+**Why it stopped here.** Each round closed the previous defect and exposed a narrower one of the
+same kind. The guard is a line-oriented scanner with no notion of syntax, and every fix has been a
+better approximation of a parser:
+
+1. Round 1 — a prefixed-utility regex missed Tailwind *arbitrary properties* (`[color:red]`).
+2. Round 2 — the unprefixed pattern false-positived on three valid Tailwind variants and on an
+   unspaced TypeScript index signature, and still missed a *nested* arbitrary property.
+3. Round 3 — balanced outer-bracket scanning fixed all six of those, and then failed on strings and
+   tuples. **Verified by running the exported helper, not by reading the regex:**
+
+   | Input | Wanted | Got |
+   | --- | --- | --- |
+   | `const classes = ["[color:red]"];` | flag | **passes** — false negative |
+   | `const classes = ["[&:hover]:underline"];` | pass | **flags** — false positive |
+   | `type Result = [ok: string] \| [error: Error];` | pass | **flags** — false positive |
+
+   The scanner treats an enclosing JS array literal or a TS labelled tuple as a Tailwind candidate,
+   and skips the nested group that actually holds the raw value.
+
+**The question for you, which is why this is not another round.** The reviewer's prescribed fix is
+to lex string and template contents independently before scanning. That is a third rewrite, and it
+is the point at which "a regex over source text" has become a small parser. Worth deciding rather
+than drifting into:
+
+- **Ship the guard as it stands**, with the false positives documented and the `// design-exempt:`
+  hatch covering them. The false *negative* is the real cost: a raw value inside a string array is
+  exactly how someone would write one.
+- **Lex strings properly** — one more round, and the guard becomes something with its own
+  maintenance burden that eleven areas depend on.
+- **Narrow the guard to `className` attribute contents only**, which is where the rule actually
+  bites, and accept that it sees nothing else. Smaller than lexing, and closer to the stated intent.
+- **Ship rule 6 without the test.** The issue itself argues against this — *"a rule with no test is
+  forgotten by area 4"* — but it is a real option if the guard's cost has outrun its value.
+
+**Issue 15 depends on this issue** and is therefore blocked until you rule. Issues 13 and 14 do not.
 
 ## What to build
 
