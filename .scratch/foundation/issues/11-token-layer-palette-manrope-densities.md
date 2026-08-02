@@ -188,8 +188,8 @@ verbatim from the record. Values (mine to choose):
 
 Measured ratios (all pass, computed with the same relative-luminance/contrast formulas as
 `contrast.test.ts`, cross-checked by the 48 passing assertions in that file, per record 014):
-`ring` (`#1e1e1e`) against every ground it can sit beneath — `background` 15.95:1, `card`/
-`popover`/`sidebar` 16.68:1, `muted` 14.60:1, `secondary` 13.83:1, `accent`/`sidebar-accent`
+`ring` (`#1e1e1e`) against every ground it can sit beneath — `background` 15.94:1, `card`/
+`popover`/`sidebar` 16.67:1, `muted` 14.60:1, `secondary` 13.82:1, `accent`/`sidebar-accent`
 13.07:1 (worst case), the four `status-*-tint`s 14.00–14.68:1 — all far clear of the 3:1 floor;
 `border`/`background` 3.30:1, status tones on their tints 4.69–6.27:1, status tones on
 `background`/`card` 5.10–7.47:1. Full pairing list and margins are in the scratchpad script used
@@ -210,8 +210,12 @@ left for issue 14. Record 013 lists these as "renamed by issue 11 or 14" without
 leaving them referencing utilities this issue deletes from `theme.css` would have been a silent
 tap-target regression (Tailwind drops an unknown utility with no build error), so they were fixed
 here as a mechanical one-line className rename — no component logic, layout, or design changed.
-No app's `<html>` was wired with `data-density` (that's issue 15), no `packages/ui` component
-reads or branches on the attribute, and no dark set was added.
+**Both app roots are now wired** — `data-density="touch"` on `apps/pos/index.html` and
+`data-density="compact"` on `apps/backoffice/index.html` — done in the reopen below to close the
+44px regression, not in the original pass. **Issue 15 no longer introduces the attribute; it owns
+only the `index.html` assertions and the visual verification of the ×1.25 touch scale**, which
+remains its named re-check trigger per record 013. No `packages/ui` component reads or branches on
+the attribute, and no dark set was added.
 
 Self-check: ran `/code-review` (Standards + Spec sub-agents) against the diff. Standards flagged
 one real hard violation — a 4-line comment on the `[data-density="touch"]` block exceeded the
