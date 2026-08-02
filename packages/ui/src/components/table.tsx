@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ChevronsUpDown } from "lucide-react";
 
 import { cn } from "../lib/utils.ts";
 
@@ -51,16 +52,31 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   );
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({
+  className,
+  sortable = false,
+  children,
+  ...props
+}: React.ComponentProps<"th"> & { sortable?: boolean }) {
   return (
     <th
       data-slot="table-head"
+      data-sortable={sortable}
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
-    />
+    >
+      {sortable ? (
+        <span className="inline-flex items-center gap-1">
+          {children}
+          <ChevronsUpDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
+        </span>
+      ) : (
+        children
+      )}
+    </th>
   );
 }
 
