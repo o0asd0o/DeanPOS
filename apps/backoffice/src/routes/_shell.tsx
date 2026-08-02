@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { AppShell } from "../components/AppShell.tsx";
+import { AppShell } from "@/components/AppShell.tsx";
 
 // The one place the session guard and the must-change redirect live
 // (record 030): every route under `_shell/` — current and future — is

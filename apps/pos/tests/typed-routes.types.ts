@@ -1,6 +1,6 @@
 import type { LinkProps } from "@tanstack/react-router";
 
-import "../src/router.tsx";
+import "@/router.tsx";
 
 // If this directive ever becomes UNUSED, `to` has stopped being a typed union and
 // the "a link to a removed route fails the build" criterion has silently

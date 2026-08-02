@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SetPassword } from "../../features/set-password/SetPassword.tsx";
+import { SetPassword } from "@/features/set-password/SetPassword.tsx";
 
 // Reached while holding a valid session (record 030) — redirects to `/`
 // when the must-change flag is not set, so it is never a route with

@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
 
-import { ErrorState } from "../../components/ErrorState.tsx";
+import { ErrorState } from "@/components/ErrorState.tsx";
 
 // A rejection on policy (record 032) arrives as oRPC's own input-validation
 // error, carrying the zod issue message; anything else is a real transport

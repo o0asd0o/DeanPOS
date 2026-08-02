@@ -2,7 +2,10 @@
   "extends": "tsconfig/base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "lib": ["es2023", "dom", "dom.iterable"]
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*", "tests/**/*"]
 }

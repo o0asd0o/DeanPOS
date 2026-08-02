@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { fireEvent, renderRoute, screen, waitFor, within } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { router } from "../src/router.tsx";
+import { router } from "@/router.tsx";
 
 // Issue 03 round 2: auth.signOut existed and was tested server-side, but
 // nothing in this app called it.

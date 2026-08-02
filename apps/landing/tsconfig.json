@@ -3,7 +3,14 @@
   "compilerOptions": {
     "jsx": "preserve",
     "lib": ["es2023", "dom", "dom.iterable"],
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*", "tests/**/*", "next-env.d.ts", ".next/types/**/*.ts"]
 }

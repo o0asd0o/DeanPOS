@@ -1,4 +1,4 @@
-import { ErrorState } from "../../components/ErrorState.tsx";
+import { ErrorState } from "@/components/ErrorState.tsx";
 import { usePingQuery } from "./__common/queries.ts";
 
 // The worked example of ADR-0009: the route's single feature component.

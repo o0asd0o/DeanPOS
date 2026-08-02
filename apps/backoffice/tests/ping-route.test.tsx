@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { expectNoAxeViolations, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { router } from "../src/router.tsx";
+import { router } from "@/router.tsx";
 
 // The shell's routes require a signed-in session since issue 03 —
 // `renderRoute`'s `tenantId` renders as that Tenant's session.

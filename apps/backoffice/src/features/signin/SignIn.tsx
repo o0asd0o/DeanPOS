@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, PasswordInput } from "ui";
 
-import { ErrorState } from "../../components/ErrorState.tsx";
+import { ErrorState } from "@/components/ErrorState.tsx";
 
 // States, copy, colours and order are record 030's, not a matter of taste
 // here — see .scratch/decisions/030-the-back-office-sign-in-screen.md.

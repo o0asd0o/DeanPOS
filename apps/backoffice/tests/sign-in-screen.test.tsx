@@ -10,7 +10,7 @@ import {
 import { createTestSeam } from "api/src/test-seam.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { router } from "../src/router.tsx";
+import { router } from "@/router.tsx";
 
 // Record 030: the sign-in screen's states, copy and structure. Real
 // credentials, driven through the real HTTP surface, not test-seam shortcuts.

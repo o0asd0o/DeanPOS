@@ -1,7 +1,7 @@
 import { expectNoAxeViolations, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { router } from "../src/router.tsx";
+import { router } from "@/router.tsx";
 
 describe("the terminal shell's ping route", () => {
   let cleanup: (() => Promise<void>) | undefined;

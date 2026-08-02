@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { client } from "../src/lib/orpc.ts";
+import { client } from "@/lib/orpc.ts";
 
 // The API sits on a different subdomain, so the default fetch credentials
 // mode ("same-origin") makes the browser discard the session Set-Cookie —

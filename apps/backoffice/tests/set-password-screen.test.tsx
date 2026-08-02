@@ -9,7 +9,7 @@ import {
 } from "api/src/test-seam-react.tsx";
 import { describe, expect, it } from "vite-plus/test";
 
-import { router } from "../src/router.tsx";
+import { router } from "@/router.tsx";
 
 // Record 030's `/set-password` structure. The redirect *into* it is proven
 // server-side in apps/api/tests/forced-password-change.test.ts; this file

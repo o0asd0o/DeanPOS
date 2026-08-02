@@ -2,7 +2,7 @@
 
 **Who reads this:** `implementer` and `fixer` before editing, and `reviewer` when judging its Standards axis. Nobody else — `explorer`, `qa`, and `decider` never write product code, so this is not loaded into their context.
 
-Six rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rule 6 governs what it looks like.
+Eight rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rules 6–7 govern what it looks like, rule 8 governs how it is imported.
 
 ## 1. One change, one problem
 
@@ -175,6 +175,36 @@ ADR-0013's and it has not moved. Elements the product already has, wearing the r
 This rule is enforced by review, not by `assertNoRawDesignValues` — the guard reads raw values,
 not composition. A reviewer or fixer who finds a bordered section rebuilds it as a `Card` rather
 than reporting it as a preference.
+
+## 8. Front-end apps import their own modules as `@/…`, never `../`
+
+In `apps/backoffice`, `apps/pos` and `apps/landing`, a module inside the same app is imported
+by its path from that app's `src`:
+
+```tsx
+// banned
+import { ErrorState } from "../../components/ErrorState.tsx";
+
+// use
+import { ErrorState } from "@/components/ErrorState.tsx";
+```
+
+`@/*` is declared in each app's `tsconfig.json` and resolved at build and test time by Vite's
+native `resolve.tsconfigPaths` (Next resolves it from `tsconfig` on its own). A same-directory
+`./sibling.ts` is fine and unaffected — the rule is about climbing out of a directory, which is
+what makes a file impossible to move and a diff impossible to read.
+
+**`packages/*` and `apps/api` are excluded, and this is not an oversight.** Other workspaces
+compile their source: `apps/api` imports `backend/src/…`, and the two front-end test suites
+import `api/src/test-seam-react.tsx`. TypeScript resolves `paths` from the tsconfig of the
+project doing the compiling, not from the tsconfig next to the file, so an `@/db/client.ts`
+inside `packages/backend` resolves against the *consumer's* `src` and silently types as `{}`.
+Bun and Vite resolve it per-file and would not notice; `vp check` does. Those workspaces keep
+relative imports until every consumer can be taught the same mapping. Node's `imports` field
+(`#/*`) was tried first and rejected: Bun 1.3 does not resolve it, so `bun run src/dev.ts` dies.
+
+`apps/backoffice/tests/import-style-grep.test.ts` enforces the rule for the three apps it
+applies to.
 
 ## When this file and the existing code disagree
 
