@@ -134,3 +134,16 @@ Only one `<nav>` exists in the DOM at rest, asserted rather than assumed.
 made `TS6133` keep the `@ts-expect-error` directive alive regardless of whether `to` was
 typed. `_brokenLink` is now `export const brokenLink`, so only `TS2322` keeps the directive
 alive. Verified both directions.
+
+**Reopened by QA, 2026-08-02 (round 1).** The `☰` sat outside `<header>`, adding a second
+56px row before `<main>` (117px of chrome at 390 instead of the reference's single 56px
+bar). Fix: `SheetTrigger` moved inside `<header>` as its `justify-between` end child, with
+`<Sheet>` now wrapping both `<header>` and `<SidebarProvider>` so `SheetContent` (portalled,
+per `packages/ui/src/components/sheet.tsx`) keeps working from anywhere in the tree. Dropped
+`m-4 self-start`, kept `tap-target`, `md:hidden`, `aria-label`. Live-verified at 390×844: header
+`contains()` the trigger is `true`, `<main>` now starts at y=61 (was 117); focus trap, `Escape`,
+scroll lock, and focus restoration all still work. Desktop at 1440 unchanged — trigger
+`display:none`, header shows only the wordmark. `packages/ui` diff against `main` is empty.
+`apps/backoffice/tests/ping-route.test.tsx` updated: its header-text assertion expected an
+exact `"DeanPOS"` match, which the now-correctly-nested trigger breaks; changed to
+`toContain("DeanPOS")` plus an explicit assertion that the trigger is inside `<header>`.

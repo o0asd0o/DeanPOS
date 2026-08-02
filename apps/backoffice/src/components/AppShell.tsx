@@ -15,34 +15,31 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <header className="flex justify-between border-b border-border p-4">
-        <span className="text-lg font-bold">DeanPOS</span>
-      </header>
-      <SidebarProvider className="min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
-        <Sheet>
-          <SheetTrigger
-            className="tap-target m-4 self-start md:hidden"
-            aria-label="Open navigation"
-          >
+      <Sheet>
+        <header className="flex items-center justify-between border-b border-border p-4">
+          <span className="text-lg font-bold">DeanPOS</span>
+          <SheetTrigger className="tap-target md:hidden" aria-label="Open navigation">
             ☰
           </SheetTrigger>
+        </header>
+        <SidebarProvider className="min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
           <SheetContent side="left" className="p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <Sidebar collapsible="none" className="h-full w-full">
               <Nav />
             </Sidebar>
           </SheetContent>
-        </Sheet>
-        <Sidebar
-          collapsible="none"
-          className="hidden md:flex md:shrink-0 md:overflow-y-auto md:border-r md:border-border"
-        >
-          <Nav />
-        </Sidebar>
-        <main id="main-content" tabIndex={-1} className="flex-1 md:overflow-y-auto">
-          <Outlet />
-        </main>
-      </SidebarProvider>
+          <Sidebar
+            collapsible="none"
+            className="hidden md:flex md:shrink-0 md:overflow-y-auto md:border-r md:border-border"
+          >
+            <Nav />
+          </Sidebar>
+          <main id="main-content" tabIndex={-1} className="flex-1 md:overflow-y-auto">
+            <Outlet />
+          </main>
+        </SidebarProvider>
+      </Sheet>
     </div>
   );
 }

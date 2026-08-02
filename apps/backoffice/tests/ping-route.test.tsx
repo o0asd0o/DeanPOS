@@ -24,7 +24,9 @@ describe("the back-office shell's ping route", () => {
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
 
     expect(container.querySelectorAll("header")).toHaveLength(1);
-    expect(container.querySelector("header")?.textContent?.trim()).toBe("DeanPOS");
+    const header = container.querySelector("header");
+    expect(header?.textContent).toContain("DeanPOS");
+    expect(header?.querySelector('[aria-label="Open navigation"]')).toBeTruthy();
     expect(container.querySelectorAll("main")).toHaveLength(1);
     expect(container.querySelector("main")?.id).toBe("main-content");
 
