@@ -1,16 +1,8 @@
 import { ORPCError } from "@orpc/server";
 
-// The reusable wrong-tenant probe (issue 01, tenant-isolation-spine): call a
-// procedure authenticated as one Tenant, addressing another Tenant's id, and
-// assert the answer is not-found or empty — never that Tenant's row, and
-// never an error message that confirms the row exists. Eight later areas
-// call this; it is a deliverable of the tenancy-identity PRD, not a
-// convenience local to this issue.
-//
-// A procedure may refuse either way: by returning something `isRefusal`
-// accepts (this issue's `store.get` returns `null`), or by throwing a
-// `NOT_FOUND` `ORPCError`. Any other thrown error is not a refusal — it
-// propagates, so a real bug still fails the test.
+// Reusable wrong-tenant probe (issue 01): assert a procedure run as one
+// Tenant, addressing another Tenant's id, refuses — a null/empty result or
+// a NOT_FOUND ORPCError whose message doesn't confirm the row exists.
 export async function expectWrongTenantRefusal<T>(
   attempt: () => Promise<T>,
   isRefusal: (result: T) => boolean,

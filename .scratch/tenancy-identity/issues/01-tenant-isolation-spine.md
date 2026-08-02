@@ -141,12 +141,8 @@ the contract's exact key list, which necessarily changes when a second procedure
 only pre-existing test touched; ping, health, cors, and opaque-errors tests are byte-for-byte
 unchanged and still pass.
 
-**Assumption flagged, not settled by the issue:** the app role's password is a fixed, non-secret
-string (`deanpos_app`), documented in the migration and `.env.example`, on the reasoning that RLS
-`FORCE` is the actual security boundary here and the existing `docker-compose.yml` already uses
-undifferentiated default credentials (`deanpos`/`deanpos`) for the owner role. If a real secret
-per deployment is wanted for this role, that's a `decider` question, not one this issue's text
-answers.
+**The app role's password** is settled by `.scratch/decisions/027-the-app-role-credential.md`: a
+development default with a per-deployment override, never a secret store.
 
 **Self-check:** started a codex second-model review of this diff as a self-check; the
 coordinator directed closeout to proceed before it returned, so its findings are not reflected

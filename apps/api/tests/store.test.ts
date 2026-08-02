@@ -24,10 +24,10 @@ beforeAll(async () => {
     .execute();
 
   await withTenantScope(seam.db, tenantA, (db) =>
-    db.insertInto("Store").values({ id: storeA, tenantId: tenantA, name: "A's Store" }).execute(),
+    db.insertInto("Store").values({ id: storeA, tenant_id: tenantA, name: "A's Store" }).execute(),
   );
   await withTenantScope(seam.db, tenantB, (db) =>
-    db.insertInto("Store").values({ id: storeB, tenantId: tenantB, name: "B's Store" }).execute(),
+    db.insertInto("Store").values({ id: storeB, tenant_id: tenantB, name: "B's Store" }).execute(),
   );
 });
 
@@ -57,5 +57,13 @@ describe("store.get", () => {
     const store = await seam.actors.asUnauthenticated().client.store.get({ id: storeA });
 
     expect(store).toBeNull();
+  });
+
+  it("the app role cannot DELETE a Store — deactivated, never deleted (issue 01)", async () => {
+    await expect(
+      withTenantScope(seam.db, tenantA, (db) =>
+        db.deleteFrom("Store").where("id", "=", storeA).execute(),
+      ),
+    ).rejects.toThrow(/permission denied/i);
   });
 });

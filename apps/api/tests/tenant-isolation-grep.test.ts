@@ -28,7 +28,17 @@ describe("tenant isolation grep proofs", () => {
     expect(callers).toStrictEqual([join(repoRoot, "packages/backend/src/db/client.ts")]);
 
     const source = readFileSync(callers[0], "utf8");
-    expect(source).not.toMatch(/set_config\([^)]*,\s*false\s*\)/);
+    const calls = [...source.matchAll(/set_config\([^)]*\)/g)].map((m) => m[0]);
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) expect(call).toMatch(/,\s*true\s*\)$/);
+  });
+
+  it("never sets app.tenant_id with a bare SET, only via set_config(..., true)", () => {
+    const offenders = files.filter((f) =>
+      /\bSET\s+(LOCAL\s+)?app\.tenant_id\b/i.test(readFileSync(f, "utf8")),
+    );
+
+    expect(offenders).toStrictEqual([]);
   });
 
   it("constructs the connection pool in exactly one file", () => {

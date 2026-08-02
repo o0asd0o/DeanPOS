@@ -6,13 +6,28 @@ import { getStore } from "../db-operations/queries/get-store.query.ts";
 
 export const inputSchema = z.object({ id: z.string() });
 
-type StoreRow = NonNullable<Awaited<ReturnType<typeof getStore>>>;
+type StoreOutput = {
+  id: string;
+  tenantId: string;
+  name: string;
+  active: boolean;
+  createdAt: Date;
+};
 
 // Not-found or empty, never another Tenant's row — the wrong-tenant probe
 // this issue's own procedure demonstrates (issue 01, tenant-isolation-spine).
-export const handler: Handler<{ id: string }, StoreRow | null> = async ({ ctx, input }) => {
+export const handler: Handler<{ id: string }, StoreOutput | null> = async ({ ctx, input }) => {
   const store = await withTenantScope(ctx.db, ctx.principal?.tenantId ?? null, (scopedDb) =>
     getStore(scopedDb, input.id),
   );
-  return store ?? null;
+  if (!store) return null;
+  // "tenant_id" (schema.prisma @map) is the physical column; the contract's
+  // response shape stays camelCase (issue 01, findings on the tenant_id rename).
+  return {
+    id: store.id,
+    tenantId: store.tenant_id,
+    name: store.name,
+    active: store.active,
+    createdAt: store.createdAt,
+  };
 };

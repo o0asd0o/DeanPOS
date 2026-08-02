@@ -10,6 +10,7 @@ if [ ! -f .env ]; then
   # for what each name is for.
   cat > .env <<'EOF'
 DATABASE_URI=postgresql://deanpos:deanpos@localhost:5433/DeanPOS_dev
+APP_DATABASE_URI=postgresql://deanpos_app:deanpos_app@localhost:5433/DeanPOS_dev
 POSTGRES_USER=deanpos
 POSTGRES_PASSWORD=deanpos
 POSTGRES_DB=DeanPOS_dev
@@ -24,6 +25,12 @@ fi
 if ! grep -q '^VITE_API_URL=' .env; then
   echo "VITE_API_URL=http://localhost:6001" >> .env
   echo "Added VITE_API_URL to existing .env."
+fi
+
+# .scratch/decisions/027 — an .env written before this name existed never gains it.
+if ! grep -q '^APP_DATABASE_URI=' .env; then
+  echo "APP_DATABASE_URI=postgresql://deanpos_app:deanpos_app@localhost:5433/DeanPOS_dev" >> .env
+  echo "Added APP_DATABASE_URI to existing .env."
 fi
 
 vp install

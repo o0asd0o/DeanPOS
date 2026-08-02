@@ -26,10 +26,10 @@ beforeAll(async () => {
     .execute();
 
   await withTenantScope(appDb, tenantA, (db) =>
-    db.insertInto("Store").values({ id: storeA, tenantId: tenantA, name: "A's Store" }).execute(),
+    db.insertInto("Store").values({ id: storeA, tenant_id: tenantA, name: "A's Store" }).execute(),
   );
   await withTenantScope(appDb, tenantB, (db) =>
-    db.insertInto("Store").values({ id: storeB, tenantId: tenantB, name: "B's Store" }).execute(),
+    db.insertInto("Store").values({ id: storeB, tenant_id: tenantB, name: "B's Store" }).execute(),
   );
 });
 
