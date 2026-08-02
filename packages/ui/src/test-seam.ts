@@ -152,6 +152,52 @@ function lastTopLevelAnd(text: string): number {
   return found;
 }
 
+// Splits `cond ? trueBranch : falseBranch` at the `?`/`:` pair belonging to
+// the *first* top-level `?` — tracking a ternary-nesting depth so a nested
+// ternary inside `trueBranch` doesn't steal the wrong `:`. `cond` is
+// dropped, same as the left side of `&&`, since it's never a class string.
+function splitTernary(text: string): { trueBranch: string; falseBranch: string } | null {
+  let depth = 0;
+  let qIndex = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      i = skipString(text, i, ch);
+      continue;
+    }
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    else if (depth === 0 && ch === "?" && text[i + 1] !== ".") {
+      qIndex = i;
+      break;
+    }
+  }
+  if (qIndex === -1) return null;
+
+  depth = 0;
+  let ternaryDepth = 0;
+  for (let i = qIndex + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      i = skipString(text, i, ch);
+      continue;
+    }
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    else if (depth === 0 && ch === "?" && text[i + 1] !== ".") ternaryDepth++;
+    else if (depth === 0 && ch === ":") {
+      if (ternaryDepth === 0) {
+        return {
+          trueBranch: text.slice(qIndex + 1, i).trim(),
+          falseBranch: text.slice(i + 1).trim(),
+        };
+      }
+      ternaryDepth--;
+    }
+  }
+  return null;
+}
+
 interface Classification {
   rawValue: boolean;
   assembled: boolean;
@@ -185,13 +231,24 @@ function stripComments(text: string): string {
 }
 
 // One argument to a `cn(...)` call: a string literal, the `className` prop,
-// `cond && "literal"`, or a cva variants call. Anything else is a class
-// string assembled outside the attribute.
+// `cond && "literal"`, `cond ? a : b` where both branches are themselves
+// valid arguments, or a cva variants call. Anything else is a class string
+// assembled outside the attribute.
 function classifyCnArg(arg: string): Classification {
   const trimmed = stripComments(arg).trim();
   if (isStringLiteral(trimmed))
     return { rawValue: hasRawValue(stringContent(trimmed)), assembled: false };
   if (trimmed === "className") return { rawValue: false, assembled: false };
+
+  const ternary = splitTernary(trimmed);
+  if (ternary) {
+    const trueResult = classifyCnArg(ternary.trueBranch);
+    const falseResult = classifyCnArg(ternary.falseBranch);
+    if (!trueResult.assembled && !falseResult.assembled) {
+      return { rawValue: trueResult.rawValue || falseResult.rawValue, assembled: false };
+    }
+    return { rawValue: false, assembled: true };
+  }
 
   const andIndex = lastTopLevelAnd(trimmed);
   if (andIndex !== -1) {
@@ -306,7 +363,7 @@ export function assertNoRawDesignValues(dir: string): void {
   if (assemblyOffenders.length > 0) {
     messages.push(
       `className assembled outside the attribute (use a component variant, or ` +
-        `cn(...) with literal/className/cond && "literal"/cva arguments — code-standards.md rule 6) in:\n${assemblyOffenders.join("\n")}`,
+        `cn(...) with literal/className/cond && "literal"/cond ? a : b/cva arguments — code-standards.md rule 6) in:\n${assemblyOffenders.join("\n")}`,
     );
   }
   if (messages.length > 0) throw new Error(messages.join("\n\n"));

@@ -134,8 +134,17 @@ describe("assertNoRawDesignValues — className must not be assembled elsewhere"
       "cn() with a cva variants call",
       `<div className={cn(badgeVariants({ variant }), asChild && "tap-target", className)} />`,
     ],
+    [
+      "cn() with a ternary whose branches are both string literals",
+      `<div className={cn(a ? "left-0" : "right-0")} />`,
+    ],
   ])("accepts %s", (_label, line) => {
     write(line);
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+
+  it("rejects a ternary whose branch is not a literal", () => {
+    write(`<div className={cn(a ? styles : "right-0")} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
   });
 });

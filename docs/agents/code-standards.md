@@ -127,7 +127,8 @@ className={cn("size-1.5 rounded-full",
 ```
 
 A `className` value must be a string literal, or a `cn(...)` call whose every argument is a
-string literal, the `className` prop, a `cond && "literal"` expression, or a `cva` variants call
+string literal, the `className` prop, a `cond && "literal"` expression, a `cond ? a : b`
+expression whose branches are themselves valid arguments, or a `cva` variants call
 (`badgeVariants({ variant })`). `cva` is not banned — it is the generated shadcn idiom, typed
 against a variant union, unlike a `Record<string, string>` side-table where a typo silently
 renders nothing.

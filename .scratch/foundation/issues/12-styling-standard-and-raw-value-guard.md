@@ -420,3 +420,64 @@ Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS`
 Files changed: `packages/ui/src/test-seam.ts`, `packages/ui/tests/test-seam.test.ts`,
 `docs/agents/code-standards.md`. No package.json/export changes needed — `./test-seam` was already
 declared.
+
+---
+
+**Coordinator follow-up applied (same branch, same commit series).** The `sidebar.tsx:204/215`
+finding from the previous round was correct and needed a fix, not just a note: the allowed
+`cn(...)` argument shapes were missing `cond ? a : b`, an accident of enumeration rather than a
+decision — `a ? "left-0" : "right-0"` is the same "every branch is a literal" shape as
+`cond && "literal"`, already permitted.
+
+**Change:** added `splitTernary` in `packages/ui/src/test-seam.ts` — finds the first top-level `?`
+(skipping `?.` optional chaining and anything inside strings/brackets), then the `:` that closes
+*that* ternary by tracking a ternary-nesting depth so a ternary inside the true-branch doesn't
+steal the wrong `:`. `classifyCnArg` now recurses into both branches via itself (so a branch can be
+a literal, `className`, another ternary, `cond && "literal"`, or a cva call — any allowed form, not
+just a literal) and accepts only if neither branch is `assembled`. `cond` is never scanned, same
+treatment as the left side of `&&`. Updated the offender message and rule 6's allowed-shapes list
+in `docs/agents/code-standards.md` to name `cond ? a : b` alongside the existing forms, so the
+written rule and the test agree.
+
+**Tests added** in `packages/ui/tests/test-seam.test.ts`: `cn(a ? "left-0" : "right-0")` accepted;
+`cn(a ? styles : "right-0")` rejected with `/assembled outside the attribute/` (one branch is a
+bare identifier, not a literal or another allowed form). Test count 32 → 34, all passing
+(`packages/ui` test file 87/87 including these).
+
+**Real-tree re-scan**, `assertNoRawDesignValues` called directly:
+- `apps/pos/src` — clean.
+- `apps/backoffice/src` — clean.
+- `packages/ui/src` — the assembly list no longer contains `sidebar.tsx:204` or `:215`; the
+  "28-of-28 literal/prop/cva" property the human verified before adopting the ruling holds again.
+  Remaining flags, unchanged from the prior round and out of scope either way:
+  - 15 raw-value lines across `card.tsx`, `input.tsx`, `select.tsx`, `sidebar.tsx`, `table.tsx`,
+    `tabs.tsx`, `tooltip.tsx` — genuine shadcn arbitrary-value syntax inside
+    `packages/ui/src/components/`, excluded by the issue's own scope.
+  - `test-seam.ts` itself, self-flagged once on its own source text (the literal string
+    `"className"` appears in `CLASSNAME_ATTR`'s regex definition and now also in the updated
+    offender-message string) — not in either app's scanned tree, harmless, same artifact as
+    rounds 1–2.
+
+**Proof of bite (the exact case from the coordinator's probe).** Ran `assertNoRawDesignValues`
+against a scratch file directly:
+
+```
+<div className={cn(a ? styles : "right-0")} />
+```
+```
+className assembled outside the attribute (use a component variant, or cn(...) with
+literal/className/cond && "literal"/cond ? a : b/cva arguments — code-standards.md rule 6) in:
+.../X.tsx:1
+```
+
+then, on the same file rewritten as `<div className={cn(a ? "left-0" : "right-0")} />`, no throw.
+
+**Gate**, all from the worktree with the PATH prepend:
+- `vp run -w codegen` — clean.
+- `vp check` — 144 files formatted, 108 clean.
+- `vp run -r check` — 10/10 (6 cache hits, 4 rebuilt on the touched files).
+- `vp run -r test` — 10/10, `packages/ui` 87/87 (`test-seam.test.ts` 34/34), both apps'
+  `design-values.test.ts` 1/1 unchanged.
+
+Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed clean
+and on `main` before finishing.
