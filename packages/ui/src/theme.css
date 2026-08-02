@@ -92,6 +92,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Tailwind 4's bare `border` utility sets width only; the default border
+     colour is `currentColor`, not a grey. Without this, every bare `border`
+     paints in the text colour instead of `--color-border`. */
+  * {
+    border-color: var(--color-border);
+  }
+
   :focus-visible {
     outline: var(--focus-ring-width) solid var(--color-ring);
     outline-offset: var(--focus-ring-offset);

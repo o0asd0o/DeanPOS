@@ -106,6 +106,49 @@ to the `decider` rather than being guessed at in a shared component eleven areas
 `.scratch/decisions/009` already decided loading, error, empty, hover, disabled, and focus **for the
 two shells**. Read it before routing anything — the answer may already exist.
 
+**Round 1 fix (fixer, 2026-08-02).** Applied seven findings from review round 1:
+
+1. `badge.tsx` — the `statusDotVariant` lookup map replaced with inline conditionals on the dot's
+   `className`, checked against a typed `isStatusVariant` guard instead of an untyped
+   `Record<string, string>` key lookup.
+2. `badge.tsx` — `asChild` was broken for every variant: the body always rendered two children
+   (`{dotClassName ? <span/> : null}{children}`), and `Slot.Root` throws unless it resolves to
+   exactly one element. Fixed by moving the status dot to a plain sibling and wrapping only
+   `children` in `Slot.Slottable`, which is the shape Radix's `Slot` expects (the dot becomes a
+   child of the slotted element, `Slottable`'s target keeps the merged props). Added
+   `packages/ui/tests/badge.test.tsx` — two render tests, `asChild` with the default variant and
+   with `variant="success"`, using `@testing-library/react` (already used in `apps/api`). This
+   required adding `@testing-library/react`, `@testing-library/dom`, `happy-dom`, and
+   `@vitejs/plugin-react` as `packages/ui` devDependencies and a `packages/ui/vite.config.ts`
+   (the package had none); the test file opts into the `happy-dom` environment per-file via a
+   `@vitest-environment` docblock rather than globally, because `contrast.test.ts` reads
+   `theme.css` off `import.meta.url` and happy-dom's URL resolution broke that when set globally.
+3. `theme.css` — added `* { border-color: var(--color-border); } ` to `@layer base`. Tailwind 4's
+   default border colour is `currentColor`, not a token, so the bare `border` utility on `card.tsx`
+   and `table.tsx` was painting at the text colour (`#1e1e1e`) instead of `--color-border`
+   (`#8a8a8a`). A rule, not a token — the 35-token set is unchanged and `contrast.test.ts` is
+   still 49 green assertions. Build report's false claim about `border` corrected in place, below.
+4. `tap-target` applied to `select.tsx`'s `SelectItem`, `tabs.tsx`'s `TabsTrigger`, `input.tsx`'s
+   `Input`, `sidebar.tsx`'s `SidebarGroupAction`, `sidebarMenuButtonVariants` (the menu-button base,
+   covering every row), `SidebarMenuAction`, and `SidebarMenuSubButton` (a sidebar control the
+   finding's two line numbers didn't name but which is the same class of tappable primitive), and
+   conditionally on `badge.tsx`'s root (`asChild && "tap-target"`, since a non-link badge should not
+   be forced to a 44px floor).
+5. `tabs.tsx` — `p-[3px]` replaced with `p-0.75` (rescales with `--spacing`: 3px at compact,
+   3.75px at touch). Audited the rest of `packages/ui/src/components` for the same
+   arbitrary-bracket-dimension pattern (`grep -n '\[[0-9]' *.tsx`, filtered to excerpts that
+   weren't a Radix CSS var, a keyframe, or a non-dimension grid template): `tabs.tsx:24` was the
+   only hit. `card.tsx`'s `grid-rows-[auto_auto]` and `grid-cols-[1fr_auto]` are not dimensions.
+6. `table.tsx` — `TableHeader` gained `[&_tr]:bg-muted` for a distinct header surface, per
+   `orders2-with-table.webp`.
+7. `sidebar.tsx` — `sidebarMenuButtonVariants`'s base class gained `text-sidebar-foreground/70`
+   for quiet resting rows; the `hover:` and `data-[active=true]:` foreground overrides are
+   attribute/pseudo-class selectors with higher CSS specificity than the added plain-class rule,
+   so they still win regardless of source order — unchanged.
+
+Gate re-run in the worktree: `vp run -w codegen`, `vp check`, `vp run -r check`, `vp run -r test` —
+all green, including `packages/ui`'s 53 tests (49 contrast + 2 index + 2 new badge render tests).
+
 **Stripping unused `sidebar` machinery is allowed here** and was deferred from issue 13 for this
 reason: the shape is known once the skin is on. If it is stripped, the build report says what went
 and why, because a stripped component no longer matches a clean regeneration.
@@ -132,11 +175,11 @@ and why, because a stripped component no longer matches a clean regeneration.
   primitive in `packages/ui` may know about without becoming domain-aware. Issue 15 is where an
   app supplies it.
 - **Card** — radius moved `rounded-xl` → `rounded-2xl` for a more generous read. The border stays
-  the plain `border` utility, which resolves to `--color-border` (`#8a8a8a`) via the framework's
-  default border-color reset — the only border token the 35-token set (record 013) provides.
-  There is no separate quieter border token to reach for; adding one is exactly what record 013
-  says to route to the `decider` rather than invent here, and nothing about the card's separation
-  need looked new enough to raise that question.
+  the plain `border` utility. **Correction, round 1 fix:** this report's original claim that the
+  bare utility "resolves to `--color-border`" was false — Tailwind 4's default border colour is
+  `currentColor`, not a token, so `border` painted at `#1e1e1e` (the text colour) until this round
+  added a global `* { border-color: var(--color-border); }` rule to `theme.css`'s `@layer base`.
+  That is the fix, not a per-element class; it makes every bare `border` in `packages/ui` correct.
 - **Table** — `TableHead` takes an optional `sortable` boolean; when true it renders a
   `ChevronsUpDown` glyph (already-installed `lucide-react`, used elsewhere in `sidebar.tsx` and
   `select.tsx`) after the label. No sort state, no click handler, no `@tanstack/react-table` —

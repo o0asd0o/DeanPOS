@@ -28,14 +28,10 @@ const badgeVariants = cva(
   },
 );
 
-// ADR-0013 bars a saturated accent from carrying a label, so a status badge is
-// a pale `-tint` fill with the saturated `-tone` reserved for this dot.
-const statusDotVariant: Record<string, string> = {
-  success: "bg-status-success-tone",
-  warning: "bg-status-warning-tone",
-  info: "bg-status-info-tone",
-  danger: "bg-status-danger-tone",
-};
+const isStatusVariant = (
+  variant: VariantProps<typeof badgeVariants>["variant"],
+): variant is "success" | "warning" | "info" | "danger" =>
+  variant === "success" || variant === "warning" || variant === "info" || variant === "danger";
 
 function Badge({
   className,
@@ -45,19 +41,27 @@ function Badge({
   ...props
 }: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : "span";
-  const dotClassName = variant ? statusDotVariant[variant] : undefined;
 
   return (
     <Comp
       data-slot="badge"
       data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant }), asChild && "tap-target", className)}
       {...props}
     >
-      {dotClassName ? (
-        <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", dotClassName)} />
+      {isStatusVariant(variant) ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            variant === "success" && "bg-status-success-tone",
+            variant === "warning" && "bg-status-warning-tone",
+            variant === "info" && "bg-status-info-tone",
+            variant === "danger" && "bg-status-danger-tone",
+          )}
+        />
       ) : null}
-      {children}
+      <Slot.Slottable>{children}</Slot.Slottable>
     </Comp>
   );
 }
