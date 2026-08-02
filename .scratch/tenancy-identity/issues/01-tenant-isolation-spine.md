@@ -1,6 +1,6 @@
 # 01 — The tenant isolation spine and the wrong-tenant probe helper
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -148,3 +148,5 @@ development default with a per-deployment override, never a secret store.
 coordinator directed closeout to proceed before it returned, so its findings are not reflected
 here. If it surfaces anything after the fact, that is input for the `reviewer`/`fixer` step, not
 something this commit already addressed.
+
+Closed — merged to `main` as `1e51984` (3 commits, rebased). Both review axes PASS on round 2 of 2; the credential finding was overruled by [record 027](../../decisions/027-the-app-role-credential.md). The migration is applied to `DeanPOS_dev`.
