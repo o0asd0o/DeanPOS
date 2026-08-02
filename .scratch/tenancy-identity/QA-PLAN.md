@@ -45,6 +45,23 @@ procedure that exists by then.
 **If checkpoint A does not pass in one round, the run stops here.** Nothing downstream is
 worth building on an unproven spine.
 
+> **DEFERRED 2026-08-03 — not run, and not passed.** The human directed the run to continue to
+> issue 05 without executing this checkpoint. **No verdict was recorded, because none was earned**
+> — do not read this section as a PASS, and do not let a later checkpoint's PASS be taken as
+> covering 01–04.
+>
+> What is therefore unverified: sign-in **in a real browser** — the `happy-dom` cookie blind spot
+> is the one thing only QA closes, and it has already hidden a real bug once; session persistence
+> across a browser restart; idle and absolute expiry end to end; the `Origin` gate against a
+> foreign origin, the `pos.` origin, and a missing header; the admin exemption and Store-membership
+> gating exercised rather than unit-tested; and the wrong-tenant probes proven to hide a row that
+> is *there* rather than merely absent.
+>
+> Everything above was covered by the gate and by two second-model review rounds per issue. That is
+> not the same as being exercised, which is the whole reason this checkpoint exists.
+>
+> **Checkpoint B now covers 01–08, not 05–08**, unless A is run first.
+
 ## Checkpoint B — the back-office
 
 - **Runs after:** issue 08 merges
