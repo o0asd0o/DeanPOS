@@ -2,7 +2,7 @@
 
 **Who reads this:** `implementer` and `fixer` before editing, and `reviewer` when judging its Standards axis. Nobody else — `explorer`, `qa`, and `decider` never write product code, so this is not loaded into their context.
 
-Five rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it.
+Six rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rule 6 governs what it looks like.
 
 ## 1. One change, one problem
 
@@ -92,6 +92,25 @@ name or a smaller function first.
 **Style:** plain sentences, the vocabulary from the project's glossary, and no hedging. Prefer one specific line over three general ones. If the comment is longer than the code it explains, the code needs restructuring, not prose.
 
 A useful test before you keep a comment: **delete it and re-read the code.** If nothing was lost, it was noise.
+
+## 6. Style from tokens, not from raw values
+
+Colour, spacing, type, radii, and shadow come from `packages/ui` — `theme.css`'s `--color-*`,
+`--spacing`, `--text-*`, and the component library built on them. No raw hex, no arbitrary
+Tailwind value (`bg-[#35CCA6]`, `p-[13px]`, `shadow-[...]`) in application code. If a shared
+part already renders what you need, use it rather than restyling a `<div>` into a near-copy of
+it. This is enforced, not just written down — `assertNoRawDesignValues` (`packages/ui/test-seam`)
+fails the build on a breach; a rule with no test is forgotten by area 4, and a test with no rule
+is worked around by a fixer who never learned why it exists.
+
+The one constraint worth naming explicitly, because a reasonable implementer gets it wrong
+otherwise (ADR-0013): the status hues (`success`, `warning`, `info`, `danger`) are dots, chart
+series, and icons on a pale tint of themselves — **they never sit under text.** Reaching for
+`bg-status-success-tone` and putting a label on it is the predictable mistake; a `-tone` has no
+`-foreground` partner because nothing is meant to be written on it.
+
+A named, reasoned escape hatch exists for the rare legitimate case: `// design-exempt: <reason>`
+on the line immediately above, reason at least four words. No other marker suppresses it.
 
 ## When this file and the existing code disagree
 
