@@ -107,3 +107,46 @@ wiring of the same kind, and this is its first real consumer in both apps.
 and it routes as one. What changed with ADR-0013 is that colour, spacing, type, and radii now *do*
 have a source — the tokens and the `inspo` frames — so they became judgeable. Structure still comes
 from the SVGs and is judged the way it always was.
+
+## Comments
+
+**Implemented.** Both `AppShell`s took background/foreground/border tokens and a bold wordmark;
+`apps/backoffice`'s sidebar content now comes from `packages/ui`'s pulled `sidebar.tsx` parts
+(`SidebarContent`, `SidebarGroup`, `SidebarGroupLabel`, `SidebarMenu`, `SidebarMenuItem`, and the
+now-exported `sidebarMenuButtonVariants` cva), skinned per issue 14 (black active pill, quiet
+resting rows). Entries render as inert `<span>`s, not links or buttons — nothing is wired.
+
+**The mobile/desktop split deliberately stays the CSS `md:` breakpoint + `Sheet` from issue 07,
+not `Sidebar`'s own offcanvas.** `Sidebar`/`SidebarProvider`/`SidebarMenuButton` all gate on
+`useSidebar()` -> `useIsMobile()` -> `window.matchMedia`, which happy-dom (the render-test
+environment for both apps) does not implement — mounting them would fail every render test that
+touches the shell. A JS-driven mobile switch is also exactly the first-paint flash record 009
+rules out for the sibling shell, so this isn't only a test-environment workaround. Issue 14's
+Comments section left this choice open ("No app has consumed `Sidebar` yet ... issue 15" ), so
+it is not re-litigating a settled decision.
+
+**The five `sheet` behaviours, re-verified on the swapped-in nav content, in a live browser at
+375×812:**
+- Focus trap — confirmed via the accessibility tree (`FocusScope` wraps the content; tabbing
+  stays inside while open).
+- Escape — closes the sheet.
+- `aria-modal` — **not present.** Traced to the pinned `@radix-ui/react-dialog@1.1.23`'s own
+  `DialogContentImpl` (`role: "dialog"` is set; `aria-modal` is not, in either the modal or
+  non-modal branch). This is untouched by this issue — `packages/ui/src/components/sheet.tsx`
+  has no diff here — and was already true before this issue for any `Sheet` consumer. Reporting
+  it as a pre-existing gap, not a regression.
+- Scroll lock — confirmed (`document.body`'s computed `overflow` is `hidden` while open).
+- Focus restoration — confirmed (closing via Escape returns visible focus to the trigger button).
+
+**Manrope and the touch scale, verified in a live browser, not just by reading `theme.css`:**
+the font request in the network panel resolves to `packages/ui/src/fonts/Manrope-Variable.woff2`
+under `@fs`, no external host. At `data-density="touch"`, computed `--tap-size` is `44px` and
+`--spacing` is `0.3125rem` (`h-9` renders at 45px) — the ×1.25 scale holds the 44px floor as
+record 013 predicted; no correction needed.
+
+**One `packages/ui` export added:** `sidebarMenuButtonVariants` (from `sidebar.tsx`, re-exported
+from `index.ts`) so `apps/backoffice` can apply the pulled pill styling to a non-interactive
+`<span>` without duplicating the cva string. Not in the issue's `Relevant files` list; flagged
+here rather than silently included.
+
+Gate run independently: `vp run -w codegen; vp check; vp run -r check; vp run -r test` — all pass.
