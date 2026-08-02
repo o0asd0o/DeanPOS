@@ -1,6 +1,9 @@
 # 10 — The theme reference set, and what fidelity now means
 
-**Status:** ready-for-agent
+**Status:** done — `inspo/README.md` written from direct measurement of the six frames; two
+existing READMEs amended. The frame's grid numbers do not reconcile and are recorded as
+unimportable; ADR-0013's own 12-column claim is inaccurate against the asset and is carried to the
+human, not patched here.
 
 ## What to build
 
