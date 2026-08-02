@@ -80,7 +80,7 @@ describe("platformAdmin.provisionTenant", () => {
     expect(users[0]?.role).toBe("admin");
     expect(users[0]?.must_change_password).toBe(true);
     expect(users[0]?.password_hash).not.toBe("temporary-password-1");
-    expect(users[0]?.password_hash).toMatch(/^\$argon2id\$/);
+    expect(users[0]?.password_hash).toMatch(/^\$scrypt\$/);
   });
 
   it("writes an audit row naming the actor, the action, and the Tenant", async () => {

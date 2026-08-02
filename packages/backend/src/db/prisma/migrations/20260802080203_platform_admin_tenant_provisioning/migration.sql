@@ -70,11 +70,11 @@ ALTER TABLE "PlatformAdmin" FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE "PlatformAuditLog" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "PlatformAuditLog" FORCE ROW LEVEL SECURITY;
-CREATE POLICY "platform_audit_log_scope" ON "PlatformAuditLog"
-  USING ("tenant_id" = current_setting('app.tenant_id', true));
+CREATE POLICY "platform_audit_log_append" ON "PlatformAuditLog"
+  FOR INSERT WITH CHECK ("tenant_id" = current_setting('app.tenant_id', true));
 
--- Tenant deliberately gets no policy here. See the blocker noted in
--- .scratch/tenancy-identity/issues/02-platform-admin-tenant-provisioning.md
--- Comments: how deanpos_app is meant to INSERT a Tenant row at all, given
--- issue 01's locked acceptance test that Tenant stays unreachable from any
--- tenant-scoped connection, is an open DB-design question routed to the decider.
+-- INSERT-only policy: an INSERT policy has no USING clause, so it cannot
+-- also grant SELECT the way a USING-based FOR ALL policy would (record 029).
+CREATE POLICY "tenant_provision_insert" ON "Tenant"
+  FOR INSERT WITH CHECK ("id" = current_setting('app.tenant_id', true));
+REVOKE UPDATE, DELETE ON "Tenant" FROM "deanpos_app";
