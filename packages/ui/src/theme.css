@@ -132,6 +132,13 @@
     outline-offset: var(--focus-ring-offset);
   }
 
+  /* Tailwind 4 dropped the browser's default pointer on buttons. One rule here
+     rather than a class per component, so a `shadcn add` inherits it too. */
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   /* WCAG 2.2 SC 2.3.3. Near-zero rather than `none`: Radix unmounts on the
      animation-end event, and a removed animation never fires one. */
   @media (prefers-reduced-motion: reduce) {
