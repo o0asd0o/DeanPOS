@@ -1,6 +1,6 @@
 # 03 — Back-office sign-in, session, sign-out, and the `Origin` gate
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -194,3 +194,21 @@ levels regardless of tooling.
    - Gate: 243 tests green (236 + 7 new). `with-tenant-scope.test.ts` and
      `tenant-isolation-grep.test.ts` stayed zero-line diffs; `set_config` stayed at one call
      site.
+
+**Closed — merged to `main` as `34964ed` (4 commits, rebased).** Both review axes PASS.
+Two decision records were written for this issue:
+[030](../../decisions/030-the-back-office-sign-in-screen.md) filled the lo-fi gaps the mock
+leaves undrawn, and [031](../../decisions/031-how-a-query-with-no-tenant-reads-a-row.md)
+overturned the first RLS design — the implementer flagged that one against itself. The
+migration is applied to `DeanPOS_dev`.
+
+**Carried to QA checkpoint A.** `happy-dom` enforces the WHATWG rule that scripts cannot read
+or set `Cookie`/`Set-Cookie`, so the browser-side cookie round trip cannot be tested in
+`apps/backoffice`. It is proven server-side under Node instead. The one bug this blind spot
+hid — a missing `credentials: "include"`, which broke sign-in in a real browser while all 236
+server-side tests passed — is fixed and now asserted on both the request and the
+`Access-Control-Allow-Credentials` response header.
+
+**Open, routed to the human by record 030:** no password policy exists (length, composition,
+breach check), and there is no rate limiting or lockout on sign-in. Issue 11 covers PIN
+lockout, not password.
