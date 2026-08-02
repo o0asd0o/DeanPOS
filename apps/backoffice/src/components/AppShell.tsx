@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet } from "@tanstack/react-router";
 import {
   Sheet,
@@ -17,6 +18,12 @@ import { SignOutButton } from "./SignOutButton.tsx";
 // carries a skip link and a `<nav>`. The wordmark sits at the sidebar's top,
 // where both mocks draw it; landmark count: .scratch/decisions/021.
 export function AppShell() {
+  const [navOpen, setNavOpen] = useState(false);
+  // Held open briefly so the tapped row reads as selected before the drawer
+  // slides away. This Sheet is the mobile nav; the sidebar's own `openMobile`
+  // is unused here, both Sidebars being `collapsible="none"`.
+  const closeNavAfterSelect = () => setTimeout(() => setNavOpen(false), 300);
+
   return (
     <div className="scrollbar-slim flex h-dvh flex-col bg-background text-foreground">
       <a
@@ -25,7 +32,7 @@ export function AppShell() {
       >
         Skip to content
       </a>
-      <Sheet>
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
         {/* The 390 mock's single top bar, and the only chrome row before `<main>`
             at that width — issue 07's QA round 1. Not a `<header>`: the page's one
             banner is the sidebar's, and this row does not exist at `md`. */}
@@ -39,7 +46,7 @@ export function AppShell() {
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <Sidebar collapsible="none" className="h-full w-full">
               <SidebarBrand />
-              <Nav />
+              <Nav onNavigate={closeNavAfterSelect} />
               <SidebarFooter>
                 <SignOutButton />
               </SidebarFooter>

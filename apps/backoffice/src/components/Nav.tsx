@@ -52,13 +52,13 @@ const ADMINISTRATION: NavItem[] = [
 
 // Three named groups, not the mock's two — record 022. Every entry routes to a
 // `Placeholder`; the screens themselves belong to later areas. Record 020.
-export function Nav() {
+export function Nav({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
       <SidebarContent>
-        <NavGroup label="Reports" items={REPORTS} />
-        <NavGroup label="Operations" items={OPERATIONS} />
-        <NavGroup label="Administration" items={ADMINISTRATION} />
+        <NavGroup label="Reports" items={REPORTS} onNavigate={onNavigate} />
+        <NavGroup label="Operations" items={OPERATIONS} onNavigate={onNavigate} />
+        <NavGroup label="Administration" items={ADMINISTRATION} onNavigate={onNavigate} />
       </SidebarContent>
     </nav>
   );

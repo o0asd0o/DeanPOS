@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, PasswordInput } from "ui";
 
 import { ErrorState } from "../../components/ErrorState.tsx";
 
@@ -60,10 +60,9 @@ export function SignIn() {
           </div>
           <div className="flex flex-col gap-2">
             <label htmlFor="password">Password</label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               value={password}

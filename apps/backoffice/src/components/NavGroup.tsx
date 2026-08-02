@@ -16,7 +16,15 @@ export type NavItem = { label: string; icon: LucideIcon; to: LinkProps["to"] };
 // One entry of Nav's structure: an optional heading, then links styled by the
 // pulled sidebar's pill classes. `useId` keeps the heading/list pairing intact
 // without a fixed id colliding when `Nav` mounts twice (desktop + Sheet).
-export function NavGroup({ label, items }: { label?: string; items: NavItem[] }) {
+export function NavGroup({
+  label,
+  items,
+  onNavigate,
+}: {
+  label?: string;
+  items: NavItem[];
+  onNavigate?: () => void;
+}) {
   const headingId = useId();
   const matchRoute = useMatchRoute();
 
@@ -32,7 +40,7 @@ export function NavGroup({ label, items }: { label?: string; items: NavItem[] })
           {items.map(({ label: item, icon: Icon, to }) => (
             <SidebarMenuItem key={item}>
               <SidebarMenuButton asChild isActive={Boolean(matchRoute({ to }))}>
-                <Link to={to}>
+                <Link to={to} onClick={onNavigate}>
                   <Icon aria-hidden="true" />
                   <span>{item}</span>
                 </Link>

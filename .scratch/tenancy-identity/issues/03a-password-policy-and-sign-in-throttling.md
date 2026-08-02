@@ -96,7 +96,8 @@ asking (not done here — out of scope for this issue).
 
 **What was built:**
 
-- `packages/schemas/src/password.ts` — the canonical `PASSWORD_MIN_LENGTH` (15) /
+- `packages/schemas/src/password.ts` — the canonical `PASSWORD_MIN_LENGTH` (15, lowered to 8
+  by record 032's amendment of 2026-08-03) /
   `PASSWORD_MAX_LENGTH` (128), `normalizePassword` (trim → NFC), `passwordSchema` (the full
   policy, for set/provision) and `signInPasswordSchema` (normalise + bound only, no minimum).
   Lives in `schemas` rather than `backend` so `contract` can import it without depending on

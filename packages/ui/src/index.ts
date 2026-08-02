@@ -46,6 +46,16 @@ export {
 } from "./components/card.tsx";
 export { Badge, badgeVariants } from "./components/badge.tsx";
 export {
+  Dialog,
+  DialogTrigger,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "./components/dialog.tsx";
+export {
   Table,
   TableHeader,
   TableBody,
@@ -69,4 +79,5 @@ export {
   SelectValue,
 } from "./components/select.tsx";
 export { Input } from "./components/input.tsx";
+export { PasswordInput } from "./components/password-input.tsx";
 export { cn } from "./lib/utils.ts";

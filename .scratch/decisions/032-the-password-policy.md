@@ -5,6 +5,24 @@
 - **Date:** 2026-08-02
 - **Asked by:** human (delegated back from `.scratch/decisions/030-the-back-office-sign-in-screen.md`, which refused it; originally `.scratch/tenancy-identity/issues/03-backoffice-sign-in-and-session.md`)
 
+**Amended 2026-08-03** (this record, by the human directly): **`PASSWORD_MIN_LENGTH`
+is 8, not 15.** This is option 3 of the ranked list — the successor this record
+pre-decided and priced at one constant — taken by direct instruction rather than by
+the named re-check trigger firing. Everything else stands unchanged: no composition
+rules, max 128, trim → NFC → code points, one module, no minimum at sign-in, no
+rotation, and the PIN still inherits nothing.
+
+It is a **knowing, recorded deviation from a SHALL** — SP 800-63B-4 §3.1.1.2 item 1
+allows eight only for passwords used as part of multi-factor authentication, and
+this product has no second factor. The deviation is logged the same way the
+deferred breach screening is, and it stays live until MFA lands or the minimum is
+raised. Raising it is still the expensive direction this record describes: every
+account created at 8 is grandfathered or force-changed, and a superseding record
+plus `mustChangePassword` is the mechanism. The two copy strings move with the
+constant — the hint reads `At least 8 characters`, the rejection reads
+`Password must be at least 8 characters` — and the native `minLength` on both
+inputs follows.
+
 ## The question
 
 Sign-in is merged and live, and there is no password policy anywhere in the

@@ -7,7 +7,7 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "backend/src/auth/passw
 import { createDb } from "backend/src/db/client.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
-// Record 032: fifteen characters minimum, 128 maximum, applied at both
+// Record 032, amended 2026-08-03: eight characters minimum, 128 maximum, at both
 // places a password is created. Sign-in never enforces the minimum — see
 // sign-in.test.ts and the non-ASCII round-trip below.
 const seam = createTestSeam();
@@ -103,13 +103,13 @@ describe("the password policy on auth.setPassword", () => {
 });
 
 describe("the password policy on platformAdmin.provisionTenant", () => {
-  it("refuses an eight-character password — the merged contradiction of record 032", async () => {
+  it("refuses a password below the minimum — the merged contradiction of record 032", async () => {
     const result = seam.actors
       .asPlatformAdmin(platformAdminId)
       .client.platformAdmin.provisionTenant({
         tenantName: "Should Not Provision",
         adminEmail: `refused-${randomUUID()}@new-restaurant.test`,
-        adminPassword: "eightchr",
+        adminPassword: "a".repeat(PASSWORD_MIN_LENGTH - 1),
       });
 
     await expect(result).rejects.toThrow();
@@ -122,11 +122,11 @@ describe("the password policy on platformAdmin.provisionTenant", () => {
     expect(leaked).toStrictEqual([]);
   });
 
-  it("accepts a fifteen-character admin password", async () => {
+  it("accepts an admin password of exactly the minimum length", async () => {
     const result = await seam.actors
       .asPlatformAdmin(platformAdminId)
       .client.platformAdmin.provisionTenant({
-        tenantName: "Fifteen Char Restaurant",
+        tenantName: "Minimum Length Restaurant",
         adminEmail: `owner-${randomUUID()}@new-restaurant.test`,
         adminPassword: "a".repeat(PASSWORD_MIN_LENGTH),
       });

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-// SP 800-63B-4 §3.1.1.2, item 1: 15 is the single-factor minimum, not the
-// multi-factor allowance of 8 — this product has no second factor. See
-// .scratch/decisions/032-the-password-policy.md.
-export const PASSWORD_MIN_LENGTH = 15;
+// 8 by the human's direct instruction — record 032's pre-decided successor,
+// amended 2026-08-03. A knowing deviation from SP 800-63B-4 §3.1.1.2 item 1,
+// which allows 8 only with a second factor. See .scratch/decisions/032.
+export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
 // Trim then NFC (SP 800-63B-4 §3.1.1.2). Called from both the set-password

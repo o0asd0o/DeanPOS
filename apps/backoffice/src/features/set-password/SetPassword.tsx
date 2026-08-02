@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { ORPCError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
 
 import { ErrorState } from "../../components/ErrorState.tsx";
 
@@ -68,15 +68,14 @@ export function SetPassword() {
           <div className="flex flex-col gap-2">
             <label htmlFor="new-password">New password</label>
             <p id="new-password-hint" className="text-sm text-foreground">
-              At least 15 characters. Any characters, including spaces — there are no other rules.
+              At least 8 characters. Any characters, including spaces — there are no other rules.
             </p>
-            <Input
+            <PasswordInput
               id="new-password"
               name="new-password"
-              type="password"
               autoComplete="new-password"
               required
-              minLength={15}
+              minLength={8}
               aria-describedby="new-password-hint"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
@@ -84,13 +83,12 @@ export function SetPassword() {
           </div>
           <div className="flex flex-col gap-2">
             <label htmlFor="confirm-password">Confirm new password</label>
-            <Input
+            <PasswordInput
               id="confirm-password"
               name="confirm-password"
-              type="password"
               autoComplete="new-password"
               required
-              minLength={15}
+              minLength={8}
               aria-invalid={mismatch}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}

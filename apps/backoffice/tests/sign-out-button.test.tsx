@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { fireEvent, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
+import { fireEvent, renderRoute, screen, waitFor, within } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { router } from "../src/router.tsx";
@@ -17,13 +17,34 @@ describe("the shell's sign-out control", () => {
     cleanup = undefined;
   });
 
-  it("signs out and returns to the sign-in screen", async () => {
+  // Runs before the confirming case: `router` is a module singleton, so once a
+  // test signs out it stays on /login for the rest of the file.
+  it("cancelling closes the dialog and stays in the shell", async () => {
+    const { db } = renderRoute({ router, tenantId });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    const dialog = await waitFor(() => screen.getByRole("dialog"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("heading", { name: "DeanPOS back-office" })).toBeNull();
+  });
+
+  it("confirms first, then signs out and returns to the sign-in screen", async () => {
     const { container, db } = renderRoute({ router, tenantId });
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    const dialog = await waitFor(() => screen.getByRole("dialog"));
+    expect(within(dialog).getByText("Are you sure you want to logout?")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Sign out" }));
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "DeanPOS back-office" })).toBeTruthy(),

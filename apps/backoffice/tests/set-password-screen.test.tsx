@@ -45,11 +45,11 @@ describe("the set-password screen", () => {
     // floor; the ceiling is server-only.
     expect(
       screen.getByText(
-        "At least 15 characters. Any characters, including spaces — there are no other rules.",
+        "At least 8 characters. Any characters, including spaces — there are no other rules.",
       ),
     ).toBeTruthy();
-    expect(newPassword.getAttribute("minlength")).toBe("15");
-    expect(confirmPassword.getAttribute("minlength")).toBe("15");
+    expect(newPassword.getAttribute("minlength")).toBe("8");
+    expect(confirmPassword.getAttribute("minlength")).toBe("8");
     expect(newPassword.getAttribute("maxlength")).toBeNull();
     expect(confirmPassword.getAttribute("maxlength")).toBeNull();
 

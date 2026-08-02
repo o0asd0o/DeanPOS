@@ -22,12 +22,12 @@ describe("normalizePassword", () => {
 
 describe("passwordSchema", () => {
   it("accepts exactly the minimum length, in code points", () => {
-    const fifteen = "a".repeat(PASSWORD_MIN_LENGTH);
-    expect(passwordSchema.parse(fifteen)).toBe(fifteen);
+    const atMinimum = "a".repeat(PASSWORD_MIN_LENGTH);
+    expect(passwordSchema.parse(atMinimum)).toBe(atMinimum);
   });
 
   it("refuses a password shorter than the minimum with the named message", () => {
-    const result = passwordSchema.safeParse("short but ok?");
+    const result = passwordSchema.safeParse("a".repeat(PASSWORD_MIN_LENGTH - 1));
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe(
       `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
@@ -43,10 +43,10 @@ describe("passwordSchema", () => {
   });
 
   it("counts code points, not UTF-16 units — a string of emoji each 2 units long", () => {
-    // Each 😀 is one code point but two UTF-16 units; `.length` would see 30.
-    const fifteenEmoji = "\u{1F600}".repeat(PASSWORD_MIN_LENGTH);
-    expect(fifteenEmoji).toHaveLength(PASSWORD_MIN_LENGTH * 2);
-    expect(passwordSchema.safeParse(fifteenEmoji).success).toBe(true);
+    // Each 😀 is one code point but two UTF-16 units; `.length` would see double.
+    const emojiAtMinimum = "\u{1F600}".repeat(PASSWORD_MIN_LENGTH);
+    expect(emojiAtMinimum).toHaveLength(PASSWORD_MIN_LENGTH * 2);
+    expect(passwordSchema.safeParse(emojiAtMinimum).success).toBe(true);
   });
 
   it("rejects a password that only clears the minimum before trimming", () => {
