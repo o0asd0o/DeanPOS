@@ -15,3 +15,26 @@ model Ping {
   message   String   @default("pong")
   createdAt DateTime @default(now())
 }
+
+// The isolation root (ADR-0002). Outside tenant RLS by construction — no
+// tenant_id column of its own, reachable only through platform-admin paths
+// (issue 02). No RLS is enabled on this table.
+model Tenant {
+  id        String   @id
+  name      String
+  createdAt DateTime @default(now())
+  stores    Store[]
+}
+
+// Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
+// FORCED in the same migration that creates this table.
+model Store {
+  id        String   @id
+  tenantId  String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}

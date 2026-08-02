@@ -6,7 +6,9 @@ export type Env = {
 };
 
 export const ENV_KEYS = {
-  databaseUrl: "DATABASE_URI",
+  // The app connects as the restricted role, never the migration owner
+  // (DATABASE_URI) — issue 01, tenant-isolation-spine.
+  databaseUrl: "APP_DATABASE_URI",
   appDomain: "APP_DOMAIN",
 } as const;
 

@@ -78,3 +78,77 @@ _Sliced from `.scratch/tenancy-identity/PRD.md` — ADR-0002, Security criteria 
 "Further Notes" warning that a second connection path makes this area uncompletable. If a
 second path to a connection is found, raise it as a blocker rather than setting the session
 variable in two places._
+
+### Implementer notes (2026-08-02)
+
+**No second connection path found.** `createDb` in `packages/backend/src/db/client.ts` remains
+the only place `new Pool(...)` is constructed; a grep test
+(`apps/api/tests/tenant-isolation-grep.test.ts`) asserts this and asserts `set_config(` appears
+in exactly one file, transaction-local (`, true`), never a bare `false`.
+
+**What was built.**
+
+- `Tenant` and `Store` tables, one migration
+  (`packages/backend/src/db/prisma/migrations/20260802065946_tenant_isolation_spine`). `Store`
+  gets RLS `ENABLE` + `FORCE` and a policy `"tenantId" = current_setting('app.tenant_id', true)`
+  in that same migration. `Tenant` also gets `ENABLE` + `FORCE` but **no policy at all** — Postgres
+  denies every row to a non-owner role when RLS is on with zero policies, which is how "Tenant
+  sits outside tenant RLS and is unreachable from a tenant-scoped principal" is satisfied for this
+  issue; issue 02 adds whatever platform-admin path is meant to reach it.
+- A restricted role `deanpos_app`, created by the same migration (`LOGIN` only — no `SUPERUSER`,
+  no `CREATEROLE`, not the table owner). Verified directly against the lane database: `rolsuper`
+  and `rolbypassrls` both `f`. The app and the test seam now connect through `APP_DATABASE_URI`
+  (new), while migrations still run through `DATABASE_URI` (the owner) — the split decision 005
+  already established for the owner side, extended here for the app side.
+- `packages/backend/src/db/client.ts` gains `withTenantScope(db, tenantId, fn)`: opens
+  `db.transaction().execute(...)`, calls `set_config('app.tenant_id', $1, true)` only when
+  `tenantId` is non-null, then runs `fn` on the transaction-bound Kysely handle. This is the only
+  code path that ever sets the tenant.
+- `Ctx` (`packages/backend/src/common/ctx.ts`) gains `principal?: Principal | null` —
+  `{ tenantId: string }`. Optional, so `apps/api` tests that build `{ db }` directly (ping,
+  health) needed no changes and still typecheck.
+- `apps/api/src/app.ts`'s `createApp` gains an optional `principal`, used only by the test seam
+  (`apps/api/src/test-seam.ts`), never by production entry points (`index.ts`, `dev.ts`). Ctx is
+  still built once per app instance rather than per HTTP request — deliberate for this issue,
+  since no real request-derived principal exists until issue 03 builds sessions; the seam gets
+  per-actor scoping by building one Hono app instance per actor
+  (`test-seam.ts`'s `buildActor`), all sharing the one `db` from `createDb`. Issue 03 is where
+  per-request derivation from a real session/token needs to land, and that will need this
+  middleware to move from "closure captured at app-build time" to "read per request" — flagging
+  it now so it isn't mistaken for finished work.
+- A demonstration procedure, `store.get` (`packages/contract/src/contract.ts`,
+  `apps/api/src/routes/store.ts`, `packages/backend/src/store/**`), used by this issue's own
+  wrong-tenant probe test. Its query (`get-store.query.ts`) filters only by `id`, never by
+  `tenantId` — the zero-rows-for-a-wrong-tenant result comes from RLS, not a repository filter.
+- The reusable probe helper, `expectWrongTenantRefusal`
+  (`apps/api/src/wrong-tenant-probe.ts`), accepting either a non-throwing refusal (`store.get`
+  returns `null`) or a thrown `ORPCError` with code `NOT_FOUND`, and failing if a `NOT_FOUND`
+  message contains "tenant" or "exists".
+- `docker-compose.yml`'s `api` service and `.env.example` both gained `APP_DATABASE_URI` — the
+  written-down provisioning the acceptance criteria asks for: both a lane (this worktree's
+  `.env`, gitignored, updated locally so the gate runs) and a deployment (`docker-compose.yml`,
+  tracked) point the running app at the same restricted role the migration creates.
+
+**Verified directly against Postgres**, not just inferred from the SQL: seeded two Tenants and
+two Stores as the owner role, confirmed the app role sees zero Store rows with no tenant set,
+exactly its own Store with the tenant set, zero rows for the *other* tenant's Store id addressed
+directly, zero Tenant rows under any condition, and an `INSERT` into `Tenant` as the app role
+raises `new row violates row-level security policy`.
+
+**Gate:** `vp run -w codegen`, `vp check` (`--fix` needed once for formatting), `vp run -r check`,
+and `vp run -r test` all green. `packages/contract/tests/index.test.ts` was updated (it asserted
+the contract's exact key list, which necessarily changes when a second procedure is added) — the
+only pre-existing test touched; ping, health, cors, and opaque-errors tests are byte-for-byte
+unchanged and still pass.
+
+**Assumption flagged, not settled by the issue:** the app role's password is a fixed, non-secret
+string (`deanpos_app`), documented in the migration and `.env.example`, on the reasoning that RLS
+`FORCE` is the actual security boundary here and the existing `docker-compose.yml` already uses
+undifferentiated default credentials (`deanpos`/`deanpos`) for the owner role. If a real secret
+per deployment is wanted for this role, that's a `decider` question, not one this issue's text
+answers.
+
+**Self-check:** started a codex second-model review of this diff as a self-check; the
+coordinator directed closeout to proceed before it returned, so its findings are not reflected
+here. If it surfaces anything after the fact, that is input for the `reviewer`/`fixer` step, not
+something this commit already addressed.

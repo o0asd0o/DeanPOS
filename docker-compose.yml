@@ -28,7 +28,12 @@ services:
     image: deanpos/api:${IMAGE_TAG:-dev}
     restart: unless-stopped
     environment:
-      DATABASE_URI: postgresql://${POSTGRES_USER:-deanpos}:${POSTGRES_PASSWORD:-deanpos}@postgres:5432/${POSTGRES_DB:-DeanPOS_dev}
+      # The app connects as the restricted role the migration provisions
+      # (packages/backend/src/db/prisma/migrations/
+      # 20260802065946_tenant_isolation_spine) — never the POSTGRES_USER
+      # owner above. Migrations themselves still run against DATABASE_URI,
+      # from the host, via `vp run -w migrate`. Issue 01, tenant-isolation-spine.
+      APP_DATABASE_URI: postgresql://deanpos_app:deanpos_app@postgres:5432/${POSTGRES_DB:-DeanPOS_dev}
       APP_DOMAIN: ${APP_DOMAIN:-deanpos.localhost}
     depends_on:
       postgres:
