@@ -1,6 +1,6 @@
 # 03a — The password policy and sign-in throttling
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -200,3 +200,25 @@ New regression tests in `apps/api/tests/sign-in-throttle.test.ts`: firing `EMAIL
 `EMAIL_FAILURE_LIMIT` times (written to fail against the round-1 ordering first — confirmed:
 it called `verifyPassword` all 20 times before this fix); and a successful sign-in leaving the
 IP key's stored `failures` value unchanged rather than deleted.
+
+**Closed 2026-08-02.** Merged to `main`; gate green at 268 tests, migration proven from an
+empty database. 2 fix rounds, both review rounds by a second model.
+
+Two decisions were made during it, both **`Stakes: high`** and both taken by the human directly
+rather than the decider:
+
+- [**034** — the throttle holds under concurrency](../../decisions/034-the-throttle-under-concurrency.md).
+  The shipped ordering read the counter, ran a **measured 259 ms** `scryptSync` blocking the whole
+  API, then wrote the counter — so N concurrent requests all read "not locked" and all reached the
+  hash. The reservation is now the check: one atomic upsert before the hash, released by
+  **decrementing** on success, never by clearing, which is what keeps record 033's spraying clause
+  intact.
+- [**035** — the self-lifting lock is deferred to `hardening`](../../decisions/035-the-throttle-lock-is-deferred-to-hardening.md).
+  Implementing 034 also removed record 033's lock. Refused attempts now advance `updated_at`, so an
+  attacker attempting once every 29 minutes keeps a known address locked indefinitely and the owner
+  never gets a gap. **Merged knowingly** — `main` had no throttle at all — with the fix, the dead
+  `locked_until` column, and the test that would catch it all named on `.scratch/hardening/PRD.md`.
+
+**The `verifyPassword` figure the issue asked for: 258.9 ms mean under `bun`** (range 258.2–260.5,
+10 runs). That is the API's per-request block time, and the reason throttle-before-hash is
+mandatory rather than preferred.
