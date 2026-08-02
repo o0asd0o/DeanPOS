@@ -7,8 +7,10 @@ P, PH = 390, 844
 DESK = "backoffice · desktop 1440x900"
 PHONE = "backoffice · phone 390x844"
 
-# (label, depth). Reports is a group: the eight sales reports are its children, and
-# `Summary` is also the back-office landing page. There is no separate Dashboard.
+# (label, depth). Three groups, each a depth-0 heading over its depth-1 entries.
+# `Summary` is also the back-office landing page; there is no separate Dashboard.
+# `Drawer sessions` is a shift you open and close, not a report you read, so it
+# heads Operations. Grouping decided by .scratch/decisions/022.
 NAV = [
     ("Reports", 0),
     ("Summary", 1),
@@ -19,16 +21,18 @@ NAV = [
     ("By payment method", 1),
     ("Discounts & overrides", 1),
     ("Refunds", 1),
+    ("Operations", 0),
     ("Drawer sessions", 1),
-    ("Catalog", 0),
-    ("Add-ons", 0),
-    ("Discounts", 0),
-    ("Availability", 0),
-    ("Devices", 0),
-    ("Users", 0),
-    ("Roster", 0),
-    ("Settings", 0),
-    ("Quarantine", 0),
+    ("Catalog", 1),
+    ("Add-ons", 1),
+    ("Discounts", 1),
+    ("Availability", 1),
+    ("Administration", 0),
+    ("Devices", 1),
+    ("Users", 1),
+    ("Roster", 1),
+    ("Settings", 1),
+    ("Quarantine", 1),
 ]
 
 

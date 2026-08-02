@@ -11,6 +11,12 @@ Captured 2026-08-02, before QA ran, and committed. QA compares against **these f
 | `backoffice-shell-390.svg` | `design/lofi/backoffice/reports-summary-390.svg` | back-office shell + nav | 390, phone |
 | `LOFI-CONTRACT.md` | `design/lofi/README.md` | what the mocks do and do not decide | — |
 
+**These copies are frozen at capture and one of them is now knowingly out of date.**
+`.scratch/decisions/022` split the back-office nav into three named groups — Reports, Operations,
+Administration — overriding the two blocks `backoffice-shell-*.svg` draws here. `design/lofi/` was
+regenerated to match; **these files were not**, because rewriting a QA baseline after the PRD it
+judged has closed destroys the audit trail. The disagreement is deliberate, not drift.
+
 ## Only the chrome is in scope
 
 Both source mocks draw a full screen, and **most of what they draw belongs to a later area.**

@@ -78,6 +78,11 @@ problem — it renders no transition class and cannot be collapsed.
 
 ### The second finding: hover on rows that are not links
 
+> **Overturned by `.scratch/decisions/018` (2026-08-02).** `pointer-events-none` is off the
+> nav rows: 009's no-hover-on-non-interactive sentence is scoped back to `apps/pos`. This
+> subsection is kept as written for the audit trail. **The mounting decision above and the
+> rest of this record are unaffected.**
+
 `NavGroup` puts the sidebar's menu-button classes on inert `<span>` rows. Those classes
 include `hover:` and `active:` background and text changes, so pointing at "Orders" paints
 a row that looks pressable and does nothing. Record 009 already settles the principle
@@ -259,6 +264,9 @@ than hidden, it is unavoidable in options 1, 3 and 4 alike so it separates nothi
 is named below as a thing that could make this record wrong.
 
 ## What issue 15's acceptance criterion becomes
+
+> **Amended again by `.scratch/decisions/018`.** The replacement text below is superseded in
+> its final clause only — the inert-row sentence. The mounting sentence stands.
 
 The third criterion is **amended**. Replace:
 

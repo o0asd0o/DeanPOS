@@ -12,7 +12,7 @@
 @theme {
   /* Surfaces, neutrals, sidebar — shadcn's vocabulary. Do not rename: generated
      components consume these names and every `shadcn add` expects them. */
-  --color-background: #fafaf7;
+  --color-background: #eff4f7;
   --color-foreground: #1e1e1e;
   --color-card: #ffffff;
   --color-card-foreground: #1e1e1e;
@@ -71,6 +71,13 @@
 @utility tap-target {
   min-inline-size: var(--tap-size);
   min-block-size: var(--tap-size);
+}
+
+/* Thumb only — no track fill, no track border. Both properties inherit, so one
+   application covers every scroller under it. Record 023. */
+@utility scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) transparent;
 }
 
 @layer base {

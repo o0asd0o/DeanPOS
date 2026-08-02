@@ -23,10 +23,15 @@ describe("the back-office shell's ping route", () => {
 
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
 
+    // The page's one `<header>` is the sidebar's, not a full-width bar (record 021),
+    // so issue 07's QA-round-1 assertion that the `☰` sits inside it no longer holds.
+    // What that round actually bought — a single chrome row before `<main>` at 390 —
+    // is now structural: the trigger's row is `md:hidden` and there is nothing above it.
     expect(container.querySelectorAll("header")).toHaveLength(1);
     const header = container.querySelector("header");
     expect(header?.textContent).toContain("DeanPOS");
-    expect(header?.querySelector('[aria-label="Open navigation"]')).toBeTruthy();
+    expect(header?.closest('[data-slot="sidebar"]')).toBeTruthy();
+    expect(screen.getByLabelText("Open navigation")).toBeTruthy();
     expect(container.querySelectorAll("main")).toHaveLength(1);
     expect(container.querySelector("main")?.id).toBe("main-content");
 
@@ -36,9 +41,11 @@ describe("the back-office shell's ping route", () => {
     const navText = nav?.textContent ?? "";
     expect(navText.indexOf("Reports")).toBeLessThan(navText.indexOf("Catalog"));
 
-    const orders = screen.getByText("Orders");
-    expect(orders.getAttribute("data-slot")).toBe("sidebar-menu-button");
-    expect(orders.className).toContain("pointer-events-none");
+    // Every entry is a real link to a real route now (record 020), so the row is
+    // an anchor carrying the sidebar's pill classes — not an inert span.
+    const orders = screen.getByText("Orders").closest("a");
+    expect(orders?.getAttribute("data-slot")).toBe("sidebar-menu-button");
+    expect(orders?.getAttribute("href")).toBe("/reports/orders");
 
     const skipLink = screen.getByText("Skip to content") as HTMLAnchorElement;
     expect(skipLink.getAttribute("href")).toBe("#main-content");

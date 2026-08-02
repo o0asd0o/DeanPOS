@@ -146,6 +146,36 @@ series, and icons on a pale tint of themselves — **they never sit under text.*
 A named, reasoned escape hatch exists for the rare legitimate case: `// design-exempt: <reason>`
 on the line immediately above, reason at least four words. No other marker suppresses it.
 
+## 7. A section of a screen is a `Card`. It is never a bordered `<div>`
+
+**Hard rule, and the one this repository has already got wrong once.** Every distinct section of
+a screen — a table and its toolbar, a filter strip, a form group, a stat row, a detail panel —
+is wrapped in `Card` from `packages/ui`. White surface on the off-white page ground, generous
+radius, the shipped shadow. Separation between regions comes from that surface step, never from
+a rule you draw yourself.
+
+So: **no `border-b` under a header, no `border-r` beside a sidebar, no `divide-y` between
+regions, no hand-rolled `rounded-lg border p-4` standing in for a `Card`.** A grey line between
+two areas of the same colour is the generic admin look this product deliberately is not. Both
+`AppShell`s carried exactly that and both were corrected — `.scratch/decisions/019`.
+
+Borders that remain legitimate: the ones already inside a shared part (`Card`'s own edge,
+`Input`'s, `Table`'s row rules), and a genuine data-grid separator *within* a card. If you are
+adding a border to application code in `apps/*/src`, you are almost certainly rebuilding
+something `packages/ui` ships.
+
+**The rule behind the rule, and it settles cases this file does not list.** When the tokens and
+the shared parts leave a choice open, the answer is the reference set in
+`.scratch/foundation/reference/inspo/` (ADR-0013), and specifically: adopt what the frames
+actually contain. Do not fall back on a generic pattern because the mock is silent — the lo-fi
+SVGs are silent about appearance *by construction*, and `inspo/` is where appearance was decided.
+Do not import the reference's screens or its information architecture either; that boundary is
+ADR-0013's and it has not moved. Elements the product already has, wearing the reference's look.
+
+This rule is enforced by review, not by `assertNoRawDesignValues` — the guard reads raw values,
+not composition. A reviewer or fixer who finds a bordered section rebuilds it as a `Card` rather
+than reporting it as a preference.
+
 ## When this file and the existing code disagree
 
 The existing code is not automatically right, and neither is this file. Say so in your report rather than silently copying the older pattern or silently overriding it. If the disagreement is a real contradiction rather than drift, it goes to the `decider` — a standard and a shipped pattern that contradict each other is exactly the class of question a fixer must not settle by picking a side.

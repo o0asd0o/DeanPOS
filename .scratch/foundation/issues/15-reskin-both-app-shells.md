@@ -8,6 +8,12 @@ for the first time: computed `--tap-size: 44px` and `--spacing: 0.3125rem` under
 `data-density="touch"`. It holds the 44px floor as derived; no correction needed. Manrope confirmed
 served from `packages/ui/src/fonts/`, no network request.
 
+**Criterion 3 was amended a second time by `.scratch/decisions/018`, after merge.** The human
+looked at the shipped sidebar and read it as broken. Nothing was: `pointer-events-none` and the
+label-only rows were both this issue doing what it said. Record 018 scopes record 009's
+no-hover-on-non-interactive sentence back to `apps/pos` and adds one `lucide-react` glyph per
+row. The mounting sentence record 017 wrote is untouched.
+
 **How the sidebar is mounted is decided by `.scratch/decisions/017`.** The apparent contradiction
 between this issue's criterion 3 and record 009's CSS-only layout switch was false: `collapsible="none"`
 short-circuits before `isMobile` is read. Criterion 3 was amended to record 017's wording; record 009
@@ -77,9 +83,10 @@ do not wire it.
       existing `Sheet` — so that `useSidebar()` is available on every back-office screen and no
       JavaScript decides which frame paints (`.scratch/decisions/009`, `.scratch/decisions/017`).
       Skinned per issue 14: black active pill, quiet resting entries, `Reports` and
-      `Configuration` groups in their existing order. Nav entries stay inert — each is a
-      `SidebarMenuButton asChild` wrapping a `<span>` with `pointer-events-none`, so no hover
-      or active feedback fires on a row that is not yet a link.
+      `Configuration` groups in their existing order. Nav entries are not yet links — each is a
+      `SidebarMenuButton asChild` wrapping a `<span>`, with a `lucide-react` icon and a label —
+      but they do paint the skin's resting hover (`.scratch/decisions/018`). Nothing is
+      focusable, no `role` is set, and no active state is passed until routes exist.
 - [ ] **Everything the old shell got right survives the swap.** Issue 07 chose `sheet` for the narrow
       viewport specifically for its focus trap, `Escape` handling, `aria-modal`, scroll lock, and
       focus restoration; issue 05's blocking finding was a focus indicator quietly opted out of.
