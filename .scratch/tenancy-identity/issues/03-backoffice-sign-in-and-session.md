@@ -118,3 +118,31 @@ edit, per the record, except for the two mechanical adjustments record 030 didn'
 anticipate: the `createFileRoute` path string (already documented as tsr's own job) and
 each moved file's relative import depth, which the move itself changes by one or two
 levels regardless of tooling.
+
+5. **Record 031 applied: the pre-auth policies stop borrowing `app.tenant_id`.** The
+   committed migration keyed both `session_self_lookup` and `user_login_lookup` on
+   `app.tenant_id` — the same variable every tenant-isolation rule in the schema compares
+   against — reasoning that a session id and an email could never collide with a real
+   tenant id. Record 031 overturned that: session ids and tenant ids are both
+   `randomUUID()`, same generator, same space, so the containment for the session case was
+   never true by format, only by the accident that today's two queries happen to run one
+   safe statement each. The migration now sets two purpose-named variables,
+   `app.session_id` and `app.login_email`, through the same single `set_config` choke
+   point in `packages/backend/src/db/client.ts` — added there as `withSessionScope` and
+   `withLoginScope`, both delegating to a new private `withScope`, with `withTenantScope`
+   kept byte-identical. The dead `OR "id" = current_setting('app.tenant_id', true)` branch
+   on `session_tenant_update` is deleted — traced to have no caller, since all three
+   `Session` writers run under a real tenant id. `find-user-by-email-for-sign-in.query.ts`
+   and `find-session-by-id.query.ts` now call `withLoginScope`/`withSessionScope` instead
+   of `withTenantScope`; their public signatures are unchanged. The stale comment on
+   `touch-session.command.ts` describing the design the dead branch was written for is
+   removed. Three regression tests were added to
+   `packages/backend/tests/auth/session-and-login-rls.test.ts`: a session scope cannot
+   read `User` or `Store`, a login scope reads exactly one row even with a sibling `User`
+   in the same tenant, and a tenant-scoped connection can no longer `UPDATE` a `Session`
+   row whose id happens to equal its own tenant id (the regression lock on the deleted
+   `OR`). `packages/backend/tests/db/with-tenant-scope.test.ts` and
+   `apps/api/tests/tenant-isolation-grep.test.ts` are both a zero-line diff, and
+   `set_config` still appears at exactly one call site. `User.email` global uniqueness and
+   the 30-minute/30-day session lifetimes are ratified unchanged by the same record; only
+   the comment on `session-policy.ts` now cites it instead of describing a guess.
