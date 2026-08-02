@@ -42,7 +42,7 @@ describe("the set-password screen", () => {
 
     // Record 032: the hint, minLength on both inputs, and — deliberately —
     // no maxLength. The browser can never disagree with the server on the
-    // floor; the ceiling is server-only, which is exactly finding 1's bug.
+    // floor; the ceiling is server-only.
     expect(
       screen.getByText(
         "At least 15 characters. Any characters, including spaces — there are no other rules.",
@@ -102,7 +102,7 @@ describe("the set-password screen", () => {
     );
 
     // No client maxLength (record 032) — this clears the browser and is
-    // refused only by the server, which is finding 1's bug: 129 characters.
+    // refused only by the server: 129 characters.
     const tooLong = "a".repeat(129);
     fireEvent.change(screen.getByLabelText("New password"), { target: { value: tooLong } });
     fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: tooLong } });

@@ -132,9 +132,9 @@ asking (not done here — out of scope for this issue).
   block, replacing rather than appending.
 - `apps/backoffice/src/features/set-password/SetPassword.tsx` — the hint paragraph with
   `aria-describedby`, and `minLength={15}` on both password inputs (no `maxLength`, per the
-  no-go). Nothing else on the screen changed — server-side rejection message wiring into the
-  existing alert block was not in the record's "what must change" table for this issue and was
-  left alone rather than folded in; noted below.
+  no-go). A server policy rejection (oRPC input-validation error) is distinguished from a
+  genuine transport failure and rendered in record 030's existing alert block instead of "Can't
+  reach the server." (round 1 fix).
 
 **Tests (all new, all failing before the corresponding implementation, all green now):**
 
@@ -173,14 +173,30 @@ before React's `onSubmit` ran).
 found between the two records or with issue 03's existing criteria.
 
 **Left for a human/decider, not decided here:**
-1. Whether to wire the specific server-rejected password message (e.g. "Password must be at
-   least 15 characters") into `SetPassword.tsx`'s existing `role="alert"` block. Today the app's
-   opaque-error convention (`toSafeErrorResponse`, verified experimentally against the running
-   oRPC error) collapses a validation failure to a generic "Input validation failed" with no
-   `data` payload — the specific zod message never reaches the wire. Record 032's prose
-   describes the intended UI behaviour, but the file-level "what must change" table for the
-   front end lists only the hint paragraph and `minLength`, so wiring the message through was
-   treated as out of this issue's scope per code-standards rule 1 (fix what was asked, report
-   the rest) rather than folded in silently.
-2. `release-ops`'s breached-password blocklist remains unimplemented, exactly as both records
+1. `release-ops`'s breached-password blocklist remains unimplemented, exactly as both records
    say it must be — a separate provider/dependency decision, not a lane decision.
+
+---
+
+**Round 2, 2026-08-02 — [record 034](../../decisions/034-the-throttle-under-concurrency.md).**
+The description above of the throttle mechanism (the pre-hash `isThrottled` read, the
+lock-and-reset write, the `locked_until` column) is superseded by this section; it is left
+unedited above as the as-built history of round 1, not the current mechanism.
+
+The round-1 ordering read the counter, ran `scryptSync`, then wrote the counter — nothing
+atomic between the read and the write, so N concurrent requests all read "not locked" and all
+reach the hash. `sign-in.ts` now **reserves on both keys, atomically, before `verifyPassword`**,
+via a single `INSERT … ON CONFLICT DO UPDATE … RETURNING` per key
+(`upsertThrottleFailure`), and refuses when the returned count exceeds the key's limit. The
+reservation *is* the check; `isThrottled`, `lockThrottleKey`, and `findLockedThrottleKeys` are
+deleted along with the `locked_until`-driven lock — a key's count now decays only through the
+existing staleness window (`THROTTLE_WINDOW_MS`), and `THROTTLE_LOCK_MS` is deleted as unused.
+On success, a new `releaseSignInThrottle` decrements both keys (undoing this request's own
+reservation), then `clearSignInThrottle` deletes the email key exactly as before. On failure,
+nothing further is written — the reservation stands as the recorded failure.
+
+New regression tests in `apps/api/tests/sign-in-throttle.test.ts`: firing `EMAIL_FAILURE_LIMIT
++ 10` concurrent sign-ins for one email and asserting `verifyPassword` was called at most
+`EMAIL_FAILURE_LIMIT` times (written to fail against the round-1 ordering first — confirmed:
+it called `verifyPassword` all 20 times before this fix); and a successful sign-in leaving the
+IP key's stored `failures` value unchanged rather than deleted.

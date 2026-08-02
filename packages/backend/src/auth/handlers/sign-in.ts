@@ -11,8 +11,8 @@ import { signInPasswordSchema } from "../password-policy.ts";
 import { SESSION_ABSOLUTE_TTL_MS } from "../session-policy.ts";
 import {
   clearSignInThrottle,
-  isThrottled,
-  recordSignInFailure,
+  releaseSignInThrottle,
+  reserveSignInAttempt,
   throttleKeys,
 } from "../throttle.ts";
 
@@ -32,10 +32,10 @@ type SignInResult =
 export const handler: Handler<SignInInput, SignInResult> = async ({ ctx, input }) => {
   const keys = throttleKeys(input.email, ctx.clientIp);
 
-  // Checked before the hash, mandatorily (record 033): scryptSync blocks
-  // the whole API for one derivation, so an unthrottled loop is a full
-  // outage. This touches only the throttle table, never `User`.
-  if (await isThrottled(ctx.db, keys)) return { ok: false };
+  // Reserved before the hash, atomically (record 034): scryptSync blocks
+  // the whole API for one derivation, and a read-then-write check leaves a
+  // window where concurrent requests all pass it before any of them writes.
+  if (await reserveSignInAttempt(ctx.db, keys)) return { ok: false };
 
   const user = await findUserByEmailForSignIn(ctx.db, input.email);
   const passwordOk = await verifyPassword(
@@ -44,11 +44,11 @@ export const handler: Handler<SignInInput, SignInResult> = async ({ ctx, input }
   );
 
   if (!user || !user.active || !passwordOk) {
-    // Incremented whether or not `user` was found — see throttle.ts.
-    await recordSignInFailure(ctx.db, keys);
+    // The reservation above already recorded this failure — no second write.
     return { ok: false };
   }
 
+  await releaseSignInThrottle(ctx.db, keys);
   await clearSignInThrottle(ctx.db, keys);
 
   const sessionId = randomUUID();

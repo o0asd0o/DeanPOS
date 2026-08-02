@@ -4,7 +4,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import * as passwordModule from "backend/src/common/password.ts";
 import { hashPassword } from "backend/src/common/password.ts";
-import { EMAIL_FAILURE_LIMIT, IP_FAILURE_LIMIT } from "backend/src/auth/throttle-policy.ts";
+import {
+  EMAIL_FAILURE_LIMIT,
+  IP_FAILURE_LIMIT,
+  THROTTLE_WINDOW_MS,
+} from "backend/src/auth/throttle-policy.ts";
 import { createDb } from "backend/src/db/client.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
@@ -25,11 +29,12 @@ const emailKeyFor = (address: string) => `email:${address.trim().toLowerCase()}`
 const clearEmailKey = (address: string) =>
   ownerDb.deleteFrom("SignInThrottle").where("key", "=", emailKeyFor(address)).execute();
 
-// Excludes "date", the one header that legitimately differs between two
-// responses issued a moment apart.
+// "date" legitimately differs between two responses issued a moment apart,
+// so its value is normalised to a sentinel — but the header's presence (or
+// absence) still has to match, so it stays in the compared set.
 const sortedHeaderEntries = (headers: Headers | null) =>
   Array.from(headers ?? [])
-    .filter(([key]) => key.toLowerCase() !== "date")
+    .map(([key, value]): [string, string] => [key, key.toLowerCase() === "date" ? "<date>" : value])
     .sort(([a], [b]) => a.localeCompare(b));
 
 async function failNTimes(targetEmail: string, count: number) {
@@ -80,12 +85,12 @@ describe("sign-in throttling — per email", () => {
     // is doing the refusing.
     const knownLocked = await seam.actors.signIn(email, password);
     const unknownLocked = await seam.actors.signIn(unknownEmail, "irrelevant");
-    // A third, unthrottled cause — a plain wrong password on a fresh
-    // address — completes issue 03 criterion 5's three-way comparison.
-    const wrongPasswordEmail = `wrong-password-${randomUUID()}@sign-in.test`;
-    await clearEmailKey(wrongPasswordEmail);
-    const wrongPassword = await seam.actors.signIn(wrongPasswordEmail, "definitely wrong");
-    await clearEmailKey(wrongPasswordEmail);
+    // A third, unthrottled cause — the seeded account's own address with a
+    // wrong password — completes issue 03 criterion 5's three-way
+    // comparison against a real account, not a second unknown one.
+    await clearEmailKey(email);
+    const wrongPassword = await seam.actors.signIn(email, "definitely wrong");
+    await clearEmailKey(email);
 
     expect(knownLocked.result).toStrictEqual({ ok: false });
     expect(unknownLocked.result).toStrictEqual({ ok: false });
@@ -167,10 +172,11 @@ describe("sign-in throttling — per email", () => {
     const stillLocked = await seam.actors.signIn(liftEmail, password);
     expect(stillLocked.result).toStrictEqual({ ok: false });
 
-    // Simulate the lock's expiry rather than waiting thirty real minutes.
+    // Simulate the window's expiry rather than waiting thirty real minutes
+    // — the next reservation's staleness check resets the counter (034).
     await ownerDb
       .updateTable("SignInThrottle")
-      .set({ locked_until: new Date(Date.now() - 1000) })
+      .set({ updated_at: new Date(Date.now() - THROTTLE_WINDOW_MS - 1000) })
       .where("key", "=", emailKeyFor(liftEmail))
       .execute();
 
@@ -216,9 +222,81 @@ describe("sign-in throttling — per client address", () => {
       .selectAll()
       .where("key", "=", IP_KEY)
       .executeTakeFirstOrThrow();
-    expect(row.locked_until).not.toBeNull();
+    expect(row.failures).toBeGreaterThan(IP_FAILURE_LIMIT);
 
     await clearIpKey();
     await clearEmailKey(email);
   }, 60_000);
+});
+
+describe("sign-in throttling — concurrency (record 034)", () => {
+  it("reserves before the hash, so concurrent attempts cannot all reach verifyPassword", async () => {
+    const raceEmail = `race-${randomUUID()}@sign-in.test`;
+    await clearEmailKey(raceEmail);
+    await clearIpKey();
+
+    const spy = vi.spyOn(passwordModule, "verifyPassword");
+    const attemptCount = EMAIL_FAILURE_LIMIT + 10;
+    // Fired together, not awaited one at a time — this is what exposes the
+    // race: every attempt starts before any of them has written its result.
+    await Promise.all(
+      Array.from({ length: attemptCount }, () => seam.actors.signIn(raceEmail, "definitely wrong")),
+    );
+
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(EMAIL_FAILURE_LIMIT);
+    vi.restoreAllMocks();
+
+    await clearEmailKey(raceEmail);
+    await clearIpKey();
+  }, 30_000);
+
+  it("a successful sign-in decrements the IP key rather than clearing it", async () => {
+    const releaseEmail = `release-${randomUUID()}@sign-in.test`;
+    const releaseUserId = randomUUID();
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: releaseUserId,
+        tenant_id: tenantId,
+        email: releaseEmail,
+        password_hash: await hashPassword(password),
+        must_change_password: false,
+        role: "cashier",
+        active: true,
+      })
+      .execute();
+    await clearEmailKey(releaseEmail);
+    await clearIpKey();
+
+    vi.spyOn(passwordModule, "verifyPassword").mockResolvedValue(false);
+    for (let i = 0; i < 5; i++) {
+      const attemptEmail = `ip-baseline-${randomUUID()}@sign-in.test`;
+      await seam.actors.signIn(attemptEmail, "irrelevant");
+      await clearEmailKey(attemptEmail);
+    }
+    vi.restoreAllMocks();
+
+    const before = await ownerDb
+      .selectFrom("SignInThrottle")
+      .selectAll()
+      .where("key", "=", IP_KEY)
+      .executeTakeFirstOrThrow();
+
+    const result = await seam.actors.signIn(releaseEmail, password);
+    expect(result.result).toStrictEqual({ ok: true, mustChangePassword: false });
+
+    // Decremented back to its prior value, not deleted — clearing and
+    // releasing are indistinguishable from the handler's return, so this
+    // has to read the stored row directly (record 034).
+    const after = await ownerDb
+      .selectFrom("SignInThrottle")
+      .selectAll()
+      .where("key", "=", IP_KEY)
+      .executeTakeFirstOrThrow();
+    expect(after.failures).toBe(before.failures);
+
+    await clearIpKey();
+    await ownerDb.deleteFrom("Session").where("user_id", "=", releaseUserId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", releaseUserId).execute();
+  }, 30_000);
 });

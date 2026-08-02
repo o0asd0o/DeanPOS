@@ -154,8 +154,8 @@ describe("normalisation, one function on both the set path and the verify path",
       .execute();
 
     const { client } = await seam.actors.signIn(nonAsciiEmail, temporaryPassword);
-    // Combining diaeresis + precomposed accents — NFC normalises this to a
-    // single canonical byte sequence before hashing.
+    // Combining acute accent + precomposed accents — NFC normalises this
+    // to a single canonical byte sequence before hashing.
     const decomposed = "café puerta azul veinte";
     await expect(client.auth.setPassword({ newPassword: decomposed })).resolves.toStrictEqual({
       ok: true,
