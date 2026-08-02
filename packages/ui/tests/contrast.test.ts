@@ -55,11 +55,80 @@ const pairings: [string, string, number, string][] = [
   ["ring", "background", 3.0, "1.4.11"],
   ["ring", "card", 3.0, "1.4.11"],
   ["ring", "primary", 3.0, "1.4.11"],
+  ["popover-foreground", "popover", 4.5, "1.4.3"],
+  ["sidebar-foreground", "sidebar", 4.5, "1.4.3"],
+  ["sidebar-primary-foreground", "sidebar-primary", 4.5, "1.4.3"],
+  ["sidebar-accent-foreground", "sidebar-accent", 4.5, "1.4.3"],
+  ["sidebar-border", "sidebar", 3.0, "1.4.11"],
+  ["sidebar-ring", "sidebar", 3.0, "1.4.11"],
+  ["ring", "sidebar", 3.0, "1.4.11"],
+  ["ring", "sidebar-primary", 3.0, "1.4.11"],
+  ["foreground", "status-success-tint", 4.5, "1.4.3"],
+  ["foreground", "status-warning-tint", 4.5, "1.4.3"],
+  ["foreground", "status-info-tint", 4.5, "1.4.3"],
+  ["foreground", "status-danger-tint", 4.5, "1.4.3"],
+  ["status-success-tone", "status-success-tint", 3.0, "1.4.11"],
+  ["status-warning-tone", "status-warning-tint", 3.0, "1.4.11"],
+  ["status-info-tone", "status-info-tint", 3.0, "1.4.11"],
+  ["status-danger-tone", "status-danger-tint", 3.0, "1.4.11"],
+  ["status-success-tone", "background", 3.0, "1.4.11"],
+  ["status-warning-tone", "background", 3.0, "1.4.11"],
+  ["status-info-tone", "background", 3.0, "1.4.11"],
+  ["status-danger-tone", "background", 3.0, "1.4.11"],
+  ["status-success-tone", "card", 3.0, "1.4.11"],
+  ["status-warning-tone", "card", 3.0, "1.4.11"],
+  ["status-info-tone", "card", 3.0, "1.4.11"],
+  ["status-danger-tone", "card", 3.0, "1.4.11"],
+];
+
+// The complete `--color-*` set. `.scratch/decisions/013-density-mechanism-and-token-names.md`
+// fixes this list; issues 13 and 14 are told to preserve it exactly.
+const requiredTokens = [
+  "background",
+  "foreground",
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "destructive-foreground",
+  "border",
+  "input",
+  "ring",
+  "sidebar",
+  "sidebar-foreground",
+  "sidebar-primary",
+  "sidebar-primary-foreground",
+  "sidebar-accent",
+  "sidebar-accent-foreground",
+  "sidebar-border",
+  "sidebar-ring",
+  "status-success-tint",
+  "status-success-tone",
+  "status-warning-tint",
+  "status-warning-tone",
+  "status-info-tint",
+  "status-info-tone",
+  "status-danger-tint",
+  "status-danger-tone",
 ];
 
 describe("colour token contrast (WCAG 2.2 AA)", () => {
   it("finds colour tokens in theme.css", () => {
     expect(tokens.size).toBeGreaterThan(0);
+  });
+
+  it("declares every token from record 013's token list", () => {
+    const missing = requiredTokens.filter((name) => !tokens.has(name));
+    expect(missing).toEqual([]);
   });
 
   for (const [fg, bg, threshold, criterion] of pairings) {

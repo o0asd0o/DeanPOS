@@ -21,7 +21,7 @@ export function AppShell() {
       <div className="flex flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
         <Sheet>
           <SheetTrigger
-            className="target-min m-4 self-start md:hidden"
+            className="tap-target m-4 self-start md:hidden"
             aria-label="Open navigation"
           >
             ☰

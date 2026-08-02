@@ -12,7 +12,7 @@ export function ErrorState({
     <div role="alert" aria-busy={isFetching} className="p-4 text-foreground">
       <p>Can&rsquo;t reach the server.</p>
       <p>Check the connection and try again.</p>
-      <Button onClick={onRetry} className="target-min">
+      <Button onClick={onRetry} className="tap-target">
         Try again
       </Button>
     </div>

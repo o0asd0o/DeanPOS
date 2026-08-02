@@ -1,45 +1,95 @@
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/Manrope-Variable.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: swap;
+  font-style: normal;
+}
+
 @source "./components";
 @source "./lib";
 
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #18181b;
-  --color-card: #f4f4f5;
-  --color-card-foreground: #18181b;
-  --color-primary: #1d4ed8;
+  /* Surfaces, neutrals, sidebar — shadcn's vocabulary. Do not rename: generated
+     components consume these names and every `shadcn add` expects them. */
+  --color-background: #fafaf7;
+  --color-foreground: #1e1e1e;
+  --color-card: #ffffff;
+  --color-card-foreground: #1e1e1e;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1e1e1e;
+  --color-primary: #1e1e1e;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #e4e4e7;
-  --color-secondary-foreground: #18181b;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #52525b;
-  --color-accent: #e0e7ff;
-  --color-accent-foreground: #1e3a8a;
-  --color-destructive: #b91c1c;
+  --color-secondary: #eaeae6;
+  --color-secondary-foreground: #1e1e1e;
+  --color-muted: #f0f0ed;
+  --color-muted-foreground: #5b5b57;
+  --color-accent: #e4e4df;
+  --color-accent-foreground: #1e1e1e;
+  --color-destructive: #c0264f;
   --color-destructive-foreground: #ffffff;
-  --color-border: #71717a;
-  --color-input: #71717a;
-  --color-ring: #000000;
+  --color-border: #8a8a8a;
+  --color-input: #8a8a8a;
+  --color-ring: #7a7a7a;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #1e1e1e;
+  --color-sidebar-primary: #1e1e1e;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #e4e4df;
+  --color-sidebar-accent-foreground: #1e1e1e;
+  --color-sidebar-border: #8a8a8a;
+  --color-sidebar-ring: #7a7a7a;
 
-  /* Target size. Values from WCAG 2.2 SC 2.5.8 (AA) and SC 2.5.5 (AAA). */
+  /* Status hues (ADR-0013). A `-tone` is a dot, an icon, or a chart series and has
+     no foreground partner because nothing may be written on it. Record 013. */
+  --color-status-success-tint: #e1f5ec;
+  --color-status-success-tone: #0f7a55;
+  --color-status-warning-tint: #fcefd9;
+  --color-status-warning-tone: #8a5a00;
+  --color-status-info-tint: #e1edfb;
+  --color-status-info-tone: #1d5fc2;
+  --color-status-danger-tint: #fbe6ec;
+  --color-status-danger-tone: #a31c46;
+
+  --font-sans:
+    "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+
+  /* Target size. Values from WCAG 2.2 SC 2.5.8 (AA) and SC 2.5.5 (AAA).
+     --tap-size selects between them by density; see the base layer below. */
   --min-target-size: 24px;
   --min-touch-size: 44px;
+  --tap-size: var(--min-target-size);
 
   /* Focus indicator. Values from WCAG 2.2 SC 2.4.13, adopted above the AA floor. */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 }
 
-@utility target-min {
-  min-inline-size: var(--min-target-size);
-  min-block-size: var(--min-target-size);
-}
-
-@utility touch-min {
-  min-inline-size: var(--min-touch-size);
-  min-block-size: var(--min-touch-size);
+@utility tap-target {
+  min-inline-size: var(--tap-size);
+  min-block-size: var(--tap-size);
 }
 
 @layer base {
+  /* Touch rescales the base spacing by 1.25, putting stock `h-9` at 45px,
+     over the 44px floor. Only font size is overridden; line heights are
+     unitless ratios in Tailwind's theme, so leading scales with it. Record 013. */
+  [data-density="touch"] {
+    --spacing: 0.3125rem;
+    --tap-size: var(--min-touch-size);
+    --text-xs: 0.875rem;
+    --text-sm: 1rem;
+    --text-base: 1.125rem;
+    --text-lg: 1.25rem;
+    --text-xl: 1.5rem;
+    --text-2xl: 1.75rem;
+  }
+
+  :root {
+    font-variant-numeric: tabular-nums;
+  }
+
   :focus-visible {
     outline: var(--focus-ring-width) solid var(--color-ring);
     outline-offset: var(--focus-ring-offset);
