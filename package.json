@@ -52,6 +52,7 @@
     "@tanstack/router-plugin": "1.168.23",
     "@tanstack/router-cli": "1.167.21",
     "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-form": "1.33.3",
     "@vitejs/plugin-react": "6.0.5",
     "happy-dom": "20.11.1",
     "@testing-library/react": "16.3.2",

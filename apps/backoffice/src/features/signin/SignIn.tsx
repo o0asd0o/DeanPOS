@@ -1,4 +1,5 @@
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, PasswordInput } from "ui";
@@ -10,28 +11,26 @@ import { ErrorState } from "../../components/ErrorState.tsx";
 export function SignIn() {
   const { orpc } = useRouteContext({ from: "/_gate/login" });
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Not a field error: record 030 requires one form-level sentence naming
+  // neither field, so it is the submit's outcome and not the form's state.
   const [failed, setFailed] = useState(false);
 
   const signIn = useMutation(orpc.auth.signIn.mutationOptions());
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    // The early return, not `aria-disabled`, is what stops a double POST —
-    // record 030.
-    if (signIn.isPending) return;
+  const form = useForm({
+    defaultValues: { email: "", password: "" },
+    onSubmit: async ({ value }) => {
+      setFailed(false);
+      const result = await signIn.mutateAsync(value);
 
-    setFailed(false);
-    const result = await signIn.mutateAsync({ email, password });
+      if (!result.ok) {
+        setFailed(true);
+        return;
+      }
 
-    if (!result.ok) {
-      setFailed(true);
-      return;
-    }
-
-    await navigate({ to: result.mustChangePassword ? "/set-password" : "/" });
-  };
+      await navigate({ to: result.mustChangePassword ? "/set-password" : "/" });
+    },
+  });
 
   if (signIn.isError) {
     return <ErrorState onRetry={() => signIn.reset()} />;
@@ -45,32 +44,52 @@ export function SignIn() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} aria-busy={signIn.isPending} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="email">Email</label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              placeholder="name@example.com"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="password">Password</label>
-            <PasswordInput
-              id="password"
-              name="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            // The early return, not `aria-disabled`, is what stops a double
+            // POST — record 030.
+            if (signIn.isPending) return;
+            void form.handleSubmit();
+          }}
+          aria-busy={signIn.isPending}
+          className="flex flex-col gap-4"
+        >
+          <form.Field name="email">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="email">Email</label>
+                <Input
+                  id="email"
+                  name={field.name}
+                  type="email"
+                  autoComplete="username"
+                  placeholder="name@example.com"
+                  required
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              </div>
+            )}
+          </form.Field>
+          <form.Field name="password">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="password">Password</label>
+                <PasswordInput
+                  id="password"
+                  name={field.name}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  required
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              </div>
+            )}
+          </form.Field>
           <Button type="submit" className="w-full" aria-disabled={signIn.isPending}>
             {signIn.isPending ? "Signing in…" : "Sign in"}
           </Button>
