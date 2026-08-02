@@ -54,9 +54,27 @@ browser**, and the `happy-dom` cookie blind spot has already hidden exactly that
 
 - **`DeanPOS_dev` holds 2 `User` rows with no `UserRole` row.** They are stale test residue and they
   can no longer sign in. Harmless, but that is why, not a bug.
-- **Commit `6320b07` added a password reveal toggle.** [Record 032](../decisions/032-the-password-policy.md)
-  says "**No reveal toggle** — see the follow-up". Worth reconciling: either the record is overturned
-  or the toggle comes out. Nobody has decided it.
+- **The password-record divergences are DEFERRED TO v2 by the human, 2026-08-03.** Not lost, not
+  fixed. [Record 032](../decisions/032-the-password-policy.md) still reads `Status: decided` and is
+  titled "fifteen characters and no other rule"; the code disagrees with it in two places, and both
+  are deliberate:
+  - **`PASSWORD_MIN_LENGTH` is 8, the record says 15** (commit `6320b07`, which also updated the copy
+    and the `minLength` attributes, so the code is at least self-consistent). Record 032's central
+    argument is that 8 is the allowance NIST §3.1.1.2 item 1 reserves for systems **with a second
+    factor**, and issue 03 puts MFA out of scope for v1; OWASP splits on the same axis independently.
+    **Nothing overturned the record in writing** — the divergence is real and undocumented at the
+    record itself.
+  - **A password reveal toggle now exists** on the sign-in and set-password fields. This one is *not*
+    a violation: record 032 called it "**the named follow-up of this record**", deferred only because
+    a control's placement, states and accessible name are record 030's screen territory, not a policy
+    record's. The toggle landing is the follow-up happening — by hand, without the record.
+  - **No strength meter, and it is not deferred to `hardening` or anywhere.** The policy removed every
+    composition rule, so a meter would score compliance with rules that no longer exist. The one real
+    signal — breach screening — is deferred to **`release-ops`** as a knowingly recorded deviation
+    from a NIST `SHALL`.
+
+  **For v2:** one superseding record covering both divergences, flipping 032's status rather than
+  editing it in place. Until then, treat 032 as accurate on *reasoning* and stale on *the number*.
 - **Decision records are now capped at 300 lines** (`.claude/agents/decider.md`). Records 034 and 035
   are the first written under it. Records 001–033 were deliberately left untouched — rewriting them
   would damage the audit trail that makes reversal real.
