@@ -14,9 +14,10 @@ a special role, and it does not act by assuming a Tenant's account. Its actions 
 who provisioned which Tenant, and when.
 
 Password hashing arrives here because provisioning is the first thing that needs it:
-`Bun.password` argon2id, no new dependency, parameters configured in one place. PIN hashing
-gets its own parameters later (issue 10) — the two are configured separately, because the PIN's
-hash ends up sitting on a tablet.
+`node:crypto`'s scrypt at OWASP's parameters, no new dependency, parameters configured in
+one place — see `.scratch/decisions/028`. PIN hashing gets its own parameters later (issue
+10) — the two are configured separately, because the PIN's hash ends up sitting on a
+tablet.
 
 ## Acceptance criteria
 
@@ -26,9 +27,10 @@ hash ends up sitting on a tablet.
       a platform admin act as a Tenant's User.
 - [ ] Every platform-admin action writes an audit row naming the actor, the action, and the
       Tenant.
-- [ ] Password hashing uses `Bun.password` argon2id with parameters declared in one place;
-      the hash/verify round-trip is tested **directly, not through the seam** — it is a pure
-      function over a hashing primitive.
+- [ ] Password hashing runs from one implementation on both the production runtime and the
+      test runtime, with parameters declared in one place, storing a self-describing hash
+      string; the round-trip **and a published known-answer vector** are tested **directly,
+      not through the seam** — it is a pure function over a hashing primitive.
 - [ ] Nothing logs a password, a password hash, or the temporary password. Log the User id.
 - [ ] Provisioning is unreachable from a tenant-scoped principal and from the `admin.` origin
       session paths — asserted, not assumed.
