@@ -106,3 +106,79 @@ which is the correct scope for a shared device anyway.
 
 **This issue does not touch either app.** `AppShell.tsx` and `Nav.tsx` keep using what they use until
 issue 15.
+
+---
+
+**Implementer, 2026-08-02.** `shadcn add sidebar card badge table tabs select input --yes` ran
+successfully (no dry-run fallback needed to *resolve* the workspace). It wrote/overwrote:
+
+- New: `badge.tsx`, `card.tsx`, `input.tsx`, `select.tsx`, `table.tsx`, `tabs.tsx`, `sidebar.tsx`,
+  and sidebar's transitive parts `separator.tsx`, `tooltip.tsx`, `skeleton.tsx`,
+  `hooks/use-mobile.ts`. **`separator`, `tooltip`, and `skeleton` are the ones record 007 had
+  declined**, arriving now as `sidebar`'s accepted dependency per the issue's own carve-out — flagged
+  here per the acceptance criterion, not re-argued.
+- Overwrote (attempted): `button.tsx`, `sheet.tsx` — `sidebar` pulls `button` in, which triggered a
+  same-version re-emit of both. **Reverted both to their pre-existing committed content** (`git
+  checkout --`) rather than keep the CLI's overwrite: the fresh emit silently reintroduced the
+  `outline-none focus-visible:ring-[3px]` opt-out that issue 05's fixer round had already stripped
+  from `button.tsx` as a blocking accessibility finding, plus unrelated `dark:` variants this repo
+  doesn't use. `button`/`sheet` are not this issue's relevant files and the diff should stay their
+  issue-05 shape; `shadcn diff button` / `shadcn diff sheet` reported "No updates found" for the
+  *content* itself, confirming the only real delta was the import-path handling below.
+
+**`theme.css`: two separate injections reverted, in full.**
+1. From the first batch add (badge/card/input/select/table/tabs) — none; that batch made no
+   `theme.css` change.
+2. From `sidebar` — added `@custom-variant dark (&:is(.dark *));`, an HSL `:root`/`.dark`
+   `--sidebar-*` block, and a `@theme inline` re-mapping of the `--color-sidebar-*` tokens onto
+   those HSL vars. `git checkout -- packages/ui/src/theme.css` reverted it; `git diff` on that file
+   is now empty. This is exactly the injection the issue calls out, confirmed live.
+
+**Import-path fix, not a re-skin.** `components.json`'s `aliases.utils` is `"src/lib/utils"` (no
+`@/` prefix), and this monorepo has no matching `tsconfig` path alias, so every file the CLI
+touched — new and overwritten alike — was written with the literal, non-resolving specifier
+`import { cn } from "src/lib/utils"` (confirmed identical in `shadcn add --dry-run --view` output,
+so this is not an artifact of the real write). `tsc` fails on it (`TS2307`). This is the same
+"cannot resolve the workspace" case issue 05 hit and fixed the same way: rewrote every occurrence
+to the relative form issue 05 already established, `"../lib/utils.ts"` (and, inside `sidebar.tsx`
+only, its five sibling-component imports: `./button.tsx`, `./input.tsx`, `./separator.tsx`,
+`./sheet.tsx`, `./skeleton.tsx`, `./tooltip.tsx`, `../hooks/use-mobile.ts`). No JSX, class list, or
+component logic was touched — `git diff` against a scratch pre-fix copy showed only import lines
+changed. `vp check --fix` then normalized quote/semicolon style to match the rest of the package
+(same formatter the repo already runs; not a hand edit to generated content).
+
+**`packages/ui/tsconfig.json` gained `"lib": ["es2023", "dom", "dom.iterable"]`.** `sidebar.tsx`
+and `use-mobile.ts` are the first files in this package to reference `window`/`KeyboardEvent`
+directly (`button.tsx`/`sheet.tsx` never did), and the package's `tsconfig` had no DOM lib —
+every app's `tsconfig.json` already carries this exact lib list, so this brings `packages/ui` in
+line with them rather than inventing a new setting. Not in the issue's "Relevant files" list, but
+without it `tsc` fails on `sidebar`'s own generated code with no way to fix it inside a generated
+file.
+
+**Known defect handed to issue 14, as instructed.** Every interactive part landed with stock
+shadcn's `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50` (or the destructive
+variant of it) still in place — confirmed present in `badge.tsx`, `input.tsx`, `select.tsx`,
+`tabs.tsx`. `card.tsx` and `table.tsx` have no interactive states so carry no such class.
+`sidebar.tsx` keeps `focus-visible:ring-2` (its own stock shadcn shape, not touched). None of
+these are wired into either app yet, so the defect is unreachable. Issue 14 strips it.
+
+**No `@base-ui/*` or `@tanstack/*` import or dependency anywhere in `packages/ui`** — checked
+`src/` and `package.json`; both clean. Every pulled part that needs a primitive imports
+`radix-ui` (`badge`, `sheet`, `button`, `tabs`, `select`, `separator`, `sidebar`, `tooltip`).
+`packages/ui/package.json` gained no new dependency — everything the CLI needed
+(`class-variance-authority`, `radix-ui`, `lucide-react`) was already present from issue 05.
+
+**No record-013 `cn-*` component-class shape.** Grepped every new/touched file — none present;
+`button.tsx`/`sheet.tsx` keep their original issue-05 shape.
+
+**`contrast.test.ts`: still 49 assertions, unchanged token set, green.** `vp test
+tests/contrast.test.ts` → 49 passed. Full gate: `vp run -w codegen`, `vp check`, `vp run -r
+check`, `vp run -r test` all pass repo-wide (`packages/ui` alone: 20 tests across 2 files).
+
+**`index.ts`** now re-exports all seven required parts (`sidebar` and its full sub-part list,
+`card`, `badge`, `table`, `tabs`, `select`, `input`) plus the pre-existing `button`/`sheet`/`cn`.
+Transitive parts (`separator`, `tooltip`, `skeleton`, `useIsMobile`) are **not** re-exported —
+they're `sidebar`'s internal dependencies, not one of the seven parts this issue names, so nothing
+outside `sidebar.tsx` can reach them yet.
+
+Nothing in the package became domain-aware; neither app was touched.
