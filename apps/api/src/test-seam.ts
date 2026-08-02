@@ -94,8 +94,20 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     client,
     db,
     actors: {
-      asTenant: (tenantId: string, options: { mustChangePassword?: boolean } = {}) =>
-        buildActor({ principal: { tenantId, mustChangePassword: options.mustChangePassword } }),
+      // `role` defaults to "admin" (issue 04) — tests exercising the gate
+      // pass `role` and `userId` explicitly, matching a seeded User.
+      asTenant: (
+        tenantId: string,
+        options: { mustChangePassword?: boolean; userId?: string; role?: Principal["role"] } = {},
+      ) =>
+        buildActor({
+          principal: {
+            tenantId,
+            userId: options.userId,
+            mustChangePassword: options.mustChangePassword,
+            role: options.role ?? "admin",
+          },
+        }),
       asPlatformAdmin: (platformAdminId: string) =>
         buildActor({ platformAdmin: { platformAdminId } }),
       asUnauthenticated: () => buildActor({}),

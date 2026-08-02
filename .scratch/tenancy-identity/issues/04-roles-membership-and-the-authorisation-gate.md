@@ -75,3 +75,24 @@ migrates as a non-superuser owner, every failure will read as an RLS bug rather 
 
 Add one assertion in the test setup that the migrating role is superuser, so the premise fails
 loudly and in the right place. Cheap here; expensive to diagnose later.
+
+**Implementer notes, 2026-08-02.**
+
+- No new contract procedures are exposed here — issues 05 and 06 expose the write paths
+  (assign/unassign a Store, change a role) and depend on this issue for the schema and the
+  gate. `store.get` is the only tenant-scoped procedure that exists today, so it is the one
+  gated for real; `ping`, `platformAdmin.provisionTenant`, and `auth.signIn/signOut/setPassword/me`
+  are unauthenticated, platform-admin-only, or self-scoped to the caller's own session, and
+  stay as they were.
+- The live gate reads the current role from `User.role`, refetched fresh on every request
+  (`apps/api/src/context.ts`), never from a cached session value. `UserRole` is populated and
+  read independently (`packages/backend/tests/access/user-role-and-user-store.test.ts`) as the
+  effective-dated history issue 12 consumes. Nothing in this issue writes both at once — that
+  pairing is issue 06's role-change procedure, which must write a `UserRole` row and update
+  `User.role` in the same transaction.
+- "A `manager` is scoped to their assigned Stores on every read and every write" is proven on
+  the read side through `store.get` (`apps/api/tests/authorisation-gate.test.ts`); no write
+  procedure exists yet to prove the write side end-to-end. `canAccessStore`
+  (`packages/backend/src/common/authorize.ts`) is the same function either kind of handler
+  would call before touching a Store, so its own coverage plus `store.get`'s is what stands in
+  for a write test until issue 05/06 add one.

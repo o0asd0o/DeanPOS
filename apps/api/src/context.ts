@@ -56,6 +56,7 @@ export const buildContextFromSession = async (
         userId: user.id,
         sessionId,
         mustChangePassword: user.must_change_password,
+        role: user.role,
       },
     };
   });

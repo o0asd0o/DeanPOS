@@ -1,13 +1,15 @@
 import type { DatabaseInstance } from "../db/client.ts";
+import type { Role } from "../db/prisma/generated/types.ts";
 
 // The tenant is read from here and nowhere else — never a header, a query,
-// a body, or the hostname (issue 01). The other fields arrive with a real
-// session (issue 03) and are optional because `asTenant(tenantId)` omits them.
+// a body, or the hostname (issue 01). `role` is read fresh from the User row
+// per request (issue 04); every field but `tenantId` is optional.
 export type Principal = {
   tenantId: string;
   userId?: string;
   sessionId?: string;
   mustChangePassword?: boolean;
+  role?: Role;
 };
 
 // A platform admin is a distinct principal, never a Tenant's User with a

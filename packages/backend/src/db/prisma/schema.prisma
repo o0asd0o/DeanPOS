@@ -20,22 +20,25 @@ model Ping {
 // tenant_id column of its own, reachable only through platform-admin paths
 // (issue 02).
 model Tenant {
-  id        String   @id
-  name      String
-  createdAt DateTime @default(now())
-  stores    Store[]
-  users     User[]
+  id         String      @id
+  name       String
+  createdAt  DateTime    @default(now())
+  stores     Store[]
+  users      User[]
+  userRoles  UserRole[]
+  userStores UserStore[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
 // FORCED in the same migration that creates this table.
 model Store {
-  id        String   @id
-  tenantId  String   @map("tenant_id")
-  name      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  id         String      @id
+  tenantId   String      @map("tenant_id")
+  name       String
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  userStores UserStore[]
 
   @@index([tenantId])
 }
@@ -49,18 +52,56 @@ enum Role {
 // Belongs to a Tenant. `email` is globally unique, not merely unique per
 // Tenant — see issue 03's `## Comments` for why sign-in requires that.
 model User {
-  id                 String    @id
-  tenantId           String    @map("tenant_id")
-  email              String    @unique
-  passwordHash       String    @map("password_hash")
-  mustChangePassword Boolean   @default(true) @map("must_change_password")
+  id                 String      @id
+  tenantId           String      @map("tenant_id")
+  email              String      @unique
+  passwordHash       String      @map("password_hash")
+  mustChangePassword Boolean     @default(true) @map("must_change_password")
   role               Role
-  active             Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  tenant             Tenant    @relation(fields: [tenantId], references: [id])
+  active             Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  tenant             Tenant      @relation(fields: [tenantId], references: [id])
   sessions           Session[]
+  userRoles          UserRole[]
+  userStores         UserStore[]
 
   @@index([tenantId])
+}
+
+// Effective-dated history of the Role a User held (issue 04, PRD security
+// criterion 21). Append-only, same grant-level enforcement as UserStore
+// below. `User.role` stays a denormalised convenience; this is the truth.
+model UserRole {
+  id            String   @id
+  tenantId      String   @map("tenant_id")
+  userId        String   @map("user_id")
+  role          Role
+  effectiveFrom DateTime @map("effective_from")
+  createdAt     DateTime @default(now()) @map("created_at")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId, effectiveFrom])
+}
+
+// Effective-dated history of which Stores a User may operate (issue 04).
+// Append-only like UserRole; un-assigning writes a closing row
+// (`assigned = false`) rather than deleting the prior one.
+model UserStore {
+  id            String   @id
+  tenantId      String   @map("tenant_id")
+  userId        String   @map("user_id")
+  storeId       String   @map("store_id")
+  assigned      Boolean  @default(true)
+  effectiveFrom DateTime @map("effective_from")
+  createdAt     DateTime @default(now()) @map("created_at")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  store         Store    @relation(fields: [storeId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId, storeId, effectiveFrom])
 }
 
 // Back-office session (issue 03): an opaque server-side id, persistent with

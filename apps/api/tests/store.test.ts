@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { hashPassword } from "backend/src/common/password.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
@@ -13,6 +14,10 @@ const tenantA = randomUUID();
 const tenantB = randomUUID();
 const storeA = randomUUID();
 const storeB = randomUUID();
+// Admin, so issue 04's Store-membership gate does not enter into it — this
+// file is store.get's own read-path suite; role/membership gating is
+// apps/api/tests/authorisation-gate.test.ts.
+const adminA = randomUUID();
 
 beforeAll(async () => {
   await ownerDb
@@ -21,6 +26,16 @@ beforeAll(async () => {
       { id: tenantA, name: "Tenant A" },
       { id: tenantB, name: "Tenant B" },
     ])
+    .execute();
+  await ownerDb
+    .insertInto("User")
+    .values({
+      id: adminA,
+      tenant_id: tenantA,
+      email: `store-admin-${randomUUID()}@store.test`,
+      password_hash: await hashPassword("irrelevant"),
+      role: "admin",
+    })
     .execute();
 
   await withTenantScope(seam.db, tenantA, (db) =>
@@ -33,6 +48,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Store").where("id", "in", [storeA, storeB]).execute();
+  await ownerDb.deleteFrom("User").where("id", "=", adminA).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
   await ownerDb.destroy();
   await seam.db.destroy();
@@ -40,7 +56,9 @@ afterAll(async () => {
 
 describe("store.get", () => {
   it("returns a Tenant's own Store, through contract → route → handler → query → Kysely", async () => {
-    const store = await seam.actors.asTenant(tenantA).client.store.get({ id: storeA });
+    const store = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.store.get({ id: storeA });
 
     expect(store?.id).toBe(storeA);
     expect(store?.tenantId).toBe(tenantA);
@@ -48,7 +66,10 @@ describe("store.get", () => {
 
   it("the wrong-tenant probe: Tenant A addressing Tenant B's Store id directly gets refused, never B's row", async () => {
     await expectWrongTenantRefusal(
-      () => seam.actors.asTenant(tenantA).client.store.get({ id: storeB }),
+      () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.store.get({ id: storeB }),
       (result) => result === null,
     );
   });
