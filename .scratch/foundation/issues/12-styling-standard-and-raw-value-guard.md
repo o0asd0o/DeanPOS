@@ -618,3 +618,56 @@ allowed only if `name` is bound in-file by `const name = cva(...)`, **or** `name
 the file, ends in `Variants`, and has no other local declaration. A same-file
 `function getVariants()` no longer passes on the suffix alone — code-standards.md rule 6 updated
 to state this exactly.
+
+**Coordinator's finishing round — three findings, two closed as real bugs, one confirmed already
+correct.**
+
+1. **`React.createElement` bypassed the walk.** The visitor handled JSX attributes and JSX-spread
+   object literals but not a `createElement(tag, { className, style })` props object. Added
+   `visitObjectLiteralProps`, shared between the spread case and a new `isCreateElementCallee`
+   check (matches a bare `createElement(...)` or `<ns>.createElement(...)`, e.g. `React.createElement`).
+   Verified: `React.createElement("div", { className: "bg-[#fff]" })` now flags
+   (`Raw design values found in:`), previously passed silently.
+
+2. **cva collection accepted `let`/`var`.** Rule 6's contract is `const X = cva(...)`; the collector
+   was reading `isVariableDeclaration` nodes directly, which have no const/let/var flag of their
+   own — that flag lives on the enclosing `VariableDeclarationList`. Rewrote the collector to walk
+   `VariableDeclarationList` (`setParentNodes` is `false`, so this is the only place the flag is
+   visible) and require `node.flags & ts.NodeFlags.Const` before adding a name to the `cva` set;
+   anything else (`let`, `var`, or a `const` not initialised to `cva(...)`) goes to `otherLocal`.
+   Verified: `let tone = cva("p-4"); tone = getClasses; cn(tone())` now flags as assembled;
+   `const tone = cva("p-4"); cn(tone())` still passes.
+
+3. **Parameter shadowing a cva name — probed, not changed.** Constructed the scenario named in the
+   finding (`const tone = cva(...)` at module scope, a function parameter also named `tone`, used
+   as a bare identifier: `cn(tone)`). This already flags correctly and needed no code change: a
+   bare identifier is only ever allowed when it is literally `className`, so a shadowing parameter
+   used this way was never going to slip through, independent of any cva/import bookkeeping. Left
+   `isVariantsCall`'s precedence untouched, as instructed.
+
+4. **Two comments over the three-line cap, one inaccurate.** The file-level `ponytail:` comment
+   (was 4 lines, and referenced only "the name suffix" as sufficient) and the `classifyCnArg` doc
+   comment (was 4 lines) both compressed to 3 lines; both now state the import requirement exactly
+   as implemented — const-bound `cva(...)`, or imported and `*Variants`-named with no other local
+   declaration.
+
+All four probes added as regression tests in `packages/ui/tests/test-seam.test.ts`, describe block
+"coordinator's finishing round" — including the two that already passed, so the parameter-shadow
+and const-cva-still-works cases are pinned rather than incidental.
+
+**Gate, all from the worktree with the PATH prepend:**
+- `vp run -w codegen` — clean.
+- `vp check` — 144 files formatted, 108 clean.
+- `vp run -r check` — 10/10.
+- `vp run -r test` — 10/10; `packages/ui` 107/107 (`test-seam.test.ts` 54/54, up from 50); both
+  apps' `design-values.test.ts` 1/1, real trees (`apps/pos/src`, `apps/backoffice/src`,
+  `packages/ui/src`) clean.
+
+**Bite re-proved** on `apps/pos/src/components/AppShell.tsx` (`bg-[#35CCA6]` added to line 6),
+`vp run -F pos test` failed at `src/components/AppShell.tsx:6`, reverted, reran green. `git status`
+in the worktree shows only the guard and its test file changed; the root checkout at
+`/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed clean before finishing.
+
+rule 6 in `docs/agents/code-standards.md` already said `const X = cva(...)` explicitly — the
+implementation now matches that wording exactly (previously it silently accepted `let`/`var` too);
+no doc wording change was needed for the const tightening.

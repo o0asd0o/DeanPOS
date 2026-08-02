@@ -2,10 +2,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import ts from "@typescript/typescript6";
 
-// ponytail: parses with the TypeScript compiler, so comments, strings, and
-// template literals stop being a problem by construction. Ceiling: it still
-// can't see a class assembled inside an imported function, or one arriving
-// through a prop at runtime.
+// ponytail: parses with the TypeScript compiler, so comments/strings/template
+// literals are never a problem. Ceiling: still can't see a class assembled
+// inside an imported function, or arriving through a prop at runtime.
 const HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/;
 
 // `<utility>-[<value>]` has no trailing colon; an arbitrary variant like
@@ -71,9 +70,9 @@ function unwrapParens(node: ts.Expression): ts.Expression {
 }
 
 // One argument to a `cn(...)` call: a string literal, the `className` prop,
-// `cond && "literal"`, `cond ? a : b` where both branches are themselves
-// valid arguments, or a call to a name bound to `cva(...)` or ending in
-// `Variants`. Anything else is assembled.
+// `cond && "literal"`, `cond ? a : b` where both branches are valid, or a
+// call to a name const-bound to `cva(...)`, or imported and `*Variants`-named
+// with no other local declaration. Anything else is assembled.
 function classifyCnArg(
   arg: ts.Expression,
   isVariantsCall: (call: ts.CallExpression) => boolean,
@@ -164,18 +163,23 @@ function scanFile(filePath: string, offenders: Offenders): void {
   const otherLocal = new Set<string>();
 
   const collect = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-      const name = node.name.text;
-      const init = node.initializer;
-      if (
-        init &&
-        ts.isCallExpression(init) &&
-        ts.isIdentifier(init.expression) &&
-        init.expression.text === "cva"
-      ) {
-        cva.add(name);
-      } else {
-        otherLocal.add(name);
+    // The const/let/var flag lives on the declaration *list*, not each
+    // declaration — setParentNodes is false, so this is the only place it's
+    // visible. Rule 6 requires `const X = cva(...)`; `let` doesn't qualify.
+    if (ts.isVariableDeclarationList(node)) {
+      const isConst = (node.flags & ts.NodeFlags.Const) !== 0;
+      for (const decl of node.declarations) {
+        if (!ts.isIdentifier(decl.name)) continue;
+        const name = decl.name.text;
+        const init = decl.initializer;
+        const isCva =
+          isConst &&
+          init &&
+          ts.isCallExpression(init) &&
+          ts.isIdentifier(init.expression) &&
+          init.expression.text === "cva";
+        if (isCva) cva.add(name);
+        else otherLocal.add(name);
       }
     } else if (ts.isFunctionDeclaration(node) && node.name) {
       otherLocal.add(node.name.text);
@@ -214,6 +218,25 @@ function scanFile(filePath: string, offenders: Offenders): void {
     if (assembled) offenders.assembled.push(`${filePath}:${line}`);
   }
 
+  // Both `<div {...{ className }} />` and a `createElement("div", { className })`
+  // props object use the same site: an object literal's property assignments.
+  const visitObjectLiteralProps = (obj: ts.ObjectLiteralExpression): void => {
+    for (const prop of obj.properties) {
+      if (!ts.isPropertyAssignment(prop)) continue;
+      if (!ts.isIdentifier(prop.name) && !ts.isStringLiteral(prop.name)) continue;
+      handle(prop.name.text, prop.initializer, prop);
+    }
+  };
+
+  function isCreateElementCallee(expr: ts.Expression): boolean {
+    if (ts.isIdentifier(expr)) return expr.text === "createElement";
+    return (
+      ts.isPropertyAccessExpression(expr) &&
+      ts.isIdentifier(expr.name) &&
+      expr.name.text === "createElement"
+    );
+  }
+
   const visit = (node: ts.Node): void => {
     if (ts.isJsxAttribute(node) && ts.isIdentifier(node.name)) {
       const init = node.initializer;
@@ -221,11 +244,14 @@ function scanFile(filePath: string, offenders: Offenders): void {
         init === undefined ? undefined : ts.isJsxExpression(init) ? init.expression : init; // a plain string-literal attribute value
       handle(node.name.text, value, node);
     } else if (ts.isJsxSpreadAttribute(node) && ts.isObjectLiteralExpression(node.expression)) {
-      for (const prop of node.expression.properties) {
-        if (!ts.isPropertyAssignment(prop)) continue;
-        if (!ts.isIdentifier(prop.name) && !ts.isStringLiteral(prop.name)) continue;
-        handle(prop.name.text, prop.initializer, prop);
-      }
+      visitObjectLiteralProps(node.expression);
+    } else if (
+      ts.isCallExpression(node) &&
+      isCreateElementCallee(node.expression) &&
+      node.arguments[1] &&
+      ts.isObjectLiteralExpression(node.arguments[1])
+    ) {
+      visitObjectLiteralProps(node.arguments[1]);
     }
     ts.forEachChild(node, visit);
   };

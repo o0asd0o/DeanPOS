@@ -236,3 +236,27 @@ describe("assertNoRawDesignValues — AST rebuild, record 016's five defects", (
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
   });
 });
+
+describe("assertNoRawDesignValues — coordinator's finishing round", () => {
+  it("flags a raw value reaching className through React.createElement's props object", () => {
+    write(`React.createElement("div", { className: "bg-[#fff]" });`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
+  });
+
+  it("does not let a let-bound cva name, reassigned, sanction an opaque call", () => {
+    write(`let tone = cva("p-4");\ntone = getClasses;\n<div className={cn(tone())} />;`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("still accepts a const-bound cva call — the const tightening must not break the legitimate case", () => {
+    write(`const tone = cva("p-4");\n<div className={cn(tone())} />;`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+
+  it("flags a parameter shadowing a cva name used as a bare identifier, not a call", () => {
+    write(
+      `const tone = cva("p-4");\nfunction Row(tone: string) {\n  return <div className={cn(tone)} />;\n}`,
+    );
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+});
