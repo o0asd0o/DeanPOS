@@ -250,3 +250,42 @@ issue applies seven more times. Spec axis raised the missing build report (this 
 sidebar product mark (addressed above — app content, not `packages/ui`'s), the card border
 (addressed above — the only token available), and flagged `SelectItem`'s `outline-hidden` removal
 as scope creep (addressed above — same opt-out by effect, in scope).
+
+**Record 015 applied (fixer, 2026-08-02).** One correction: the two Testing Library
+devDependencies moved from literal versions to `catalog:`.
+
+1. Root `package.json` catalog gained `@testing-library/react: 16.3.2` and
+   `@testing-library/dom: 10.4.1` — record 008's already-checked versions, unchanged.
+2. `packages/ui/package.json` — `@testing-library/dom` and `@testing-library/react` changed
+   from `10.4.1`/`16.3.2` to `catalog:`. `@vitejs/plugin-react` and `happy-dom` were already
+   `catalog:` and left alone.
+3. `apps/api/package.json` — same two changed to `catalog:`. `axe-core: "4.12.1"` left inline,
+   untouched.
+4. `vp install`, `bun.lock` regenerated and committed.
+
+Nothing else touched: `packages/ui/vite.config.ts` is byte-for-byte (no `environment` line),
+`badge.test.tsx` unedited in place, `contrast.test.ts` untouched, root config/tsconfigs/
+`.orc2/config.env` untouched.
+
+**Convention going forward, per record 015:** in `packages/ui/tests/`, `.test.ts` runs under
+Node and `.test.tsx` runs under happy-dom. Every `.tsx` render test opens with
+`// @vitest-environment happy-dom` and registers `afterEach(cleanup)` at module scope — RTL's
+auto-cleanup never fires here because there is no module every render passes through.
+
+Verified:
+
+- `bun.lock` diff shows exactly one `@testing-library/dom` and one `@testing-library/react`
+  entry changed from literal to `catalog:` in each of `packages/ui` and `apps/api`, plus one new
+  line each added to the root catalog — one declaration of each version, no duplicate, no
+  top-level `vitest`.
+- `rg --files-without-match -g 'packages/ui/tests/*.test.tsx' '^// @vitest-environment happy-dom'`
+  → empty.
+- `rg --files-without-match -g 'packages/ui/tests/*.test.tsx' 'afterEach\(cleanup\)'` → empty.
+- `vp run -w codegen` → clean. `vp check` → pass (140 files formatted, 104 files typechecked,
+  0 errors). `vp run -r check` → pass across all 10 workspaces.
+- `vp run -r test` → all workspaces green; `vp run --no-cache -F ui test` (forced uncached) →
+  **3 test files, 53 tests passed** in `packages/ui`.
+
+Committed to `f14-reskin-shared-parts` at `2a67f5b` on top of `85a9ff0`. Repo root checkout
+(`/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS`, branch `main`) was never
+touched — confirmed clean via `git status` there.
