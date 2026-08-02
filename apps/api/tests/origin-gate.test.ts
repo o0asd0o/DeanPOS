@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { createClient } from "contract/src/index.ts";
 import { ENV_KEYS } from "../src/env.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
@@ -75,5 +76,24 @@ describe("the back-office Origin gate", () => {
 
     const store = await client.store.get({ id: randomUUID() });
     expect(store).toBeNull();
+  });
+
+  // Issue 09's device token rides in `Authorization`, never the cookie. A
+  // terminal that incidentally carries a stray admin-domain session cookie
+  // must not be refused by this app's cookie-CSRF gate for a credential it
+  // never intended to use.
+  it("a device-token request carrying an incidental session cookie from the pos. origin is not refused by the Origin gate", async () => {
+    const client = createClient({
+      url: `https://api.${appDomain}/rpc`,
+      fetch: async (request) => {
+        request.headers.set("Origin", `https://pos.${appDomain}`);
+        request.headers.set("Cookie", sessionCookie);
+        request.headers.set("Authorization", "Bearer irrelevant-device-token");
+        return seam.app.request(request);
+      },
+    });
+
+    const store = await client.store.get({ id: randomUUID() });
+    expect(store).toBeNull(); // reached the procedure unauthenticated, not refused with FORBIDDEN
   });
 });

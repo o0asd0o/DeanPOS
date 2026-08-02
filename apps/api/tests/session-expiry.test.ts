@@ -53,8 +53,7 @@ describe("session expiry", () => {
     );
 
     const client = seam.actors.withCookie(sessionCookie, seam.actors.adminOrigin);
-    const store = await client.store.get({ id: randomUUID() });
-    expect(store).toBeNull();
+    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
   });
 
   it("idle expiry: a session with no recent activity is refused even though its absolute expiry is far off", async () => {
@@ -70,8 +69,7 @@ describe("session expiry", () => {
     );
 
     const client = seam.actors.withCookie(sessionCookie, seam.actors.adminOrigin);
-    const store = await client.store.get({ id: randomUUID() });
-    expect(store).toBeNull();
+    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
   });
 
   it("activity refreshes the idle clock", async () => {

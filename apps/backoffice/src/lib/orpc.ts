@@ -5,11 +5,13 @@ const apiUrl = import.meta.env.VITE_API_URL;
 
 // Checked at first request, not at import, so the gate (which never makes one)
 // stays green with VITE_API_URL unset — .scratch/decisions/012.
-const client = createClient({
+export const client = createClient({
   url: `${apiUrl}/rpc`,
   fetch: (request, init) => {
     if (!apiUrl) throw new Error("VITE_API_URL is not set. See .env.example.");
-    return fetch(request, init);
+    // The API is on a different subdomain, so the default "same-origin" would
+    // make the browser discard the session Set-Cookie (issue 03 round 2).
+    return fetch(request, { ...init, credentials: "include" });
   },
 });
 

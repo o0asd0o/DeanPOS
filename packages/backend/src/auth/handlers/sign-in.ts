@@ -15,7 +15,7 @@ export const inputSchema = z.object({
 });
 
 type SignInInput = z.infer<typeof inputSchema>;
-export type SignInResult =
+type SignInResult =
   | { ok: true; mustChangePassword: boolean; sessionId: string; expiresAt: Date }
   | { ok: false };
 

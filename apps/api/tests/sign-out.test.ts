@@ -56,10 +56,10 @@ describe("auth.signOut", () => {
     const { sessionCookie, client } = await seam.actors.signIn(email, password);
     await client.auth.signOut();
 
-    const storeAfterSignOut = await client.store.get({ id: randomUUID() });
-    expect(storeAfterSignOut).toBeNull();
+    // Replays the original cookie: proves context construction itself
+    // honours `revoked_at`, not merely that the row was written.
+    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
 
-    // Confirm it reads as truly unauthenticated, not merely "no matching Store".
     const row = await ownerDb
       .selectFrom("Session")
       .selectAll()

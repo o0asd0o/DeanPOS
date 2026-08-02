@@ -42,7 +42,10 @@ export const createApp = ({
   const app = new Hono<{ Variables: { ctx: Ctx } }>();
   const testSeamActor = principal || platformAdmin;
 
-  app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins] }));
+  // credentials: true is required for the session cookie to survive the
+  // cross-subdomain request (issue 03 round 2) — without it the browser
+  // discards Set-Cookie regardless of the cookie's own attributes.
+  app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins], credentials: true }));
 
   // No identity concept applies to a liveness check — always unauthenticated.
   app.use("/health", async (c, next) => {
@@ -70,7 +73,12 @@ export const createApp = ({
     if (testSeamActor) {
       ctx = createContext(db, principal, platformAdmin);
     } else {
-      const sessionId = parseSessionCookie(c.req.header("Cookie"));
+      // A device-token request (issue 09) carries `Authorization`, never the
+      // session cookie's identity — the Origin gate below is this app's
+      // cookie-CSRF defence and must not refuse a request that never relied
+      // on the cookie in the first place, even if one rode along incidentally.
+      const isDeviceTokenRequest = c.req.header("Authorization") !== undefined;
+      const sessionId = isDeviceTokenRequest ? null : parseSessionCookie(c.req.header("Cookie"));
       if (sessionId) {
         // A missing Origin is a refusal, not a pass — PRD security criterion 20.
         if (c.req.header("Origin") !== ADMIN_ORIGIN(appDomain)) {

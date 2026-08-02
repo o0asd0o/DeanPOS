@@ -1,25 +1,38 @@
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
-// Issue 03 acceptance criterion 8, for procedures with no foreign id to
-// address directly: acting as Tenant A never touches Tenant B's rows.
+// Issue 03 acceptance criterion 8: acting as Tenant A never touches Tenant
+// B's rows. Each probe below seeds its own fresh Tenant A/B pair, because a
+// password one probe changes (setPassword) or a session another revokes
+// (signOut) must never leave a later probe's own sign-in failing silently —
+// that is exactly what turned round 1's signOut probe vacuous.
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
-
-const tenantA = randomUUID();
-const tenantB = randomUUID();
-const userA = randomUUID();
-const userB = randomUUID();
-const emailA = `wrong-tenant-a-${randomUUID()}@sign-in.test`;
-const emailB = `wrong-tenant-b-${randomUUID()}@sign-in.test`;
 const password = "correct horse battery staple";
 
-beforeAll(async () => {
+type Pair = {
+  tenantA: string;
+  tenantB: string;
+  userA: string;
+  userB: string;
+  emailA: string;
+  emailB: string;
+};
+
+async function seedPair(options: { mustChangePassword?: boolean } = {}): Promise<Pair> {
+  const tenantA = randomUUID();
+  const tenantB = randomUUID();
+  const userA = randomUUID();
+  const userB = randomUUID();
+  const emailA = `wrong-tenant-a-${randomUUID()}@sign-in.test`;
+  const emailB = `wrong-tenant-b-${randomUUID()}@sign-in.test`;
+  const mustChangePassword = options.mustChangePassword ?? false;
+
   await ownerDb
     .insertInto("Tenant")
     .values([
@@ -35,7 +48,7 @@ beforeAll(async () => {
         tenant_id: tenantA,
         email: emailA,
         password_hash: await hashPassword(password),
-        must_change_password: false,
+        must_change_password: mustChangePassword,
         role: "admin",
         active: true,
       },
@@ -44,42 +57,95 @@ beforeAll(async () => {
         tenant_id: tenantB,
         email: emailB,
         password_hash: await hashPassword(password),
-        must_change_password: false,
+        must_change_password: mustChangePassword,
         role: "admin",
         active: true,
       },
     ])
     .execute();
-});
+
+  return { tenantA, tenantB, userA, userB, emailA, emailB };
+}
+
+async function cleanupPair(pair: Pair): Promise<void> {
+  await ownerDb
+    .deleteFrom("Session")
+    .where("tenant_id", "in", [pair.tenantA, pair.tenantB])
+    .execute();
+  await ownerDb.deleteFrom("User").where("id", "in", [pair.userA, pair.userB]).execute();
+  await ownerDb.deleteFrom("Tenant").where("id", "in", [pair.tenantA, pair.tenantB]).execute();
+}
 
 afterAll(async () => {
-  await ownerDb.deleteFrom("Session").where("tenant_id", "in", [tenantA, tenantB]).execute();
-  await ownerDb.deleteFrom("User").where("id", "in", [userA, userB]).execute();
-  await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
   await ownerDb.destroy();
   await seam.db.destroy();
 });
 
 describe("wrong-tenant probes on auth.*", () => {
+  it("auth.signIn: Tenant B's real password never opens Tenant A's account, and the created session is scoped to the account actually matched", async () => {
+    const pair = await seedPair();
+
+    const crossCredential = await seam.actors.signIn(pair.emailA, password + "-wrong");
+    expect(crossCredential.result).toStrictEqual({ ok: false });
+
+    const { result, sessionCookie } = await seam.actors.signIn(pair.emailA, password);
+    expect(result.ok).toBe(true);
+
+    const sessionId = sessionCookie!.split("=")[1]!;
+    const row = await ownerDb
+      .selectFrom("Session")
+      .select("tenant_id")
+      .where("id", "=", sessionId)
+      .executeTakeFirstOrThrow();
+    expect(row.tenant_id).toBe(pair.tenantA);
+    expect(row.tenant_id).not.toBe(pair.tenantB);
+
+    await cleanupPair(pair);
+  });
+
+  it("auth.me: Tenant A's session reports Tenant A's own state, never Tenant B's", async () => {
+    const pair = await seedPair({ mustChangePassword: true });
+    // B changes its own password first, which also clears must_change_password —
+    // giving A and B genuinely different, currently-true state to distinguish.
+    const bSignIn = await seam.actors.signIn(pair.emailB, password);
+    expect(bSignIn.result.ok).toBe(true);
+    await bSignIn.client.auth.setPassword({ newPassword: "b's own new password" });
+
+    const aSignIn = await seam.actors.signIn(pair.emailA, password);
+    expect(aSignIn.result.ok).toBe(true);
+
+    await expect(aSignIn.client.auth.me()).resolves.toStrictEqual({
+      authenticated: true,
+      mustChangePassword: true,
+    });
+
+    await cleanupPair(pair);
+  });
+
   it("auth.setPassword as Tenant A's session never touches Tenant B's User row", async () => {
+    const pair = await seedPair({ mustChangePassword: true });
+
     const before = await ownerDb
       .selectFrom("User")
       .select("password_hash")
-      .where("id", "=", userB)
+      .where("id", "=", pair.userB)
       .executeTakeFirstOrThrow();
 
-    const { client } = await seam.actors.signIn(emailA, password);
-    await client.auth.setPassword({ newPassword: "a's new password" });
+    const { result, client } = await seam.actors.signIn(pair.emailA, password);
+    expect(result.ok).toBe(true);
+
+    const setResult = await client.auth.setPassword({ newPassword: "a's new password" });
+    expect(setResult).toStrictEqual({ ok: true });
 
     const rowA = await ownerDb
       .selectFrom("User")
       .selectAll()
-      .where("id", "=", userA)
+      .where("id", "=", pair.userA)
       .executeTakeFirstOrThrow();
     const rowB = await ownerDb
       .selectFrom("User")
       .selectAll()
-      .where("id", "=", userB)
+      .where("id", "=", pair.userB)
       .executeTakeFirstOrThrow();
 
     // A's hash changed to the new password; B's is byte-for-byte unchanged
@@ -87,19 +153,33 @@ describe("wrong-tenant probes on auth.*", () => {
     // the same plaintext would also be, salt notwithstanding.
     expect(rowA.password_hash).not.toBe(before.password_hash);
     expect(rowB.password_hash).toBe(before.password_hash);
+
+    await cleanupPair(pair);
   });
 
   it("auth.signOut as Tenant A's session never revokes Tenant B's Session row", async () => {
-    const sessionB = await seam.actors.signIn(emailB, password);
-    const sessionA = await seam.actors.signIn(emailA, password);
+    const pair = await seedPair();
+
+    const sessionB = await seam.actors.signIn(pair.emailB, password);
+    expect(sessionB.result.ok).toBe(true);
+    const sessionA = await seam.actors.signIn(pair.emailA, password);
+    expect(sessionA.result.ok).toBe(true);
 
     await sessionA.client.auth.signOut();
 
+    const rowA = await ownerDb
+      .selectFrom("Session")
+      .selectAll()
+      .where("id", "=", sessionA.sessionCookie!.split("=")[1]!)
+      .executeTakeFirstOrThrow();
     const rowB = await ownerDb
       .selectFrom("Session")
       .selectAll()
       .where("id", "=", sessionB.sessionCookie!.split("=")[1]!)
       .executeTakeFirstOrThrow();
+    expect(rowA.revoked_at).not.toBeNull();
     expect(rowB.revoked_at).toBeNull();
+
+    await cleanupPair(pair);
   });
 });

@@ -84,4 +84,36 @@ describe("the forced-password-change gate", () => {
 
     await expect(client.store.get({ id: randomUUID() })).resolves.toBeNull();
   });
+
+  it("an ordinary session (mustChangePassword: false) is refused on auth.setPassword", async () => {
+    const ordinaryEmail = `ordinary-${randomUUID()}@sign-in.test`;
+    const ordinaryPassword = "an ordinary password";
+    const ordinaryUserId = randomUUID();
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: ordinaryUserId,
+        tenant_id: tenantId,
+        email: ordinaryEmail,
+        password_hash: await hashPassword(ordinaryPassword),
+        must_change_password: false,
+        role: "admin",
+        active: true,
+      })
+      .execute();
+
+    const { client } = await seam.actors.signIn(ordinaryEmail, ordinaryPassword);
+    const result = await client.auth.setPassword({ newPassword: "a stolen-session password" });
+    expect(result).toStrictEqual({ ok: false });
+
+    const row = await ownerDb
+      .selectFrom("User")
+      .selectAll()
+      .where("id", "=", ordinaryUserId)
+      .executeTakeFirstOrThrow();
+    expect(await verifyPassword(ordinaryPassword, row.password_hash)).toBe(true);
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", ordinaryUserId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", ordinaryUserId).execute();
+  });
 });

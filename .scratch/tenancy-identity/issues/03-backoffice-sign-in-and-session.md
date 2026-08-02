@@ -146,3 +146,51 @@ levels regardless of tooling.
    `set_config` still appears at exactly one call site. `User.email` global uniqueness and
    the 30-minute/30-day session lifetimes are ratified unchanged by the same record; only
    the comment on `session-policy.ts` now cites it instead of describing a guess.
+
+6. **Review round 1 fixes.** Five blocking Spec findings, two should-fix, two Standards:
+   - The product could not actually sign in through a browser: `apps/backoffice/src/lib/orpc.ts`
+     now sends `credentials: "include"`, and `apps/api/src/app.ts`'s CORS middleware now sets
+     `credentials: true`, so the cross-subdomain `Set-Cookie` survives. Asserted in
+     `apps/api/tests/cors.test.ts` (`Access-Control-Allow-Credentials: true`) and a new
+     `apps/backoffice/tests/orpc-credentials.test.ts` that spies on `fetch` and checks
+     `init.credentials`. `client` is now exported from `orpc.ts` alongside `orpc` so the test
+     can reach it directly — no other surface changed.
+   - The Origin gate keyed on cookie presence, which would have refused a device-token
+     request (issue 09) that happened to carry an incidental session cookie from the `pos.`
+     origin. `apps/api/src/app.ts` now checks for an `Authorization` header first and, when
+     present, never looks at the cookie or runs the Origin check at all — issue 09 does not
+     exist yet, so this is deliberately the narrowest fix that keeps the gate correct for
+     today's only credential (the cookie) while not pre-judging how issue 09's Device
+     principal gets built. Regression test added to `apps/api/tests/origin-gate.test.ts`.
+   - `auth.setPassword` accepted any tenant session, not only the forced-change flow record
+     030 built it for. `packages/backend/src/auth/handlers/set-password.ts` now requires
+     `ctx.principal.mustChangePassword === true`. Test added to
+     `apps/api/tests/forced-password-change.test.ts`.
+   - Nothing in `apps/backoffice` called `auth.signOut`. Added `SignOutButton.tsx`
+     (components/, shared shell chrome) wired into both `AppShell.tsx` sidebars via
+     `SidebarFooter`; it calls `auth.signOut`, clears the TanStack Query cache, and navigates
+     to `/login`. Covered by `apps/backoffice/tests/sign-out-button.test.tsx`.
+   - `apps/api/tests/auth-wrong-tenant-probe.test.ts` rewritten: each probe now seeds its own
+     fresh Tenant A/B pair (a `seedPair`/`cleanupPair` helper) instead of sharing module-level
+     state, so one probe's mutation (a changed password, a revoked session) can never make a
+     later probe's sign-in fail silently. Independent probes now exist for all four
+     procedures — `signIn`, `me`, `setPassword`, `signOut` — each asserting Tenant A's own
+     sign-in genuinely succeeds before touching Tenant B.
+   - `apps/api/tests/session-expiry.test.ts` (both expiry cases) and
+     `apps/api/tests/sign-out.test.ts` ("the cookie alone cannot resurrect") asserted
+     `store.get(...) === null`, which is also the correct authenticated result for a
+     nonexistent Store — deleting the underlying expiry/revocation logic would not have
+     failed them. Both now assert through `auth.me()` instead.
+   - `apps/api/src/middlewares/must-change-password.ts`'s comment said "exactly these two"
+     while listing three paths; corrected to three.
+   - `SignInResult` was exported from `packages/backend/src/auth/handlers/sign-in.ts`.
+     ADR-0008 rule 1 bounds a handler file's exports to exactly `inputSchema` and `handler`;
+     made the type local (it had no importer).
+   - Not touched, per explicit instruction: the 18 relocated `_shell` leaf routes' inline
+     `() => <Placeholder />` wrappers — pre-existing debt from `main`, not introduced here.
+   - Not fixed, flagged only: `apps/api/tests/session-expiry.test.ts`'s fourth case ("an
+     unknown session id is refused") has the same `store.get(...) === null` defect as the two
+     named in the finding, but was not itself named — left as spotted rather than folded in.
+   - Gate: 243 tests green (236 + 7 new). `with-tenant-scope.test.ts` and
+     `tenant-isolation-grep.test.ts` stayed zero-line diffs; `set_config` stayed at one call
+     site.

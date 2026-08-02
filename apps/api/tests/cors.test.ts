@@ -47,4 +47,13 @@ describe("CORS", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).not.toBe(attackerOrigin);
     expect(response.headers.has("Access-Control-Allow-Origin")).toBe(false);
   });
+
+  // Without this, the browser discards the session Set-Cookie on the
+  // cross-subdomain request regardless of the cookie's own attributes.
+  it("sends Access-Control-Allow-Credentials: true for an allowlisted origin", async () => {
+    const adminOrigin = `https://admin.${appDomain}`;
+    const response = await seam.app.request("/health", { headers: { Origin: adminOrigin } });
+
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+  });
 });

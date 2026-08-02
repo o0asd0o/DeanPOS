@@ -1,8 +1,17 @@
 import { Outlet } from "@tanstack/react-router";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger, Sidebar, SidebarProvider } from "ui";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+  Sidebar,
+  SidebarFooter,
+  SidebarProvider,
+} from "ui";
 
 import { Nav } from "./Nav.tsx";
 import { SidebarBrand } from "./SidebarBrand.tsx";
+import { SignOutButton } from "./SignOutButton.tsx";
 
 // Unlike apps/pos, this sidebar repeats on every screen, so the shell also
 // carries a skip link and a `<nav>`. The wordmark sits at the sidebar's top,
@@ -31,11 +40,17 @@ export function AppShell() {
             <Sidebar collapsible="none" className="h-full w-full">
               <SidebarBrand />
               <Nav />
+              <SidebarFooter>
+                <SignOutButton />
+              </SidebarFooter>
             </Sidebar>
           </SheetContent>
           <Sidebar collapsible="none" className="hidden md:flex md:shrink-0 md:overflow-y-auto">
             <SidebarBrand />
             <Nav />
+            <SidebarFooter>
+              <SignOutButton />
+            </SidebarFooter>
           </Sidebar>
           <main id="main-content" tabIndex={-1} className="flex-1 md:overflow-y-auto">
             <Outlet />
