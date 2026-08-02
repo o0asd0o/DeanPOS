@@ -59,13 +59,19 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
   // production uses — and captures the Set-Cookie header so callers can
   // both assert on it directly and drive further requests as that session.
   const signIn = async (email: string, password: string) => {
-    const captured: { setCookie: string | null } = { setCookie: null };
+    const captured: { setCookie: string | null; status: number | null; headers: Headers | null } = {
+      setCookie: null,
+      status: null,
+      headers: null,
+    };
     const signInClient = createClient({
       url: `https://api.${appDomain}/rpc`,
       fetch: async (request) => {
         request.headers.set("Origin", adminOrigin);
         const response = await app.request(request);
         captured.setCookie = response.headers.get("Set-Cookie");
+        captured.status = response.status;
+        captured.headers = response.headers;
         return response;
       },
     });
@@ -76,6 +82,8 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     return {
       result,
       setCookie: captured.setCookie,
+      status: captured.status,
+      headers: captured.headers,
       sessionCookie,
       client: buildCookieClient(sessionCookie, adminOrigin),
     };

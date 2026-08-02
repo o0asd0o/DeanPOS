@@ -70,10 +70,9 @@ export const createApp = ({
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
 
   app.use("/rpc/*", async (c, next) => {
-    // Caddy's `header_up` replaces rather than appends (docker/Caddyfile),
-    // so this is always exactly one address Caddy actually saw. Absent —
-    // src/dev.ts runs with no proxy — every such request shares one bucket,
-    // failing closed rather than exempting the caller (record 033).
+    // Trustworthy only because docker-compose.yml never publishes the api
+    // service — Caddy is the sole ingress. Absent when unproxied (src/dev.ts);
+    // every such request then shares one bucket, failing closed (record 033).
     const clientIp = c.req.header("X-Forwarded-For") ?? "no-forwarded-for";
 
     // Ctx is built per request, not once per app instance (issue 03).

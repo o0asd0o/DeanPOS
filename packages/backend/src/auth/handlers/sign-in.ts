@@ -26,9 +26,9 @@ type SignInResult =
   | { ok: true; mustChangePassword: boolean; sessionId: string; expiresAt: Date }
   | { ok: false };
 
-// One failure shape for every cause, never distinguished in message or
-// timing (issue 03 acceptance criterion 5; record 030): `verifyPassword`
-// always runs once, against the real hash or a fixed dummy one.
+// Shape and message are identical for every failure cause (issue 03
+// criterion 5; record 030). A throttled request returns early, faster by
+// one scrypt derivation — record 033 accepts that: it reveals lock state, not account existence.
 export const handler: Handler<SignInInput, SignInResult> = async ({ ctx, input }) => {
   const keys = throttleKeys(input.email, ctx.clientIp);
 

@@ -1,7 +1,5 @@
-// Password policy, record 032. Canonical source lives in packages/schemas
-// so the contract package can import it too without depending on backend —
-// this file re-exports it under the local, session-policy.ts-style path
-// every handler here imports from.
+// Password policy, record 032. Re-exports the canonical schemas/src/password.ts
+// under this backend's session-policy.ts-style import path.
 export {
   normalizePassword,
   PASSWORD_MAX_LENGTH,

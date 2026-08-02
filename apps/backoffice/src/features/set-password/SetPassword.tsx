@@ -1,9 +1,19 @@
 import { type FormEvent, useState } from "react";
+import { ORPCError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
 
 import { ErrorState } from "../../components/ErrorState.tsx";
+
+// A rejection on policy (record 032) arrives as oRPC's own input-validation
+// error, carrying the zod issue message; anything else is a real transport
+// failure and stays ErrorState's job.
+function policyRejectionMessage(error: unknown): string | null {
+  if (!(error instanceof ORPCError) || error.code !== "BAD_REQUEST") return null;
+  const data = error.data as { issues?: { message?: string }[] } | undefined;
+  return data?.issues?.[0]?.message ?? null;
+}
 
 // States, copy, colours and order are record 030's, extended with the two
 // decisions this screen adds: no current-password field, and a confirm field.
@@ -15,6 +25,7 @@ export function SetPassword() {
   const [mismatch, setMismatch] = useState(false);
 
   const setPassword = useMutation(orpc.auth.setPassword.mutationOptions());
+  const policyMessage = policyRejectionMessage(setPassword.error);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,11 +37,15 @@ export function SetPassword() {
       return;
     }
 
-    await setPassword.mutateAsync({ newPassword });
+    try {
+      await setPassword.mutateAsync({ newPassword });
+    } catch {
+      return; // surfaced below via setPassword.error / policyMessage
+    }
     await navigate({ to: "/" });
   };
 
-  if (setPassword.isError) {
+  if (setPassword.isError && !policyMessage) {
     return <ErrorState onRetry={() => setPassword.reset()} />;
   }
 
@@ -84,12 +99,12 @@ export function SetPassword() {
           <Button type="submit" className="w-full" aria-disabled={setPassword.isPending}>
             {setPassword.isPending ? "Saving…" : "Save and continue"}
           </Button>
-          {mismatch && (
+          {(mismatch || policyMessage) && (
             <div
               role="alert"
               className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
             >
-              The two passwords do not match
+              {mismatch ? "The two passwords do not match" : policyMessage}
             </div>
           )}
         </form>

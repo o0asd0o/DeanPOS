@@ -6,12 +6,9 @@ import { z } from "zod";
 export const PASSWORD_MIN_LENGTH = 15;
 export const PASSWORD_MAX_LENGTH = 128;
 
-// Trim then NFC, in that order (SP 800-63B-4 §3.1.1.2): trimming first lets
-// a password that only clears the minimum after trimming still pass, and
-// NFC is what makes a password set on one keyboard typeable on another.
-// Called from both the set-password path and the sign-in path — never
-// duplicated, or a normalised-at-set / not-normalised-at-verify divergence
-// silently and permanently locks out every non-ASCII user.
+// Trim then NFC (SP 800-63B-4 §3.1.1.2). Called from both the set-password
+// and sign-in paths — never duplicated, or a normalised-at-set /
+// not-normalised-at-verify divergence locks out every non-ASCII user.
 export function normalizePassword(password: string): string {
   return password.trim().normalize("NFC");
 }

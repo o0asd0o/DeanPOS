@@ -23,11 +23,7 @@ type Identity =
   | { kind: "tenant"; principal: Principal }
   | { kind: "platform-admin"; platformAdmin: PlatformAdminPrincipal };
 
-// `resHeaders` is oRPC's ResponseHeadersPlugin injection (issue 03): the
-// sign-in/sign-out routes append `Set-Cookie` to it. Absent outside a real
-// HTTP request (e.g. the test seam's direct handler calls).
-//
-// `clientIp` (record 033) is used for sign-in throttling and for nothing
-// else — it never reaches an authorisation decision and never keys a
-// database session variable.
+// `resHeaders` (oRPC's ResponseHeadersPlugin, issue 03) is where sign-in/out
+// append `Set-Cookie`; absent outside a real HTTP request. `clientIp`
+// (record 033) is for sign-in throttling only — never authorisation.
 export type Ctx = { db: DatabaseInstance; resHeaders?: Headers; clientIp: string } & Identity;

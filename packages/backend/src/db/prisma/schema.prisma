@@ -99,11 +99,9 @@ model PlatformAuditLog {
   @@index([tenantId])
 }
 
-// Sign-in rate limiting (record 033). Keyed on the submitted email string
-// or client address, never a User row — a row for an address that matches
-// no account is what keeps this from being an enumeration oracle. No
-// tenant_id, no user_id, no foreign key, and deliberately no RLS: see the
-// migration this table was created in for why.
+// Sign-in rate limiting. Keyed on the submitted string, never a User row —
+// an enumeration oracle otherwise (record 033). No tenant_id, no RLS: see
+// this table's migration.
 model SignInThrottle {
   key         String    @id
   failures    Int       @default(0)

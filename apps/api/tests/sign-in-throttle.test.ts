@@ -8,12 +8,9 @@ import { EMAIL_FAILURE_LIMIT, IP_FAILURE_LIMIT } from "backend/src/auth/throttle
 import { createDb } from "backend/src/db/client.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
-// Record 033: keyed on the submitted email string and the client address,
-// checked before the hash, and the refusal is byte-identical to a wrong
-// password. The test seam's fetch never sets X-Forwarded-For, so every
-// request in this whole suite shares the "ip:no-forwarded-for" bucket —
-// this file clears it before and after so it never pollutes, or is
-// polluted by, another test file.
+// Record 033. Every request in this file shares the "ip:no-forwarded-for"
+// bucket (the test seam never sets X-Forwarded-For), so it clears that key
+// before and after to stay isolated from every other test file.
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const IP_KEY = "ip:no-forwarded-for";
@@ -27,6 +24,13 @@ const clearIpKey = () => ownerDb.deleteFrom("SignInThrottle").where("key", "=", 
 const emailKeyFor = (address: string) => `email:${address.trim().toLowerCase()}`;
 const clearEmailKey = (address: string) =>
   ownerDb.deleteFrom("SignInThrottle").where("key", "=", emailKeyFor(address)).execute();
+
+// Excludes "date", the one header that legitimately differs between two
+// responses issued a moment apart.
+const sortedHeaderEntries = (headers: Headers | null) =>
+  Array.from(headers ?? [])
+    .filter(([key]) => key.toLowerCase() !== "date")
+    .sort(([a], [b]) => a.localeCompare(b));
 
 async function failNTimes(targetEmail: string, count: number) {
   for (let i = 0; i < count; i++) {
@@ -76,11 +80,30 @@ describe("sign-in throttling — per email", () => {
     // is doing the refusing.
     const knownLocked = await seam.actors.signIn(email, password);
     const unknownLocked = await seam.actors.signIn(unknownEmail, "irrelevant");
+    // A third, unthrottled cause — a plain wrong password on a fresh
+    // address — completes issue 03 criterion 5's three-way comparison.
+    const wrongPasswordEmail = `wrong-password-${randomUUID()}@sign-in.test`;
+    await clearEmailKey(wrongPasswordEmail);
+    const wrongPassword = await seam.actors.signIn(wrongPasswordEmail, "definitely wrong");
+    await clearEmailKey(wrongPasswordEmail);
 
     expect(knownLocked.result).toStrictEqual({ ok: false });
     expect(unknownLocked.result).toStrictEqual({ ok: false });
+    expect(wrongPassword.result).toStrictEqual({ ok: false });
     expect(knownLocked.setCookie).toBeNull();
     expect(unknownLocked.setCookie).toBeNull();
+    expect(wrongPassword.setCookie).toBeNull();
+
+    // Same status and headers too — the throttle lock, a wrong password,
+    // and an unknown email must be one indistinguishable HTTP response.
+    expect(knownLocked.status).toBe(wrongPassword.status);
+    expect(unknownLocked.status).toBe(wrongPassword.status);
+    expect(sortedHeaderEntries(knownLocked.headers)).toStrictEqual(
+      sortedHeaderEntries(wrongPassword.headers),
+    );
+    expect(sortedHeaderEntries(unknownLocked.headers)).toStrictEqual(
+      sortedHeaderEntries(wrongPassword.headers),
+    );
 
     await clearEmailKey(email);
     await clearEmailKey(unknownEmail);
