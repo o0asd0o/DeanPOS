@@ -216,6 +216,12 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
 When every issue under a PRD is closed:
 
+### A PRD may stage its QA — check for a plan first
+
+If `.scratch/<prd>/QA-PLAN.md` exists, **it overrides this section's trigger and its round cap.** Follow it. A large PRD stages QA into checkpoints so drift is caught at the seam that produced it rather than thirteen issues later, and the plan names each checkpoint, the issues it covers, its scope, and its cap.
+
+Everything else in this section still applies unchanged: capture the reference before any QA runs, the fixer's two prohibitions, the needs-human-eyes rule, and **one** notification per run, at the end.
+
 ### Capture the reference before QA starts
 
 Copy every mock this PRD's screens need into `.scratch/<prd>/reference/`, named for the screen and width (`home-1440.png`, `home-375.png`), and commit them. QA compares against these files on disk, and against the decider records that filled the gaps.

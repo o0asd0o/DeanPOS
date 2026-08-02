@@ -1,0 +1,95 @@
+# QA plan — tenancy-identity
+
+This PRD stages its QA. It overrides `.orc2/ORCHESTRATOR.md`'s "when every issue under a PRD
+is closed" trigger and its round cap of 2, per that section's staged-QA hook.
+
+**Why staged.** Thirteen issues, and the first four decide whether isolation and identity are
+correct at all. A single QA at the end would find a spine defect after nine slices were built
+on it. Each checkpoint runs at the seam that produced the work it judges.
+
+## The rule every checkpoint follows
+
+**One round, then the human.** QA runs. On FAIL, spawn `fixer` once with its findings, re-run
+the gate, return to **the same** QA agent. If that second verdict is not PASS, **stop and
+escalate** — do not attempt a second fix, and do not record a PASS.
+
+This is a cap of **1**, not the orchestrator's 2. It is deliberate: in this area a finding
+that survives one fix is usually a design question, and a second mechanical fix round buries
+it.
+
+On PASS, record the verdict against the checkpoint below and **continue unattended to the
+next group.** Checkpoints A, B, and C are quality gates, not human stops; the human stop is
+checkpoint D, which is the PRD checkpoint the orchestrator already designs for.
+
+**Needs-human-eyes items accumulate.** They are never sent to the fixer and never
+auto-accepted. Carry them forward and present the whole list at checkpoint D — or at whichever
+checkpoint the run stops on, if it stops earlier.
+
+**Reference capture happens once**, before checkpoint A, covering every mock this PRD names.
+Do not re-capture per checkpoint; the rate limit is real and a partial capture reported as
+fidelity is worse than no capture.
+
+## Checkpoint A — the isolation and identity spine
+
+- **Runs after:** issue 04 merges
+- **Covers:** 01, 02, 03, 04
+- **Scope:** full — happy path **and** negatives. The negatives are the deliverable here.
+- **Screens:** `backoffice/login-1440`
+
+What it must exercise: a Tenant provisioned and its admin signing in; the session persisting
+across a browser restart and dying on sign-out; idle and absolute expiry; the `Origin` gate
+refusing a foreign origin, the `pos.` origin, and a missing header; role and Store-membership
+gating including the admin exemption; and the wrong-tenant probe answering empty for every
+procedure that exists by then.
+
+**If checkpoint A does not pass in one round, the run stops here.** Nothing downstream is
+worth building on an unproven spine.
+
+## Checkpoint B — the back-office
+
+- **Runs after:** issue 08 merges
+- **Covers:** 05, 06, 07, 08
+- **Scope:** full — happy path and negatives.
+- **Screens:** `backoffice/users-1440`, `backoffice/settings-sales-1440`
+
+What it must exercise: Store create/edit/deactivate scoped to one Tenant; User create, assign,
+promote, reset, deactivate — with sessions dying immediately and history surviving; settings at
+their defaults on a fresh Tenant and admin-only on change, each change audited with both values;
+`cash` undeletable and unduplicable by the database; per-Store method availability enforced
+server-side.
+
+## Checkpoint C — the terminal
+
+- **Runs after:** issue 12 merges
+- **Covers:** 09, 10, 11, 12
+- **Scope:** full — happy path and negatives.
+- **Screens:** `backoffice/devices-1440`, `pos/device-enrolment-1280`, `pos/pin-unlock-1280`,
+  `pos/pin-unlock-390`, `pos/manager-override-1280`
+
+What it must exercise: enrolment consuming its code once; a revoked Device refused on every
+procedure; PIN unlock refused without a valid Device token; the sync payload carrying exactly
+one Store's active PIN hashes and no password hash; lockout surviving a reload with no network;
+an Override bound to one action and consumed by it; and re-verification answering against the
+role and membership in force at the stated time, both directions.
+
+## Checkpoint D — whole PRD, happy path only
+
+- **Runs after:** issue 13 merges
+- **Covers:** the whole PRD
+- **Scope:** **happy path only.** Negatives were judged at A, B, and C; this checkpoint asks
+  one question — does the area work end to end for someone using it correctly?
+- **Screens:** every mock this PRD names
+
+The single path: provision a Tenant → the admin signs in → creates a Store → configures its
+settings and payment methods → creates a cashier and a manager and assigns them → enrols a
+terminal at that Store → the cashier sets a PIN and unlocks → a manager approves an Override
+with their PIN → the admin reviews it in the back-office.
+
+**This is the human checkpoint.** On PASS, record it at the top of the PRD, present every
+decision record made during the run — high-stakes first — plus the accumulated
+needs-human-eyes list, and stop. Do not start `catalog`.
+
+## Notification
+
+One message at the end of the run, as the orchestrator specifies — not one per checkpoint.
+It names which checkpoint the run reached and in which of the three states it ended.
