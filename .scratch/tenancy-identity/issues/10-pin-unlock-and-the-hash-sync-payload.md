@@ -35,9 +35,12 @@ or unlock is refused; an `admin` is exempt and may unlock any Device in their Te
 
 - [ ] A User sets their own PIN on first use, changes it later, and an `admin` resets it. The
       PIN is 4–6 digits.
-- [ ] PIN hashing uses `Bun.password` argon2id with parameters declared separately from the
-      password parameters; the hash/verify round-trip is tested **directly, not through the
-      seam**.
+- [ ] PIN hashing uses the same primitive as passwords (`node:crypto` scrypt,
+      record 028) with **its own parameters in its own file**, chosen knowing
+      the hash sits on a tablet; the hash/verify round-trip is tested
+      **directly, not through the seam**. The password policy of record 032
+      does not apply to PINs — a PIN is a second factor to Device possession
+      and its guess budget is issue 11's, not its length.
 - [ ] Unlock succeeds with the right PIN and fails with the wrong one, and **fails outright
       without a valid, unrevoked Device token** — asserted as its own case.
 - [ ] Unlock works with no network, against the locally synced hashes.

@@ -47,16 +47,19 @@ screen itself is issue 10.
 _Sliced from `.scratch/tenancy-identity/PRD.md` (stories 33, 34), ADR-0007, Security
 criterion 8._
 
-**Orchestrator note, 2026-08-02 — scope may widen; a decision record is pending.**
+**Orchestrator note, 2026-08-02 — scope does NOT widen. Corrected after [record 033](../../decisions/033-throttling-sign-in.md).**
 
-Sign-in (issue 03, merged) has **no throttling of any kind**. The human delegated that decision;
-it is being settled now and the leading direction is to **fold password throttling into this
-issue's mechanism** rather than build a second one. Read the resulting record before starting —
-it may extend this issue's scope from PIN-only to both credentials.
+An earlier note here said password throttling would probably fold into this issue. **That was
+wrong and record 033 refuted it.** Sign-in throttling is being built as its own follow-up issue,
+because folding it here would leave sign-in unthrottled for five more issues, and because the two
+mechanisms are not one mechanism:
 
-Two constraints that record will carry, both easy to get wrong:
-- Issue 03's criterion 5 requires unknown-email and wrong-password to be identical **in message
-  and in timing**. A throttle that short-circuits before the scrypt hash is a *new* timing oracle
-  on that same path.
-- Record 028's scrypt costs **128 MiB per hash**, so unthrottled sign-in is a denial-of-service
-  surface. That pulls against the timing requirement above; the record resolves the tension.
+- Yours must live **on the Device and work with no network**, so it cannot live in PostgreSQL.
+- A password attacker never opens a browser, so client-side state is worth nothing there.
+- The visibility requirements are **opposites, and both are correct**: your criterion 1 says the
+  lock *is visible and says when it lifts*; the password lock may never announce itself, because
+  a distinct lockout message is an account-enumeration oracle.
+
+**No criterion of this issue changes.** What you inherit is the `SignInThrottle` table, reused
+under a `pin:` key prefix for the server-side online-attempt half. The Device-side offline lockout
+stays your own mechanism, because it must work with no network at all.

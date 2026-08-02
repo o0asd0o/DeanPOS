@@ -10,14 +10,19 @@ what the next session must not re-derive or accidentally undo.
 |---|---|
 | **Merged** | 01, 02, 03 — all closed, both review axes PASS, `main` green |
 | **In progress** | **nothing** — no agent running, no worktree open, no lane database |
-| **Next** | issue **04**, then **QA checkpoint A** (covers 01–04, cap **1** fix round) |
-| **`main`** | `0394e29`, gate green: 243 tests, `vp check` 182 files 0 errors |
+| **Next** | issue **03a** (recommended first), then **04**, then **QA checkpoint A** (covers 01–04, cap **1** fix round) |
+| **`main`** | see `git log`; gate was green at 243 tests, `vp check` 182 files 0 errors |
 | **Lane state** | clean — only `DeanPOS_dev` exists, no `DeanPOS_lane_*` |
 
-Two decisions were delegated by the human near the end and are being settled by the `decider`
-as records **032** (password policy) and **033** (sign-in throttling). **Check
-`.scratch/decisions/` for both before starting issue 04** — 033 in particular may widen issue
-11's scope, and issue 11 has a note saying so.
+Two decisions the human delegated are **settled**: records **032** (password policy) and **033**
+(sign-in throttling). Both disagreed with the human's stated direction in part — read the
+disagreements, they are the useful bit. Their work has a home: **issue `03a`**, newly cut and
+`ready-for-agent`.
+
+**Issue `03a` should be run before issue 04.** `auth.setPassword` accepts a one-character
+password on `main` today, `provisionTenant` carries a live `.min(8)` that contradicts record 032,
+and sign-in is unthrottled — which is a denial-of-service surface as much as a credential one,
+because every attempt blocks the whole API for one scrypt derivation.
 
 ## Resume command
 
@@ -25,9 +30,9 @@ as records **032** (password policy) and **033** (sign-in throttling). **Check
 git -C /Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS status --short
 ```
 
-Tree must be clean. Then `/run-prd tenancy-identity` picks up at issue 04. `.orc2/ORCHESTRATOR.md`
-is the procedure; `.scratch/tenancy-identity/QA-PLAN.md` **overrides** its QA trigger and round
-cap for this PRD.
+Tree must be clean. Then `/run-prd tenancy-identity` — it selects the lowest-numbered unblocked
+issue, which is `03a`. `.orc2/ORCHESTRATOR.md` is the procedure;
+`.scratch/tenancy-identity/QA-PLAN.md` **overrides** its QA trigger and round cap for this PRD.
 
 ## What each issue actually delivered
 
@@ -54,6 +59,8 @@ Read these before touching anything they govern. They are binding until overturn
 | **029** | A transaction may create exactly the Tenant it is already scoped to | `Tenant` INSERT policy, privileged writes |
 | **030** | The back-office sign-in screen, its states and its error copy | sign-in UI, failure copy, sub-1440 behaviour |
 | **031** | Two named GUCs for pre-auth lookups | `app.login_email`, `app.session_id`, all pre-auth reads |
+| **032** | The password policy — NIST SP 800-63B-4, **15** characters not 8 | `setPassword`, `provisionTenant`, issue 10's PINs |
+| **033** | Throttling sign-in — one table, two keys, checked before the hash | `signIn`, `SignInThrottle`, issue 11's server half |
 
 ## Invariants — do not undo these
 
@@ -98,7 +105,19 @@ Each was expensive to establish and at least one was already broken once and cau
 
 - **The `happy-dom` cookie blind spot.** QA should exercise sign-in through a **real browser**, not
   the test suite. That is the only thing that closes it.
-- **Records 032 and 033**, once written — present them at the checkpoint with the other five.
+- **Records 032 and 033 disagreed with the human's direction**, and those disagreements should be
+  reviewed rather than assumed correct:
+  - **032 set the password minimum at 15, not the 8 the human named.** SP 800-63B-4 §3.1.1.2
+    reserves 8 for systems with a **second factor**; issue 03 puts MFA out of scope for v1, so
+    that is the one clause this product cannot claim. OWASP splits on the same axis independently.
+  - **033 refused to fold password throttling into issue 11**, which the human had directed. Issue
+    11 is four issues downstream, so folding would leave sign-in unthrottled for five more issues;
+    and the two are not one mechanism — issue 11's must work **offline on the Device**, and their
+    visibility requirements are exact opposites, both correct. Issue 11 inherits the table under a
+    `pin:` key prefix, not the mechanism. **Issue 11's note has been corrected accordingly.**
+  - **033's closest call, stated plainly by the decider: per-account-only scored 39 to 40.** One
+    point is not a separation. If a legitimate shared office is ever refused, drop the per-IP key —
+    that is one constant, and cheaper than adding the key would have been.
 - **Pre-existing debt, deliberately untouched:** 18 `_shell` route files carry inline
   `() => <Placeholder />` wrappers violating ADR-0009's no-JSX-in-routes rule. They pre-date this
   PRD; issue 03 only relocated them by `git mv`. Worth one cleanup issue, not a feature slice.
@@ -114,8 +133,12 @@ Each is annotated on the issue that will hit it, committed as `0394e29`:
   non-superuser owner would make every failure read as an RLS bug.
 - **Issue 06** — the third-pre-auth-lookup trap, and the coupling between global `User.email`
   uniqueness and the `user_login_lookup` policy. They move together or not at all.
-- **Issue 11** — probable scope widening from PIN-only to both credentials, with the timing-oracle
-  and 128 MiB denial-of-service constraints that pull against each other.
+- **Issue 11** — **corrected**: scope does *not* widen. It inherits the `SignInThrottle` table
+  under a `pin:` key prefix for its server-side half only; its Device-side offline lockout stays
+  its own mechanism because it must work with no network.
+- **Issue 10** — criterion 2 **amended by me**: it still said `Bun.password` argon2id, which record
+  028 made a no-go and which a merged grep test now fails. This was record 028's finding surfacing
+  late, not a new decision.
 
 ## QA plan, because it overrides the orchestrator
 
