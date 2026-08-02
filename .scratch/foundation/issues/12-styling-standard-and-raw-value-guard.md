@@ -299,3 +299,124 @@ confirmed a clean tree before committing.
 
 Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed
 clean and on `main` before finishing.
+
+---
+
+**Human ruling applied (branch `f12-styling-standard`, rebased onto `main` at `13e159a`).**
+
+The human widened the acceptance criteria rather than asking for a fourth regex round. Two rulings,
+both applied in `packages/ui/src/test-seam.ts`:
+
+**Ruling 1 — scan `className` contents only.** `assertNoRawDesignValues` no longer reads a file's
+TypeScript as undifferentiated text. It regex-locates every `className=` occurrence, then extracts
+the attribute's value — a quoted string, or the balanced `{...}` expression container — using
+string-aware bracket matching (`matchBalanced`/`skipString`, both kept from round 2). Only that
+extracted text is scanned by the existing hex/prefixed-arbitrary-value/`hasArbitraryProperty`
+logic, which is otherwise untouched. `style={{ ... }}` stays banned by the same unconditional
+line-regex as before, independent of the className logic.
+
+This dissolves the three defects structurally: `const classes = ["[color:red]"]` and
+`type Result = [ok: string] | [error: Error]` are never inside a `className`, so they are never
+visited at all — not filtered out by a smarter pattern, just never reached.
+
+**Ruling 2 (new) — `className` must not be assembled elsewhere.** Each extracted value is now also
+shape-checked. Allowed: a string literal, or a `cn(...)` call whose every argument is a string
+literal, the identifier `className`, a `cond && "literal"` expression (found via the *last*
+top-level `&&`, so `cond` can itself contain `===`/`&&` without derailing the check), or a bare
+`identifier(...)` call (treated as a cva variants call — see the ponytail note in the file on what
+this can't verify). Anything else — a bare identifier, a template literal, an element-access lookup,
+a ternary — trips a second, separately worded offender list ("className assembled outside the
+attribute ..."), kept distinct from the raw-value list so the two rules are independently visible
+in a failure.
+
+One correctness fix found while re-verifying against real trees: a `//` or `/* */` comment sitting
+between two `cn(...)` arguments (common in the vendored components' multi-line calls) was being
+read as part of the following argument and misclassified as "assembled." Added `stripComments`
+(string-aware, same skip-string primitive) applied per-argument before classification. This isn't
+a new capability, it's a bug in the ruling-2 scan surfaced by testing against `packages/ui/src`,
+not a defect in application code.
+
+**`docs/agents/code-standards.md` rule 6** now states the assembly prohibition and names the
+alternative in the same paragraph — the component's own variant prop first, `cn(...)` with an
+inline condition where a class must genuinely vary — using the exact badge example from the
+ruling, kept in the file's existing voice.
+
+**The six named cases, observed:**
+
+| Case | Expectation | Observed |
+| --- | --- | --- |
+| `const classes = ["[color:red]"];` | passes the raw-value scan | passes — not inside a `className`, never visited |
+| same array, then `<div className={classes} />` | rejected by the assembly rule | rejected — `className assembled outside the attribute ...` |
+| `const classes = ["[&:hover]:underline"];` | not flagged | passes |
+| `type Result = [ok: string] \| [error: Error];` | not flagged | passes |
+| `className={styles}`, a template literal, `Record<string,string>[key]` | rejected by the new rule | all three rejected — `className assembled outside the attribute ...` |
+| `className={cn("p-4", condition && "bg-muted", className)}` | accepted | accepted |
+| `className="tap-target"` | accepted | accepted |
+
+Both checks and the boundary between them are asserted directly in
+`packages/ui/tests/test-seam.test.ts`, not left as a gap: a dedicated describe block writes the
+array-literal/tuple cases and asserts they pass the *whole* guard, then a second test in the same
+block reuses the identical array as a `className` value and asserts it throws specifically with
+`/assembled outside the attribute/` — so the report and the test agree on which rule owns which
+case. Test count: 22 → 32 (10 new: 1 raw-value-inside-`cn()` case, 3 structural-dissolution cases,
+4 assembly-rejection cases, 3 assembly-acceptance cases, less 1 removed — the old bare
+"array indexing" test, now covered more precisely by the new structural-dissolution block).
+
+**Guard run over real trees** (`assertNoRawDesignValues`, called directly, not through the app
+tests):
+- `apps/pos/src` — clean.
+- `apps/backoffice/src` — clean. Confirms the issue's own pre-adoption audit still holds after
+  `main`'s move: apps/pos and apps/backoffice have zero expression `className`s today, so ruling 2
+  changes nothing observable in either app yet.
+- `packages/ui/src` — **not clean, but every offender is inside `packages/ui/src/components/`**,
+  which is excluded from the guard's declared scope by the issue's own acceptance criteria (CLI-generated,
+  reviewed by hand). Reported for completeness, not a gate blocker:
+  - Raw-value list: 15 lines across `card.tsx`, `input.tsx`, `select.tsx`, `sidebar.tsx`,
+    `table.tsx`, `tabs.tsx`, `tooltip.tsx` — all genuine shadcn arbitrary-value syntax
+    (`grid-rows-[auto_auto]`, `transition-[color,box-shadow]`), correctly flagged, not bugs.
+  - Assembly list: `sidebar.tsx:204` and `:215` — a ternary (`variant === "floating" ... ? "..." : "..."`)
+    passed as a `cn(...)` argument. The ruling's allowed shapes for a `cn()` argument are string
+    literal / `className` / `cond && "literal"` / cva call — a ternary isn't among them. This means
+    the human's pre-adoption count ("packages/ui is 28-of-28 ... literal, the className prop, or a
+    cva call") no longer holds exactly for `sidebar.tsx`, one of the seven components `main` added
+    since. Not a gate issue (component files are out of scope), but flagged as requested since it
+    changes the audit's premise.
+  - `test-seam.ts:239` self-flags on its own regex/comment text (the literal string "className" appearing
+    inside the file's own source, e.g. in the `CLASSNAME_ATTR` regex definition) — same
+    self-reference artifact rounds 1–2 hit, harmless, `test-seam.ts` is not in either app's scanned
+    tree.
+
+**Proof of bite, both rules in one edit.** Temporarily changed
+`apps/pos/src/components/ErrorState.tsx`: `className="p-4 text-foreground"` → `className="p-4 text-[#35CCA6]"`,
+and `className="tap-target"` → `className={probeClasses}` (with a throwaway
+`const probeClasses = "size-4";` so the file still type-checks). `vp test` in `apps/pos`:
+
+```
+FAIL  tests/design-values.test.ts > styling standard > uses no raw design values under src/
+AssertionError: expected [Function] to not throw an error but 'Error: Raw design values found in:\ns…' was thrown
+Error: Raw design values found in:
+src/components/ErrorState.tsx:14
+
+className assembled outside the attribute (use a component variant, or cn(...) with literal/className/cond && "literal"/cva arguments — code-standards.md rule 6) in:
+src/components/ErrorState.tsx:17
+```
+
+Both rules fired, at the correct lines, in the same run. Reverted with
+`git checkout -- apps/pos/src/components/ErrorState.tsx`; `vp test` back to green; `git status`
+clean before committing.
+
+**Gate**, all from the worktree with the PATH prepend:
+- `vp run -w codegen` — Prisma + both apps' `tsr generate`, clean (also ran via `vp install`'s
+  postinstall after the rebase).
+- `vp check` — 144 files formatted (one fix needed in `test-seam.ts`, applied by `vp check --fix`),
+  108 files lint/type clean.
+- `vp run -r check` — 10/10 workspace packages/apps pass.
+- `vp run -r test` — 10/10 pass, including `packages/ui` 85/85 (`test-seam.test.ts` 32/32) and both
+  apps' `design-values.test.ts` 1/1.
+
+Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` was not touched —
+`git status` there confirmed clean and on `main` before finishing this round.
+
+Files changed: `packages/ui/src/test-seam.ts`, `packages/ui/tests/test-seam.test.ts`,
+`docs/agents/code-standards.md`. No package.json/export changes needed — `./test-seam` was already
+declared.

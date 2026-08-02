@@ -106,6 +106,32 @@ no rule is worked around by a fixer who never learned why it exists.
 This rule's scope is `apps/pos/src` and `apps/backoffice/src`. `apps/landing` is excluded — it
 sits outside the theme entirely (ADR-0013) and gets its own guard in area 11.
 
+`className` must not be assembled elsewhere. A bare identifier (`className={styles}`), a template
+literal, or an ad-hoc lookup map (`const toneByStatus: Record<string, string> = {...}` then
+`className={toneByStatus[s]}`) hides a class string somewhere the guard — or a reviewer — cannot
+see it. Use the variant a component already exposes instead:
+
+```tsx
+// banned
+const toneByStatus: Record<string, string> = { open: "bg-status-info-tint", ... };
+<Badge className={toneByStatus[status]} />
+
+// use the variant the component already exposes
+<Badge variant={status === "open" ? "info" : "success"} />
+
+// or, where a class must genuinely vary, inline it
+className={cn("size-1.5 rounded-full",
+  status === "open" && "bg-status-info-tint",
+  status === "done" && "bg-status-success-tint",
+)}
+```
+
+A `className` value must be a string literal, or a `cn(...)` call whose every argument is a
+string literal, the `className` prop, a `cond && "literal"` expression, or a `cva` variants call
+(`badgeVariants({ variant })`). `cva` is not banned — it is the generated shadcn idiom, typed
+against a variant union, unlike a `Record<string, string>` side-table where a typo silently
+renders nothing.
+
 The one constraint worth naming explicitly, because a reasonable implementer gets it wrong
 otherwise (ADR-0013): the status hues (`success`, `warning`, `info`, `danger`) are dots, chart
 series, and icons on a pale tint of themselves — **they never sit under text.** Reaching for
