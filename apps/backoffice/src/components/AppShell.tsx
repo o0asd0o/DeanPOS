@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet } from "@tanstack/react-router";
+import { MenuIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -38,7 +39,7 @@ export function AppShell() {
             banner is the sidebar's, and this row does not exist at `md`. */}
         <div className="flex items-center justify-between p-4 md:hidden">
           <SheetTrigger className="tap-target" aria-label="Open navigation">
-            ☰
+            <MenuIcon className="size-6" aria-hidden="true" />
           </SheetTrigger>
         </div>
         <SidebarProvider className="min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
