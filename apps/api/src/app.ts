@@ -48,8 +48,10 @@ export const createApp = ({
   app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins], credentials: true }));
 
   // No identity concept applies to a liveness check — always unauthenticated.
+  // clientIp is unused on this path; the same absent-header literal as /rpc
+  // keeps the field's meaning consistent everywhere it's set.
   app.use("/health", async (c, next) => {
-    c.set("ctx", { db, clientIp: "", kind: "unauthenticated" });
+    c.set("ctx", { db, clientIp: "no-forwarded-for", kind: "unauthenticated" });
     await next();
   });
   app.get("/health", healthRoute);
