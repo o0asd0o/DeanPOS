@@ -33,13 +33,13 @@ new colour value.
 
 ### Weights, declared before any option was scored
 
-| Criterion | Weight | Why |
-| --- | --- | --- |
-| User impact | ×3 | This is the first screen a real user meets, and one of its elements is a sentence they read and act on. |
-| Business impact | ×1 | Nothing here earns. The one business fact: PRD story 15 has a manager signing in from a phone, and there is no self-service password reset in v1, so a lockout costs a phone call to the admin. |
-| Engineering cost and risk | ×2 | Unlike record 009, cost genuinely separates the options — one of them renames eighteen route files. |
-| Reversibility | ×2 | The two feature files are free forever. The route split and the one-sentence error rule are inherited, and that half is not free. |
-| Evidence strength | ×2 | The sources are the mock, WCAG 2.2's normative text, and records 009/010/013/014/019/024/025. A state invented against none of the three is the failure this record exists to prevent. |
+| Criterion                 | Weight | Why                                                                                                                                                                                             |
+| ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User impact               | ×3     | This is the first screen a real user meets, and one of its elements is a sentence they read and act on.                                                                                         |
+| Business impact           | ×1     | Nothing here earns. The one business fact: PRD story 15 has a manager signing in from a phone, and there is no self-service password reset in v1, so a lockout costs a phone call to the admin. |
+| Engineering cost and risk | ×2     | Unlike record 009, cost genuinely separates the options — one of them renames eighteen route files.                                                                                             |
+| Reversibility             | ×2     | The two feature files are free forever. The route split and the one-sentence error rule are inherited, and that half is not free.                                                               |
+| Evidence strength         | ×2     | The sources are the mock, WCAG 2.2's normative text, and records 009/010/013/014/019/024/025. A state invented against none of the three is the failure this record exists to prevent.          |
 
 Maximum possible total: 50. **Not changed after scoring.**
 
@@ -50,16 +50,16 @@ kind of page, and the mock says so by drawing no sidebar.** Everything else foll
 
 ### Records I am consuming as precedent, not re-deciding
 
-| Record | What I take from it |
-| --- | --- |
-| 007 / 014 | The focus indicator: a 2px `--color-ring` (`#1e1e1e`) outline at 2px offset, in `theme.css`'s `@layer base { :focus-visible }`. It already covers every field and button on this screen. **Not re-decided, not overridden, not restyled per component.** |
-| 009 | The landmark contract; `role="alert"` for errors and `role="status"` for pending; **prefer an enabled control with a legible reason over a silently disabled one**; no fake data; no empty reserved box; no skeleton, no spinner, no shimmer; no artificial timing; no technical detail in a user-visible error; **no colour pair on a user-visible message that is not asserted in `contrast.test.ts`**; the viewport meta with no scale lock; `<title>DeanPOS Back office</title>`. |
-| 010 | No JSX in any route file. Every `component` is a bare imported identifier. A layout route that only guards or only groups **omits `component` entirely**. |
-| 013 | `apps/backoffice` is compact density. `tap-target` reads `--tap-size`, which is `--min-target-size: 24px` here. **No component branches on density and no screen switches it.** |
-| 019 | The card on this screen is `Card` from `packages/ui`. Not a hand-rolled `rounded-lg border p-4`. Where the tokens are silent, `inspo/` decides, not a generic pattern. |
-| 024 / 025 | `Card` has no border and no shadow. The page ground is `--color-background` `#eff4f7`, the card is `#ffffff`, and that 1.11:1 surface step **is** the card's entire edge. This is what lets a centred card read as a card on this screen with nothing drawn around it. |
-| 020 | `Placeholder` and the eighteen thin file routes exist and are what get moved. |
-| 023 | `scrollbar-slim` is set once at the shell root and inherits. |
+| Record    | What I take from it                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 007 / 014 | The focus indicator: a 2px `--color-ring` (`#1e1e1e`) outline at 2px offset, in `theme.css`'s `@layer base { :focus-visible }`. It already covers every field and button on this screen. **Not re-decided, not overridden, not restyled per component.**                                                                                                                                                                                                                              |
+| 009       | The landmark contract; `role="alert"` for errors and `role="status"` for pending; **prefer an enabled control with a legible reason over a silently disabled one**; no fake data; no empty reserved box; no skeleton, no spinner, no shimmer; no artificial timing; no technical detail in a user-visible error; **no colour pair on a user-visible message that is not asserted in `contrast.test.ts`**; the viewport meta with no scale lock; `<title>DeanPOS Back office</title>`. |
+| 010       | No JSX in any route file. Every `component` is a bare imported identifier. A layout route that only guards or only groups **omits `component` entirely**.                                                                                                                                                                                                                                                                                                                             |
+| 013       | `apps/backoffice` is compact density. `tap-target` reads `--tap-size`, which is `--min-target-size: 24px` here. **No component branches on density and no screen switches it.**                                                                                                                                                                                                                                                                                                       |
+| 019       | The card on this screen is `Card` from `packages/ui`. Not a hand-rolled `rounded-lg border p-4`. Where the tokens are silent, `inspo/` decides, not a generic pattern.                                                                                                                                                                                                                                                                                                                |
+| 024 / 025 | `Card` has no border and no shadow. The page ground is `--color-background` `#f4f5f6`, the card is `#ffffff`, and that 1.11:1 surface step **is** the card's entire edge. This is what lets a centred card read as a card on this screen with nothing drawn around it.                                                                                                                                                                                                                |
+| 020       | `Placeholder` and the eighteen thin file routes exist and are what get moved.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 023       | `scrollbar-slim` is set once at the shell root and inherits.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 No new token, no new `packages/ui` component, no new dependency, no new colour.
 
@@ -86,16 +86,16 @@ routes/_gate/set-password.tsx
 ```
 
 `_shell` and `_gate` are deliberately named for the **frame**, not for an auth state,
-because `/set-password` is reached *while holding a valid session*.
+because `/set-password` is reached _while holding a valid session_.
 
 The eighteen renames are `git mv` with no content edit — record 008's `tsr generate`
 runs at the front of the gate and rewrites the generated tree, and the route-id
 string in each `createFileRoute(...)` is what the generator maintains. The renames
 are not overhead: `_shell.tsx` is the **one** place the session guard and the
 must-change redirect live, which is what makes criterion 6 — "before any other
-procedure succeeds" — true on the client in one file instead of eighteen. *The
+procedure succeeds" — true on the client in one file instead of eighteen. _The
 contents of that guard are issue 03's implementation and this record does not design
-them.*
+them._
 
 `AuthLayout` is the whole of the layout answer:
 
@@ -147,7 +147,7 @@ Three notes on that list, because each is a decision:
 
 ### 3. The interaction states
 
-**Focus.** Record 007/014's rule, unmodified. `Input` ships *no* focus classes of its
+**Focus.** Record 007/014's rule, unmodified. `Input` ships _no_ focus classes of its
 own — checked in `packages/ui/src/components/input.tsx` — so the global outline is the
 entire indicator, and `ring` on `card` is asserted at 3:1 in `contrast.test.ts`.
 Record 009's three supporting constraints apply here verbatim: focus order is DOM
@@ -267,7 +267,7 @@ not get its own sign-in message without a superseding record.
 message closes:**
 
 - **No `aria-invalid` on either input on a sign-in failure**, and no red border on
-  either. `aria-invalid` means "the value in *this* field is invalid", which is
+  either. `aria-invalid` means "the value in _this_ field is invalid", which is
   exactly the claim we are refusing to make. The error is form-level.
 - **Focus does not move.** It stays on the submit button, where the user left it.
   `role="alert"` announces the message without stealing focus — that is what the role
@@ -281,7 +281,10 @@ message closes:**
 **Markup, roles and colour:**
 
 ```tsx
-<div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+<div
+  role="alert"
+  className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+>
   Email or password is incorrect
 </div>
 ```
@@ -293,7 +296,7 @@ message closes:**
 - **`text-foreground` on `bg-status-danger-tint`.** This pair is asserted at 4.5:1 in
   `packages/ui/tests/contrast.test.ts`, and `ring` on `status-danger-tint` is asserted
   at 3:1 so the focus ring survives if a control ever lands inside. This is record
-  009's colour rule *applied*, not overridden: 009 chose plain `foreground` on
+  009's colour rule _applied_, not overridden: 009 chose plain `foreground` on
   `background` because `destructive`/`background` was unasserted, and record 013 later
   added the `-tint` surfaces for exactly this use. **`status-danger-tone` is not used
   as text**: `status-danger-tone` on `card` is asserted only at the 3:1 non-text
@@ -358,7 +361,7 @@ Two decisions inside that list:
 - **No "current password" field.** The user proved it at sign-in seconds ago.
   Re-entering it is the shape SC 3.3.7 Redundant Entry (Level A) discourages, and it
   buys nothing.
-- **There *is* a confirm field**, and it earns its place on a specific fact: the PRD
+- **There _is_ a confirm field**, and it earns its place on a specific fact: the PRD
   says there is **no self-service password reset in v1**, so a single mistyped password
   in a field with no reveal control costs a phone call to an administrator. Its
   mismatch message is **`The two passwords do not match`**, in the same block — and
@@ -372,7 +375,7 @@ record 009 assigns per-route titles to later areas.
 ### 6. Below 1440 — there is no breakpoint, and that is the decision
 
 **At 1024, at 768 and at 390 the screen is identical to 1440.** Not "responsive" —
-*unchanged*. It is a single centred column whose only width rule is a maximum, so it
+_unchanged_. It is a single centred column whose only width rule is a maximum, so it
 reflows on its own and there is nothing to switch.
 
 - Card: `w-full max-w-md`. `max-w-md` is Tailwind's `--container-md` step, chosen as
@@ -414,13 +417,13 @@ reflows on its own and there is nothing to switch.
 
 ## The options, ranked
 
-| Rank | Option | User ×3 | Business ×1 | Eng cost/risk ×2 | Reversibility ×2 | Evidence ×2 | Total |
-| ---- | ------ | ------- | ----------- | ---------------- | ---------------- | ----------- | ----- |
-| 1 | **Bare `_gate` layout outside the shell; states from shipped tokens and components; mock's copy verbatim; forced change as its own gated route; no breakpoint** | 5 (15) | 5 | 4 (8) | 4 (8) | 5 (10) | **46** |
-| 2 | Bare layout, but the forced change is an inline swap on the sign-in card | 3 (9) | 4 | 5 (10) | 3 (6) | 3 (6) | **35** |
-| 3 | Add `Alert`, `Label` and `Form` primitives to `packages/ui` and build it "properly" | 4 (12) | 3 | 2 (4) | 2 (4) | 2 (4) | **27** |
-| 4 | Minimum diff — login inside the existing `AppShell`, plus a `md:` breakpoint for a distinct narrow layout | 1 (3) | 3 | 5 (10) | 4 (8) | 1 (2) | **26** |
-| 5 | Defer — let the implementer choose each state | 1 (3) | 2 | 3 (6) | 5 (10) | 1 (2) | **23** |
+| Rank | Option                                                                                                                                                          | User ×3 | Business ×1 | Eng cost/risk ×2 | Reversibility ×2 | Evidence ×2 | Total  |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- | ---------------- | ---------------- | ----------- | ------ |
+| 1    | **Bare `_gate` layout outside the shell; states from shipped tokens and components; mock's copy verbatim; forced change as its own gated route; no breakpoint** | 5 (15)  | 5           | 4 (8)            | 4 (8)            | 5 (10)      | **46** |
+| 2    | Bare layout, but the forced change is an inline swap on the sign-in card                                                                                        | 3 (9)   | 4           | 5 (10)           | 3 (6)            | 3 (6)       | **35** |
+| 3    | Add `Alert`, `Label` and `Form` primitives to `packages/ui` and build it "properly"                                                                             | 4 (12)  | 3           | 2 (4)            | 2 (4)            | 2 (4)       | **27** |
+| 4    | Minimum diff — login inside the existing `AppShell`, plus a `md:` breakpoint for a distinct narrow layout                                                       | 1 (3)   | 3           | 5 (10)           | 4 (8)            | 1 (2)       | **26** |
+| 5    | Defer — let the implementer choose each state                                                                                                                   | 1 (3)   | 2           | 3 (6)            | 5 (10)           | 1 (2)       | **23** |
 
 **1. Bare `_gate` layout — chosen.** It is the only option in which every element on
 screen traces to something that already exists: the copy to the mock, the error colours
@@ -476,7 +479,7 @@ time.
 `component: AppShell` on `__root.tsx`. Today that is eighteen renames plus two files.
 After eleven areas it is every back-office route. Count before quoting a cost:
 `rg -l 'createFileRoute' apps/backoffice/src/routes | wc -l`. Note the asymmetry — the
-split gets *cheaper to keep* (every new screen just lands in `_shell/`) and dearer to
+split gets _cheaper to keep_ (every new screen just lands in `_shell/`) and dearer to
 undo, which is why it is decided now rather than at area 4.
 
 **The one-sentence error rule — a decision, not a file.** Reversing it means a
@@ -560,7 +563,7 @@ above; re-run the gate. No migration, no contract, no token, no manifest, no loc
   `destructive`/`card` and `destructive`/`background`. `status-danger-tone`/`card` is
   present only at the 3.0 non-text threshold.
 - `packages/ui/src/theme.css` — `--color-ring: #1e1e1e`, `--focus-ring-width: 2px`,
-  `--focus-ring-offset: 2px`, `--color-background: #eff4f7`, `--color-card: #ffffff`,
+  `--focus-ring-offset: 2px`, `--color-background: #f4f5f6`, `--color-card: #ffffff`,
   `--color-status-danger-tint: #fbe6ec`; the `tap-target` and `scrollbar-slim`
   utilities. `packages/ui/src/index.ts` — **no `Label`, no `Form`, no `Alert` is
   exported**, which is what sends the labels to native `<label>` and the error block to a

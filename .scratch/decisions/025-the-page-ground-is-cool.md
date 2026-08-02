@@ -1,4 +1,4 @@
-# 025: The page ground is `#eff4f7` — cool and a step darker, so a white card has an edge without drawing one
+# 025: The page ground is `#f4f5f6` — cool and a step darker, so a white card has an edge without drawing one
 
 - **Status:** decided
 - **Stakes:** medium
@@ -16,7 +16,7 @@ effect.
 
 ## What I chose, and why
 
-**`--color-background: #eff4f7`.** One token. Nothing else in `theme.css` moved.
+**`--color-background: #f4f5f6`.** One token. Nothing else in `theme.css` moved.
 
 The card/ground step goes **1.05:1 → 1.11:1**. That is what makes record 024 hold: the card now has
 an edge produced by the surfaces themselves, which is the reference's construction, rather than by
@@ -26,7 +26,7 @@ time.
 
 **The palette is now mixed-temperature, and that is a real change, not a tweak.** Every other
 neutral in the set is warm — `#e4e4df` accent, `#eaeae6` secondary, `#f0f0ed` muted, and the
-`#fafaf7` this replaces. `#eff4f7` is cool. On today's screens the two never meet: the warm
+`#fafaf7` this replaces. `#f4f5f6` is cool. On today's screens the two never meet: the warm
 neutrals appear on the white sidebar and inside white cards, the cool ground appears behind them.
 **On a screen where a `bg-muted` panel sits directly on the page ground they will meet, and the
 mismatch will be visible.** Named here so it is diagnosed rather than rediscovered — the fix then
@@ -44,17 +44,17 @@ invisible, and at this ground the shadow was doing nothing the step was not alre
 All 107 assertions in `packages/ui/tests/contrast.test.ts` pass. The pairings that name
 `background` all lost margin against the old ground, and two of them are now close to the floor:
 
-| Pair | Floor | Was (`#fafaf7`) | Now (`#eff4f7`) |
-| --- | --- | --- | --- |
-| `foreground` on `background` | 4.5 | 15.94 | 15.05 |
-| `muted-foreground` on `background` | 4.5 | 6.52 | 6.16 |
-| `border` on `background` | 3.0 | 3.30 | **3.12** |
-| `input` on `background` | 3.0 | 3.30 | **3.12** |
-| `status-success-tone` on `background` | 3.0 | 3.30 | **3.11** |
-| `status-warning-tone` on `background` | 3.0 | 4.25 | 4.01 |
-| `status-info-tone` on `background` | 3.0 | 4.73 | 4.47 |
-| `status-danger-tone` on `background` | 3.0 | 5.53 | 5.22 |
-| `ring` on `background` | 3.0 | 15.94 | 15.05 |
+| Pair                                  | Floor | Was (`#fafaf7`) | Now (`#f4f5f6`) |
+| ------------------------------------- | ----- | --------------- | --------------- |
+| `foreground` on `background`          | 4.5   | 15.94           | 15.05           |
+| `muted-foreground` on `background`    | 4.5   | 6.52            | 6.16            |
+| `border` on `background`              | 3.0   | 3.30            | **3.12**        |
+| `input` on `background`               | 3.0   | 3.30            | **3.12**        |
+| `status-success-tone` on `background` | 3.0   | 3.30            | **3.11**        |
+| `status-warning-tone` on `background` | 3.0   | 4.25            | 4.01            |
+| `status-info-tone` on `background`    | 3.0   | 4.73            | 4.47            |
+| `status-danger-tone` on `background`  | 3.0   | 5.53            | 5.22            |
+| `ring` on `background`                | 3.0   | 15.94           | 15.05           |
 
 **`border`, `input`, and `status-success-tone` clear SC 1.4.11 by roughly 0.11.** That is the
 operative finding: **the ground cannot be darkened again without breaking AA.** A future request
@@ -73,7 +73,7 @@ immediately.
   terminal has a cool ground too. It has no cards and no screens yet, so nothing depends on the
   step there; deciding whether the terminal diverges is blind until `checkout` builds a screen, and
   that is when to revisit it.
-- **`#eff4f7` is outside ADR-0013's four swatches.** So was `#fafaf7` — the ground was always
+- **`#f4f5f6` is outside ADR-0013's four swatches.** So was `#fafaf7` — the ground was always
   derived, never one of the four — so this changes the derivation, not the adoption. If a reviewer
   reads ADR-0013 as fixing the ground, this record is the disagreement to argue with.
 

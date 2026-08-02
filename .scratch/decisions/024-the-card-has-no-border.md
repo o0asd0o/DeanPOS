@@ -3,7 +3,7 @@
 - **Status:** decided
 - **Stakes:** medium
 - **Date:** 2026-08-02
-- **Asked by:** human (direct: *"can you also make this not have a black border? the inspo doesn't have that"*)
+- **Asked by:** human (direct: _"can you also make this not have a black border? the inspo doesn't have that"_)
 
 ## The question
 
@@ -25,7 +25,7 @@ the loudest line left in the product.
 **The token was not changed, and that is the substance of this decision.** Lightening
 `--color-border` globally was the obvious-looking move and it is wrong. That token is also
 `Input`'s edge, `Select`'s, and `Table`'s row rules, and a form control's boundary is a **UI
-component boundary** under WCAG 2.2 SC 1.4.11 *Non-text Contrast* — 3:1 against its adjacent
+component boundary** under WCAG 2.2 SC 1.4.11 _Non-text Contrast_ — 3:1 against its adjacent
 colour, Level AA. `#8a8a8a` on `#ffffff` clears that; a hairline chosen to flatter a card would
 not, and the failure would land on the one place in the product where a missing edge costs a user
 something. A card is decorative chrome with no such floor. So the correct edit is the narrow one:
@@ -39,8 +39,8 @@ be re-authored by hand. The generated baseline issue 13 bought is not spent by t
 
 ## Amended the same day: the shadow came off too
 
-Once `.scratch/decisions/025` deepened the page ground to `#eff4f7`, the human removed `shadow-sm`
-as well. **The card's edge is now the surface step alone** — `#ffffff` on `#eff4f7`, 1.11:1 — with
+Once `.scratch/decisions/025` deepened the page ground to `#f4f5f6`, the human removed `shadow-sm`
+as well. **The card's edge is now the surface step alone** — `#ffffff` on `#f4f5f6`, 1.11:1 — with
 no stroke and no shadow.
 
 That is a stronger version of the same decision rather than a different one: this record's claim
