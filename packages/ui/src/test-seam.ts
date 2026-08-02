@@ -10,10 +10,26 @@ const HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/;
 // `data-[state=open]:` does — that colon is what tells the two apart.
 const ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]*\](?!:)/;
 
-// Arbitrary *properties* — `[color:red]` — have no utility prefix, so the
-// pattern above misses them; the colon here lives inside the brackets. No
-// `[` in the content stops it crossing into a selector's nested bracket.
-const ARBITRARY_PROPERTY = /(?<![\w-])\[[^\]\s[]*:[^\]\s[]*\]/;
+// Arbitrary *properties* have no utility prefix and no regex tracks bracket
+// nesting, so this scans each `[...]` to its matching close: `:` right after
+// the close is a variant (ignore); `:` inside the unnested content is a property (flag).
+function hasArbitraryProperty(line: string): boolean {
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== "[") continue;
+    let depth = 1;
+    let topLevelColon = false;
+    let j = i + 1;
+    for (; j < line.length && depth > 0; j++) {
+      if (line[j] === "[") depth++;
+      else if (line[j] === "]") depth--;
+      else if (line[j] === ":" && depth === 1) topLevelColon = true;
+    }
+    if (depth !== 0) continue; // unmatched bracket — not our concern here
+    if (line[j] !== ":" && topLevelColon) return true;
+    i = j - 1;
+  }
+  return false;
+}
 
 const INLINE_STYLE = /style=\{\{/;
 
@@ -31,7 +47,7 @@ function violatesLine(line: string): boolean {
     INLINE_STYLE.test(line) ||
     HEX_LITERAL.test(line) ||
     ARBITRARY_VALUE.test(line) ||
-    ARBITRARY_PROPERTY.test(line)
+    hasArbitraryProperty(line)
   );
 }
 

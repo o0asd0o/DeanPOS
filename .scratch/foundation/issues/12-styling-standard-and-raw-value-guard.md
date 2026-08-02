@@ -245,3 +245,57 @@ by hand and found no mismatch, confirmed scope and import-path criteria are met 
 and flagged that the "proof it bites" needed to land in the build report — it now has, above.
 
 **Nothing in the issue could not be implemented as written.**
+
+---
+
+**Round 2 fix (final round — both findings applied).**
+
+1. **Blocking — nested-bracket false positives/negatives.** Replaced the `ARBITRARY_PROPERTY`
+   regex in `packages/ui/src/test-seam.ts` with `hasArbitraryProperty(line)`: for each `[`,
+   scan forward tracking bracket depth to the matching outer `]`. If that `]` is followed by
+   `:`, it's a variant — ignore. Otherwise, if the content at depth 1 (the outer bracket's own
+   level, not inside any nested bracket) contains a `:`, it's an arbitrary property — flag.
+   This is balanced-bracket scanning, not another lookahead. Verified against all six reviewer
+   rows: `[&:hover]:underline`, `[@supports(display:grid)]:grid`, and
+   `[&[data-state="open:now"]]:block` now pass (outer close followed by `:`, even with a nested
+   bracket inside); `[grid-template-columns:[a]_1fr_[b]_2fr]` now fails (top-level colon, no
+   trailing `:`); `{ [key:string]: T }` now passes with no formatter dependency (its outer
+   close is followed by `:`, regardless of the missing space) — the previous version relied on
+   prettier inserting a space, which `vp test` does not guarantee; the shipped shadcn selector
+   `[&_svg:not([class*='size-'])]:size-4` still passes. Added all six as regression cases in
+   `packages/ui/tests/test-seam.test.ts` (test count 16 → 22): five to the must-pass table, one
+   (the nested-bracket property) to the must-fail table.
+2. **Minor — escape-hatch boundary untested.** Changed the "under four words" fixture in
+   `test-seam.test.ts` from a two-word to a three-word reason (`brand mark colour`), so the
+   `>= 4` boundary is actually exercised — a wrong `>= 3` would now fail this test.
+
+**Self-check on the new code:** the new `hasArbitraryProperty` comment ran 4 lines on first
+draft (rule 5's ceiling is 3); trimmed to 3 before committing.
+
+**Re-proof against real trees**, `assertNoRawDesignValues` called directly via a scratch script
+(not through the app tests, so `apps/landing` and `packages/ui/src/components/` scoping is
+unaffected):
+- `apps/pos/src` → clean
+- `apps/backoffice/src` → clean
+- `packages/ui/src` → clean (round 1 flagged `test-seam.ts:13` — its own comment contained
+  the literal `[color:red]`; the comment was rewritten for this round's fix and no longer
+  contains a bracket literal, so nothing trips now. Not a deliberate fix — a side effect of
+  rewording the comment. Still outside the guard's declared scope either way.)
+
+**Proof of bite (round 2, the exact defect class from the finding):** temporarily added
+`[&:hover]:underline [grid-template-columns:[a]_1fr_[b]_2fr]` to the `className` on
+`apps/pos/src/components/ErrorState.tsx:12`, ran `vp test` in `apps/pos` —
+`design-values.test.ts` failed with `Raw design values found in: src/components/ErrorState.tsx:12`,
+correctly flagging only the nested arbitrary property and not the valid variant on the same
+line. Reverted with `git checkout -- apps/pos/src/components/ErrorState.tsx`; `git status`
+confirmed a clean tree before committing.
+
+**Gate**, all run from the worktree with the PATH prepend:
+- `vp run -w codegen` — Prisma + both apps' `tsr generate`, clean.
+- `vp check` — 131 files formatted, 95 files lint/type clean.
+- `vp run -r check` — all 10 workspace packages/apps pass.
+- `vp run -r test` — all packages/apps pass; `packages/ui` 65/65 (test-seam.test.ts 22/22),
+  both apps' `design-values.test.ts` 1/1 each, all other suites unchanged and green.
+
+Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed
+clean and on `main` before finishing.

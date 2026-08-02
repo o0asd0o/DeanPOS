@@ -27,6 +27,10 @@ describe("assertNoRawDesignValues", () => {
     ["a six-digit hex literal", `const c = "#35CCA6";`],
     ["a three-digit hex literal", `const c = "#fff";`],
     ["an inline style", `<div style={{ padding: 13 }} />`],
+    [
+      "an arbitrary property with a nested bracket",
+      `<div className="[grid-template-columns:[a]_1fr_[b]_2fr]" />`,
+    ],
   ])("fails on %s", (_label, line) => {
     write(line);
     expect(() => assertNoRawDesignValues(dir)).toThrow();
@@ -42,6 +46,20 @@ describe("assertNoRawDesignValues", () => {
     ],
     ["array indexing", `const first = arr[0];`],
     ["ordinary token classes", `<div className="bg-status-success-tone p-4 rounded-md" />`],
+    ["a pseudo-class variant", `<div className="[&:hover]:underline" />`],
+    [
+      "a supports variant with an inner colon",
+      `<div className="[@supports(display:grid)]:grid" />`,
+    ],
+    [
+      "a variant with a nested attribute selector containing a colon",
+      `<div className='[&[data-state="open:now"]]:block' />`,
+    ],
+    ["an unspaced TS index signature", `type T2 = { [key:string]: T };`],
+    [
+      "the shipped shadcn descendant-selector variant",
+      `<div className="[&_svg:not([class*='size-'])]:size-4" />`,
+    ],
   ])("passes on %s", (_label, line) => {
     write(line);
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
@@ -55,7 +73,7 @@ describe("assertNoRawDesignValues", () => {
   });
 
   it("does not suppress a design-exempt reason under four words", () => {
-    write(`// design-exempt: brand colour\nconst c = "#35CCA6";`);
+    write(`// design-exempt: brand mark colour\nconst c = "#35CCA6";`);
     expect(() => assertNoRawDesignValues(dir)).toThrow();
   });
 
