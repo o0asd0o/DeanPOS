@@ -359,3 +359,25 @@ implementation:
 _Specification derived from the `/plan-app` grilling session of 2026-07-31 and ADR-0001,
 ADR-0002, ADR-0003, ADR-0006, ADR-0007. Reuses the in-process seam and borrows the browser
 seam from `offline-sync` for CSP and origin isolation. Adds no seam._
+
+**Inherited 2026-08-02 from [record 035](../decisions/035-the-throttle-lock-is-deferred-to-hardening.md) — `Stakes: high`.**
+
+`tenancy-identity` issue 03a merged the sign-in throttle **without record 033's self-lifting
+lock**, which record 034's implementer removed along with the `locked_until` column. Because
+every attempt — including refused ones — advances `updated_at`, and the window resets only
+when `updated_at` is older than `THROTTLE_WINDOW_MS`, **an attacker attempting once every 29
+minutes keeps a known email address locked indefinitely** and the owner never gets a gap. This
+PRD inherits three concrete items, all named in record 035:
+
+1. Stop advancing `updated_at` once a key is at or over its limit, in
+   `packages/backend/src/auth/db-operations/commands/upsert-throttle-failure.command.ts` —
+   one `CASE`; record 034's atomic reservation survives untouched.
+2. Drop the dead `locked_until` column from `schema.prisma` and migration
+   `20260802100000_password_policy_and_sign_in_throttling`. **Non-additive** — fold it into
+   this PRD's own migration rather than raising it alone.
+3. A test that keeps attempting **throughout** the window before advancing past it. The
+   merged test only advances time with no attempts in between, which is the case that already
+   works.
+
+This is the rate limiter the lunch-rush test above is meant to protect. Fixing the lock and
+then deleting the limiter for interfering with service would be the same failure twice.
