@@ -129,9 +129,9 @@ describe("auth.signIn", () => {
     expect(result).toStrictEqual({ ok: false });
   });
 
-  // Issue 04, round 1 finding 1: the live gate authorises from UserRole, and
-  // absence is a refusal — never a fallback to User.role.
-  it("a User with no UserRole row is refused, even though sign-in itself succeeds", async () => {
+  // Issue 04, round 2 finding 1: a roleless User is refused at sign-in
+  // itself, identically to a wrong password — no session, no redirect loop.
+  it("a User with no UserRole row is refused, with the same response as a wrong password, and inserts no Session", async () => {
     const noHistoryId = randomUUID();
     const noHistoryEmail = `no-history-${randomUUID()}@sign-in.test`;
     await ownerDb
@@ -147,11 +147,23 @@ describe("auth.signIn", () => {
       })
       .execute();
 
-    const { result, client } = await seam.actors.signIn(noHistoryEmail, password);
-    expect(result).toStrictEqual({ ok: true, mustChangePassword: false });
-    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
+    const roleless = await seam.actors.signIn(noHistoryEmail, password);
+    const wrongPassword = await seam.actors.signIn(email, "not the password");
 
-    await ownerDb.deleteFrom("Session").where("user_id", "=", noHistoryId).execute();
+    expect(roleless.result).toStrictEqual({ ok: false });
+    expect(roleless.status).toBe(wrongPassword.status);
+    expect(roleless.setCookie).toBe(wrongPassword.setCookie);
+    expect([...roleless.headers!.keys()].sort()).toStrictEqual(
+      [...wrongPassword.headers!.keys()].sort(),
+    );
+
+    const sessions = await ownerDb
+      .selectFrom("Session")
+      .selectAll()
+      .where("user_id", "=", noHistoryId)
+      .execute();
+    expect(sessions).toStrictEqual([]);
+
     await ownerDb.deleteFrom("User").where("id", "=", noHistoryId).execute();
   });
 });

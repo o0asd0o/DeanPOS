@@ -2,8 +2,8 @@ import type { DatabaseInstance } from "../db/client.ts";
 import type { Role } from "../db/prisma/generated/types.ts";
 
 // The tenant is read from here and nowhere else — never a header, a query,
-// a body, or the hostname (issue 01). `role` is read fresh from the User row
-// per request (issue 04); every field but `tenantId` is optional.
+// a body, or the hostname (issue 01). `role` is resolved fresh per request
+// from the effective-dated UserRole history, never User.role (issue 04).
 export type Principal = {
   tenantId: string;
   userId?: string;

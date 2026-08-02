@@ -96,3 +96,21 @@ loudly and in the right place. Cheap here; expensive to diagnose later.
   (`packages/backend/src/common/authorize.ts`) is the same function either kind of handler
   would call before touching a Store, so its own coverage plus `store.get`'s is what stands in
   for a write test until issue 05/06 add one.
+
+**Fixer notes, round 2.** `UserRole` is now the sole authority for the live gate
+(`apps/api/src/context.ts` resolves `role` from `getRoleAsOf`, never `User.role`); a `User`
+with no `UserRole` row cannot pass it. Round 1 left one gap: `auth.signIn` still inserted a
+`Session` for such a User before `auth.me` refused it — a redirect loop, fixed here by having
+`sign-in.ts` resolve the role and refuse (same shape as a wrong password) before inserting the
+session.
+
+A backfill migration for existing roleless `User` rows was considered and explicitly rejected:
+`DeanPOS_dev` holds only stale test residue, there is no deployed environment, and a data
+backfill needs human escalation for no benefit here. A pre-existing roleless `User` failing
+closed at sign-in is the intended behaviour, not a bug to paper over.
+
+What this means for issue 06: `User.role` is now **write-only convenience**, read by nothing on
+the live gate. It exists so a UI can show "current role" without a history join, and its only
+remaining consumer is display. Issue 06's role-change procedure must still write both — a new
+`UserRole` row (the truth) and an updated `User.role` (the display copy) — in the same
+transaction, or the two silently diverge and the convenience copy starts lying.

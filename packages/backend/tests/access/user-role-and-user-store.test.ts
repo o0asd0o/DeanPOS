@@ -134,12 +134,93 @@ describe("UserRole and UserStore: append-only, structurally", () => {
   });
 });
 
+// Round 2 finding 2: proves the composite FKs themselves reject a mismatched
+// tenant, under deanpos_app — not the owner, whose behaviour protects
+// nothing. A regenerated schema that restores an independent user_id/store_id
+// FK would otherwise pass every other test in this file unnoticed.
+describe("UserRole and UserStore: composite FKs reject a mismatched tenant", () => {
+  const userB = randomUUID();
+  const storeB = randomUUID();
+
+  beforeAll(async () => {
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: userB,
+        tenant_id: tenantB,
+        email: `access-${randomUUID()}@user-role.test`,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(appDb, tenantB, (db) =>
+      db.insertInto("Store").values({ id: storeB, tenant_id: tenantB, name: "B1" }).execute(),
+    );
+  });
+
+  afterAll(async () => {
+    await ownerDb.deleteFrom("Store").where("id", "=", storeB).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", userB).execute();
+  });
+
+  it("UserRole(tenantA, userB) is rejected", async () => {
+    await expect(
+      withTenantScope(appDb, tenantA, (db) =>
+        db
+          .insertInto("UserRole")
+          .values({
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userB,
+            role: "cashier",
+            effective_from: new Date(),
+          })
+          .execute(),
+      ),
+    ).rejects.toThrow(/violates foreign key constraint/);
+  });
+
+  it("UserStore(tenantA, userB, storeA) is rejected", async () => {
+    await expect(
+      withTenantScope(appDb, tenantA, (db) =>
+        db
+          .insertInto("UserStore")
+          .values({
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userB,
+            store_id: storeA1,
+            assigned: true,
+            effective_from: new Date(),
+          })
+          .execute(),
+      ),
+    ).rejects.toThrow(/violates foreign key constraint/);
+  });
+
+  it("UserStore(tenantA, userA, storeB) is rejected", async () => {
+    await expect(
+      withTenantScope(appDb, tenantA, (db) =>
+        db
+          .insertInto("UserStore")
+          .values({
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userA,
+            store_id: storeB,
+            assigned: true,
+            effective_from: new Date(),
+          })
+          .execute(),
+      ),
+    ).rejects.toThrow(/violates foreign key constraint/);
+  });
+});
+
 describe("UserRole and UserStore: RLS, not application filtering", () => {
-  // Identified rows seeded here, in this block's own setup — round 1 finding
-  // 5. Proving Tenant B and an unscoped connection see nothing is only
-  // meaningful once Tenant A is shown to read these exact ids; an empty
-  // result with no fixture in scope would pass identically with both
-  // policies deleted.
+  // Identified rows (round 1 finding 5): proving Tenant B and an unscoped
+  // connection see nothing is only meaningful once Tenant A is shown to read
+  // these exact ids — an empty result would pass with the policies deleted.
   const roleRowId = randomUUID();
   const storeRowId = randomUUID();
 
@@ -385,6 +466,14 @@ describe("un-assigning then reassigning a Store: closure -> reopening", () => {
   it("exactly at the reopening row, the Store is assigned again", async () => {
     const storeIds = await withTenantScope(appDb, tenantA, (db) =>
       getAssignedStoreIdsAsOf(db, userD, t3),
+    );
+    expect(storeIds).toContain(storeA1);
+  });
+
+  it("strictly after the reopening row, the Store stays assigned", async () => {
+    const after = new Date("2026-04-25T00:00:00Z");
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userD, after),
     );
     expect(storeIds).toContain(storeA1);
   });

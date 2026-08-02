@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { getRoleAsOf } from "../../access/db-operations/queries/get-role-as-of.query.ts";
 import type { Handler } from "../../common/handler.ts";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "../../common/password.ts";
 import { withTenantScope } from "../../db/client.ts";
@@ -47,6 +48,13 @@ export const handler: Handler<SignInInput, SignInResult> = async ({ ctx, input }
     // The reservation above already recorded this failure — no second write.
     return { ok: false };
   }
+
+  // A roleless User fails the live gate anyway (issue 04 round 2 finding 1);
+  // refused here, before the throttle releases, same shape as wrong password.
+  const currentRole = await withTenantScope(ctx.db, user.tenant_id, (db) =>
+    getRoleAsOf(db, user.id, new Date()),
+  );
+  if (!currentRole) return { ok: false };
 
   await releaseSignInThrottle(ctx.db, keys);
   await clearSignInThrottle(ctx.db, keys);

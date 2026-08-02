@@ -3,11 +3,9 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseInstance } from "backend/src/db/client.ts";
 import type { Role } from "backend/src/db/prisma/generated/types.ts";
 
-// The live gate (backend/src/context.ts) derives the current role from
-// UserRole, never User.role (issue 04, round 1 finding 1) — every test that
-// seeds a User directly through the migration owner and then signs in needs
-// the opening UserRole row too, or the session it signs in resolves to
-// unauthenticated.
+// The live gate derives the current role from UserRole, never User.role
+// (backend/src/context.ts, issue 04) — a seeded User needs the opening
+// UserRole row too, or the session it signs in resolves to unauthenticated.
 export const seedTenantUser = async (
   ownerDb: DatabaseInstance,
   values: {

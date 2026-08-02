@@ -71,11 +71,8 @@ model User {
 }
 
 // Effective-dated history of the Role a User held (issue 04, PRD security
-// criterion 21). Append-only, same grant-level enforcement as UserStore
-// below. `User.role` stays a denormalised convenience; this is the truth.
-// `user` is a composite FK on (tenantId, userId), not userId alone — a
-// mismatched-tenant row would otherwise slip past RLS's WITH CHECK, because
-// Postgres foreign-key checks bypass RLS (issue 04, round 1 finding 2).
+// criterion 21); `User.role` stays a denormalised convenience, this is the
+// truth. `user`'s composite FK avoids an RLS bypass (round 1 finding 2).
 model UserRole {
   id            String   @id
   tenantId      String   @map("tenant_id")

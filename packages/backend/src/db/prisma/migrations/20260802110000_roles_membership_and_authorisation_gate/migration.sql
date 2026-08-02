@@ -26,10 +26,9 @@ CREATE TABLE "UserStore" (
 -- CreateIndex
 CREATE INDEX "UserRole_tenant_id_idx" ON "UserRole"("tenant_id");
 
--- Two rows for the same User at the same instant leave "as of T" with no
--- deterministic answer — issue 12 replays an offline Override against
--- exactly that lookup (issue 04, round 1 finding 4). A unique constraint
--- refuses the tie outright rather than picking a winner silently.
+-- A unique tie-break: "as of T" has no deterministic answer with two rows at
+-- the same instant, and issue 12 replays against exactly that lookup
+-- (issue 04, round 1 finding 4).
 -- CreateIndex
 CREATE UNIQUE INDEX "UserRole_user_id_effective_from_idx" ON "UserRole"("user_id", "effective_from");
 
