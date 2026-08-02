@@ -6,17 +6,6 @@ import { Nav } from "./Nav.tsx";
 // Unlike apps/pos, this sidebar repeats on every screen, so the shell also
 // carries a skip link and a `<nav>`. Header content and landmark count:
 // .scratch/decisions/009.
-//
-// The mobile/desktop split stays the CSS `md:` breakpoint that issue 07 proved
-// out, not `Sidebar`'s own `useIsMobile` switch — that hook calls
-// `window.matchMedia`, which happy-dom (the render-test environment) does not
-// implement, and a JS-driven switch is a first-paint flash record 009 rules
-// out for the sibling shell. Below `md`, the pulled `Sheet` (focus trap,
-// Escape, `aria-modal`, scroll lock, focus restoration) opens the nav; at and
-// above `md`, a plain `<aside>` shows it inline. `Nav` itself is built from
-// the pulled sidebar's context-free parts (`SidebarContent`, `SidebarGroup`,
-// `sidebarMenuButtonVariants`), so `Sidebar`/`SidebarProvider` — which gate on
-// `useSidebar()` — are never mounted.
 export function AppShell() {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -42,6 +31,9 @@ export function AppShell() {
             <Nav />
           </SheetContent>
         </Sheet>
+        {/* Not `Sidebar`'s own offcanvas: it gates on `useSidebar()` -> `useIsMobile()`
+            -> `window.matchMedia`, unsupported in the happy-dom render-test env, and a
+            JS-driven switch is the first-paint flash record 009 rules out. */}
         <aside className="hidden bg-sidebar text-sidebar-foreground md:block md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-border">
           <Nav />
         </aside>
