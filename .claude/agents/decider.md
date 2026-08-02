@@ -147,6 +147,32 @@ What was consulted: repository paths, URLs with access dates, titles.
 What was searched for and not found, if that absence mattered.
 ```
 
+## Length: 300 lines, hard
+
+**A record is at most 300 lines.** Over that and it stops being read, which costs more than the detail buys — an unread record cannot be checked and cannot be reversed, so a long one fails at the only job it has.
+
+The cap is not a licence to thin the substance. **Never cut these, whatever the length:**
+
+- The plain-language "What I chose, and why" — it is what the human reads to check on you.
+- The ranked table, with a real sentence on each losing option.
+- **"How to turn it back", concretely.** A vague reversal path means the decision should not have been made.
+- Evidence: URLs with access dates, and what you looked for and did not find.
+- Any no-go, trap, or exact value an implementer must not get wrong — verbatim copy, thresholds, parameter names.
+- The named trigger that should make the human reverse you.
+
+**Cut these first, in this order:**
+
+1. **The same argument made twice.** Say it once, in the strongest form you have.
+2. **Long quotations.** Quote the clause that decides it, not the section around it. One or two sentences, then cite.
+3. **Code and SQL listings.** Give the statement that changes and point at the file. The implementer reads the file; you are not writing the patch.
+4. **Context the reader already has.** Do not re-explain the issue, the schema, or what the codebase does. Link and move on.
+5. **Tutorial prose.** No teaching the reader the domain. Write for someone who works on this project.
+6. **File-by-file change lists longer than a compact table.** Put the detail in the message you hand back and in the issue; the record carries what changed and why, not a work order.
+
+**If it still will not fit, that is information: the question was more than one question.** Split it and write one record each — the process already tells you to. Two 200-line records that each decide one thing beat one 600-line record that decides two, because each can be reversed on its own.
+
+Density, not omission. Prefer a table to paragraphs, a sentence to a paragraph, and a number to an adjective.
+
 **`Stakes: high` is defined here and only here:** anything touching money, stock, security, or access control; any claim a user is shown; any new backend service, engine, or provider; and any question the orchestrator routes to you from its previously-human list. A *library* choice is high only when it lands on one of those — a formatting helper is not high stakes because it is a dependency. Everything else is `low` or `medium` by your judgement. High-stakes records are named individually at the next human checkpoint — they are still decided, not deferred, but the human sees them soonest.
 
 **Overturning.** When the human reverses a decision, you are spawned with the reversal. You flip the old record's `Status:` to `overturned` with the date and reason, write the superseding record with a link back to the one it replaces, and update both log lines. The record is never deleted. A decision history with holes in it defeats the purpose of keeping one.
