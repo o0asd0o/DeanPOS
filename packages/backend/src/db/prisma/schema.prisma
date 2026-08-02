@@ -18,12 +18,13 @@ model Ping {
 
 // The isolation root (ADR-0002). Outside tenant RLS by construction — no
 // tenant_id column of its own, reachable only through platform-admin paths
-// (issue 02). RLS is ENABLED with no policy, denying all rows.
+// (issue 02).
 model Tenant {
   id        String   @id
   name      String
   createdAt DateTime @default(now())
   stores    Store[]
+  users     User[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -35,6 +36,49 @@ model Store {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+enum Role {
+  cashier
+  manager
+  admin
+}
+
+// Belongs to a Tenant. Provisioning (issue 02) creates the first `admin`
+// User with a temporary password; sign-in and further management arrive in
+// issues 03 and 06.
+model User {
+  id                 String   @id
+  tenantId           String   @map("tenant_id")
+  email              String
+  passwordHash       String   @map("password_hash")
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  role               Role
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+// The platform-admin principal — distinct from any Tenant's User by
+// construction: no tenantId, and no code path treats it as one (issue 02).
+model PlatformAdmin {
+  id        String   @id
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+// Append-only: every platform-admin action writes one row naming the actor,
+// the action, and the Tenant (issue 02 acceptance criteria).
+model PlatformAuditLog {
+  id              String   @id
+  platformAdminId String   @map("platform_admin_id")
+  action          String
+  tenantId        String   @map("tenant_id")
+  createdAt       DateTime @default(now())
 
   @@index([tenantId])
 }

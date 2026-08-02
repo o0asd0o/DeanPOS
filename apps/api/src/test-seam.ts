@@ -1,4 +1,4 @@
-import type { Principal } from "backend/src/common/ctx.ts";
+import type { PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
 import { createDb } from "backend/src/db/client.ts";
 import { createClient } from "contract/src/index.ts";
 
@@ -23,8 +23,17 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
 
   const db = createDb({ databaseUrl });
 
-  const buildActor = (principal: Principal | null) => {
-    const app = createApp({ db, appDomain, devOrigins: options.devOrigins, principal });
+  const buildActor = (actor: {
+    principal?: Principal | null;
+    platformAdmin?: PlatformAdminPrincipal | null;
+  }) => {
+    const app = createApp({
+      db,
+      appDomain,
+      devOrigins: options.devOrigins,
+      principal: actor.principal ?? null,
+      platformAdmin: actor.platformAdmin ?? null,
+    });
     const client = createClient({
       url: `https://api.${appDomain}/rpc`,
       fetch: async (request, init) => app.request(request, init),
@@ -32,15 +41,17 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     return { app, client };
   };
 
-  const { app, client } = buildActor(null);
+  const { app, client } = buildActor({});
 
   return {
     app,
     client,
     db,
     actors: {
-      asTenant: (tenantId: string) => buildActor({ tenantId }),
-      asUnauthenticated: () => buildActor(null),
+      asTenant: (tenantId: string) => buildActor({ principal: { tenantId } }),
+      asPlatformAdmin: (platformAdminId: string) =>
+        buildActor({ platformAdmin: { platformAdminId } }),
+      asUnauthenticated: () => buildActor({}),
     },
   };
 };

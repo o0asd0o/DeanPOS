@@ -54,3 +54,52 @@ tablet.
 _Sliced from `.scratch/tenancy-identity/PRD.md` (stories 1, 2, 47). Self-serve signup,
 billing, and plan limits are explicitly out of scope for v1; so is email transport of any
 kind, and therefore invitation and verification emails._
+
+**Implementer, 2026-08-02 — two blockers, both routed to the decider, neither fixed unilaterally.**
+
+Everything is built: `User`, `PlatformAdmin`, `PlatformAuditLog` in `schema.prisma` and the
+migration; the `PlatformAdminPrincipal` / `ctx.platformAdmin` plumbing through `ctx.ts`,
+`context.ts`, `app.ts`, `test-seam.ts`; the `platformAdmin.provisionTenant` contract procedure,
+handler, db-operations, and route; the audit row; and the full test file
+`apps/api/tests/platform-admin-provision-tenant.test.ts`. 3 of its 6 tests pass, including both
+required negative tests (tenant-scoped principal refused, unauthenticated caller refused, both
+via `expectWrongTenantRefusal`) and a direct RLS proof that a tenant-scoped connection cannot
+insert an arbitrary `Tenant` row. `vp run -w codegen` and `vp run -r check` are fully green.
+
+**Blocker 1 — `Bun.password` cannot execute under this project's `vp test` gate.** Verified
+directly: `vp test` runs vitest under `vp`'s own bundled Node runtime (`process.versions.node`,
+no `bun` key), never Bun, and there is no documented `vp` option to select Bun as the test
+runtime (checked `vp test --help`, `vp env --help`, and web search — the only documented way to
+get `Bun` global into vitest is `bun run --bun vitest`, which needs a project-level `vitest`
+binary this repo doesn't have; `vp` bundles its own, privately, at `~/.vite-plus`). Concretely:
+every test that calls `hashPassword` — the dedicated unit test and every provisioning test that
+reaches a successful create — fails with `ReferenceError: Bun is not defined`. Type-checking
+also failed (`Cannot find name 'Bun'`) until I added a local, dependency-free ambient
+declaration, `packages/backend/src/common/bun-password.d.ts`, scoped to only the `Bun.password`
+shape actually used — that's why `vp check` is green even though `vp test` is not. I did not
+add `@types/bun` (a new devDependency) or swap to `node:crypto`'s built-in `argon2`/`argon2Sync`
+(confirmed present and zero-dependency, but low-level — no PHC-string encoding, so using it
+means hand-rolling salt generation and hash encoding myself, a security-relevant design choice).
+Both are legitimate resolutions; neither is mine to pick.
+
+**Blocker 2 — found while fixing blocker 1's fallout: no policy lets `deanpos_app` insert a
+`Tenant` row at all, and the obvious fix breaks a locked issue-01 test.** `Tenant` has RLS
+`ENABLED` + `FORCED` with no policy (issue 01), which the acceptance criteria there commits to:
+`packages/backend/tests/db/with-tenant-scope.test.ts`'s `"Tenant is outside tenant RLS and
+unreachable even from a tenant-scoped connection"` asserts zero rows for a tenant-scoped
+connection querying `Tenant` at all — not "unreachable for other tenants," unreachable, full
+stop. My first attempt added `CREATE POLICY ... USING ("id" = current_setting('app.tenant_id'))`
+so provisioning could scope its transaction to the new Tenant's own id (reusing
+`withTenantScope` with no second `set_config` call site, per this issue's own instruction not to
+add one). That let the platform-admin path insert — but it also let an *ordinary* tenant-scoped
+principal read its own `Tenant` row, which is exactly what issue 01's test forbids. I reverted
+it (migration now has no `Tenant` policy, same as issue 01 left it) rather than ship a passing
+provisioning test at the cost of a regression the reviewer wouldn't see me un-doing. The
+question — how a strictly unprivileged, non-superuser app role is meant to insert the one row
+issue 01 declared totally unreachable — needs a decision (a second, distinct session variable
+for "platform-admin mode"; a `SECURITY DEFINER` function narrowly scoped to this one insert; or
+something else), and it's exactly the class of call this issue told me to stop and report rather
+than pick. `withTenantScope`/`client.ts` are untouched.
+
+Branch `ti02-platform-admin-tenant-provisioning`. Full diff and both failing test files are
+committed as-is — visibly red, not hidden — so the decision has the real repro in front of it.

@@ -9,7 +9,7 @@ describe("contract", () => {
     expect(parsed.message).toBe("pong");
   });
 
-  it("declares exactly ping and store, ready for implement()", () => {
-    expect(Object.keys(contract)).toStrictEqual(["ping", "store"]);
+  it("declares exactly ping, store, and platformAdmin, ready for implement()", () => {
+    expect(Object.keys(contract)).toStrictEqual(["ping", "store", "platformAdmin"]);
   });
 });

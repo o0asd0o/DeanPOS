@@ -1,6 +1,6 @@
 import { implement } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
-import type { Ctx, Principal } from "backend/src/common/ctx.ts";
+import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
 import type { DatabaseInstance } from "backend/src/db/client.ts";
 import { contract } from "contract/src/index.ts";
 import { toSafeErrorResponse } from "error/src/index.ts";
@@ -10,6 +10,7 @@ import { cors } from "hono/cors";
 import { createContext } from "./context.ts";
 import { allowedOrigins } from "./middlewares/cors.ts";
 import { healthRoute } from "./routes/health.ts";
+import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import { pingRoute } from "./routes/ping.ts";
 import { storeGetRoute } from "./routes/store.ts";
 
@@ -25,6 +26,8 @@ export type CreateAppOptions = {
    * (apps/api/src/test-seam.ts). Production never passes it.
    */
   principal?: Principal | null;
+  /** Same shape as `principal`, for a platform-admin actor (issue 02) — a distinct principal, never a Tenant's. */
+  platformAdmin?: PlatformAdminPrincipal | null;
 };
 
 /** Assembles the Hono shell (ADR-0008). Used by the production entry and, unchanged, by the in-process test seam. */
@@ -33,8 +36,9 @@ export const createApp = ({
   appDomain,
   devOrigins = [],
   principal = null,
+  platformAdmin = null,
 }: CreateAppOptions) => {
-  const ctx = createContext(db, principal);
+  const ctx = createContext(db, principal, platformAdmin);
   const app = new Hono<{ Variables: { ctx: Ctx } }>();
 
   app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins] }));
@@ -48,7 +52,11 @@ export const createApp = ({
   // .router() requires every contract key present — .scratch/decisions/006.
   const router = implement(contract)
     .$context<Ctx>()
-    .router({ ping: pingRoute, store: { get: storeGetRoute } });
+    .router({
+      ping: pingRoute,
+      store: { get: storeGetRoute },
+      platformAdmin: { provisionTenant: provisionTenantRoute },
+    });
   const rpcHandler = new RPCHandler(router);
 
   app.use("/rpc/*", async (c, next) => {
