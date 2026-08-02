@@ -56,8 +56,14 @@ do not wire it.
       Verify by looking at the network panel or the served asset — not by trusting the token.
 - [ ] `apps/backoffice` uses the compact density; `apps/pos` uses touch, with the 44px floor holding
       on every tappable control in the chrome.
-- [ ] The back-office sidebar is the pulled `sidebar`, skinned per issue 14: black active pill, quiet
-      resting entries, `Reports` and `Configuration` groups in their existing order.
+- [ ] The back-office sidebar is the pulled `sidebar`, mounted as one `SidebarProvider`
+      enclosing two `Sidebar collapsible="none"` frames — one `hidden md:flex`, one inside the
+      existing `Sheet` — so that `useSidebar()` is available on every back-office screen and no
+      JavaScript decides which frame paints (`.scratch/decisions/009`, `.scratch/decisions/017`).
+      Skinned per issue 14: black active pill, quiet resting entries, `Reports` and
+      `Configuration` groups in their existing order. Nav entries stay inert — each is a
+      `SidebarMenuButton asChild` wrapping a `<span>` with `pointer-events-none`, so no hover
+      or active feedback fires on a row that is not yet a link.
 - [ ] **Everything the old shell got right survives the swap.** Issue 07 chose `sheet` for the narrow
       viewport specifically for its focus trap, `Escape` handling, `aria-modal`, scroll lock, and
       focus restoration; issue 05's blocking finding was a focus indicator quietly opted out of.
@@ -150,3 +156,22 @@ from `index.ts`) so `apps/backoffice` can apply the pulled pill styling to a non
 here rather than silently included.
 
 Gate run independently: `vp run -w codegen; vp check; vp run -r check; vp run -r test` — all pass.
+
+**Round 1: record 017 applied.** `SidebarProvider` is now mounted in `AppShell.tsx`, wrapping
+two `Sidebar collapsible="none"` frames (one `hidden md:flex`, one inside the existing `Sheet`).
+`collapsible="none"` returns before `Sidebar` reads `isMobile`, so record 009's CSS-only
+`md:` switch is unchanged and untouched. `NavGroup.tsx`'s inert rows are now
+`SidebarMenuButton asChild` wrapping a `<span>` with `pointer-events-none`, which kills the
+`hover:`/`active:` feedback the variant string carries — the row no longer looks pressable.
+The `sidebarMenuButtonVariants` export this issue added to `packages/ui/src/components/sidebar.tsx`
+and `packages/ui/src/index.ts` is reverted; `packages/ui` is byte-identical to issue 14's merge.
+The two claims in the comment above about happy-dom lacking `matchMedia` and about a first-paint
+flash are both wrong (`.scratch/decisions/017`) and are superseded by this comment, not by
+editing the earlier one.
+
+**Inherited by areas 2–12, noted so it is not rediscovered as a bug:** mounting the provider
+registers a global `Ctrl+B`/`Cmd+B` listener that calls `preventDefault()` and writes a
+`sidebar_state` cookie, with no visible effect under `collapsible="none"`. Do not bind that
+chord to anything. Also do not render `SidebarTrigger` or `SidebarRail` (inert controls breach
+record 009), do not use `SidebarInset` (it renders a second `<main>`), do not read `isMobile`
+for layout, and do not edit `sidebar.tsx`.

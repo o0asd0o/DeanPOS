@@ -1,5 +1,5 @@
 import { Outlet } from "@tanstack/react-router";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "ui";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger, Sidebar, SidebarProvider } from "ui";
 
 import { Nav } from "./Nav.tsx";
 
@@ -18,7 +18,7 @@ export function AppShell() {
       <header className="flex justify-between border-b border-border p-4">
         <span className="text-lg font-bold">DeanPOS</span>
       </header>
-      <div className="flex flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
+      <SidebarProvider className="min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
         <Sheet>
           <SheetTrigger
             className="tap-target m-4 self-start md:hidden"
@@ -28,19 +28,21 @@ export function AppShell() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <Nav />
+            <Sidebar collapsible="none" className="h-full w-full">
+              <Nav />
+            </Sidebar>
           </SheetContent>
         </Sheet>
-        {/* Not `Sidebar`'s own offcanvas: it gates on `useSidebar()` -> `useIsMobile()`
-            -> `window.matchMedia`, unsupported in the happy-dom render-test env, and a
-            JS-driven switch is the first-paint flash record 009 rules out. */}
-        <aside className="hidden bg-sidebar text-sidebar-foreground md:block md:w-64 md:shrink-0 md:overflow-y-auto md:border-r md:border-border">
+        <Sidebar
+          collapsible="none"
+          className="hidden md:flex md:shrink-0 md:overflow-y-auto md:border-r md:border-border"
+        >
           <Nav />
-        </aside>
+        </Sidebar>
         <main id="main-content" tabIndex={-1} className="flex-1 md:overflow-y-auto">
           <Outlet />
         </main>
-      </div>
+      </SidebarProvider>
     </div>
   );
 }

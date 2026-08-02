@@ -30,7 +30,7 @@ const CONFIGURATION = [
 // any entry yet, so `NavGroup` renders each row as inert text, not a link.
 export function Nav() {
   return (
-    <nav aria-label="Primary">
+    <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
       <SidebarContent>
         <NavGroup label="Reports" items={REPORTS} />
         <NavGroup items={CONFIGURATION} />

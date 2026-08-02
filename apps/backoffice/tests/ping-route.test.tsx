@@ -34,6 +34,10 @@ describe("the back-office shell's ping route", () => {
     const navText = nav?.textContent ?? "";
     expect(navText.indexOf("Reports")).toBeLessThan(navText.indexOf("Catalog"));
 
+    const orders = screen.getByText("Orders");
+    expect(orders.getAttribute("data-slot")).toBe("sidebar-menu-button");
+    expect(orders.className).toContain("pointer-events-none");
+
     const skipLink = screen.getByText("Skip to content") as HTMLAnchorElement;
     expect(skipLink.getAttribute("href")).toBe("#main-content");
     expect(container.querySelector("main")?.getAttribute("tabindex")).toBe("-1");

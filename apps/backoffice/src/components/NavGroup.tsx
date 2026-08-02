@@ -1,12 +1,11 @@
 import { useId } from "react";
 import {
-  cn,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
-  sidebarMenuButtonVariants,
 } from "ui";
 
 // One entry of Nav's structure: an optional heading, then inert rows styled
@@ -26,7 +25,9 @@ export function NavGroup({ label, items }: { label?: string; items: string[] }) 
         <SidebarMenu aria-labelledby={label ? headingId : undefined}>
           {items.map((item) => (
             <SidebarMenuItem key={item}>
-              <span className={cn(sidebarMenuButtonVariants())}>{item}</span>
+              <SidebarMenuButton asChild className="pointer-events-none">
+                <span>{item}</span>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

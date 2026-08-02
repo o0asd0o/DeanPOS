@@ -33,7 +33,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-  sidebarMenuButtonVariants,
   useSidebar,
 } from "./components/sidebar.tsx";
 export {
