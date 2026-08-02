@@ -10,6 +10,11 @@ const HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/;
 // `data-[state=open]:` does — that colon is what tells the two apart.
 const ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]*\](?!:)/;
 
+// Arbitrary *properties* — `[color:red]` — have no utility prefix, so the
+// pattern above misses them; the colon here lives inside the brackets. No
+// `[` in the content stops it crossing into a selector's nested bracket.
+const ARBITRARY_PROPERTY = /(?<![\w-])\[[^\]\s[]*:[^\]\s[]*\]/;
+
 const INLINE_STYLE = /style=\{\{/;
 
 const EXEMPT_COMMENT = /^\s*\/\/\s*design-exempt:\s*(.+)$/;
@@ -22,7 +27,12 @@ function isExempt(precedingLine: string | undefined): boolean {
 }
 
 function violatesLine(line: string): boolean {
-  return INLINE_STYLE.test(line) || HEX_LITERAL.test(line) || ARBITRARY_VALUE.test(line);
+  return (
+    INLINE_STYLE.test(line) ||
+    HEX_LITERAL.test(line) ||
+    ARBITRARY_VALUE.test(line) ||
+    ARBITRARY_PROPERTY.test(line)
+  );
 }
 
 function collectFiles(dir: string): string[] {

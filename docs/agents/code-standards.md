@@ -103,6 +103,9 @@ it. This is enforced, not just written down — `assertNoRawDesignValues` (`pack
 fails the build on a breach; a rule with no test is forgotten a few screens in, and a test with
 no rule is worked around by a fixer who never learned why it exists.
 
+This rule's scope is `apps/pos/src` and `apps/backoffice/src`. `apps/landing` is excluded — it
+sits outside the theme entirely (ADR-0013) and gets its own guard in area 11.
+
 The one constraint worth naming explicitly, because a reasonable implementer gets it wrong
 otherwise (ADR-0013): the status hues (`success`, `warning`, `info`, `danger`) are dots, chart
 series, and icons on a pale tint of themselves — **they never sit under text.** Reaching for
