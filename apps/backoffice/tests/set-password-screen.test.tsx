@@ -59,9 +59,11 @@ describe("the set-password screen", () => {
       expect(screen.getByRole("heading", { name: "Set a new password" })).toBeTruthy(),
     );
 
-    fireEvent.change(screen.getByLabelText("New password"), { target: { value: "password one" } });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "the first long password" },
+    });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "password two" },
+      target: { value: "the second long password" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
 

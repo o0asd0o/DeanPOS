@@ -11,7 +11,10 @@ afterAll(async () => {
 
 describe("ping handler", () => {
   it("reads the seeded ping row with no HTTP server involved", async () => {
-    const ping = await handler({ ctx: { db, kind: "unauthenticated" }, input: undefined });
+    const ping = await handler({
+      ctx: { db, clientIp: "", kind: "unauthenticated" },
+      input: undefined,
+    });
 
     expect(ping.message).toBe("pong");
   });

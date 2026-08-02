@@ -11,7 +11,10 @@ afterAll(async () => {
 
 describe("health handler", () => {
   it("reports the process live and the database reachable as two booleans", async () => {
-    const health = await handler({ ctx: { db, kind: "unauthenticated" }, input: undefined });
+    const health = await handler({
+      ctx: { db, clientIp: "", kind: "unauthenticated" },
+      input: undefined,
+    });
 
     expect(health).toStrictEqual({ live: true, databaseReachable: true });
   });
@@ -20,7 +23,7 @@ describe("health handler", () => {
     const brokenDb = createDb({ databaseUrl: "postgresql://nobody@localhost:1/does-not-exist" });
 
     const health = await handler({
-      ctx: { db: brokenDb, kind: "unauthenticated" },
+      ctx: { db: brokenDb, clientIp: "", kind: "unauthenticated" },
       input: undefined,
     });
 

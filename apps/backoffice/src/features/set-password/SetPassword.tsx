@@ -52,12 +52,17 @@ export function SetPassword() {
         >
           <div className="flex flex-col gap-2">
             <label htmlFor="new-password">New password</label>
+            <p id="new-password-hint" className="text-sm text-foreground">
+              At least 15 characters. Any characters, including spaces — there are no other rules.
+            </p>
             <Input
               id="new-password"
               name="new-password"
               type="password"
               autoComplete="new-password"
               required
+              minLength={15}
+              aria-describedby="new-password-hint"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
             />
@@ -70,6 +75,7 @@ export function SetPassword() {
               type="password"
               autoComplete="new-password"
               required
+              minLength={15}
               aria-invalid={mismatch}
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}

@@ -82,3 +82,105 @@ rather than an omission, because no test in the repo asserts RLS coverage.
 from a NIST `SHALL`. Record 032 lists five trackable clauses. NIST ties the blocklist's required
 size to the attempt limit, so records 032 and 033 are load-bearing for each other — **neither is
 complete until the blocklist ships**.
+
+---
+
+**Implemented 2026-08-02, branch `03a-password-policy-and-sign-in-throttling`.**
+
+**`verifyPassword` timing under `bun` (record 033's obligation): mean 258.9 ms over 10 runs
+(range 258.2–260.5 ms)**, on this machine, at `ln=17, r=8, p=1`. That is the per-request block
+time of the whole API for the duration of the pipeline this issue implements — confirms the
+throttle-before-hash ordering is load-bearing, not precautionary, and is well inside the range
+where record 033 suggested moving to async `crypto.scrypt` becomes the next question worth
+asking (not done here — out of scope for this issue).
+
+**What was built:**
+
+- `packages/schemas/src/password.ts` — the canonical `PASSWORD_MIN_LENGTH` (15) /
+  `PASSWORD_MAX_LENGTH` (128), `normalizePassword` (trim → NFC), `passwordSchema` (the full
+  policy, for set/provision) and `signInPasswordSchema` (normalise + bound only, no minimum).
+  Lives in `schemas` rather than `backend` so `contract` can import it without depending on
+  `backend`. `packages/backend/src/auth/password-policy.ts` re-exports it under the
+  `session-policy.ts`-style local path every backend handler imports from — one canonical
+  source, never a second place stating a password rule.
+- `packages/contract/src/contract.ts` — `setPasswordInputSchema.newPassword` and
+  `provisionTenantInputSchema.adminPassword` now use `passwordSchema` (the `.min(8)`
+  contradiction is fixed); `signInInputSchema.password` uses `signInPasswordSchema` (normalise
+  + `.max(128)`, never the minimum).
+- `packages/backend/src/common/password.ts` — `scryptSync` now receives
+  `Buffer.from(password, "utf8")` in both `hashPassword` and `verifyPassword`. No signature
+  change. This is a fresh lane database with no pre-existing hash, so the record's "confirm one
+  existing dev hash still verifies" check has no row to check against — noted rather than
+  skipped.
+- `packages/backend/src/db/prisma/schema.prisma` + a new migration
+  (`20260802100000_password_policy_and_sign_in_throttling`) — `SignInThrottle(key, failures,
+  locked_until, updated_at)`, no `tenant_id`, no `user_id`, no foreign key, no RLS, applied to
+  the lane database.
+- `packages/backend/src/auth/throttle-policy.ts`, `throttle.ts`, and three new
+  `db-operations` (a query for the locked-key lookup, an upsert-on-failure command, a
+  lock-and-reset command, a clear-on-success command) — the pre-hash check, keyed on
+  `email:<trimmed, lowercased>` and `ip:<address>`, incrementing on every failure regardless of
+  whether a `User` was found.
+- `packages/backend/src/auth/handlers/sign-in.ts` — throttle check before `verifyPassword`,
+  failure recording on refusal, success clears the email key only (IP key is deliberately left
+  alone, per the record).
+- `packages/backend/src/common/ctx.ts`, `apps/api/src/{context,app}.ts` — `Ctx` gains
+  `clientIp: string`; `app.ts` reads `X-Forwarded-For` once per `/rpc` request (defaulting to
+  the literal `"no-forwarded-for"` when absent — fails closed) and both `createContext` and
+  `buildContextFromSession` take it as a parameter.
+- `docker/Caddyfile` — `header_up X-Forwarded-For {http.request.remote.host}` inside the `api.*`
+  block, replacing rather than appending.
+- `apps/backoffice/src/features/set-password/SetPassword.tsx` — the hint paragraph with
+  `aria-describedby`, and `minLength={15}` on both password inputs (no `maxLength`, per the
+  no-go). Nothing else on the screen changed — server-side rejection message wiring into the
+  existing alert block was not in the record's "what must change" table for this issue and was
+  left alone rather than folded in; noted below.
+
+**Tests (all new, all failing before the corresponding implementation, all green now):**
+
+- `packages/schemas/tests/password.test.ts` — `normalizePassword`, `passwordSchema`,
+  `signInPasswordSchema`: minimum/maximum boundaries with the named messages, NFC equivalence,
+  code-point counting against an emoji string (`.length` would see double), trim-then-length
+  ordering.
+- `apps/api/tests/password-policy.test.ts` — server-side refusal (shorter/longer than policy)
+  on `auth.setPassword` and `platformAdmin.provisionTenant` (the `.min(8)` fix, specifically),
+  boundary acceptance at exactly 15, and the required regression lock: a non-ASCII password
+  (`café puerta azul veinte`, combining form) set once via `setPassword` and signed in with once
+  in a different Unicode form plus stray whitespace — proving the one normalisation function is
+  genuinely shared.
+- `apps/api/tests/sign-in-throttle.test.ts` — all five acceptance criteria: identical
+  shape/status/message for a throttled known vs. unknown email in the same test; the failure
+  counter incrementing for an unknown email (asserted directly against the `SignInThrottle`
+  row); a throttled request never calling `verifyPassword` (asserted via `vi.spyOn`, not
+  inferred from timing); the per-address counter tripping independently of any one account and
+  the no-forwarded-header case sharing one bucket rather than being exempted; and a lock lifting
+  itself (simulated by moving `locked_until` into the past rather than waiting 30 real minutes)
+  with a subsequent success clearing the email counter.
+
+**Fixed collaterally (mechanical consequences of typing `Ctx.clientIp` as required, not new
+behaviour):** `packages/backend/tests/health/get-health.handler.test.ts`,
+`packages/backend/tests/ping/get-ping.handler.test.ts` (added the new field to their inline
+`Ctx` literals), and `apps/backoffice/tests/set-password-screen.test.tsx` (the mismatch test's
+fixture passwords were 12 characters — bumped to real fifteen-plus-character strings that still
+mismatch, since the new native `minLength=15` was silently blocking the test's form submission
+before React's `onSubmit` ran).
+
+**Gate, run in order, all green:**
+`vp run -w codegen`, `vp check` (repo root), `vp run -r check`, `vp run -r test`
+(20 files / 75 tests in `apps/api` alone; full monorepo run green with no regressions).
+
+**Disagreements with the records:** none. Both were implemented as written; no contradiction
+found between the two records or with issue 03's existing criteria.
+
+**Left for a human/decider, not decided here:**
+1. Whether to wire the specific server-rejected password message (e.g. "Password must be at
+   least 15 characters") into `SetPassword.tsx`'s existing `role="alert"` block. Today the app's
+   opaque-error convention (`toSafeErrorResponse`, verified experimentally against the running
+   oRPC error) collapses a validation failure to a generic "Input validation failed" with no
+   `data` payload — the specific zod message never reaches the wire. Record 032's prose
+   describes the intended UI behaviour, but the file-level "what must change" table for the
+   front end lists only the hint paragraph and `minLength`, so wiring the message through was
+   treated as out of this issue's scope per code-standards rule 1 (fix what was asked, report
+   the rest) rather than folded in silently.
+2. `release-ops`'s breached-password blocklist remains unimplemented, exactly as both records
+   say it must be — a separate provider/dependency decision, not a lane decision.

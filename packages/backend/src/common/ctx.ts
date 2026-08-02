@@ -26,4 +26,8 @@ type Identity =
 // `resHeaders` is oRPC's ResponseHeadersPlugin injection (issue 03): the
 // sign-in/sign-out routes append `Set-Cookie` to it. Absent outside a real
 // HTTP request (e.g. the test seam's direct handler calls).
-export type Ctx = { db: DatabaseInstance; resHeaders?: Headers } & Identity;
+//
+// `clientIp` (record 033) is used for sign-in throttling and for nothing
+// else — it never reaches an authorisation decision and never keys a
+// database session variable.
+export type Ctx = { db: DatabaseInstance; resHeaders?: Headers; clientIp: string } & Identity;

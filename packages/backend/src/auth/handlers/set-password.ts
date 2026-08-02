@@ -4,11 +4,10 @@ import type { Handler } from "../../common/handler.ts";
 import { hashPassword } from "../../common/password.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { updateUserPassword } from "../db-operations/commands/update-user-password.command.ts";
+import { passwordSchema } from "../password-policy.ts";
 
-// No password policy exists anywhere in the repository (record 030 refused
-// to invent one); the server accepts any non-empty password and is the
-// only authority on it. The confirm-match check is client-side only.
-export const inputSchema = z.object({ newPassword: z.string().min(1) });
+// The confirm-match check is client-side only.
+export const inputSchema = z.object({ newPassword: passwordSchema });
 
 type SetPasswordInput = z.infer<typeof inputSchema>;
 

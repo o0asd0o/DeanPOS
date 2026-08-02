@@ -49,7 +49,7 @@ export const createApp = ({
 
   // No identity concept applies to a liveness check — always unauthenticated.
   app.use("/health", async (c, next) => {
-    c.set("ctx", { db, kind: "unauthenticated" });
+    c.set("ctx", { db, clientIp: "", kind: "unauthenticated" });
     await next();
   });
   app.get("/health", healthRoute);
@@ -68,10 +68,16 @@ export const createApp = ({
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
 
   app.use("/rpc/*", async (c, next) => {
+    // Caddy's `header_up` replaces rather than appends (docker/Caddyfile),
+    // so this is always exactly one address Caddy actually saw. Absent —
+    // src/dev.ts runs with no proxy — every such request shares one bucket,
+    // failing closed rather than exempting the caller (record 033).
+    const clientIp = c.req.header("X-Forwarded-For") ?? "no-forwarded-for";
+
     // Ctx is built per request, not once per app instance (issue 03).
     let ctx: Ctx;
     if (testSeamActor) {
-      ctx = createContext(db, principal, platformAdmin);
+      ctx = createContext(db, clientIp, principal, platformAdmin);
     } else {
       // A device-token request (issue 09) carries `Authorization`, never the
       // session cookie's identity — the Origin gate below is this app's
@@ -84,9 +90,9 @@ export const createApp = ({
         if (c.req.header("Origin") !== ADMIN_ORIGIN(appDomain)) {
           return c.json(toSafeErrorResponse(new ORPCError("FORBIDDEN")), 403);
         }
-        ctx = await buildContextFromSession(db, sessionId);
+        ctx = await buildContextFromSession(db, sessionId, clientIp);
       } else {
-        ctx = { db, kind: "unauthenticated" };
+        ctx = { db, clientIp, kind: "unauthenticated" };
       }
     }
     c.set("ctx", ctx);

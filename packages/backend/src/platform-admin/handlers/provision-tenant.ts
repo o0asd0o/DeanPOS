@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Handler } from "../../common/handler.ts";
 import { hashPassword } from "../../common/password.ts";
 import { withTenantScope } from "../../db/client.ts";
+import { passwordSchema } from "../../auth/password-policy.ts";
 import { insertPlatformAuditLog } from "../db-operations/commands/insert-platform-audit-log.command.ts";
 import { insertTenant } from "../db-operations/commands/insert-tenant.command.ts";
 import { insertUser } from "../db-operations/commands/insert-user.command.ts";
@@ -12,7 +13,7 @@ import { insertUser } from "../db-operations/commands/insert-user.command.ts";
 export const inputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
-  adminPassword: z.string().min(8),
+  adminPassword: passwordSchema,
 });
 
 type ProvisionTenantInput = z.infer<typeof inputSchema>;

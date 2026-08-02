@@ -24,7 +24,7 @@ function toUnpaddedBase64(buffer: Buffer): string {
 export async function hashPassword(password: string): Promise<string> {
   const { ln, r, p, keyLength, saltLength } = PASSWORD_HASH_PARAMS;
   const salt = randomBytes(saltLength);
-  const hash = scryptSync(password, salt, keyLength, {
+  const hash = scryptSync(Buffer.from(password, "utf8"), salt, keyLength, {
     N: 2 ** ln,
     r,
     p,
@@ -50,7 +50,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const salt = Buffer.from(saltB64, "base64");
   const expected = Buffer.from(hashB64, "base64");
 
-  const actual = scryptSync(password, salt, expected.length, {
+  const actual = scryptSync(Buffer.from(password, "utf8"), salt, expected.length, {
     N: 2 ** ln,
     r,
     p,

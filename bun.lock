@@ -116,6 +116,7 @@
       "dependencies": {
         "kysely": "^0.28.2",
         "pg": "8.22.0",
+        "schemas": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -134,6 +135,7 @@
       "dependencies": {
         "@orpc/client": "catalog:",
         "@orpc/contract": "catalog:",
+        "schemas": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {

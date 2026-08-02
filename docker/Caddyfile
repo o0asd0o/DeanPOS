@@ -21,5 +21,10 @@ admin.{$APP_DOMAIN:deanpos.localhost} {
 }
 
 api.{$APP_DOMAIN:deanpos.localhost} {
-	reverse_proxy api:3000
+	# header_up with an explicit value replaces rather than appends, so the
+	# API always receives exactly one address, the one Caddy actually saw —
+	# no attacker-supplied X-Forwarded-For to trust (record 033).
+	reverse_proxy api:3000 {
+		header_up X-Forwarded-For {http.request.remote.host}
+	}
 }

@@ -1,4 +1,5 @@
 import { oc } from "@orpc/contract";
+import { passwordSchema, signInPasswordSchema } from "schemas/src/password.ts";
 import { z } from "zod";
 
 export const pingOutputSchema = z.object({
@@ -18,7 +19,7 @@ export const storeOutputSchema = z.object({
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
-  adminPassword: z.string().min(8),
+  adminPassword: passwordSchema,
 });
 
 export const provisionTenantOutputSchema = z.object({
@@ -28,7 +29,8 @@ export const provisionTenantOutputSchema = z.object({
 
 export const signInInputSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  // Never the policy schema — sign-in verifies bytes, forever (record 032).
+  password: signInPasswordSchema,
 });
 
 // The session id never appears here — it leaves the server only as a
@@ -39,7 +41,7 @@ export const signInOutputSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false) }),
 ]);
 
-export const setPasswordInputSchema = z.object({ newPassword: z.string().min(1) });
+export const setPasswordInputSchema = z.object({ newPassword: passwordSchema });
 export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
 export const signOutOutputSchema = z.object({ ok: z.literal(true) });

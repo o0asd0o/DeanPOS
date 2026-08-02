@@ -9,15 +9,16 @@ import type { DatabaseInstance } from "backend/src/db/client.ts";
 /** Test-seam-only path: fixes a whole app instance to one explicit principal (apps/api/src/test-seam.ts). Production never calls this. */
 export const createContext = (
   db: DatabaseInstance,
+  clientIp: string,
   principal: Principal | null = null,
   platformAdmin: PlatformAdminPrincipal | null = null,
 ): Ctx => {
   if (principal && platformAdmin) {
     throw new Error("Ctx cannot carry both a tenant principal and a platform-admin principal");
   }
-  if (principal) return { db, kind: "tenant", principal };
-  if (platformAdmin) return { db, kind: "platform-admin", platformAdmin };
-  return { db, kind: "unauthenticated" };
+  if (principal) return { db, clientIp, kind: "tenant", principal };
+  if (platformAdmin) return { db, clientIp, kind: "platform-admin", platformAdmin };
+  return { db, clientIp, kind: "unauthenticated" };
 };
 
 /**
@@ -29,24 +30,26 @@ export const createContext = (
 export const buildContextFromSession = async (
   db: DatabaseInstance,
   sessionId: string | null,
+  clientIp: string,
 ): Promise<Ctx> => {
-  if (!sessionId) return { db, kind: "unauthenticated" };
+  if (!sessionId) return { db, clientIp, kind: "unauthenticated" };
 
   const session = await findSessionById(db, sessionId);
-  if (!session || session.revoked_at) return { db, kind: "unauthenticated" };
+  if (!session || session.revoked_at) return { db, clientIp, kind: "unauthenticated" };
 
   const now = Date.now();
-  if (session.expires_at.getTime() < now) return { db, kind: "unauthenticated" };
+  if (session.expires_at.getTime() < now) return { db, clientIp, kind: "unauthenticated" };
   if (now - session.last_seen_at.getTime() > SESSION_IDLE_TTL_MS)
-    return { db, kind: "unauthenticated" };
+    return { db, clientIp, kind: "unauthenticated" };
 
   return withTenantScope(db, session.tenant_id, async (scopedDb) => {
     await touchSession(scopedDb, sessionId);
     const user = await findUserById(scopedDb, session.user_id);
-    if (!user || !user.active) return { db, kind: "unauthenticated" };
+    if (!user || !user.active) return { db, clientIp, kind: "unauthenticated" };
 
     return {
       db,
+      clientIp,
       kind: "tenant",
       principal: {
         tenantId: session.tenant_id,
