@@ -100,7 +100,6 @@ describe("session expiry", () => {
       seam.actors.adminOrigin,
     );
 
-    const store = await client.store.get({ id: randomUUID() });
-    expect(store).toBeNull();
+    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
   });
 });
