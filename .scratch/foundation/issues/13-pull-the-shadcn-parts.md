@@ -1,6 +1,16 @@
 # 13 — Pull the shared parts from shadcn, unmodified
 
-**Status:** ready-for-agent
+**Status:** done — seven parts plus four of `sidebar`'s transitive dependencies pulled vanilla.
+`theme.css`, `contrast.test.ts`, `button.tsx` and `sheet.tsx` all verified zero-diff; the CLI's
+attempted `@theme inline`/HSL palette injection was reverted. The stock focus opt-out ships
+unstripped, by design, and is issue 14's to remove.
+
+**Known for whoever regenerates these.** `shadcn add`'s `"use client"` strip (this project sets
+`"rsc": false`) does **not** reliably re-run on files reached only through `registryDependencies` —
+repeated identical runs stripped `separator.tsx`/`tooltip.tsx` inconsistently. Two files landed with
+a stray directive and were cleaned by hand. **"Vanilla" for the transitive parts is therefore a
+moving target upstream**: diff against a fresh `shadcn add` rather than assuming the committed file
+is reproducible byte-for-byte.
 
 ## What to build
 
