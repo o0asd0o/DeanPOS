@@ -1,10 +1,15 @@
 # 11 — The token layer: re-roled palette, Manrope, and two densities
 
 **Status:** done — palette re-roled to record 013's 35 tokens (verified name-for-name), Manrope
-self-hosted as one variable woff2, both densities in `theme.css`. 48 contrast assertions green.
+self-hosted as one variable woff2, both densities in `theme.css`. 49 contrast assertions green.
 `--color-ring`/`--color-sidebar-ring` are `#1e1e1e` per record 014 — the ring is asserted against
 every surface it can be drawn on, never against `primary`, whose pixels `outline-offset` guarantees
 it never touches.
+
+**Reopened once after merge, and re-closed.** The first pass shipped two defects: `--color-ring` at
+`#7a7a7a` (settled by record 014), and a live WCAG 2.5.5 regression — `apps/pos` fell from a 44px
+tap floor to 24px because `tap-target` reads a density that no app had activated. Both fixed; both
+found by review *after* the merge, which is the part worth remembering.
 
 ## What to build
 
