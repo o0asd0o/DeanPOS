@@ -6,6 +6,7 @@ import type { Handler } from "../../common/handler.ts";
 import { hashPassword } from "../../common/password.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { passwordSchema } from "../../auth/password-policy.ts";
+import { insertUserRole } from "../../access/db-operations/commands/insert-user-role.command.ts";
 import { insertPlatformAuditLog } from "../db-operations/commands/insert-platform-audit-log.command.ts";
 import { insertTenant } from "../db-operations/commands/insert-tenant.command.ts";
 import { insertUser } from "../db-operations/commands/insert-user.command.ts";
@@ -42,6 +43,15 @@ export const handler: Handler<ProvisionTenantInput, ProvisionTenantOutput | null
       email: input.adminEmail,
       passwordHash,
       role: "admin",
+    });
+    // Same transaction as the User row above — a User that exists without
+    // its opening UserRole row is the bug the live gate now refuses to trust.
+    await insertUserRole(db, {
+      id: randomUUID(),
+      tenantId,
+      userId,
+      role: "admin",
+      effectiveFrom: new Date(),
     });
     await insertPlatformAuditLog(db, {
       id: randomUUID(),

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 // `auth.me` is what the `_shell` route's `beforeLoad` guard reads (record
@@ -18,22 +19,19 @@ const password = "correct horse battery staple";
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Me Tenant" }).execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(password),
-      must_change_password: false,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(password),
+    mustChangePassword: false,
+    role: "admin",
+  });
 });
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -57,18 +55,13 @@ describe("auth.me", () => {
   it("stays reachable even while mustChangePassword is true", async () => {
     const tempUserId = randomUUID();
     const tempEmail = `me-temp-${randomUUID()}@sign-in.test`;
-    await ownerDb
-      .insertInto("User")
-      .values({
-        id: tempUserId,
-        tenant_id: tenantId,
-        email: tempEmail,
-        password_hash: await hashPassword("temp-password-1"),
-        must_change_password: true,
-        role: "cashier",
-        active: true,
-      })
-      .execute();
+    await seedTenantUser(ownerDb, {
+      id: tempUserId,
+      tenantId,
+      email: tempEmail,
+      passwordHash: await hashPassword("temp-password-1"),
+      role: "cashier",
+    });
 
     const { client } = await seam.actors.signIn(tempEmail, "temp-password-1");
     await expect(client.auth.me()).resolves.toStrictEqual({
@@ -77,6 +70,7 @@ describe("auth.me", () => {
     });
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", tempUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", tempUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", tempUserId).execute();
   });
 });

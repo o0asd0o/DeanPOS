@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 const seam = createTestSeam();
@@ -16,22 +17,19 @@ const password = "correct horse battery staple";
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Sign-in Tenant" }).execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(password),
-      must_change_password: false,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(password),
+    mustChangePassword: false,
+    role: "admin",
+  });
 });
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -129,5 +127,31 @@ describe("auth.signIn", () => {
     const otherEmail = `other-tenant-${randomUUID()}@sign-in.test`;
     const { result } = await seam.actors.signIn(otherEmail, "irrelevant");
     expect(result).toStrictEqual({ ok: false });
+  });
+
+  // Issue 04, round 1 finding 1: the live gate authorises from UserRole, and
+  // absence is a refusal — never a fallback to User.role.
+  it("a User with no UserRole row is refused, even though sign-in itself succeeds", async () => {
+    const noHistoryId = randomUUID();
+    const noHistoryEmail = `no-history-${randomUUID()}@sign-in.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: noHistoryId,
+        tenant_id: tenantId,
+        email: noHistoryEmail,
+        password_hash: await hashPassword(password),
+        must_change_password: false,
+        role: "admin",
+        active: true,
+      })
+      .execute();
+
+    const { result, client } = await seam.actors.signIn(noHistoryEmail, password);
+    expect(result).toStrictEqual({ ok: true, mustChangePassword: false });
+    await expect(client.auth.me()).resolves.toStrictEqual({ authenticated: false });
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", noHistoryId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", noHistoryId).execute();
   });
 });

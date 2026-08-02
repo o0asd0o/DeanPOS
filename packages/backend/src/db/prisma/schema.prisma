@@ -40,6 +40,7 @@ model Store {
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
   userStores UserStore[]
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
@@ -65,12 +66,16 @@ model User {
   userRoles          UserRole[]
   userStores         UserStore[]
 
+  @@unique([tenantId, id])
   @@index([tenantId])
 }
 
 // Effective-dated history of the Role a User held (issue 04, PRD security
 // criterion 21). Append-only, same grant-level enforcement as UserStore
 // below. `User.role` stays a denormalised convenience; this is the truth.
+// `user` is a composite FK on (tenantId, userId), not userId alone — a
+// mismatched-tenant row would otherwise slip past RLS's WITH CHECK, because
+// Postgres foreign-key checks bypass RLS (issue 04, round 1 finding 2).
 model UserRole {
   id            String   @id
   tenantId      String   @map("tenant_id")
@@ -79,15 +84,17 @@ model UserRole {
   effectiveFrom DateTime @map("effective_from")
   createdAt     DateTime @default(now()) @map("created_at")
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  user          User     @relation(fields: [userId], references: [id])
+  user          User     @relation(fields: [tenantId, userId], references: [tenantId, id])
 
   @@index([tenantId])
-  @@index([userId, effectiveFrom])
+  @@unique([userId, effectiveFrom])
 }
 
 // Effective-dated history of which Stores a User may operate (issue 04).
 // Append-only like UserRole; un-assigning writes a closing row
 // (`assigned = false`) rather than deleting the prior one.
+// `user` and `store` are composite FKs on (tenantId, userId) / (tenantId,
+// storeId), for the same reason as UserRole.user above.
 model UserStore {
   id            String   @id
   tenantId      String   @map("tenant_id")
@@ -97,11 +104,11 @@ model UserStore {
   effectiveFrom DateTime @map("effective_from")
   createdAt     DateTime @default(now()) @map("created_at")
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  user          User     @relation(fields: [userId], references: [id])
-  store         Store    @relation(fields: [storeId], references: [id])
+  user          User     @relation(fields: [tenantId, userId], references: [tenantId, id])
+  store         Store    @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
   @@index([tenantId])
-  @@index([userId, storeId, effectiveFrom])
+  @@unique([userId, storeId, effectiveFrom])
 }
 
 // Back-office session (issue 03): an opaque server-side id, persistent with

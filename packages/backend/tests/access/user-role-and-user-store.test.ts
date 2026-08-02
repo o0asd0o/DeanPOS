@@ -135,20 +135,76 @@ describe("UserRole and UserStore: append-only, structurally", () => {
 });
 
 describe("UserRole and UserStore: RLS, not application filtering", () => {
-  it("a tenant-scoped connection cannot read another Tenant's UserRole or UserStore rows", async () => {
+  // Identified rows seeded here, in this block's own setup — round 1 finding
+  // 5. Proving Tenant B and an unscoped connection see nothing is only
+  // meaningful once Tenant A is shown to read these exact ids; an empty
+  // result with no fixture in scope would pass identically with both
+  // policies deleted.
+  const roleRowId = randomUUID();
+  const storeRowId = randomUUID();
+
+  beforeAll(async () => {
+    await withTenantScope(appDb, tenantA, (db) =>
+      db
+        .insertInto("UserRole")
+        .values({
+          id: roleRowId,
+          tenant_id: tenantA,
+          user_id: userA,
+          role: "manager",
+          effective_from: new Date("2026-03-01T00:00:00Z"),
+        })
+        .execute(),
+    );
+    await withTenantScope(appDb, tenantA, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: storeRowId,
+          tenant_id: tenantA,
+          user_id: userA,
+          store_id: storeA2,
+          assigned: true,
+          effective_from: new Date("2026-03-01T00:00:00Z"),
+        })
+        .execute(),
+    );
+  });
+
+  afterAll(async () => {
+    await ownerDb.deleteFrom("UserRole").where("id", "=", roleRowId).execute();
+    await ownerDb.deleteFrom("UserStore").where("id", "=", storeRowId).execute();
+  });
+
+  it("a tenant-scoped connection reads the rows it seeded, by id", async () => {
+    const roles = await withTenantScope(appDb, tenantA, (db) =>
+      db.selectFrom("UserRole").select("id").where("id", "=", roleRowId).execute(),
+    );
+    const stores = await withTenantScope(appDb, tenantA, (db) =>
+      db.selectFrom("UserStore").select("id").where("id", "=", storeRowId).execute(),
+    );
+    expect(roles.map((r) => r.id)).toStrictEqual([roleRowId]);
+    expect(stores.map((s) => s.id)).toStrictEqual([storeRowId]);
+  });
+
+  it("a tenant-scoped connection cannot read another Tenant's UserRole or UserStore rows — the row is there and hidden, not absent", async () => {
     const roles = await withTenantScope(appDb, tenantB, (db) =>
-      db.selectFrom("UserRole").selectAll().execute(),
+      db.selectFrom("UserRole").select("id").where("id", "=", roleRowId).execute(),
     );
     const stores = await withTenantScope(appDb, tenantB, (db) =>
-      db.selectFrom("UserStore").selectAll().execute(),
+      db.selectFrom("UserStore").select("id").where("id", "=", storeRowId).execute(),
     );
     expect(roles).toStrictEqual([]);
     expect(stores).toStrictEqual([]);
   });
 
-  it("an unscoped connection issuing the same selects directly sees nothing", async () => {
-    expect(await appDb.selectFrom("UserRole").selectAll().execute()).toStrictEqual([]);
-    expect(await appDb.selectFrom("UserStore").selectAll().execute()).toStrictEqual([]);
+  it("an unscoped connection issuing the same selects directly sees nothing, for the same known ids", async () => {
+    expect(
+      await appDb.selectFrom("UserRole").select("id").where("id", "=", roleRowId).execute(),
+    ).toStrictEqual([]);
+    expect(
+      await appDb.selectFrom("UserStore").select("id").where("id", "=", storeRowId).execute(),
+    ).toStrictEqual([]);
   });
 });
 
@@ -234,6 +290,104 @@ describe("un-assigning a Store writes a closing row; the previous assignment sta
     );
     expect(storeIds).not.toContain(storeA1);
   });
+
+  it("getAssignedStoreIdsAsOf excludes the Store strictly after the closing row", async () => {
+    const after = new Date("2026-01-20T00:00:00Z");
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userB, after),
+    );
+    expect(storeIds).not.toContain(storeA1);
+  });
+});
+
+// Round 1 finding 6: the suite above only ever walks assignment -> closure.
+// A Tuesday demotion or un-assignment invalidating a legitimate Monday
+// Override is exactly what issue 12 must not do — so the reverse
+// transitions get their own coverage, not a mirror-image assumption.
+describe("un-assigning then reassigning a Store: closure -> reopening", () => {
+  const userD = randomUUID();
+  const t1 = new Date("2026-04-01T00:00:00Z");
+  const t2 = new Date("2026-04-10T00:00:00Z");
+  const t3 = new Date("2026-04-20T00:00:00Z");
+
+  beforeAll(async () => {
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: userD,
+        tenant_id: tenantA,
+        email: `access-${randomUUID()}@user-role.test`,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(appDb, tenantA, (db) =>
+      db
+        .insertInto("UserStore")
+        .values([
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userD,
+            store_id: storeA1,
+            assigned: true,
+            effective_from: t1,
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userD,
+            store_id: storeA1,
+            assigned: false,
+            effective_from: t2,
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userD,
+            store_id: storeA1,
+            assigned: true,
+            effective_from: t3,
+          },
+        ])
+        .execute(),
+    );
+  });
+
+  afterAll(async () => {
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", userD).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", userD).execute();
+  });
+
+  it("before the closing row, the Store is still assigned", async () => {
+    const asOf = new Date("2026-04-05T00:00:00Z");
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userD, asOf),
+    );
+    expect(storeIds).toContain(storeA1);
+  });
+
+  it("exactly at the closing row, the Store is already un-assigned", async () => {
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userD, t2),
+    );
+    expect(storeIds).not.toContain(storeA1);
+  });
+
+  it("strictly after the closing row but before reopening, the Store stays un-assigned", async () => {
+    const asOf = new Date("2026-04-15T00:00:00Z");
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userD, asOf),
+    );
+    expect(storeIds).not.toContain(storeA1);
+  });
+
+  it("exactly at the reopening row, the Store is assigned again", async () => {
+    const storeIds = await withTenantScope(appDb, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, userD, t3),
+    );
+    expect(storeIds).toContain(storeA1);
+  });
 });
 
 describe("getRoleAsOf: a change on either side of T", () => {
@@ -286,8 +440,14 @@ describe("getRoleAsOf: a change on either side of T", () => {
     expect(result?.role).toBe("cashier");
   });
 
-  it("resolves to the role in force on or after the change", async () => {
+  it("resolves to the role in force exactly at the change", async () => {
     const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userC, t2));
+    expect(result?.role).toBe("manager");
+  });
+
+  it("resolves to the role in force strictly after the change", async () => {
+    const after = new Date("2026-02-15T00:00:00Z");
+    const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userC, after));
     expect(result?.role).toBe("manager");
   });
 
@@ -295,5 +455,67 @@ describe("getRoleAsOf: a change on either side of T", () => {
     const before = new Date("2026-01-01T00:00:00Z");
     const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userC, before));
     expect(result).toBeUndefined();
+  });
+});
+
+describe("getRoleAsOf: manager -> cashier demotion", () => {
+  const userE = randomUUID();
+  const t1 = new Date("2026-05-01T00:00:00Z");
+  const t2 = new Date("2026-05-10T00:00:00Z");
+
+  beforeAll(async () => {
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: userE,
+        tenant_id: tenantA,
+        email: `access-${randomUUID()}@user-role.test`,
+        password_hash: await hashPassword("irrelevant"),
+        role: "manager",
+      })
+      .execute();
+    await withTenantScope(appDb, tenantA, (db) =>
+      db
+        .insertInto("UserRole")
+        .values([
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userE,
+            role: "manager",
+            effective_from: t1,
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            user_id: userE,
+            role: "cashier",
+            effective_from: t2,
+          },
+        ])
+        .execute(),
+    );
+  });
+
+  afterAll(async () => {
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", userE).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", userE).execute();
+  });
+
+  it("before the demotion, an Override made under the higher role still re-verifies against manager", async () => {
+    const asOf = new Date("2026-05-05T00:00:00Z");
+    const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userE, asOf));
+    expect(result?.role).toBe("manager");
+  });
+
+  it("exactly at the demotion, the lower role is already in force", async () => {
+    const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userE, t2));
+    expect(result?.role).toBe("cashier");
+  });
+
+  it("strictly after the demotion, the lower role stays in force — the demotion does not retroactively invalidate the earlier window", async () => {
+    const after = new Date("2026-05-15T00:00:00Z");
+    const result = await withTenantScope(appDb, tenantA, (db) => getRoleAsOf(db, userE, after));
+    expect(result?.role).toBe("cashier");
   });
 });

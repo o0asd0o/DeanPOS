@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { getRoleAsOf } from "backend/src/access/db-operations/queries/get-role-as-of.query.ts";
 import { handler as provisionTenantHandler } from "backend/src/platform-admin/handlers/provision-tenant.ts";
 import { createClient } from "contract/src/index.ts";
 import { ENV_KEYS } from "../src/env.ts";
@@ -34,6 +35,7 @@ afterAll(async () => {
       .deleteFrom("PlatformAuditLog")
       .where("tenant_id", "in", provisionedTenantIds)
       .execute();
+    await ownerDb.deleteFrom("UserRole").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "in", provisionedTenantIds).execute();
   }
@@ -85,6 +87,18 @@ describe("platformAdmin.provisionTenant", () => {
     expect(users[0]?.must_change_password).toBe(true);
     expect(users[0]?.password_hash).not.toBe("temporary-password-1");
     expect(users[0]?.password_hash).toMatch(/^\$scrypt\$/);
+  });
+
+  // Issue 04, round 1 finding 1: the User and its opening UserRole row are
+  // written in the same transaction, so the role is readable immediately —
+  // issue 12's offline-Override re-verification depends on this.
+  it("the new admin's role is readable through getRoleAsOf immediately", async () => {
+    const result = await provisionAsPlatformAdmin({ tenantName: "Role Readable Restaurant" });
+
+    const role = await withTenantScope(seam.db, result.tenantId, (db) =>
+      getRoleAsOf(db, result.userId, new Date()),
+    );
+    expect(role?.role).toBe("admin");
   });
 
   it("writes an audit row naming the actor, the action, and the Tenant", async () => {

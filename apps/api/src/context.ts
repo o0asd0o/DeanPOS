@@ -2,6 +2,7 @@ import { findUserById } from "backend/src/auth/db-operations/queries/find-user-b
 import { findSessionById } from "backend/src/auth/db-operations/queries/find-session-by-id.query.ts";
 import { touchSession } from "backend/src/auth/db-operations/commands/touch-session.command.ts";
 import { SESSION_IDLE_TTL_MS } from "backend/src/auth/session-policy.ts";
+import { getRoleAsOf } from "backend/src/access/db-operations/queries/get-role-as-of.query.ts";
 import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
 import { withTenantScope } from "backend/src/db/client.ts";
 import type { DatabaseInstance } from "backend/src/db/client.ts";
@@ -47,6 +48,12 @@ export const buildContextFromSession = async (
     const user = await findUserById(scopedDb, session.user_id);
     if (!user || !user.active) return { db, clientIp, kind: "unauthenticated" };
 
+    // The live gate authorises from UserRole, never the User.role
+    // convenience copy — absence is a refusal, not a default (issue 04,
+    // round 1 finding 1). `User.role` is not read here at all.
+    const currentRole = await getRoleAsOf(scopedDb, user.id, new Date());
+    if (!currentRole) return { db, clientIp, kind: "unauthenticated" };
+
     return {
       db,
       clientIp,
@@ -56,7 +63,7 @@ export const buildContextFromSession = async (
         userId: user.id,
         sessionId,
         mustChangePassword: user.must_change_password,
-        role: user.role,
+        role: currentRole.role,
       },
     };
   });

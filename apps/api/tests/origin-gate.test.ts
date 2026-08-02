@@ -6,6 +6,7 @@ import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { createClient } from "contract/src/index.ts";
 import { ENV_KEYS } from "../src/env.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 const seam = createTestSeam();
@@ -21,18 +22,14 @@ let sessionCookie: string;
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Origin Gate Tenant" }).execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(password),
-      must_change_password: false,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(password),
+    mustChangePassword: false,
+    role: "admin",
+  });
 
   const { sessionCookie: cookie } = await seam.actors.signIn(email, password);
   sessionCookie = cookie!;
@@ -40,6 +37,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();

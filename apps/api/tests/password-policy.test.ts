@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { hashPassword } from "backend/src/common/password.ts";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "backend/src/auth/password-policy.ts";
 import { createDb } from "backend/src/db/client.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 // Record 032, amended 2026-08-03: eight characters minimum, 128 maximum, at both
@@ -26,18 +27,13 @@ beforeAll(async () => {
     .insertInto("Tenant")
     .values({ id: tenantId, name: "Password Policy Tenant" })
     .execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(temporaryPassword),
-      must_change_password: true,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(temporaryPassword),
+    role: "admin",
+  });
   await ownerDb
     .insertInto("PlatformAdmin")
     .values({ id: platformAdminId, email: `platform-admin-${randomUUID()}@deanpos.test` })
@@ -46,11 +42,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (provisionedTenantIds.length > 0) {
+    await ownerDb.deleteFrom("UserRole").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "in", provisionedTenantIds).execute();
   }
   await ownerDb.deleteFrom("PlatformAdmin").where("id", "=", platformAdminId).execute();
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -140,18 +138,13 @@ describe("normalisation, one function on both the set path and the verify path",
   it("a non-ASCII password set once is signed in with once, after trimming and a different Unicode form", async () => {
     const nonAsciiUserId = randomUUID();
     const nonAsciiEmail = `non-ascii-${randomUUID()}@sign-in.test`;
-    await ownerDb
-      .insertInto("User")
-      .values({
-        id: nonAsciiUserId,
-        tenant_id: tenantId,
-        email: nonAsciiEmail,
-        password_hash: await hashPassword(temporaryPassword),
-        must_change_password: true,
-        role: "admin",
-        active: true,
-      })
-      .execute();
+    await seedTenantUser(ownerDb, {
+      id: nonAsciiUserId,
+      tenantId,
+      email: nonAsciiEmail,
+      passwordHash: await hashPassword(temporaryPassword),
+      role: "admin",
+    });
 
     const { client } = await seam.actors.signIn(nonAsciiEmail, temporaryPassword);
     // Combining acute accent + precomposed accents — NFC normalises this
@@ -169,6 +162,7 @@ describe("normalisation, one function on both the set path and the verify path",
     expect(signedIn.result).toStrictEqual({ ok: true, mustChangePassword: false });
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", nonAsciiUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", nonAsciiUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", nonAsciiUserId).execute();
   });
 });

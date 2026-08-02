@@ -10,6 +10,7 @@ import {
   THROTTLE_WINDOW_MS,
 } from "backend/src/auth/throttle-policy.ts";
 import { createDb } from "backend/src/db/client.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 // Record 033. Every request in this file shares the "ip:no-forwarded-for"
@@ -45,18 +46,14 @@ async function failNTimes(targetEmail: string, count: number) {
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Throttle Tenant" }).execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(password),
-      must_change_password: false,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(password),
+    mustChangePassword: false,
+    role: "admin",
+  });
   await clearIpKey();
 });
 
@@ -64,6 +61,7 @@ afterAll(async () => {
   await clearIpKey();
   await clearEmailKey(email);
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -153,18 +151,14 @@ describe("sign-in throttling — per email", () => {
   it("a lock lifts by itself after the configured period, and success clears that address's counter", async () => {
     const liftEmail = `lift-${randomUUID()}@sign-in.test`;
     const liftUserId = randomUUID();
-    await ownerDb
-      .insertInto("User")
-      .values({
-        id: liftUserId,
-        tenant_id: tenantId,
-        email: liftEmail,
-        password_hash: await hashPassword(password),
-        must_change_password: false,
-        role: "cashier",
-        active: true,
-      })
-      .execute();
+    await seedTenantUser(ownerDb, {
+      id: liftUserId,
+      tenantId,
+      email: liftEmail,
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+      role: "cashier",
+    });
     await clearEmailKey(liftEmail);
     await clearIpKey();
 
@@ -192,6 +186,7 @@ describe("sign-in throttling — per email", () => {
 
     await clearIpKey();
     await ownerDb.deleteFrom("Session").where("user_id", "=", liftUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", liftUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", liftUserId).execute();
   }, 30_000);
 });
@@ -253,18 +248,14 @@ describe("sign-in throttling — concurrency (record 034)", () => {
   it("a successful sign-in decrements the IP key rather than clearing it", async () => {
     const releaseEmail = `release-${randomUUID()}@sign-in.test`;
     const releaseUserId = randomUUID();
-    await ownerDb
-      .insertInto("User")
-      .values({
-        id: releaseUserId,
-        tenant_id: tenantId,
-        email: releaseEmail,
-        password_hash: await hashPassword(password),
-        must_change_password: false,
-        role: "cashier",
-        active: true,
-      })
-      .execute();
+    await seedTenantUser(ownerDb, {
+      id: releaseUserId,
+      tenantId,
+      email: releaseEmail,
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+      role: "cashier",
+    });
     await clearEmailKey(releaseEmail);
     await clearIpKey();
 
@@ -297,6 +288,7 @@ describe("sign-in throttling — concurrency (record 034)", () => {
 
     await clearIpKey();
     await ownerDb.deleteFrom("Session").where("user_id", "=", releaseUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", releaseUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", releaseUserId).execute();
   }, 30_000);
 });

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword, verifyPassword } from "backend/src/common/password.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 const seam = createTestSeam();
@@ -16,22 +17,18 @@ const temporaryPassword = "temporary-password-1";
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Must Change Tenant" }).execute();
-  await ownerDb
-    .insertInto("User")
-    .values({
-      id: userId,
-      tenant_id: tenantId,
-      email,
-      password_hash: await hashPassword(temporaryPassword),
-      must_change_password: true,
-      role: "admin",
-      active: true,
-    })
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: userId,
+    tenantId,
+    email,
+    passwordHash: await hashPassword(temporaryPassword),
+    role: "admin",
+  });
 });
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -99,18 +96,14 @@ describe("the forced-password-change gate", () => {
     const ordinaryEmail = `ordinary-${randomUUID()}@sign-in.test`;
     const ordinaryPassword = "an ordinary password";
     const ordinaryUserId = randomUUID();
-    await ownerDb
-      .insertInto("User")
-      .values({
-        id: ordinaryUserId,
-        tenant_id: tenantId,
-        email: ordinaryEmail,
-        password_hash: await hashPassword(ordinaryPassword),
-        must_change_password: false,
-        role: "admin",
-        active: true,
-      })
-      .execute();
+    await seedTenantUser(ownerDb, {
+      id: ordinaryUserId,
+      tenantId,
+      email: ordinaryEmail,
+      passwordHash: await hashPassword(ordinaryPassword),
+      mustChangePassword: false,
+      role: "admin",
+    });
 
     const { client } = await seam.actors.signIn(ordinaryEmail, ordinaryPassword);
     const result = await client.auth.setPassword({ newPassword: "a stolen-session password" });
@@ -124,6 +117,7 @@ describe("the forced-password-change gate", () => {
     expect(await verifyPassword(ordinaryPassword, row.password_hash)).toBe(true);
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", ordinaryUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", ordinaryUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", ordinaryUserId).execute();
   });
 });

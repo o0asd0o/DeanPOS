@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
 // Issue 03 acceptance criterion 8: acting as Tenant A never touches Tenant
@@ -40,29 +41,23 @@ async function seedPair(options: { mustChangePassword?: boolean } = {}): Promise
       { id: tenantB, name: "Wrong-tenant B" },
     ])
     .execute();
-  await ownerDb
-    .insertInto("User")
-    .values([
-      {
-        id: userA,
-        tenant_id: tenantA,
-        email: emailA,
-        password_hash: await hashPassword(password),
-        must_change_password: mustChangePassword,
-        role: "admin",
-        active: true,
-      },
-      {
-        id: userB,
-        tenant_id: tenantB,
-        email: emailB,
-        password_hash: await hashPassword(password),
-        must_change_password: mustChangePassword,
-        role: "admin",
-        active: true,
-      },
-    ])
-    .execute();
+  const passwordHash = await hashPassword(password);
+  await seedTenantUser(ownerDb, {
+    id: userA,
+    tenantId: tenantA,
+    email: emailA,
+    passwordHash,
+    mustChangePassword,
+    role: "admin",
+  });
+  await seedTenantUser(ownerDb, {
+    id: userB,
+    tenantId: tenantB,
+    email: emailB,
+    passwordHash,
+    mustChangePassword,
+    role: "admin",
+  });
 
   return { tenantA, tenantB, userA, userB, emailA, emailB };
 }
@@ -72,6 +67,7 @@ async function cleanupPair(pair: Pair): Promise<void> {
     .deleteFrom("Session")
     .where("tenant_id", "in", [pair.tenantA, pair.tenantB])
     .execute();
+  await ownerDb.deleteFrom("UserRole").where("user_id", "in", [pair.userA, pair.userB]).execute();
   await ownerDb.deleteFrom("User").where("id", "in", [pair.userA, pair.userB]).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [pair.tenantA, pair.tenantB]).execute();
 }
