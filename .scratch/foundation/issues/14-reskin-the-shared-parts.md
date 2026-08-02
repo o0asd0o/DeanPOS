@@ -1,6 +1,22 @@
 # 14 — Re-skin the shared parts to the reference
 
-**Status:** ready-for-agent
+**Status:** done — all seven parts skinned, the focus opt-out stripped from every one of them, both
+densities applied by construction. Diff is ~150 lines on top of issue 13's vanilla commit, so it
+still reads as shadcn and stays re-derivable.
+
+**Three things found here that no acceptance criterion covered.** `<Badge asChild>` was broken for
+every variant — `Slot.Root` was handed two children — and it shipped through a green gate and a
+self-review before a render test caught it. Bare `border` was painting `currentColor` (`#1e1e1e`),
+not `--color-border`, because Tailwind 4 changed that default and this hand-written `theme.css` never
+carried shadcn's `* { border-color }` base rule; it does now, which fixes it for eleven areas rather
+than three call sites. And `p-[3px]` in `tabs` was the one dimension that would not have rescaled
+with density.
+
+**Densities were never looked at.** No screen renders a Card, Badge and Table together, and this
+issue deliberately did not add one. Verification was by reading tokens and classes. Issue 15 remains
+the re-check trigger for the ×1.25 touch scale — see `.scratch/decisions/013`.
+
+Render testing in `packages/ui` is now settled by `.scratch/decisions/015`.
 
 ## What to build
 
