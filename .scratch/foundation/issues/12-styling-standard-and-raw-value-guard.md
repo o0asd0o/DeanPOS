@@ -139,6 +139,49 @@ more than that in the report is worse than the gap.
 value-shaped and does not care what the tokens are, but a standard that cannot name the tokens it
 points at is a standard nobody can follow.
 
+**Round 1 fix (applied all three findings):**
+
+1. **Blocking — arbitrary properties.** Added `ARBITRARY_PROPERTY =
+   /(?<![\w-])\[[^\]\s[]*:[^\]\s[]*\]/` in `packages/ui/src/test-seam.ts` alongside the existing
+   prefixed pattern. It requires no utility prefix before `[` and a colon inside the brackets,
+   which is what separates `[color:red]` from a selector or variant. Excluding `[` from the
+   content classes was necessary to stop the pattern crossing into a nested bracket — the first
+   version false-positived on shadcn's `[&_svg:not([class*='size-'])]:size-4` in
+   `packages/ui/src/components/button.tsx`, matching from the outer `[` to the inner `]`.
+   Tightening it (rather than exempting) fixed that. Updated the `ponytail:` comment on the new
+   pattern to name this ceiling instead of restating the old one.
+2. **Should-fix (Spec) — scope.** Rule 6 in `docs/agents/code-standards.md` now states the guard's
+   scope explicitly: `apps/pos/src` and `apps/backoffice/src`, `apps/landing` excluded and covered
+   by its own guard in area 11.
+3. **Should-fix (Standards) — behaviour tests.** Added `packages/ui/tests/test-seam.test.ts`
+   (16 tests) exercising `assertNoRawDesignValues` directly against temp-directory fixtures:
+   must-fail cases (arbitrary property, arbitrary property with a unit, prefixed arbitrary value,
+   6- and 3-digit hex, inline style), must-pass cases (arbitrary variant, attribute selector,
+   selector without a value, the `supports-[display:grid]:grid` variant-with-inner-colon case,
+   array indexing, ordinary token classes), and the escape hatch (valid exemption suppresses;
+   under-four-words, trailing-comment placement, and a different marker all do not). The two app
+   tests are unchanged — still the thin clean-tree assertions.
+
+**Verification against real TypeScript:** ran the guard over `apps/pos/src`, `apps/backoffice/src`,
+and `packages/ui/src`. Both apps: clean. `packages/ui/src` flags only `test-seam.ts:13` — the
+`INLINE_STYLE` regex literal matching its own source text; `packages/ui/src/components/` is
+excluded from the guard's scope by the issue and is clean now that the pattern is tightened.
+Checked the TS index-signature edge case named in the finding directly: `{ [key: string]: T }`
+(prettier's spacing) does not match — the space after `:` falls outside `[^\]\s[]*`. `{
+[key:string]: T }` (no space) would match; no such construct exists in the scanned trees, and
+prettier enforces the space, so this is not live risk today.
+
+**Proof of bite (arbitrary property specifically):** added
+`export const X = () => <div className="[color:red]" />;` to `apps/pos/src`, ran `vp test` in
+`apps/pos` — `tests/design-values.test.ts` failed with `Raw design values found in:
+src/App.tsx:1`. Removed the file; reran — clean.
+
+**Gate:** `vp run -w codegen` (Prisma + tsr generate, ok), `vp check` (all files formatted, no
+lint/type errors), `vp run -r check` (all 10 packages/apps pass), `vp run -r test` (10/10, all
+green, including the 16 new tests). No `relation "Ping" does not exist` — no migration issue hit.
+
+Commit `abb244c` on `f12-styling-standard`.
+
 ---
 
 **Implementer report (branch `f12-styling-standard`).**
