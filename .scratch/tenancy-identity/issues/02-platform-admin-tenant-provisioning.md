@@ -1,6 +1,6 @@
 # 02 — Platform-admin tenant provisioning
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -170,3 +170,15 @@ Bun round-trip proof, run directly under `bun 1.3.13` (not through the `vp test`
 **Gate:** `vp run -w codegen` pass. `vp run -r check` pass, 0 lint/type errors. `vp run -r test` pass, all green — `apps/api` now 28/28 (was 26), `packages/backend` 17/17. Lane database was the one you rebuilt clean; no checksum workaround this round, migrations applied straight from `vp run -w migrate`.
 
 Nothing skipped, nothing blocked. No acceptance criterion, PRD text, or design reference touched.
+
+**Closed — merged to `main` as `fe25cf7` (3 commits, rebased).** Both review axes PASS on
+round 1 of 2. Two blockers went to the decider and produced
+[record 028](../../decisions/028-password-hashing-runs-on-both-runtimes.md) and
+[record 029](../../decisions/029-how-a-tenant-row-is-created-under-rls.md); this issue's prose
+and its fourth acceptance criterion were amended per 028. The migration is applied to
+`DeanPOS_dev`.
+
+**Carried to issue 03.** Criterion 6's origin half is only half-proven: the shipped test shows
+an `admin.` origin header alone grants no provisioning authority, but back-office *sessions*
+do not exist until issue 03. Issue 03 must assert that a real back-office session cannot reach
+provisioning.
