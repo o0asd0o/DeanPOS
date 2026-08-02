@@ -481,3 +481,124 @@ then, on the same file rewritten as `<div className={cn(a ? "left-0" : "right-0"
 
 Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed clean
 and on `main` before finishing.
+
+---
+
+**Review round 3 (REVISE, four real holes) applied (same branch).** All four were confirmed
+against the exported helper, not just read about, and fixed without reaching for a parser
+(`typescript@7.0.2` in this repo is the native Go port and exposes no `createSourceFile` — a
+decider question, out of scope for this round).
+
+1. **Concatenation.** `isStringLiteral` previously checked only the first/last character. Rewrote
+   it to require `skipString(...)` starting at index 0 to close exactly at the last character of
+   the trimmed text — `"p-4 " + styles + " text-sm"` now fails because the first `"` closes at
+   index 5, not at the end. Same function is shared by `classifySite` and `classifyCnArg`, so the
+   fix applies to a bare `className="..."` value and to every `cn(...)` argument at once — one fix
+   point, not two.
+
+2. **`style` in any form.** Replaced the exact-text `style=\{\{` regex with the same
+   attribute-finder used for `className` (`findAttributeSites`, generalized to take the attribute
+   name). Every `style=` occurrence — `style={{ ... }}`, `style={s}`, `style={getStyle()}` — is now
+   an unconditional offender; only the `design-exempt` hatch suppresses it. This also caught three
+   pre-existing occurrences in `packages/ui/src/components/sidebar.tsx` (118, 175, 593) that the
+   old single-line `style=\{\{` regex missed because the file formats the opening `{` and `{` on
+   separate lines — a real gap in the old check, now closed as a side effect, and still out of the
+   guard's declared scope.
+
+3. **Calls inside `cn()`.** `isCallExpression` (waved through every bare call) is now
+   `isSanctionedCall`: the callee must be bound in the same file by a `const X = cva(...)`
+   initialiser (tracked per-file via a small regex scan, `collectCvaNames`) **or** its name must
+   end in `Variants`. `cn(identity("bg-[#fff]"))` and `cn(getClasses())` are now rejected —
+   neither name qualifies. Real call sites in `packages/ui/src/components`, checked directly:
+
+   | Call | Same-file `cva(...)` binding | `Variants` suffix |
+   | --- | --- | --- |
+   | `badgeVariants({ variant })` (badge.tsx) | yes | yes |
+   | `buttonVariants({ variant, size, className })` (button.tsx) | yes | yes |
+   | `sidebarMenuButtonVariants({ variant, size })` (sidebar.tsx) | yes | yes |
+   | `tabsListVariants({ variant })` (tabs.tsx) | yes | yes |
+
+   All four satisfy both rules today (each is defined and called in the same file); the
+   Variants-suffix rule exists for the case none of the four currently need — a component calling
+   another file's exported variants function.
+
+4. **Fail closed.** `matchBalanced`/`splitTopLevelArgs`/`lastTopLevelAnd`/`splitTernary` now route
+   every character through one shared `skipNonCode`, which skips strings **and** `//`/`/* */`
+   comments (previously only strings). This is the root-cause fix, not a patch on the symptom: a
+   `/* { */` inside `cn(...)` no longer perturbs the outer bracket count, so
+   `cn(/* { */ "bg-[#fff]")` now extracts correctly **and** the raw value inside it is caught —
+   stronger than merely refusing to scan. As a backstop for whatever this doesn't cover,
+   `findAttributeSites` now throws (naming the file and line) whenever a `className=`/`style=`
+   occurrence's value genuinely can't be extracted — an unterminated string, an unbalanced
+   `{...}`, or no recognizable value shape at all — instead of silently skipping it. Verified this
+   path is live, not just written: `className={cn("a"` (a truncated attribute) throws
+   `.../Component.tsx:1: cannot find the end of the className expression` rather than passing.
+
+**All five probe inputs, re-checked:**
+
+| Input | Before | After |
+| --- | --- | --- |
+| `className={"p-4 " + styles + " text-sm"}` | passed | rejected — assembled |
+| `className={cn(identity("bg-[#fff]"))}` | passed | rejected — assembled |
+| `className={cn(getClasses())}` | passed | rejected — assembled |
+| `style={s}` (s a variable) | passed | rejected — raw value (style is unconditional) |
+| `className={cn(/* { */ "bg-[#fff]")}` | passed silently | rejected — raw value (extraction now succeeds and sees it) |
+
+Plus the two requested legitimate-idiom regressions: `cn(a ? b ? "x" : "y" : "z")` (nested ternary,
+all-literal branches) accepted; `cn("p-4", buttonVariants({ size }))` accepted.
+
+**`docs/agents/code-standards.md` rule 6** now states the cva rule exactly as implemented —
+same-file `cva(...)` binding or a `Variants`-suffixed name — instead of the looser "a cva variants
+call" that had drifted from the code in round 2's ruling text.
+
+**Comment ceiling.** Compressed the four over-length comments (top-of-file ponytail note,
+`isSanctionedCall`, `findAttributeSites`, `assertNoRawDesignValues`) to 3 lines each; audited every
+remaining comment in the file against the same limit.
+
+**`ponytail:` comment, verbatim:** "catches a hex/arbitrary value, an assembled className, or any
+inline style, and fails loud (not silently) on unparsable input. Still can't see a class built
+inside an imported function, or via a prop."
+
+**Tests:** `packages/ui/tests/test-seam.test.ts` 34 → 44 (10 new: the five probe inputs, the two
+legitimate-idiom regressions, the fail-closed throw, plus one covering a same-file cva binding
+without a `Variants` suffix). `packages/ui` test file 97/97.
+
+**Real-tree re-scan**, `assertNoRawDesignValues` called directly:
+- `apps/pos/src` — clean.
+- `apps/backoffice/src` — clean.
+- `packages/ui/src` — unchanged raw-value list (15 lines, genuine shadcn arbitrary values) plus
+  the three newly-caught multi-line `style={` occurrences in `sidebar.tsx` noted above (118, 175,
+  593), all inside the excluded `components/` directory. **Assembly list is empty** —
+  `sidebar.tsx:204`/`:215` (the round-2 ternary false positive) stay fixed, and nothing else in
+  `packages/ui/src` trips the tightened call-site rule. `test-seam.ts` no longer self-flags: its
+  own source text used to contain the literal string `"className"` inside a regex/message; it
+  still does, but that's expected and, as before, irrelevant since `test-seam.ts` is never in
+  either app's scanned tree.
+
+**Proof of bite**, both new fixes in one edit, `apps/pos/src/components/ErrorState.tsx` (reverted
+after): `className={"p-4 " + "text-foreground"}` and `style={probeStyle}` (a `const probeStyle = {
+padding: 13 }` above the component). `vp test` in `apps/pos`:
+
+```
+FAIL  tests/design-values.test.ts > styling standard > uses no raw design values under src/
+Error: Raw design values found in:
+src/components/ErrorState.tsx:14
+
+className assembled outside the attribute (use a component variant, or cn(...) with literal/className/cond && "literal"/cond ? a : b/cva arguments — code-standards.md rule 6) in:
+src/components/ErrorState.tsx:14
+```
+
+Both the concatenation and the style-via-variable violations fired at the correct line. Reverted
+with `git checkout -- apps/pos/src/components/ErrorState.tsx`; `vp test` back to green; `git
+status` clean before committing.
+
+**Gate**, all from the worktree with the PATH prepend:
+- `vp run -w codegen` — clean.
+- `vp check` — 144 files formatted (one reflow needed in the test file, applied by `vp check
+  --fix`), 108 clean.
+- `vp run -r check` — 10/10.
+- `vp run -r test` — 10/10, `packages/ui` 97/97 (`test-seam.test.ts` 44/44), both apps'
+  `design-values.test.ts` 1/1 unchanged.
+
+Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed clean
+and on `main` before finishing this round.

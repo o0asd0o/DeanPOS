@@ -128,10 +128,12 @@ className={cn("size-1.5 rounded-full",
 
 A `className` value must be a string literal, or a `cn(...)` call whose every argument is a
 string literal, the `className` prop, a `cond && "literal"` expression, a `cond ? a : b`
-expression whose branches are themselves valid arguments, or a `cva` variants call
-(`badgeVariants({ variant })`). `cva` is not banned — it is the generated shadcn idiom, typed
-against a variant union, unlike a `Record<string, string>` side-table where a typo silently
-renders nothing.
+expression whose branches are themselves valid arguments, or a call to a name that is either
+bound in the same file by a `const X = cva(...)` initialiser or ends in `Variants`
+(`badgeVariants({ variant })`, `buttonVariants({ size })`) — that second form is what lets a
+component call another file's exported variants function. `cva` is not banned — it is the
+generated shadcn idiom, typed against a variant union, unlike a `Record<string, string>`
+side-table where a typo silently renders nothing.
 
 The one constraint worth naming explicitly, because a reasonable implementer gets it wrong
 otherwise (ADR-0013): the status hues (`success`, `warning`, `info`, `danger`) are dots, chart

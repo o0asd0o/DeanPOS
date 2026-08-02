@@ -1,12 +1,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-// ponytail: scans `className` attribute contents only — it is not a CSS or
-// TS parser and cannot see a colour assembled at runtime or a value
-// arriving through a prop. A `cn(...)` call argument that is itself a
-// function call is assumed to be a cva variants call (the only sanctioned
-// shape); the guard has no type info to confirm that, so `cn(getClasses())`
-// would incorrectly pass.
+// ponytail: catches a hex/arbitrary value, an assembled className, or any
+// inline style, and fails loud (not silently) on unparsable input. Still
+// can't see a class built inside an imported function, or via a prop.
 const HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/;
 
 // `<utility>-[<value>]` has no trailing colon; an arbitrary variant like
@@ -40,8 +37,6 @@ function hasRawValue(content: string): boolean {
   );
 }
 
-const INLINE_STYLE = /style=\{\{/;
-
 const EXEMPT_COMMENT = /^\s*\/\/\s*design-exempt:\s*(.+)$/;
 
 function isExempt(precedingLine: string | undefined): boolean {
@@ -52,7 +47,8 @@ function isExempt(precedingLine: string | undefined): boolean {
 }
 
 // Skips past a quoted/template string starting at `quote`, honouring `\`
-// escapes, so a `)`/`}`/`,` inside a string never unbalances a scan.
+// escapes. Returns the index of the closing quote, or `text.length` if
+// the string never closes — callers must check for that.
 function skipString(text: string, start: number, quote: string): number {
   let i = start + 1;
   for (; i < text.length; i++) {
@@ -65,16 +61,35 @@ function skipString(text: string, start: number, quote: string): number {
   return i;
 }
 
+// Skips a string/template literal or a `//`/`/* */` comment starting at
+// `i`, so bracket/comma scanners don't miscount a brace or comma that
+// only exists inside one. Returns `i` unchanged if nothing starts there.
+function skipNonCode(text: string, i: number): number {
+  const ch = text[i];
+  if (ch === '"' || ch === "'" || ch === "`") return skipString(text, i, ch);
+  if (ch === "/" && text[i + 1] === "/") {
+    const end = text.indexOf("\n", i);
+    return end === -1 ? text.length - 1 : end - 1;
+  }
+  if (ch === "/" && text[i + 1] === "*") {
+    const end = text.indexOf("*/", i + 2);
+    return end === -1 ? text.length - 1 : end + 1;
+  }
+  return i;
+}
+
 // Returns the index of the `close` that matches the `open` at `start`,
-// skipping string contents so quotes/brackets inside them don't count.
+// skipping strings/comments so a bracket-like character inside one
+// doesn't count. -1 means no match was found — the caller must fail loud.
 function matchBalanced(text: string, start: number, open: string, close: string): number {
   let depth = 0;
   for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      i = skipString(text, i, ch);
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      i = skipped;
       continue;
     }
+    const ch = text[i];
     if (ch === open) depth++;
     else if (ch === close) {
       depth--;
@@ -85,17 +100,18 @@ function matchBalanced(text: string, start: number, open: string, close: string)
 }
 
 // Splits a comma-separated argument list at top level, ignoring commas
-// nested inside brackets/braces/parens or inside strings.
+// nested inside brackets/braces/parens, strings, or comments.
 function splitTopLevelArgs(text: string): string[] {
   const args: string[] = [];
   let depth = 0;
   let start = 0;
   for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      i = skipString(text, i, ch);
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      i = skipped;
       continue;
     }
+    const ch = text[i];
     if ("([{".includes(ch)) depth++;
     else if (")]}".includes(ch)) depth--;
     else if (ch === "," && depth === 0) {
@@ -108,12 +124,14 @@ function splitTopLevelArgs(text: string): string[] {
   return args.map((arg) => arg.trim());
 }
 
+// A string/template literal covering the *whole* trimmed text — not just
+// starting and ending with a quote character, so `"a" + b + "c"` fails.
 function isStringLiteral(text: string): boolean {
   const t = text.trim();
-  return (
-    (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) ||
-    (t.length >= 2 && t.startsWith("'") && t.endsWith("'"))
-  );
+  if (t.length < 2) return false;
+  const quote = t[0];
+  if (quote !== '"' && quote !== "'") return false;
+  return skipString(t, 0, quote) === t.length - 1;
 }
 
 function stringContent(text: string): string {
@@ -121,14 +139,43 @@ function stringContent(text: string): string {
   return t.slice(1, -1);
 }
 
-// A bare `identifier(...)` covering the whole expression — the shape of a
-// cva variants call (`badgeVariants({ variant })`). Sanctioned; see the
-// ponytail note above on what this can't verify.
-function isCallExpression(text: string): boolean {
-  const match = /^[A-Za-z_$][\w$]*\s*\(/.exec(text);
+// Strips `//` and `/* */` comments, skipping string contents, so a comment
+// inside a cn(...) argument doesn't get read as part of its text.
+function stripComments(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      if (text[i] !== "/") out += text.slice(i, skipped + 1);
+      i = skipped;
+      continue;
+    }
+    out += text[i];
+  }
+  return out;
+}
+
+// `const X = cva(...)` bindings declared anywhere in the file — the only
+// other shape (besides a name ending `Variants`) that `cn()` may call.
+const CVA_BINDING = /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*cva\s*\(/g;
+
+function collectCvaNames(source: string): Set<string> {
+  const names = new Set<string>();
+  CVA_BINDING.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = CVA_BINDING.exec(source))) names.add(match[1]);
+  return names;
+}
+
+// A bare `identifier(...)`, where the identifier is bound to `cva(...)`
+// in this file or ends in `Variants` (`badgeVariants`, `buttonVariants`).
+// Anything else is an opaque call the guard can't see inside — rejected.
+function isSanctionedCall(text: string, cvaNames: Set<string>): boolean {
+  const match = /^([A-Za-z_$][\w$]*)\s*\(/.exec(text);
   if (!match) return false;
   const closeIdx = matchBalanced(text, match[0].length - 1, "(", ")");
-  return closeIdx === text.length - 1;
+  if (closeIdx !== text.length - 1) return false;
+  return cvaNames.has(match[1]) || match[1].endsWith("Variants");
 }
 
 // The last top-level `&&`, so `cond && "literal"` can be picked apart
@@ -137,11 +184,12 @@ function lastTopLevelAnd(text: string): number {
   let depth = 0;
   let found = -1;
   for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      i = skipString(text, i, ch);
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      i = skipped;
       continue;
     }
+    const ch = text[i];
     if ("([{".includes(ch)) depth++;
     else if (")]}".includes(ch)) depth--;
     else if (depth === 0 && ch === "&" && text[i + 1] === "&") {
@@ -153,18 +201,18 @@ function lastTopLevelAnd(text: string): number {
 }
 
 // Splits `cond ? trueBranch : falseBranch` at the `?`/`:` pair belonging to
-// the *first* top-level `?` — tracking a ternary-nesting depth so a nested
-// ternary inside `trueBranch` doesn't steal the wrong `:`. `cond` is
-// dropped, same as the left side of `&&`, since it's never a class string.
+// the *first* top-level `?`, tracking a ternary-nesting depth so a nested
+// ternary in `trueBranch` doesn't steal the wrong `:`. `cond` is dropped.
 function splitTernary(text: string): { trueBranch: string; falseBranch: string } | null {
   let depth = 0;
   let qIndex = -1;
   for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      i = skipString(text, i, ch);
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      i = skipped;
       continue;
     }
+    const ch = text[i];
     if ("([{".includes(ch)) depth++;
     else if (")]}".includes(ch)) depth--;
     else if (depth === 0 && ch === "?" && text[i + 1] !== ".") {
@@ -177,11 +225,12 @@ function splitTernary(text: string): { trueBranch: string; falseBranch: string }
   depth = 0;
   let ternaryDepth = 0;
   for (let i = qIndex + 1; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      i = skipString(text, i, ch);
+    const skipped = skipNonCode(text, i);
+    if (skipped !== i) {
+      i = skipped;
       continue;
     }
+    const ch = text[i];
     if ("([{".includes(ch)) depth++;
     else if (")]}".includes(ch)) depth--;
     else if (depth === 0 && ch === "?" && text[i + 1] !== ".") ternaryDepth++;
@@ -203,38 +252,10 @@ interface Classification {
   assembled: boolean;
 }
 
-// Strips `//` and `/* */` comments, skipping string contents, so a comment
-// between two cn(...) arguments doesn't get read as part of the argument.
-function stripComments(text: string): string {
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"' || ch === "'" || ch === "`") {
-      const end = skipString(text, i, ch);
-      out += text.slice(i, end + 1);
-      i = end;
-      continue;
-    }
-    if (ch === "/" && text[i + 1] === "/") {
-      const end = text.indexOf("\n", i);
-      i = end === -1 ? text.length : end - 1;
-      continue;
-    }
-    if (ch === "/" && text[i + 1] === "*") {
-      const end = text.indexOf("*/", i + 2);
-      i = end === -1 ? text.length : end + 1;
-      continue;
-    }
-    out += ch;
-  }
-  return out;
-}
-
 // One argument to a `cn(...)` call: a string literal, the `className` prop,
 // `cond && "literal"`, `cond ? a : b` where both branches are themselves
-// valid arguments, or a cva variants call. Anything else is a class string
-// assembled outside the attribute.
-function classifyCnArg(arg: string): Classification {
+// valid arguments, or a sanctioned call. Anything else is assembled.
+function classifyCnArg(arg: string, cvaNames: Set<string>): Classification {
   const trimmed = stripComments(arg).trim();
   if (isStringLiteral(trimmed))
     return { rawValue: hasRawValue(stringContent(trimmed)), assembled: false };
@@ -242,8 +263,8 @@ function classifyCnArg(arg: string): Classification {
 
   const ternary = splitTernary(trimmed);
   if (ternary) {
-    const trueResult = classifyCnArg(ternary.trueBranch);
-    const falseResult = classifyCnArg(ternary.falseBranch);
+    const trueResult = classifyCnArg(ternary.trueBranch, cvaNames);
+    const falseResult = classifyCnArg(ternary.falseBranch, cvaNames);
     if (!trueResult.assembled && !falseResult.assembled) {
       return { rawValue: trueResult.rawValue || falseResult.rawValue, assembled: false };
     }
@@ -257,14 +278,14 @@ function classifyCnArg(arg: string): Classification {
       return { rawValue: hasRawValue(stringContent(rhs)), assembled: false };
   }
 
-  if (isCallExpression(trimmed)) return { rawValue: false, assembled: false };
+  if (isSanctionedCall(trimmed, cvaNames)) return { rawValue: false, assembled: false };
   return { rawValue: false, assembled: true };
 }
 
 // The full `className` value: a string literal, or a `cn(...)` call whose
 // arguments are each valid per `classifyCnArg`. Anything else — a bare
-// identifier, a template literal, an element-access lookup — is banned.
-function classifySite(raw: string): Classification {
+// identifier, a concatenation, an element-access lookup — is banned.
+function classifySite(raw: string, cvaNames: Set<string>): Classification {
   if (raw.startsWith('"') || raw.startsWith("'")) {
     return { rawValue: hasRawValue(stringContent(raw)), assembled: false };
   }
@@ -280,7 +301,7 @@ function classifySite(raw: string): Classification {
       const args = splitTopLevelArgs(expr.slice(cnOpen[0].length, closeIdx));
       return args.reduce<Classification>(
         (acc, arg) => {
-          const result = classifyCnArg(arg);
+          const result = classifyCnArg(arg, cvaNames);
           return {
             rawValue: acc.rawValue || result.rawValue,
             assembled: acc.assembled || result.assembled,
@@ -294,29 +315,41 @@ function classifySite(raw: string): Classification {
   return { rawValue: false, assembled: true };
 }
 
-interface ClassNameSite {
+interface AttributeSite {
   attrIndex: number;
   raw: string;
 }
 
-const CLASSNAME_ATTR = /\bclassName\s*=\s*/g;
+function lineAt(source: string, index: number): number {
+  return source.slice(0, index).split("\n").length;
+}
 
-// Finds every `className={...}` / `className="..."` value in a file's
-// source text, without parsing the rest of the TypeScript around it.
-function findClassNameSites(source: string): ClassNameSite[] {
-  const sites: ClassNameSite[] = [];
-  CLASSNAME_ATTR.lastIndex = 0;
+// Finds every `<attr>={...}` / `<attr>="..."` occurrence, without parsing
+// the rest of the TypeScript. Throws, naming the file and line, if a
+// value can't be extracted — a guard that stops scanning must say so.
+function findAttributeSites(source: string, filePath: string, attr: string): AttributeSite[] {
+  const regex = new RegExp(`\\b${attr}\\s*=\\s*`, "g");
+  const sites: AttributeSite[] = [];
   let match: RegExpExecArray | null;
-  while ((match = CLASSNAME_ATTR.exec(source))) {
+  while ((match = regex.exec(source))) {
     const attrIndex = match.index;
     const valueStart = match.index + match[0].length;
     const ch = source[valueStart];
+    const line = lineAt(source, attrIndex);
     if (ch === '"' || ch === "'") {
       const end = skipString(source, valueStart, ch);
+      if (source[end] !== ch) {
+        throw new Error(`${filePath}:${line}: unterminated ${attr} string value`);
+      }
       sites.push({ attrIndex, raw: source.slice(valueStart, end + 1) });
     } else if (ch === "{") {
       const end = matchBalanced(source, valueStart, "{", "}");
-      if (end !== -1) sites.push({ attrIndex, raw: source.slice(valueStart, end + 1) });
+      if (end === -1) {
+        throw new Error(`${filePath}:${line}: cannot find the end of the ${attr} expression`);
+      }
+      sites.push({ attrIndex, raw: source.slice(valueStart, end + 1) });
+    } else {
+      throw new Error(`${filePath}:${line}: cannot determine the ${attr} value`);
     }
   }
   return sites;
@@ -329,10 +362,9 @@ function collectFiles(dir: string): string[] {
   });
 }
 
-// Raw design value + className-assembly guard for application code.
-// docs/agents/code-standards.md rule 6; .scratch/foundation/issues/12.
-// Escape hatch: `// design-exempt: <reason>` (4+ words) on the line
-// immediately above the offending line.
+// Raw design value + className-assembly + inline-style guard. rule 6 in
+// docs/agents/code-standards.md; .scratch/foundation/issues/12. Escape
+// hatch: `// design-exempt: <reason>` (4+ words), line above the offender.
 export function assertNoRawDesignValues(dir: string): void {
   const rawValueOffenders: string[] = [];
   const assemblyOffenders: string[] = [];
@@ -340,17 +372,18 @@ export function assertNoRawDesignValues(dir: string): void {
   for (const filePath of collectFiles(dir).filter((path) => /\.tsx?$/.test(path))) {
     const source = readFileSync(filePath, "utf8");
     const lines = source.split("\n");
+    const cvaNames = collectCvaNames(source);
 
-    lines.forEach((line, index) => {
-      if (!INLINE_STYLE.test(line)) return;
-      if (isExempt(lines[index - 1])) return;
-      rawValueOffenders.push(`${filePath}:${index + 1}`);
-    });
-
-    for (const site of findClassNameSites(source)) {
-      const lineIndex = source.slice(0, site.attrIndex).split("\n").length - 1;
+    for (const site of findAttributeSites(source, filePath, "style")) {
+      const lineIndex = lineAt(source, site.attrIndex) - 1;
       if (isExempt(lines[lineIndex - 1])) continue;
-      const { rawValue, assembled } = classifySite(site.raw);
+      rawValueOffenders.push(`${filePath}:${lineIndex + 1}`);
+    }
+
+    for (const site of findAttributeSites(source, filePath, "className")) {
+      const lineIndex = lineAt(source, site.attrIndex) - 1;
+      if (isExempt(lines[lineIndex - 1])) continue;
+      const { rawValue, assembled } = classifySite(site.raw, cvaNames);
       if (rawValue) rawValueOffenders.push(`${filePath}:${lineIndex + 1}`);
       if (assembled) assemblyOffenders.push(`${filePath}:${lineIndex + 1}`);
     }

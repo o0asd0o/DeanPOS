@@ -147,4 +147,56 @@ describe("assertNoRawDesignValues — className must not be assembled elsewhere"
     write(`<div className={cn(a ? styles : "right-0")} />`);
     expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
   });
+
+  it("accepts a nested ternary whose every branch is a string literal", () => {
+    write(`<div className={cn(a ? b ? "x" : "y" : "z")} />`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+
+  it("accepts cn() mixing a literal with a Variants-suffixed call", () => {
+    write(`<div className={cn("p-4", buttonVariants({ size }))} />`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+});
+
+describe("assertNoRawDesignValues — review round 3 regressions", () => {
+  it("rejects string concatenation, not just the first/last quote characters", () => {
+    write(`<div className={"p-4 " + styles + " text-sm"} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("rejects a raw value smuggled through an unsanctioned call inside cn()", () => {
+    write(`<div className={cn(identity("bg-[#fff]"))} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("rejects an opaque call inside cn() that is neither cva-bound nor *Variants", () => {
+    write(`<div className={cn(getClasses())} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("rejects style passed as a variable, not just a literal object", () => {
+    write(`const s = { padding: 13 };\n<div style={s} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
+  });
+
+  it("rejects style passed as a function call", () => {
+    write(`<div style={getStyle()} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
+  });
+
+  it("does not let a comment hide a bracket and silently skip the attribute", () => {
+    write(`<div className={cn(/* { */ "bg-[#fff]")} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
+  });
+
+  it("throws, naming the file and line, when a className expression genuinely cannot be closed", () => {
+    write(`<div className={cn("a"`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Component\.tsx:1.*className/);
+  });
+
+  it("accepts a cva call bound in-file even without a Variants suffix", () => {
+    write(`const tone = cva("text-sm");\n<div className={cn("p-4", tone({ status }))} />`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
 });
