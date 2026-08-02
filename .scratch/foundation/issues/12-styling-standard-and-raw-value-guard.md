@@ -1,15 +1,35 @@
 # 12 — A styling standard, and a test that enforces it
 
-**Status:** needs-info — **escalated to the human. Round cap reached, not merged.**
+**Status:** done — rule 6 written, and the guard rebuilt on a real AST after the human ruled.
 
-The work is built and the gate is green on branch `f12-styling-standard` (worktree and lane database
-kept alive so this can be resumed rather than rebuilt). Two fix rounds were spent and the guard
-still mis-classifies real code. The written standard — rule 6 in `docs/agents/code-standards.md` —
-is complete and uncontested; **only the executable guard is outstanding.**
+**This issue was escalated twice and the second escalation changed the design.** The history below
+is kept because it is the evidence for record 016, not as a record of thrash.
 
-**Why it stopped here.** Each round closed the previous defect and exposed a narrower one of the
-same kind. The guard is a line-oriented scanner with no notion of syntax, and every fix has been a
-better approximation of a parser:
+The guard was a line-oriented text scanner. It was rebuilt five times; each round closed one class
+of defect and revealed another, and every prescribed fix was a step toward a parser written by hand.
+The last text version threw on valid code — a `className=` inside a comment failed the build — which
+is worse than the hole it closed, because the first agent to hit a false rejection deletes the test.
+
+**The human ruled twice.** First: scan `className` contents only, and prohibit a `className` being
+assembled outside the attribute — the two together make the guard sound rather than merely quieter,
+because narrowing the scan alone just moves the hiding place into a variable. Then, when text
+scanning failed again: adopt a parser. `.scratch/decisions/016` chose `@typescript/typescript6`,
+Microsoft's first-party shim, because this repo's `typescript@7.0.2` is the native Go port with no
+`createSourceFile`. One devDependency, one declarer, one import site.
+
+`test-seam.ts` went 403 → 275 lines: the entire hand-rolled lexer deleted, the value-detection
+regexes kept. All five outstanding defects closed as a consequence of parsing rather than as five
+more special cases. 54 assertions in `test-seam.test.ts`.
+
+**What the guard still cannot see, stated rather than papered over:** a class assembled inside an
+imported function, or a value arriving through a prop at runtime. It catches the mistake that will
+actually happen thirty times — someone typing a hex into a `className` — and it no longer fails
+silently or falsely.
+
+**The recurring defect worth remembering:** four separate rounds found the written rule and the
+executable rule disagreeing. An implementer reads the comment, not the code.
+
+<details><summary>The five text-scanner rounds, kept as evidence</summary>
 
 1. Round 1 — a prefixed-utility regex missed Tailwind *arbitrary properties* (`[color:red]`).
 2. Round 2 — the unprefixed pattern false-positived on three valid Tailwind variants and on an
@@ -26,22 +46,13 @@ better approximation of a parser:
    The scanner treats an enclosing JS array literal or a TS labelled tuple as a Tailwind candidate,
    and skips the nested group that actually holds the raw value.
 
-**The question for you, which is why this is not another round.** The reviewer's prescribed fix is
-to lex string and template contents independently before scanning. That is a third rewrite, and it
-is the point at which "a regex over source text" has become a small parser. Worth deciding rather
-than drifting into:
+4. Round 4 — after narrowing to `className`, string concatenation, `cn(identity("bg-[#fff]"))`,
+   `style={s}` and a comment brace all slipped; fail-closed was added, and *that* introduced throws
+   on valid files.
+5. Round 5 — comments, template literals and regex literals containing `className=` broke the build;
+   JSX spreads, commented-out `cva` bindings and local `*Variants` functions all passed.
 
-- **Ship the guard as it stands**, with the false positives documented and the `// design-exempt:`
-  hatch covering them. The false *negative* is the real cost: a raw value inside a string array is
-  exactly how someone would write one.
-- **Lex strings properly** — one more round, and the guard becomes something with its own
-  maintenance burden that eleven areas depend on.
-- **Narrow the guard to `className` attribute contents only**, which is where the rule actually
-  bites, and accept that it sees nothing else. Smaller than lexing, and closer to the stated intent.
-- **Ship rule 6 without the test.** The issue itself argues against this — *"a rule with no test is
-  forgotten by area 4"* — but it is a real option if the guard's cost has outrun its value.
-
-**Issue 15 depends on this issue** and is therefore blocked until you rule. Issues 13 and 14 do not.
+</details>
 
 ## What to build
 
