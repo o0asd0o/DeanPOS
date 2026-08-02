@@ -602,3 +602,19 @@ status` clean before committing.
 
 Root checkout at `/Users/jomelortega/Desktop/personals/PremiumSoftwares/DeanPOS` confirmed clean
 and on `main` before finishing this round.
+
+**AST rebuild, per `.scratch/decisions/016-the-parser-behind-the-raw-design-value-guard.md`.**
+`assertNoRawDesignValues` is rewritten on `@typescript/typescript6@6.0.2`, TypeScript's own
+compiler API, in place of the hand-rolled text scanner. Roughly 250 of the file's 403 lines
+(`skipNonCode`, `skipString`, `matchBalanced`, `splitTopLevelArgs`, `lastTopLevelAnd`,
+`splitTernary`, `stripComments`, `findAttributeSites`, and their supporting regexes) are deleted
+outright; only the class-string-level checks (`HEX_LITERAL`, `ARBITRARY_VALUE`,
+`hasArbitraryProperty`, `hasRawValue`, `EXEMPT_COMMENT`, `isExempt`, `collectFiles`) and the
+reporting shell survive. All five previously-known defects close as a consequence of parsing —
+see the record for the mapping.
+
+The one behavioural change record 016 mandates: a call `name(...)` in a `className` value is now
+allowed only if `name` is bound in-file by `const name = cva(...)`, **or** `name` is imported into
+the file, ends in `Variants`, and has no other local declaration. A same-file
+`function getVariants()` no longer passes on the suffix alone — code-standards.md rule 6 updated
+to state this exactly.

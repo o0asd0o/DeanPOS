@@ -131,8 +131,8 @@ describe("assertNoRawDesignValues — className must not be assembled elsewhere"
       `<div className={cn("p-4", condition && "bg-muted", className)} />`,
     ],
     [
-      "cn() with a cva variants call",
-      `<div className={cn(badgeVariants({ variant }), asChild && "tap-target", className)} />`,
+      "cn() with an imported cva variants call",
+      `import { badgeVariants } from "./badge";\n<div className={cn(badgeVariants({ variant }), asChild && "tap-target", className)} />`,
     ],
     [
       "cn() with a ternary whose branches are both string literals",
@@ -153,8 +153,10 @@ describe("assertNoRawDesignValues — className must not be assembled elsewhere"
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
   });
 
-  it("accepts cn() mixing a literal with a Variants-suffixed call", () => {
-    write(`<div className={cn("p-4", buttonVariants({ size }))} />`);
+  it("accepts cn() mixing a literal with an imported Variants-suffixed call", () => {
+    write(
+      `import { buttonVariants } from "./button";\n<div className={cn("p-4", buttonVariants({ size }))} />`,
+    );
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
   });
 });
@@ -190,13 +192,47 @@ describe("assertNoRawDesignValues — review round 3 regressions", () => {
     expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
   });
 
-  it("throws, naming the file and line, when a className expression genuinely cannot be closed", () => {
+  it("throws, naming the file, when a className expression genuinely cannot be closed", () => {
     write(`<div className={cn("a"`);
-    expect(() => assertNoRawDesignValues(dir)).toThrow(/Component\.tsx:1.*className/);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Component\.tsx: cannot parse/);
   });
 
   it("accepts a cva call bound in-file even without a Variants suffix", () => {
     write(`const tone = cva("text-sm");\n<div className={cn("p-4", tone({ status }))} />`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+});
+
+describe("assertNoRawDesignValues — AST rebuild, record 016's five defects", () => {
+  it("does not throw on `className=` inside a comment", () => {
+    write(`// className=example`);
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+
+  it("does not throw on `className={` inside a template literal", () => {
+    write("const docs = `className={value`;");
+    expect(() => assertNoRawDesignValues(dir)).not.toThrow();
+  });
+
+  it("flags a raw value reaching className through a spread of an object literal", () => {
+    write(`<div {...{ className: "bg-[#fff]" }} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/Raw design values found in/);
+  });
+
+  it("flags an opaque call even when a same-named cva binding is only commented out", () => {
+    write(`// const getClasses = cva("p-4")\n<div className={cn(getClasses())} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("flags a local function whose name merely ends in Variants", () => {
+    write(`function getVariants() { return "bg-[#fff]"; }\n<div className={cn(getVariants())} />`);
+    expect(() => assertNoRawDesignValues(dir)).toThrow(/assembled outside the attribute/);
+  });
+
+  it("accepts an imported *Variants call, the case the tightened rule must not break", () => {
+    write(
+      `import { badgeVariants } from "./badge";\n<div className={cn("p-4", badgeVariants({ variant }))} />`,
+    );
     expect(() => assertNoRawDesignValues(dir)).not.toThrow();
   });
 });
