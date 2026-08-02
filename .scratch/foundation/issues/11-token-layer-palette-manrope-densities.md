@@ -1,6 +1,8 @@
 # 11 — The token layer: re-roled palette, Manrope, and two densities
 
-**Status:** ready-for-agent
+**Status:** done — palette re-roled to record 013's 35 tokens (verified name-for-name), Manrope
+self-hosted as one variable woff2, both densities in `theme.css`. 41 contrast assertions green.
+`ring`/`primary` confirmed at 3.88:1, up from the old palette's 3.13:1.
 
 ## What to build
 
