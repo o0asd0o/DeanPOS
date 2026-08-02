@@ -138,3 +138,67 @@ more than that in the report is worse than the gap.
 **Depends on 11 for the standard's wording, not for the test's logic.** The prohibition is
 value-shaped and does not care what the tokens are, but a standard that cannot name the tokens it
 points at is a standard nobody can follow.
+
+---
+
+**Implementer report (branch `f12-styling-standard`).**
+
+Added `docs/agents/code-standards.md` rule 6 (tokens over raw hex/arbitrary Tailwind values,
+the shared-part-before-restyling line, and ADR-0013's accent-under-text trap named explicitly),
+`packages/ui/src/test-seam.ts` exporting `assertNoRawDesignValues(dir)`, a `./test-seam` export
+in `packages/ui/package.json`, and a `design-values.test.ts` in each of `apps/pos/tests/` and
+`apps/backoffice/tests/`, importing from `"ui/test-seam"`.
+
+**Guard's exact matching rules** (all regex over raw source text, `.tsx?` files only):
+- `HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/` — 3- or 6-digit hex, not
+  part of a longer run.
+- `ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]*\](?!:)/` — a word/hyphen run immediately followed by
+  `-[...]` with no trailing colon. This is what separates Tailwind's arbitrary-*value* syntax
+  (`bg-[#fff]`, `p-[13px]`, `shadow-[...]`, `grid-cols-[repeat(3,minmax(0,1fr))]`, `w-[calc(...)]`
+  — always the end of the class token) from arbitrary *variant/selector* syntax (`[&_svg]:size-4`,
+  `[data-state=open]:`, `[aria-invalid]:`, and the `data-[state=open]:` form already used in
+  `packages/ui/src/components/`) — variants are always followed immediately by `:`.
+- `INLINE_STYLE = /style=\{\{/` — unconditional ban, per the issue.
+- Escape hatch: `EXEMPT_COMMENT = /^\s*\/\/\s*design-exempt:\s*(.+)$/` on the line immediately
+  above, reason split on whitespace and required to have 4+ non-empty words.
+- Scope: the helper takes a `dir` and both app tests call it with `"src"` from inside
+  `apps/pos` / `apps/backoffice` respectively — `apps/pos/src` and `apps/backoffice/src` only,
+  never a glob, `apps/landing` and `packages/ui/src/components/` never reached.
+
+**Proof the guard bites.** Temporarily edited `apps/pos/src/components/ErrorState.tsx`: added
+`bg-[#35CCA6]` to a `className` and `style={{ padding: 13 }}` on the `Button`, ran `vp test` in
+`apps/pos` — `design-values.test.ts` failed with `Raw design values found in:
+src/components/ErrorState.tsx:12` and `:15`, both lines correctly identified. Then re-tested the
+escape hatch: replaced the offenders with a `const probe = "#35CCA6"` preceded by
+`// design-exempt: temporary probe for the guard's escape hatch` on the line above, plus a
+`data-[state="open"]`-style attribute and `tap-target` — `vp test` passed (4/4), confirming the
+exemption suppresses and the existing `tap-target`/attribute usage does not false-positive.
+Reverted with `git checkout -- apps/pos/src/components/ErrorState.tsx`; `git status` confirmed a
+clean tree before committing.
+
+**`ponytail:` comment, verbatim** (`packages/ui/src/test-seam.ts`): "a regex over source text,
+not a CSS parser or a runtime check — it cannot see a colour assembled dynamically or a value
+arriving via a prop. It catches the raw hex / arbitrary-value mistake, nothing more." No claim of
+token purity.
+
+**Gate**, all run from the worktree with the PATH prepend:
+- `vp run -w codegen` — Prisma + both apps' `tsr generate`, clean.
+- `vp check` — 130 files formatted, 94 files lint/type clean.
+- `vp run -r check` — all 10 workspace packages/apps pass.
+- `vp run -r test` — all packages/apps pass, including the two new `design-values.test.ts`
+  (1/1 each) alongside the existing suites (pos 4/4, backoffice 5/5 total across all app tests).
+
+**Self-check via `/code-review`** (Standards + Spec sub-agents against `main...HEAD`): Standards
+flagged two comments in `test-seam.ts` exceeding rule 5's three-line ceiling — fixed by trimming
+both to 2–3 lines. It also flagged the phrase "forgotten by area 4" in the new rule 6 as an
+undefined term relative to this file's own rule-numbering vocabulary; reworded to "forgotten a
+few screens in" (the issue's own wording refers to PRD *areas*, a different vocabulary than this
+file's numbered *rules*, and the file never defines "area"). It also noted the two app-level
+`design-values.test.ts` files are byte-identical — a `Duplicated Code` judgement call, but below
+rule 3's two-or-more-callers-in-one-folder threshold since they live in different apps; left as
+is, matching the existing `no-server-imports.test.ts` precedent exactly. Spec review confirmed
+the guard's regex logic against every must-fail/must-not-fail example in the acceptance criteria
+by hand and found no mismatch, confirmed scope and import-path criteria are met by construction,
+and flagged that the "proof it bites" needed to land in the build report — it now has, above.
+
+**Nothing in the issue could not be implemented as written.**

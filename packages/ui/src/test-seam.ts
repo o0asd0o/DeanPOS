@@ -1,17 +1,13 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-// ponytail: this is a regex over source text, not a CSS parser or a runtime
-// check. It cannot see a colour assembled dynamically (`` `#${r}${g}${b}` ``)
-// or a value arriving through a prop. It catches the mistake that will
-// actually happen — a raw hex or an arbitrary Tailwind value typed into a
-// className — not a proof of token purity.
+// ponytail: a regex over source text, not a CSS parser or a runtime check —
+// it cannot see a colour assembled dynamically or a value arriving via a
+// prop. It catches the raw hex / arbitrary-value mistake, nothing more.
 const HEX_LITERAL = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])/;
 
-// Tailwind arbitrary-value syntax is `<utility>-[<value>]` with no trailing
-// colon. An arbitrary variant/selector is `[<selector>]:` (or
-// `<prefix>-[<selector>]:`, e.g. `data-[state=open]:`) — the colon right
-// after the bracket is what tells the two apart.
+// `<utility>-[<value>]` has no trailing colon; an arbitrary variant like
+// `data-[state=open]:` does — that colon is what tells the two apart.
 const ARBITRARY_VALUE = /[\w-]+-\[[^\]\s]*\](?!:)/;
 
 const INLINE_STYLE = /style=\{\{/;

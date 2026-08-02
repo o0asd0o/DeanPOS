@@ -100,8 +100,8 @@ Colour, spacing, type, radii, and shadow come from `packages/ui` — `theme.css`
 Tailwind value (`bg-[#35CCA6]`, `p-[13px]`, `shadow-[...]`) in application code. If a shared
 part already renders what you need, use it rather than restyling a `<div>` into a near-copy of
 it. This is enforced, not just written down — `assertNoRawDesignValues` (`packages/ui/test-seam`)
-fails the build on a breach; a rule with no test is forgotten by area 4, and a test with no rule
-is worked around by a fixer who never learned why it exists.
+fails the build on a breach; a rule with no test is forgotten a few screens in, and a test with
+no rule is worked around by a fixer who never learned why it exists.
 
 The one constraint worth naming explicitly, because a reasonable implementer gets it wrong
 otherwise (ADR-0013): the status hues (`success`, `warning`, `info`, `danger`) are dots, chart
