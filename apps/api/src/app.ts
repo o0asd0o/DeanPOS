@@ -56,7 +56,10 @@ export const createApp = ({
   });
   app.get("/health", healthRoute);
 
-  const authRoutes = createAuthRoutes(appDomain);
+  // devOrigins are the one dev switch this app has, so they also decide the
+  // cookie's attributes and which origins may present it (record 012).
+  const cookieOrigins = [ADMIN_ORIGIN(appDomain), ...devOrigins];
+  const authRoutes = createAuthRoutes(appDomain, devOrigins.length > 0);
 
   // .router() requires every contract key present — .scratch/decisions/006.
   const router = implement(contract)
@@ -88,7 +91,7 @@ export const createApp = ({
       const sessionId = isDeviceTokenRequest ? null : parseSessionCookie(c.req.header("Cookie"));
       if (sessionId) {
         // A missing Origin is a refusal, not a pass — PRD security criterion 20.
-        if (c.req.header("Origin") !== ADMIN_ORIGIN(appDomain)) {
+        if (!cookieOrigins.includes(c.req.header("Origin") ?? "")) {
           return c.json(toSafeErrorResponse(new ORPCError("FORBIDDEN")), 403);
         }
         ctx = await buildContextFromSession(db, sessionId, clientIp);

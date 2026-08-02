@@ -50,6 +50,16 @@ describe("the forced-password-change gate", () => {
     await expect(client.store.get({ id: randomUUID() })).rejects.toThrow();
   });
 
+  it("the same User may sign in again while its stuck session cookie rides along", async () => {
+    const { sessionCookie } = await seam.actors.signIn(email, temporaryPassword);
+    const stuck = seam.actors.withCookie(sessionCookie, seam.actors.adminOrigin);
+
+    await expect(stuck.auth.signIn({ email, password: temporaryPassword })).resolves.toStrictEqual({
+      ok: true,
+      mustChangePassword: true,
+    });
+  });
+
   it("the same User may still reach auth.setPassword", async () => {
     const { client } = await seam.actors.signIn(email, temporaryPassword);
 

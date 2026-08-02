@@ -11,7 +11,7 @@ import { buildExpiredSessionCookie, buildSessionCookie } from "../cookies.ts";
 // Only transport-aware code for `auth.*` (ADR-0008 rule 5): turns a
 // successful sign-in/sign-out into a Set-Cookie header. `appDomain` is
 // closed over rather than added to `Ctx`, which carries identity, not config.
-export const createAuthRoutes = (appDomain: string) => {
+export const createAuthRoutes = (appDomain: string, dev = false) => {
   const builder = implement(contract).$context<Ctx>();
 
   const signInRoute = builder.auth.signIn.handler(async ({ context, input }) => {
@@ -20,7 +20,7 @@ export const createAuthRoutes = (appDomain: string) => {
     if (result.ok) {
       context.resHeaders?.append(
         "Set-Cookie",
-        buildSessionCookie(appDomain, result.sessionId, result.expiresAt),
+        buildSessionCookie(appDomain, result.sessionId, result.expiresAt, dev),
       );
       return { ok: true, mustChangePassword: result.mustChangePassword };
     }
@@ -30,7 +30,7 @@ export const createAuthRoutes = (appDomain: string) => {
 
   const signOutRoute = builder.auth.signOut.handler(async ({ context }) => {
     const result = await signOutHandler({ ctx: context, input: undefined });
-    context.resHeaders?.append("Set-Cookie", buildExpiredSessionCookie(appDomain));
+    context.resHeaders?.append("Set-Cookie", buildExpiredSessionCookie(appDomain, dev));
     return result;
   });
 
