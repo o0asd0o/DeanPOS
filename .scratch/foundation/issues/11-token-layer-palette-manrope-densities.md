@@ -142,3 +142,60 @@ test, and that is a later issue's problem.
 **`ring`/`primary` had 3.13:1 against a 3:1 floor under the old palette** — near-zero headroom, and
 issue 05 recorded that it would fail loudly if primary were ever lightened. Primary is becoming
 `#1E1E1E`, which moves that pairing the safe direction. Confirm it rather than assume it.
+
+## Implementation notes
+
+Branch `f11-token-layer`. `packages/ui/src/theme.css` and `packages/ui/tests/contrast.test.ts`
+rewritten per record 013; token names, the 38 pairings, and the density mechanism transcribed
+verbatim from the record. Values (mine to choose):
+
+- `background` `#fafaf7`, `foreground`/`primary` `#1e1e1e`, `card`/`popover` `#ffffff`
+- `secondary`/`muted`/`accent` distinct near-white greys (`#eaeae6`/`#f0f0ed`/`#e4e4df`) so hover
+  and quiet-fill surfaces stay visually distinguishable from each other
+- `destructive` `#c0264f` (the brand pink's darker sibling, per ADR-0013)
+- `border`/`input` `#8a8a8a`, `ring` `#7a7a7a` — chosen by solving for a grey that clears 3:1
+  against both the near-white surfaces and the near-black `primary` simultaneously
+- Status tones are darker siblings of the brand hues, not the raw brand values: `success-tone`
+  `#0f7a55` (brand green `#35CCA6` measures 2.03:1 on white and fails outright), `warning-tone`
+  `#8a5a00`, `info-tone` `#1d5fc2`, `danger-tone` `#a31c46` (distinct from `destructive`, per the
+  record's "state you read vs. button you press" distinction)
+
+Measured ratios (all pass, computed with the same relative-luminance/contrast formulas as
+`contrast.test.ts`, cross-checked by the 41 passing assertions in that file):
+`ring`/`background` 4.10:1, `ring`/`card` 4.29:1, **`ring`/`primary` 3.88:1** (confirmed, not
+assumed — comfortably over the 3:1 floor and well clear of the old palette's 3.13:1 near-miss),
+`border`/`background` 3.30:1, status tones on their tints 4.69–6.27:1, status tones on
+`background`/`card` 5.10–7.47:1. Full pairing list and margins are in the scratchpad script used
+to derive the values (not committed — the authoritative check is `contrast.test.ts` itself).
+
+Manrope: downloaded the variable TTF (`ofl/manrope/Manrope[wght].ttf`, weight axis 200–800) from
+the `google/fonts` GitHub repository (SIL OFL 1.1) and converted to `woff2` with `fonttools`
+(a local, uninstalled build tool — not added as a project dependency). Committed as
+`packages/ui/src/fonts/Manrope-Variable.woff2` plus `OFL.txt` and a `README.md` recording the
+source, conversion method, and license. Wired as `--font-sans` (not `--font-manrope`, per the
+record), weight range 400–700, with the system fallback stack from the record's file shape.
+`font-variant-numeric: tabular-nums` on `:root` in `@layer base`, global as specified.
+
+Four existing `target-min`/`touch-min` call sites (`packages/ui/src/components/sheet.tsx`,
+`apps/backoffice/src/components/AppShell.tsx` and `ErrorState.tsx`,
+`apps/pos/src/components/ErrorState.tsx`) were renamed to `tap-target` in this issue rather than
+left for issue 14. Record 013 lists these as "renamed by issue 11 or 14" without resolving which;
+leaving them referencing utilities this issue deletes from `theme.css` would have been a silent
+tap-target regression (Tailwind drops an unknown utility with no build error), so they were fixed
+here as a mechanical one-line className rename — no component logic, layout, or design changed.
+No app's `<html>` was wired with `data-density` (that's issue 15), no `packages/ui` component
+reads or branches on the attribute, and no dark set was added.
+
+Self-check: ran `/code-review` (Standards + Spec sub-agents) against the diff. Standards flagged
+one real hard violation — a 4-line comment on the `[data-density="touch"]` block exceeded the
+repo's 3-line comment ceiling (`docs/agents/code-standards.md` rule 5) — fixed by trimming it to
+3 lines while keeping the "Record 013" pointer. It also flagged the new `fonts/README.md` as
+mildly redundant with the commit message; kept it, since a README next to a committed binary is
+more discoverable than a commit message six months from now, and the issue's instruction to
+record provenance "in the commit or a short note beside it" reads as either, not both-required.
+Spec axis found no missing, partial, or wrong requirements, and no scope creep.
+
+Gate commands run and green: `vp run -w codegen`, `vp check`, `vp run -r check`,
+`vp run -r test` (all packages, 41/41 in `contrast.test.ts`, full suite passing repo-wide).
+
+Nothing in record 013 turned out to be wrong or unimplementable as written.
