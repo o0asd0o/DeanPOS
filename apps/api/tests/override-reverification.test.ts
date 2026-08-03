@@ -79,10 +79,9 @@ async function assignStore(userId: string, effectiveFrom: Date, assigned = true)
   );
 }
 
-// A plain User row with no implicit "now" UserRole — seedTenantUser always
-// appends one at its own call time, which would outrank a deliberately
-// backdated row below it. These tests need full control over every row's
-// effective_from.
+// A plain User row with no implicit "now" UserRole — seedTenantUser's own
+// row would outrank a deliberately backdated one below it, and these tests
+// need full control over every row's effective_from.
 async function insertUserWithNoRole(userId: string) {
   await ownerDb
     .insertInto("User")

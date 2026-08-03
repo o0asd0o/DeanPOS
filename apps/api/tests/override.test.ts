@@ -20,6 +20,7 @@ const managerA = randomUUID();
 const cashierA = randomUUID();
 const managerAOtherStore = randomUUID();
 const adminB = randomUUID();
+const managerB = randomUUID();
 const storeA1 = randomUUID();
 const storeA2 = randomUUID();
 const storeB = randomUUID();
@@ -95,6 +96,13 @@ beforeAll(async () => {
     passwordHash,
     role: "admin",
   });
+  await seedTenantUser(ownerDb, {
+    id: managerB,
+    tenantId: tenantB,
+    email: `ov-manager-b-${randomUUID()}@ov.test`,
+    passwordHash,
+    role: "manager",
+  });
 
   await withTenantScope(ownerDb, tenantA, (db) =>
     db
@@ -115,6 +123,7 @@ beforeAll(async () => {
   await assignStore(tenantA, managerA, storeA1);
   await assignStore(tenantA, cashierA, storeA1);
   await assignStore(tenantA, managerAOtherStore, storeA2);
+  await assignStore(tenantB, managerB, storeB);
 });
 
 afterAll(async () => {
@@ -232,7 +241,36 @@ describe("terminal.recordOverride", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("wrong-tenant probe: a Device token cannot mint an Override naming Tenant B's manager", async () => {
+  it("wrong-tenant probe: Tenant B's own Device records against Tenant B's own manager; Tenant A's Device cannot mint an Override naming Tenant B's manager", async () => {
+    // Positive side first, through Tenant B's own Device and app-role scope —
+    // proves a handler that refused everything would fail this test, not just
+    // the wrong-tenant case below.
+    const deviceB = await enrolDeviceAt(storeB, "XB1", adminB, tenantB);
+    const recordedB = await seam.actors
+      .asDevice({
+        tenantId: tenantB,
+        deviceId: deviceB.deviceId,
+        storeId: storeB,
+        code: "XB1",
+        name: "t",
+      })
+      .client.terminal.recordOverride({
+        approverUserId: managerB,
+        actionType: "void_paid_order",
+        reason: "Rung up in error",
+        approvedAt: new Date(),
+      });
+    expect(recordedB.ok).toBe(true);
+    if (!recordedB.ok) return;
+    const rowB = await withTenantScope(ownerDb, tenantB, (db) =>
+      db
+        .selectFrom("Override")
+        .selectAll()
+        .where("id", "=", recordedB.overrideId)
+        .executeTakeFirst(),
+    );
+    expect(rowB?.approver_user_id).toBe(managerB);
+
     const device = await enrolDeviceAt(storeA1, "XA5", adminA, tenantA);
     await expectWrongTenantRefusal(
       () =>
@@ -252,6 +290,11 @@ describe("terminal.recordOverride", () => {
           }),
       (result) => result.ok === false,
     );
+
+    const wrongTenantRows = await withTenantScope(ownerDb, tenantA, (db) =>
+      db.selectFrom("Override").select("id").where("approver_user_id", "=", adminB).execute(),
+    );
+    expect(wrongTenantRows).toHaveLength(0);
   });
 });
 
