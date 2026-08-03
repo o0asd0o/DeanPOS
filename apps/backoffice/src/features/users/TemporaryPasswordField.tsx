@@ -1,7 +1,6 @@
-import { WandSparklesIcon } from "lucide-react";
-import { Button, PasswordInput } from "ui";
+import { PasswordInput } from "ui";
 
-import { Hint } from "@/components/Hint.tsx";
+import { InfoTooltip } from "@/components/InfoTooltip.tsx";
 import { generateTemporaryPassword } from "./helpers.ts";
 
 // One field, one reveal, no clipboard and no second surface — record 043's
@@ -24,39 +23,37 @@ export function TemporaryPasswordField({
   label: string;
   detail?: string;
 }) {
+  const guidance = `At least 8 characters. Any characters, including spaces — there are no other rules.${
+    detail ? ` ${detail}` : ""
+  }`;
+
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id}>{label}</label>
-      <Hint
-        id={`${id}-hint`}
-        detail={`At least 8 characters. Any characters, including spaces — there are no other rules.${
-          detail ? ` ${detail}` : ""
-        }`}
-      >
-        At least 8 characters.
-      </Hint>
       <div className="flex items-center gap-2">
-        <PasswordInput
-          id={id}
-          name={name}
-          autoComplete="new-password"
-          required
-          minLength={8}
-          aria-describedby={`${id}-hint`}
-          value={value}
-          onBlur={onBlur}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <Button
+        <label htmlFor={id}>{label}</label>
+        <InfoTooltip>{guidance}</InfoTooltip>
+        <span id={`${id}-hint`} className="sr-only">
+          {guidance}
+        </span>
+        <button
           type="button"
-          variant="outline"
-          className="shrink-0"
+          className="ml-auto text-sm underline underline-offset-4"
           onClick={() => onChange(generateTemporaryPassword())}
         >
-          <WandSparklesIcon />
           Generate
-        </Button>
+        </button>
       </div>
+      <PasswordInput
+        id={id}
+        name={name}
+        autoComplete="new-password"
+        required
+        minLength={8}
+        aria-describedby={`${id}-hint`}
+        value={value}
+        onBlur={onBlur}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
