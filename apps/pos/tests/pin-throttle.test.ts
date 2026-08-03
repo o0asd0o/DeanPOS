@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it } from "vite-plus/test";
+import { randomUUID } from "node:crypto";
 
+import { fireEvent, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
+import { hashPin } from "contract/src/pin.ts";
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+
+import { clearDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
+import { clearPinRoster, writePinRoster } from "@/lib/pin-roster.ts";
 import {
   PIN_ATTEMPT_WINDOW_MS,
   PIN_LOCK_MS,
@@ -9,11 +15,22 @@ import {
   recordPinFailure,
   recordPinSuccess,
 } from "@/lib/pin-throttle.ts";
+import { router } from "@/router.tsx";
 
 // Record 059 Q1/Q2: two counters, either locks; 5 per User, 10 per Device,
 // a 2-minute lock, no escalation.
 describe("pin-throttle", () => {
+  let cleanup: (() => Promise<void>) | undefined;
+
   beforeEach(() => localStorage.clear());
+
+  afterEach(async () => {
+    clearDeviceToken();
+    clearPinRoster();
+    localStorage.removeItem("deanpos.pin.throttle");
+    await cleanup?.();
+    cleanup = undefined;
+  });
 
   it("starts unlocked with an empty state", () => {
     expect(pinLockUntil(readPinThrottle(), "u1")).toBeNull();
@@ -114,17 +131,41 @@ describe("pin-throttle", () => {
     expect(pinLockUntil(readPinThrottle(), "u1")).toBeNull();
   });
 
-  it("locks with no network at all — criterion 3", () => {
-    const originalFetch = globalThis.fetch;
-    // Proves the throttle never reaches for the network.
-    globalThis.fetch = (() => {
-      throw new Error("no network in this test");
-    }) as typeof fetch;
-    try {
-      for (let i = 0; i < PIN_USER_FAILURE_LIMIT; i++) recordPinFailure("u1");
-      expect(pinLockUntil(readPinThrottle(), "u1")).not.toBeNull();
-    } finally {
-      globalThis.fetch = originalFetch;
+  it("the unlock screen locks a User serving from a cached roster with the request path forced to fail — criterion 3", async () => {
+    const userId = randomUUID();
+    const pinHash = await hashPin("482913");
+    writeDeviceToken("unreachable-throttle-token", {
+      deviceId: randomUUID(),
+      name: "Front Counter",
+      code: "TH",
+      storeId: "throttle-store",
+      storeName: "Throttle Store",
+    });
+    writePinRoster({
+      storeId: "throttle-store",
+      syncedAt: new Date().toISOString(),
+      users: [{ userId, displayName: "Ana Reyes", pinHash }],
+    });
+
+    // terminal.pinSync transport-fails against this database — the screen
+    // has no network, only the roster cached above.
+    const { db } = renderRoute({
+      router,
+      databaseUrl: "postgresql://nobody:wrongpassword@127.0.0.1:1/does-not-exist",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
+
+    for (let i = 0; i < PIN_USER_FAILURE_LIMIT; i++) {
+      fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
+      for (const digit of "000000") fireEvent.click(screen.getByRole("button", { name: digit }));
+      fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+      await waitFor(() =>
+        expect((screen.getByLabelText("PIN") as HTMLInputElement).value).toBe(""),
+      );
     }
+
+    expect(pinLockUntil(readPinThrottle(), userId)).not.toBeNull();
   });
 });

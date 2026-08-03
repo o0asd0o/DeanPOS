@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 
 // Record 059 Q3: localStorage stays behind exactly three accessor modules.
-// 056 and 057 asserted this in prose only; nothing enforced it until now.
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const srcRoot = join(repoRoot, "apps/pos/src");
 

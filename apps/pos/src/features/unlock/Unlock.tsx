@@ -27,10 +27,9 @@ function formatClock(remainingMs: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// The unlock screen (issue 10, record 057 Q4). Unlock is always local —
-// there is no online unlock path (Q1) — verified against the last synced
-// roster (usePinRoster). Locking is on-device only (record 059) and is not
-// a security boundary; it exists against a bystander, not an attacker.
+// The unlock screen (issue 10, record 057 Q4). Verified locally against the
+// last synced roster (usePinRoster) — there is no online unlock path.
+// Locking (record 059) is on-device only and deters a bystander, not an attacker.
 export function Unlock() {
   const roster = usePinRoster();
   const identity = readDeviceIdentity();
@@ -84,7 +83,7 @@ export function Unlock() {
   }, [isLocked, isDeviceLock, selectedUser?.displayName, lockedUntil]);
 
   const setPinDigits = (next: string) => {
-    if (isDeviceLock) return;
+    if (isLocked) return;
     setPin(next.replace(/\D/g, "").slice(0, 6));
     setSrStatus("");
   };
@@ -168,7 +167,7 @@ export function Unlock() {
                   autoComplete="off"
                   spellCheck={false}
                   aria-label="PIN"
-                  readOnly={isDeviceLock}
+                  readOnly={isLocked}
                   className="text-center text-2xl tracking-widest"
                   value={pin}
                   onChange={(event) => setPinDigits(event.target.value)}
@@ -188,7 +187,7 @@ export function Unlock() {
                       key={digit}
                       type="button"
                       variant="outline"
-                      aria-disabled={isDeviceLock}
+                      aria-disabled={isLocked}
                       onClick={() => setPinDigits(pin + digit)}
                     >
                       {digit}
@@ -198,9 +197,9 @@ export function Unlock() {
                     type="button"
                     variant="outline"
                     aria-label="Backspace"
-                    aria-disabled={pin.length === 0 || isDeviceLock}
+                    aria-disabled={pin.length === 0 || isLocked}
                     onClick={() => {
-                      if (pin.length === 0 || isDeviceLock) return;
+                      if (pin.length === 0 || isLocked) return;
                       setPinDigits(pin.slice(0, -1));
                     }}
                   >
@@ -209,7 +208,7 @@ export function Unlock() {
                   <Button
                     type="button"
                     variant="outline"
-                    aria-disabled={isDeviceLock}
+                    aria-disabled={isLocked}
                     onClick={() => setPinDigits(pin + "0")}
                   >
                     0

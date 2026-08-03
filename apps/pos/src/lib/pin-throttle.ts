@@ -1,7 +1,6 @@
-// On-device PIN lockout (record 059). Not a security boundary — devtools
-// clears it and 057 concedes the roster grinds in ~75s. It exists against a
-// bystander; revocation (ADR-0007) is the mitigation. Fails open: never
-// clears the roster or the Device token, never blocks a sale.
+// On-device PIN lockout (record 059) — not a security boundary, defeated by
+// clearing devtools storage; it deters a bystander only (ADR-0007 revokes).
+// Fails open: never clears the roster or the Device token, never blocks a sale.
 const THROTTLE_KEY = "deanpos.pin.throttle";
 
 export const PIN_USER_FAILURE_LIMIT = 5;
@@ -15,18 +14,44 @@ export type PinThrottleState = { device: Counter; users: Record<string, Counter>
 const emptyCounter = (): Counter => ({ failures: 0, lockedUntil: null, lastAttemptAt: null });
 const emptyState = (): PinThrottleState => ({ device: emptyCounter(), users: {} });
 
+function isCounter(value: unknown): value is Counter {
+  if (typeof value !== "object" || value === null) return false;
+  const { failures, lockedUntil, lastAttemptAt } = value as Record<string, unknown>;
+  return (
+    typeof failures === "number" &&
+    (lockedUntil === null || typeof lockedUntil === "number") &&
+    (lastAttemptAt === null || typeof lastAttemptAt === "number")
+  );
+}
+
+function isValidState(value: unknown): value is PinThrottleState {
+  if (typeof value !== "object" || value === null) return false;
+  const { device, users } = value as Record<string, unknown>;
+  if (!isCounter(device)) return false;
+  if (typeof users !== "object" || users === null) return false;
+  return Object.values(users).every(isCounter);
+}
+
+// Any invalid field or storage-access error returns a fresh empty state —
+// a single corrupt entry must not take the till out of service (record 059).
 export const readPinThrottle = (): PinThrottleState => {
-  const raw = localStorage.getItem(THROTTLE_KEY);
-  if (!raw) return emptyState();
   try {
-    return JSON.parse(raw) as PinThrottleState;
+    const raw = localStorage.getItem(THROTTLE_KEY);
+    if (!raw) return emptyState();
+    const parsed: unknown = JSON.parse(raw);
+    return isValidState(parsed) ? parsed : emptyState();
   } catch {
     return emptyState();
   }
 };
 
+// A full or denied store must not block a sale (record 059's fail-open rule).
 const writePinThrottle = (state: PinThrottleState): void => {
-  localStorage.setItem(THROTTLE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(THROTTLE_KEY, JSON.stringify(state));
+  } catch {
+    /* fails open */
+  }
 };
 
 // The invariant record 059 calls the most important line: no stored value or
@@ -64,18 +89,26 @@ function advance(counter: Counter, limit: number): Counter {
   return { failures, lockedUntil, lastAttemptAt: now };
 }
 
+// Either applicable lock in force refuses the whole attempt — neither
+// counter advances (035's never-opening window, refused at design time).
 export const recordPinFailure = (userId: string): void => {
   const state = readPinThrottle();
+  const userCounter = state.users[userId] ?? emptyCounter();
+  if (activeLock(state.device) !== null || activeLock(userCounter) !== null) return;
   const device = advance(state.device, PIN_DEVICE_FAILURE_LIMIT);
-  const user = advance(state.users[userId] ?? emptyCounter(), PIN_USER_FAILURE_LIMIT);
+  const user = advance(userCounter, PIN_USER_FAILURE_LIMIT);
   const users = { ...state.users, [userId]: user };
   writePinThrottle({ device, users });
 };
 
-// A successful unlock zeroes both counters and clears every lock.
+// A successful unlock zeroes both counters and clears every lock, not only
+// the succeeding User's.
 export const recordPinSuccess = (userId: string): void => {
   const state = readPinThrottle();
-  const users = { ...state.users };
-  delete users[userId];
+  const users = Object.fromEntries(
+    Object.entries(state.users).filter(
+      ([id, counter]) => id !== userId && activeLock(counter) === null,
+    ),
+  );
   writePinThrottle({ device: emptyCounter(), users });
 };
