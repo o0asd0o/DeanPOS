@@ -91,7 +91,7 @@ export function UserListCard({
           <div
             role="group"
             aria-label="Filter by status"
-            className="inline-flex items-center gap-1 rounded-full bg-muted p-1"
+            className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1"
           >
             {STATUS_FILTERS.map((filter) => (
               <button
