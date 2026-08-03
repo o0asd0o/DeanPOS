@@ -4,6 +4,7 @@ import {
   signInPasswordSchema,
   temporaryPasswordSchema,
 } from "schemas/src/password.ts";
+import { timezoneSchema } from "schemas/src/timezones.ts";
 import { z } from "zod";
 
 export const pingOutputSchema = z.object({
@@ -89,6 +90,25 @@ export const userResetPasswordInputSchema = z.object({
   password: temporaryPasswordSchema,
 });
 
+// Issue 07, record 046 §2: these five columns, integer centavos (ADR-0005),
+// integer VAT percent (record 046 §1). A setting governs sales made from now
+// on — nothing here reads a current value to interpret a past one.
+export const tenantSettingsOutputSchema = z.object({
+  timezone: timezoneSchema,
+  vatEnabled: z.boolean(),
+  vatRatePercent: z.number().int(),
+  varianceToleranceCentavos: z.number().int(),
+  cashMovementOverrideThresholdCentavos: z.number().int(),
+});
+
+export const tenantSettingsUpdateInputSchema = z.object({
+  timezone: timezoneSchema,
+  vatEnabled: z.boolean(),
+  vatRatePercent: z.number().int().min(0),
+  varianceToleranceCentavos: z.number().int().min(0),
+  cashMovementOverrideThresholdCentavos: z.number().int().min(0),
+});
+
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
@@ -160,6 +180,13 @@ export const contract = {
     deactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     reactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     resetPassword: oc.input(userResetPasswordInputSchema).output(userOutputSchema.nullable()),
+  },
+  // `admin`-only, tenant-wide financial controls (issue 07). `null` for any
+  // non-admin or unauthenticated caller — the same not-found shape store.get
+  // uses; `manager`/`cashier` never see this screen at all.
+  settings: {
+    get: oc.input(z.void()).output(tenantSettingsOutputSchema.nullable()),
+    update: oc.input(tenantSettingsUpdateInputSchema).output(tenantSettingsOutputSchema.nullable()),
   },
   // Platform-admin only (issue 02) — `null` for any tenant-scoped or
   // unauthenticated caller, the same not-found shape store.get uses.

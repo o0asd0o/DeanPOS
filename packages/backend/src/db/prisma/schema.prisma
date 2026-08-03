@@ -23,10 +23,18 @@ model Tenant {
   id         String      @id
   name       String
   createdAt  DateTime    @default(now())
-  stores     Store[]
-  users      User[]
-  userRoles  UserRole[]
-  userStores UserStore[]
+  // Issue 07: a setting governs sales made from now on, never a past one —
+  // no code path here reads these to interpret a past Order (record 046).
+  timezone                               String  @default("Asia/Manila")
+  vatEnabled                             Boolean @default(false) @map("vat_enabled")
+  vatRatePercent                         Int     @default(12) @map("vat_rate_percent")
+  varianceToleranceCentavos              Int     @default(0) @map("variance_tolerance_centavos")
+  cashMovementOverrideThresholdCentavos  Int     @default(0) @map("cash_movement_override_threshold_centavos")
+  stores               Store[]
+  users                User[]
+  userRoles            UserRole[]
+  userStores           UserStore[]
+  tenantSettingsAudits TenantSettingsAudit[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -69,10 +77,11 @@ model User {
   role               Role
   active             Boolean     @default(true)
   createdAt          DateTime    @default(now())
-  tenant             Tenant      @relation(fields: [tenantId], references: [id])
-  sessions           Session[]
-  userRoles          UserRole[]
-  userStores         UserStore[]
+  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  sessions             Session[]
+  userRoles            UserRole[]
+  userStores           UserStore[]
+  tenantSettingsAudits TenantSettingsAudit[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -114,6 +123,25 @@ model UserStore {
 
   @@index([tenantId])
   @@unique([userId, storeId, effectiveFrom])
+}
+
+// Append-only, structurally, like UserRole/UserStore (issue 07, record 046
+// §3): a save changing three settings writes three rows. `oldValue`/
+// `newValue` are text — the setting name says the type, and all five are
+// scalars. `actor`'s composite FK avoids the RLS-bypass trap issue 04 found
+// on a plain user_id FK.
+model TenantSettingsAudit {
+  id          String   @id
+  tenantId    String   @map("tenant_id")
+  actorUserId String   @map("actor_user_id")
+  setting     String
+  oldValue    String   @map("old_value")
+  newValue    String   @map("new_value")
+  createdAt   DateTime @default(now()) @map("created_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  actor       User     @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+
+  @@index([tenantId])
 }
 
 // Back-office session (issue 03): an opaque server-side id, persistent with

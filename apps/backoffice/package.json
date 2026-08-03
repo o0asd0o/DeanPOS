@@ -19,6 +19,7 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "schemas": "workspace:*",
     "ui": "workspace:*"
   },
   "devDependencies": {

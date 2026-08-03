@@ -16,6 +16,7 @@ import { createAuthRoutes } from "./routes/auth.ts";
 import { healthRoute } from "./routes/health.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import { pingRoute } from "./routes/ping.ts";
+import { settingsGetRoute, settingsUpdateRoute } from "./routes/settings.ts";
 import {
   storeCreateRoute,
   storeDeactivateRoute,
@@ -97,6 +98,7 @@ export const createApp = ({
         reactivate: userReactivateRoute,
         resetPassword: userResetPasswordRoute,
       },
+      settings: { get: settingsGetRoute, update: settingsUpdateRoute },
       platformAdmin: { provisionTenant: provisionTenantRoute },
       auth: authRoutes,
     });
