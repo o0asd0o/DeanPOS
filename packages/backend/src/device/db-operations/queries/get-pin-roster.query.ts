@@ -5,9 +5,8 @@ import type { DatabaseInstance } from "../../../db/client.ts";
 export type PinRosterRow = { userId: string; displayName: string; pinHash: string | null };
 
 // The hash-sync roster (issue 10, record 057 Q3): every active User who is
-// `admin`, or whose current UserStore assignment at `storeId` is true —
-// resolved effective-dated through the same two resolvers issue 04 already
-// wrote, never from User.role. Reuse, not a second resolver.
+// `admin`, or currently assigned to `storeId` — resolved through the same
+// two effective-dated resolvers issue 04 already wrote, never User.role.
 export const getPinRoster = async (
   db: DatabaseInstance,
   storeId: string,

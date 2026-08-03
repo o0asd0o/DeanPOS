@@ -6,9 +6,8 @@ import { getPinRoster } from "../db-operations/queries/get-pin-roster.query.ts";
 type PinSyncUser = { userId: string; displayName: string; pinHash: string | null };
 type PinSyncResult = { storeId: string; syncedAt: string; users: PinSyncUser[] } | null;
 
-// Device-token only, no input at all (issue 10, record 057 Q3) — "a Device
-// asking for a Store it is not enrolled at" has no field to ask with; the
-// refusal is deviceCtx returning null, structural rather than checked.
+// Device-token only, no input at all (issue 10, record 057 Q3) — a wrong
+// Store has no field to ask with, so refusal is deviceCtx returning null.
 // Computed fresh from the database on every call: no cursor, no cache.
 export const handler: Handler<void, PinSyncResult> = async ({ ctx }) => {
   const deviceCtxValue = deviceCtx(ctx);

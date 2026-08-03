@@ -4,7 +4,7 @@ import { deriveBits, hashPin, PIN_HASH_PARAMS, verifyPin } from "./pin.ts";
 
 // RFC 7914 §11, "Test Vectors for PBKDF2 with HMAC-SHA-256" — run through
 // the production `deriveBits`, not a reimplementation, so a change to the
-// derivation in `pin.ts` fails these vectors too (M3).
+// real derivation fails these vectors too.
 describe("PBKDF2-HMAC-SHA-256, pinned by RFC 7914 §11", () => {
   const textEncoder = new TextEncoder();
   const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString("hex");
@@ -66,7 +66,7 @@ describe("hashPin / verifyPin round trip", () => {
     expect(await verifyPin("1234", "$pbkdf2-sha256$i=1000$not!!valid$not!!valid")).toBe(false);
   });
 
-  it("a stored key shorter than 32 bytes never admits a PIN (M4)", async () => {
+  it("a stored key shorter than 32 bytes never admits a PIN", async () => {
     const stored = await hashPin("482913");
     const parts = stored.split("$");
     parts[4] = parts[4]!.slice(0, 2);

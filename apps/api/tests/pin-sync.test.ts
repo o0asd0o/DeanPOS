@@ -10,8 +10,7 @@ import { createTestSeam } from "../src/test-seam.ts";
 
 // Issue 10: terminal.pinSync, the hash-sync payload. The payload assertions
 // are on the payload itself (record 057 Q3), not on device behaviour.
-// Refusal is `null` — the same not-found shape store.get uses (record 057
-// Q3, amended for M2).
+// Refusal is `null`, the same not-found shape store.get uses.
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 

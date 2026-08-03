@@ -23,12 +23,9 @@ try {
   // No workspace-root .env (e.g. real environment variables already set).
 }
 
-// Every workspace shares one PostgreSQL database and one CPU, and a sign-in
-// blocks it for ~260ms in scrypt, so a screen test's request can outlast
-// testing-library's 1s default while nothing is actually wrong.
-// The specifier is held in a variable so Vite cannot resolve it at transform
-// time: packages with no DOM tests do not depend on it, and a static import
-// fails their whole suite before the catch can run.
+// A shared DB/CPU and scrypt's ~260ms sign-in can outlast the 1s default
+// timeout with nothing actually wrong. The specifier is a variable so Vite
+// can't resolve it at transform time — a package with no DOM tests skips it.
 const domTestingLibrary = "@testing-library/dom";
 try {
   const { configure } = await import(/* @vite-ignore */ domTestingLibrary);

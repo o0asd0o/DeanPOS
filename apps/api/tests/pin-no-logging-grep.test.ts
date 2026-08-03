@@ -42,10 +42,9 @@ const ALLOWED_PIN_HASH_FILES = [
 // Every `console.<method>(` or `process.(stdout|stderr).write(` call site.
 const SINK_OPEN = /(?:console\.\w+|process\.(?:stdout|stderr)\.write)\s*\(/g;
 
-// From a sink's opening paren, walks forward tracking paren depth and
-// skipping over string/template literals, to the full argument text —
-// spanning however many lines the call actually takes. A single-line regex
-// alone is defeated by `console.log(\n  pinHash,\n)`.
+// From a sink's opening paren, walks forward tracking paren depth (skipping
+// string/template literals) to the full, possibly multi-line argument text
+// — a single-line regex alone is defeated by `console.log(\n  pinHash,\n)`.
 function loggingCallArgTexts(contents: string): string[] {
   const texts: string[] = [];
   for (const match of contents.matchAll(SINK_OPEN)) {

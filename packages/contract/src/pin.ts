@@ -34,7 +34,7 @@ type Pbkdf2Algorithm = { name: "PBKDF2"; salt: Uint8Array; iterations: number; h
 
 // The one derivation call, shared by hash and verify, and exported so the
 // RFC 7914 §11 vectors exercise this exact function rather than a
-// reimplementation (record 057 Q2, M3).
+// reimplementation (record 057 Q2).
 export async function deriveBits(
   pin: string,
   salt: Uint8Array,
@@ -91,14 +91,14 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   }
 
   // The derived length is always the fixed 32 bytes, never a length read
-  // from `stored` (M4) — an attacker-chosen key length must not shrink the
+  // from `stored` — an attacker-chosen key length must not shrink the
   // comparison or change how long verification takes.
   const keyLength = PIN_HASH_PARAMS.keyLength;
   const actual = await deriveBits(pin, salt, iterations, keyLength);
 
   // A length mismatch accumulates into the result rather than returning
   // early — the loop below always walks the full fixed length, so a
-  // one-byte `expected` never admits a wrong PIN by luck (M4).
+  // one-byte `expected` never admits a wrong PIN by luck.
   let diff = expected.length === keyLength ? 0 : 1;
   for (let i = 0; i < keyLength; i++) diff |= (actual[i] ?? 0) ^ (expected[i] ?? 0);
   return diff === 0;

@@ -1,22 +1,11 @@
 import { Outlet } from "@tanstack/react-router";
-import { Button } from "ui";
 
-import { ActingUserProvider, useActingUser } from "@/lib/acting-user.tsx";
+import { ActingUserProvider } from "@/lib/acting-user.tsx";
+import { LockButton } from "./LockButton.tsx";
 
-function LockButton() {
-  const { actingUser, setActingUser } = useActingUser();
-  if (actingUser === null) return null;
-  return (
-    <Button variant="outline" size="sm" onClick={() => setActingUser(null)}>
-      Lock
-    </Button>
-  );
-}
-
-// The shell frame and header. What renders here and why: .scratch/decisions/009.
-// ActingUserProvider lives here, not main.tsx (issue 10) — every rendered
-// route sits under this one root, so every test that renders a route gets
-// the provider without repeating it.
+// The shell frame and header: .scratch/decisions/009. ActingUserProvider
+// lives here, not main.tsx (issue 10) — every rendered route sits under
+// this one root, so a route test gets the provider without repeating it.
 export function AppShell() {
   return (
     <ActingUserProvider>
