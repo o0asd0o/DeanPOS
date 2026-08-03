@@ -3,8 +3,6 @@ import { randomUUID } from "node:crypto";
 import { createDb, sql, withTenantScope } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { consumeEnrolmentCode } from "backend/src/device/db-operations/commands/consume-enrolment-code.command.ts";
-import { touchDevice } from "backend/src/device/db-operations/commands/touch-device.command.ts";
-import { findDeviceByTokenHash } from "backend/src/device/db-operations/queries/find-device-by-token-hash.query.ts";
 import { hashDeviceToken } from "backend/src/device/token.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -239,6 +237,14 @@ describe("terminal.enrol", () => {
       db.selectFrom("Device").select("id").where("id", "=", exchanged.deviceId).execute(),
     );
     expect(asA).toHaveLength(0);
+
+    // The positive side, through B's own app-role connection rather than the
+    // owner bypass above — proves RLS itself admits the row, not just that
+    // the owner query happened to find it.
+    const asB = await withTenantScope(seam.db, tenantB, (db) =>
+      db.selectFrom("Device").select("id").where("id", "=", exchanged.deviceId).execute(),
+    );
+    expect(asB).toHaveLength(1);
   });
 
   it("an unrecognised secret fails with the same shape as expired or consumed", async () => {
@@ -340,6 +346,10 @@ describe("terminal.enrol", () => {
     const lockReleased = new Promise<void>((resolve) => {
       releaseLock = resolve;
     });
+    let signalAcquired!: () => void;
+    const lockAcquired = new Promise<void>((resolve) => {
+      signalAcquired = resolve;
+    });
 
     const holder = withTenantScope(seam.db, tenantA, async (trx) => {
       await trx
@@ -348,23 +358,37 @@ describe("terminal.enrol", () => {
         .where("id", "=", enrolmentCodeId)
         .forUpdate()
         .executeTakeFirstOrThrow();
+      signalAcquired();
       await lockReleased;
     });
-    // The holder's own SELECT ... FOR UPDATE is the first statement in a
-    // fresh transaction — nothing else can contend for it yet, so it
-    // acquires immediately. This beat only lets that happen before racing it.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Signalled from inside the holder's own transaction, right after its
+    // FOR UPDATE returns — no sleep, no guess at how long that takes.
+    await lockAcquired;
 
-    const attempt1 = withTenantScope(seam.db, tenantA, (db) =>
-      consumeEnrolmentCode(db, enrolmentCodeId, deviceId1),
-    );
-    const attempt2 = withTenantScope(seam.db, tenantA, (db) =>
-      consumeEnrolmentCode(db, enrolmentCodeId, deviceId2),
-    );
+    let resolvePid1!: (pid: number) => void;
+    const pid1 = new Promise<number>((resolve) => {
+      resolvePid1 = resolve;
+    });
+    let resolvePid2!: (pid: number) => void;
+    const pid2 = new Promise<number>((resolve) => {
+      resolvePid2 = resolve;
+    });
 
-    // Postgres queues same-row waiters behind each other — only the first
-    // ever shows as waiting on the tuple itself in pg_locks. Both show up
-    // in pg_stat_activity's wait_event_type instead.
+    const attempt1 = withTenantScope(seam.db, tenantA, async (db) => {
+      const { rows } = await sql<{ pid: number }>`select pg_backend_pid() as pid`.execute(db);
+      resolvePid1(rows[0]!.pid);
+      return consumeEnrolmentCode(db, enrolmentCodeId, deviceId1);
+    });
+    const attempt2 = withTenantScope(seam.db, tenantA, async (db) => {
+      const { rows } = await sql<{ pid: number }>`select pg_backend_pid() as pid`.execute(db);
+      resolvePid2(rows[0]!.pid);
+      return consumeEnrolmentCode(db, enrolmentCodeId, deviceId2);
+    });
+    const pids = [await pid1, await pid2];
+
+    // Filtered by the two attempts' own backend pids, so a concurrent test
+    // elsewhere can never inflate this count — only these two connections
+    // can satisfy it.
     const deadline = Date.now() + 2000;
     let blocked = 0;
     try {
@@ -372,8 +396,7 @@ describe("terminal.enrol", () => {
         const result = await sql<{ count: string }>`
           select count(*)::text as count
           from pg_stat_activity
-          where wait_event_type = 'Lock'
-            and query ilike 'update "EnrolmentCode" set "consumed_at"%'
+          where wait_event_type = 'Lock' and pid = any(${pids})
         `.execute(ownerDb);
         blocked = Number(result.rows[0]?.count ?? "0");
         if (blocked >= 2) break;
@@ -466,7 +489,7 @@ describe("the Device token principal", () => {
     expect(me.storeName).toBe("A Store 1");
   });
 
-  it("the wrong-tenant probe: A's and B's Device tokens each resolve me/heartbeat to their own Tenant's Store only", async () => {
+  it("the wrong-tenant probe: A's and B's Device tokens each resolve me/heartbeat to their own Tenant's Store only, and one Tenant's heartbeat never touches the other's row", async () => {
     const { exchanged: exchangedAsA } = await generateAndExchange(storeA1, "TA");
     if (!exchangedAsA.ok) throw new Error("setup failed");
     const generatedAsB = await seam.actors
@@ -482,12 +505,32 @@ describe("the Device token principal", () => {
     expect(meAsA.authenticated && meAsA.storeId).toBe(storeA1);
     expect(meAsB.authenticated && meAsB.storeId).toBe(storeB);
 
+    const lastSeen = async (deviceId: string) =>
+      (
+        await ownerDb
+          .selectFrom("Device")
+          .select("last_seen_at")
+          .where("id", "=", deviceId)
+          .executeTakeFirstOrThrow()
+      ).last_seen_at.getTime();
+
+    // A canary on each row: A's heartbeat, called alone, must move only A's
+    // timestamp — B's is read straight after and must be untouched.
+    const beforeA = await lastSeen(exchangedAsA.deviceId);
+    const beforeB = await lastSeen(exchangedAsB.deviceId);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
     expect((await seam.actors.withBearerToken(exchangedAsA.token).terminal.heartbeat()).ok).toBe(
       true,
     );
+    expect(await lastSeen(exchangedAsA.deviceId)).toBeGreaterThan(beforeA);
+    expect(await lastSeen(exchangedAsB.deviceId)).toBe(beforeB);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
     expect((await seam.actors.withBearerToken(exchangedAsB.token).terminal.heartbeat()).ok).toBe(
       true,
     );
+    expect(await lastSeen(exchangedAsB.deviceId)).toBeGreaterThan(beforeB);
   });
 
   it("real Authorization header: enrol, then me/heartbeat over the bearer token, matched case-insensitively", async () => {
@@ -538,27 +581,71 @@ describe("the Device token principal", () => {
     expect((await client.terminal.heartbeat()).ok).toBe(false);
   });
 
-  it("a revoke that commits between the token lookup and the touch update still refuses the request", async () => {
+  it("a revoke that lands between a real bearer request's lookup and its touch still refuses it, indistinguishably from any other refusal", async () => {
     const { exchanged } = await generateAndExchange(storeA1, "TR");
     if (!exchanged.ok) throw new Error("setup failed");
 
-    const tokenHash = hashDeviceToken(exchanged.token);
-    const lookedUp = await findDeviceByTokenHash(seam.db, tokenHash);
-    if (!lookedUp) throw new Error("setup: lookup failed");
-    expect(lookedUp.revoked_at).toBeNull();
+    const client = seam.actors.withBearerToken(exchanged.token);
+    expect((await client.terminal.me()).authenticated).toBe(true);
 
-    // The revoke commits after the lookup above but before the touch below.
-    await seam.actors
+    // Lock the Device row so the revoke and the request's own touch both
+    // queue behind it, revoke first — the request passes its lookup live
+    // and is refused only when its touch loses the race to the revoke.
+    let releaseLock!: () => void;
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    let signalAcquired!: () => void;
+    const lockAcquired = new Promise<void>((resolve) => {
+      signalAcquired = resolve;
+    });
+    const holder = withTenantScope(seam.db, tenantA, async (trx) => {
+      await trx
+        .selectFrom("Device")
+        .selectAll()
+        .where("id", "=", exchanged.deviceId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      signalAcquired();
+      await lockReleased;
+    });
+    await lockAcquired;
+
+    const revoked = seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.device.revoke({ id: exchanged.deviceId });
 
-    const touched = await withTenantScope(seam.db, tenantA, (db) =>
-      touchDevice(db, exchanged.deviceId),
-    );
-    expect(touched).toBeUndefined();
+    // Both queries are unique to this file's Device UPDATEs, so waiting for
+    // one, then the other, proves each has actually queued on the lock.
+    const waitForWaiter = async (queryPrefix: string) => {
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        const result = await sql<{ count: string }>`
+          select count(*)::text as count
+          from pg_stat_activity
+          where wait_event_type = 'Lock' and query ilike ${queryPrefix}
+        `.execute(ownerDb);
+        if (Number(result.rows[0]?.count ?? "0") >= 1) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error(`timed out waiting for: ${queryPrefix}`);
+    };
 
-    const client = seam.actors.withBearerToken(exchanged.token);
-    expect((await client.terminal.me()).authenticated).toBe(false);
+    await waitForWaiter('update "Device" set "revoked_at"%');
+    const raced = client.terminal.me();
+    await waitForWaiter('update "Device" set "last_seen_at"%');
+
+    releaseLock();
+    const [revokedResult, racedResult] = await Promise.all([revoked, raced]);
+    await holder;
+
+    expect(revokedResult?.revokedAt).toBeInstanceOf(Date);
+    expect(racedResult.authenticated).toBe(false);
+
+    // `me` never distinguishes a raced refusal from an ordinary one — both
+    // resolve `ctx.kind !== "device"` the same way (record 056 Q6).
+    const ordinaryRefusal = await seam.actors.withBearerToken("not-a-real-token").terminal.me();
+    expect(racedResult).toStrictEqual(ordinaryRefusal);
   });
 
   it("last-seen updates on activity", async () => {
