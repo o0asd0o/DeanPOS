@@ -1,4 +1,5 @@
 import { Kysely, PostgresDialect, sql } from "kysely";
+import type { Transaction } from "kysely";
 import { Pool } from "pg";
 
 // Re-exported so callers outside this package (tests, mainly) never add
@@ -8,6 +9,11 @@ export { sql };
 import type { DB } from "./prisma/generated/types.ts";
 
 export type DatabaseInstance = Kysely<DB>;
+
+// Kysely's own transaction type — narrower than DatabaseInstance, so a
+// command that must commit atomically with its caller (e.g. consumeOverride)
+// can require this instead and have the compiler refuse a bare db handle.
+export type DatabaseTransaction = Transaction<DB>;
 
 // Single connection choke point (ADR-0008); the tenant `set_config` transaction-local
 // guard goes here and nowhere else (.scratch/decisions/004-postgres-driver.md).
@@ -26,7 +32,7 @@ const withScope = <T>(
   db: DatabaseInstance,
   setting: string,
   value: string | null,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> =>
   db.transaction().execute(async (trx) => {
     if (value !== null) {
@@ -38,7 +44,7 @@ const withScope = <T>(
 export const withTenantScope = <T>(
   db: DatabaseInstance,
   tenantId: string | null,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> => withScope(db, "app.tenant_id", tenantId, fn);
 
 // Pre-auth: no tenant exists yet. A purpose-named variable leaves
@@ -47,13 +53,13 @@ export const withTenantScope = <T>(
 export const withLoginScope = <T>(
   db: DatabaseInstance,
   email: string,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> => withScope(db, "app.login_email", email, fn);
 
 export const withSessionScope = <T>(
   db: DatabaseInstance,
   sessionId: string,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> => withScope(db, "app.session_id", sessionId, fn);
 
 // Pre-auth Device lookup (issue 09, record 056 Q6/031): the tenant is
@@ -61,12 +67,12 @@ export const withSessionScope = <T>(
 export const withDeviceTokenScope = <T>(
   db: DatabaseInstance,
   tokenHash: string,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> => withScope(db, "app.device_token_hash", tokenHash, fn);
 
 // Pre-auth EnrolmentCode lookup for `terminal.enrol` (record 056 Q6/031).
 export const withEnrolmentCodeScope = <T>(
   db: DatabaseInstance,
   code: string,
-  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+  fn: (scopedDb: DatabaseTransaction) => Promise<T>,
 ): Promise<T> => withScope(db, "app.enrolment_code", code, fn);
