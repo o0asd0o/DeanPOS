@@ -329,6 +329,48 @@ describe("the Users screen — as an admin", () => {
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });
 
+  it("filters the list by status and by a search term, and says so when nothing matches", async () => {
+    const targetId = randomUUID();
+    const targetEmail = `filtered-screen-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: targetId,
+        tenant_id: tenantId,
+        email: targetEmail,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+        active: false,
+      })
+      .execute();
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/users",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+    };
+
+    await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
+
+    // Deactivated User drops out under `Active`, comes back under `Status: All`.
+    fireEvent.click(screen.getByRole("button", { name: "Status: Active" }));
+    expect(screen.queryByText(targetEmail)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Status: All" }));
+    expect(screen.getByText(targetEmail)).toBeTruthy();
+
+    // Search narrows to the one email, then to nobody.
+    fireEvent.change(screen.getByLabelText("Search users"), { target: { value: targetEmail } });
+    expect(screen.getAllByText(/@user\.test/).length).toBe(1);
+    fireEvent.change(screen.getByLabelText("Search users"), { target: { value: "no-such-user" } });
+    expect(screen.getByText("No users match these filters")).toBeTruthy();
+  });
+
   it("the caller's own row has no Deactivate action", async () => {
     const { db } = renderRoute({
       router,

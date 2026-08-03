@@ -6,10 +6,19 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { router } from "@/router.tsx";
 
 // Issue 03 round 2: auth.signOut existed and was tested server-side, but
-// nothing in this app called it.
+// nothing in this app called it. It hangs off the header's account menu since
+// record 048, not the sidebar footer.
 const tenantId = randomUUID();
 
-describe("the shell's sign-out control", () => {
+// Radix opens a menu on pointerdown, which happy-dom's `click` does not imply
+// (record 042).
+const openAccountMenu = async () => {
+  const trigger = await waitFor(() => screen.getByRole("button", { name: "Account" }));
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  return waitFor(() => screen.getByRole("menu"));
+};
+
+describe("the header's account menu", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
@@ -23,8 +32,8 @@ describe("the shell's sign-out control", () => {
     const { db } = renderRoute({ router, tenantId });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    const menu = await openAccountMenu();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Sign out" }));
 
     const dialog = await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -37,9 +46,8 @@ describe("the shell's sign-out control", () => {
     const { container, db } = renderRoute({ router, tenantId });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy());
-
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    const menu = await openAccountMenu();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Sign out" }));
 
     const dialog = await waitFor(() => screen.getByRole("dialog"));
     expect(within(dialog).getByText("Are you sure you want to logout?")).toBeTruthy();

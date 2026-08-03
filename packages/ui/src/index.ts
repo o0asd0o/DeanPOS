@@ -78,6 +78,14 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./components/select.tsx";
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "./components/dropdown-menu.tsx";
 export { Input } from "./components/input.tsx";
 export { PasswordInput } from "./components/password-input.tsx";
 export { cn } from "./lib/utils.ts";

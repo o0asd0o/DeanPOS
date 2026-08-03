@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Button } from "ui";
 
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import {
@@ -92,6 +93,19 @@ export function Users() {
       <p role="status" className="sr-only">
         {announcement.slot === 1 ? announcement.text : ""}
       </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Users</h1>
+          <p className="text-sm text-muted-foreground">
+            Who can sign in, what they may do, and where they work.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button onClick={openCreate} className="tap-target">
+            Add user
+          </Button>
+        )}
+      </div>
       <UserListCard
         users={usersQuery.data}
         stores={storesQuery.data ?? []}
@@ -104,7 +118,6 @@ export function Users() {
         editingId={editor.mode === "edit" ? editor.user.id : null}
         reactivatingId={reactivatingId}
         reactivateFailed={reactivateFailed}
-        onAdd={openCreate}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}
