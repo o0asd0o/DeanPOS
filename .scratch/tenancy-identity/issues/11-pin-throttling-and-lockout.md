@@ -9,8 +9,12 @@ this issue can be:_
 > - _Throttling is **on-device and nowhere else** — unlock is verified in the browser (057 Q1) and
 >   **no server procedure verifies a PIN** (058), so no server-side attempt counter exists or may be
 >   added._
-> - _Keyed per `userId`, **persisted behind the existing accessor-module pattern so it survives a
->   page reload** — an unthrottled reload is the whole bypass._
+> - _Keyed **per Device and per User at once** — a per-User counter at 5 so one cashier's fumbling
+>   does not close the till, and a per-Device counter at 10 that criterion 4 requires and that
+>   switching User cannot reset. **Persisted behind the existing accessor-module pattern so it
+>   survives a page reload** — an unthrottled reload is the whole bypass.
+>   [Record 059](../../decisions/059-the-pin-lockout-is-keyed-per-device-and-per-user.md) corrects
+>   058's "keyed per `userId`", which criterion 4 refutes._
 > - _**On-device throttling is not a security boundary and this issue must say so.** Whoever holds
 >   the tablet can clear it; 057 already concedes the roster is grindable in ~75 s. It exists against
 >   a bystander. Revocation is the mitigation (ADR-0007)._
@@ -53,9 +57,10 @@ screen itself is issue 10.
 
 ## Relevant files
 
-- `apps/pos/src/features/**` — the throttle state and its durable store
-- `packages/backend/src/**` — the server-side counterpart for online attempts
-- `packages/contract/src/contract.ts`
+- `apps/pos/src/features/unlock/**` — the locked state on the unlock screen
+- `apps/pos/src/lib/pin-throttle.ts` — **new**; the durable counters and the lock, behind the
+  accessor-module pattern
+- `apps/pos/tests/unlock-screen.test.tsx` — the reload, cross-User, lift and axe assertions
 
 ## Comments
 
@@ -75,6 +80,13 @@ mechanisms are not one mechanism:
   lock *is visible and says when it lifts*; the password lock may never announce itself, because
   a distinct lockout message is an account-enumeration oracle.
 
-**No criterion of this issue changes.** What you inherit is the `SignInThrottle` table, reused
-under a `pin:` key prefix for the server-side online-attempt half. The Device-side offline lockout
-stays your own mechanism, because it must work with no network at all.
+**No criterion of this issue changes, and nothing server-side is inherited.** Record 033 offered
+`SignInThrottle` under a `pin:` key prefix for a *"server-side counterpart for online attempts"*.
+**That counterpart has nothing to count.** Issue 10 and
+[record 058](../../decisions/058-pin-management-is-a-back-office-action.md) left **no server
+procedure that compares a PIN against a stored hash** — enforced by
+`apps/api/tests/pin-no-logging-grep.test.ts` — so no online PIN attempt exists. Throttling here is
+**on-device and nowhere else**
+([record 059](../../decisions/059-the-pin-lockout-is-keyed-per-device-and-per-user.md)); a
+server-side attempt counter would mean a PIN authenticating a request and needs a superseding
+record.
