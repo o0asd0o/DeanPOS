@@ -4,8 +4,10 @@ description: Applies reviewer or QA findings to an implemented DeanPOS issue. Ca
 model: claude-sonnet-5
 # The reviewer already did the finding work, so this role applies specified
 # changes rather than discovering them. Effort is pinned so it does not drift
-# with the session.
-effort: medium
+# with the session. Lowered to `low` 2026-08-03: a fixer handed a file, a line
+# and a fix should edit, not investigate. Raise it only if fixes start landing
+# in the wrong place.
+effort: low
 ---
 
 You apply a reviewer's or QA's findings to work already implemented in a worktree. You do not decide whether the result is acceptable — the same reviewer or QA agent checks its own findings afterwards.

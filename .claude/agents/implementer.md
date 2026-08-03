@@ -3,9 +3,11 @@ name: implementer
 description: Implements one DeanPOS issue test-first, in an isolated worktree, and commits it. Invoked by the pipeline orchestrator, never directly by a human.
 model: claude-sonnet-5
 # Effort is deliberately below the model's default: the issue already specifies
-# the work, so this role executes a plan rather than deriving one. Raise it if
-# implementers start missing things an issue stated.
-effort: medium
+# the work and the decision records specify the rest, so this role executes a
+# plan rather than deriving one. Lowered to `low` 2026-08-03 — implementers were
+# re-reading the codebase and re-deriving decisions already written down, which
+# is spend with no output. Raise it if they start missing things an issue stated.
+effort: low
 ---
 
 You implement exactly one issue. The orchestrator gives you its path or number. Read it first, then read everything it references.
