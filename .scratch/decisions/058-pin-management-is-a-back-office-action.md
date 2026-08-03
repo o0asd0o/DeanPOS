@@ -4,7 +4,7 @@
 - **Stakes:** **high** — credential management, an `admin`-only access-control path, and the copy a cashier reads when they cannot unlock a till.
 - **Date:** 2026-08-04
 - **Asked by:** the human, from a second-model review of `.scratch/tenancy-identity/issues/10-pin-unlock-and-the-hash-sync-payload.md`
-- **Relates to:** [057](057-pin-unlock-verifies-locally-with-pbkdf2.md) (its Q1 arithmetic decides this; 057 stays `decided`, one string amended), [043](043-the-temporary-password-is-typed-not-generated.md) (no-gos and reset dialog inherited whole), [045](045-the-user-editor.md)/[044](044-the-users-list.md) (one clause of each superseded), [048](048-the-back-office-header.md) (`UserMenu`), [032](032-the-password-policy.md), [042](042-user-event-is-refused-because-happy-dom-has-no-activation-behaviour.md)
+- **Relates to:** [057](057-pin-unlock-verifies-locally-with-pbkdf2.md) (its Q1 arithmetic decides this; 057 stays `decided`, one string amended), [043](043-the-temporary-password-is-typed-not-generated.md) (no-gos and reset dialog inherited whole), [045](045-the-user-editor.md)/[044](044-the-users-list.md) (one clause of each superseded), [048](048-the-back-office-header.md) (`UserMenu`), [032](032-the-password-policy.md), [042](042-user-event-is-refused-because-happy-dom-has-no-activation-behaviour.md), [063](063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md) (**two clauses below superseded and one reversal trigger updated; this record stays `decided`** — 063 moves self-service out of `_shell` to a standalone `/pin` page, which is what keeps this record's cashier reachable once the shell refuses them)
 
 ## The question
 
@@ -29,7 +29,11 @@ The reviewer's `currentPin` finding is right about the oracle, and I am taking i
 
 **The flows live in the back office, because that is the only place a password session exists.** `apps/pos` is Device-token only, and a Device token proves *store*, never *person* — so a POS-side setPin would let whoever reaches the till first claim a PIN-less colleague's first PIN. A `cashier` can already sign in to the back office (no role gate, verified), so everyone who needs the surface reaches it, and an admin resets a locked-out cashier from their own desk rather than walking to the till the cashier cannot open.
 
+> **Superseded in part by [063](063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md) (2026-08-04).** The back office is still the right home and the reasoning above is untouched — but *"everyone who needs the surface reaches it"* no longer means *reaches it inside `_shell`*. 063 refuses a `cashier` from the shell entirely and moves self-service to a standalone `/pin` page under `_gate`, beside `/set-password`. Sign-in itself is still un-role-gated, so a cashier still signs in and still reaches the surface.
+
 **Neither surface is a new visual pattern.** Self-service is a `DropdownMenuItem` in `UserMenu` opening a controlled `Dialog` — `SettingsDialog`'s exact shape. The admin reset is the `Reset PIN` button `users-1440.svg` already draws, over 043's reset dialog minus its field. Rung 2, twice.
+
+> **The self-service half is superseded by [063](063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md) (2026-08-04):** the `DropdownMenuItem` stays where 048 put it but wraps a `Link to="/pin"`, and the dialog becomes a page in `AuthLayout` — `SetPassword`'s shape rather than `SettingsDialog`'s. `PinDialog.tsx` is deleted; there is one self-service surface, not two. **The admin reset is unchanged**, and so is every procedure in the table below.
 
 ## The options, ranked
 
@@ -116,6 +120,7 @@ The reviewer's `currentPin` finding is right about the oracle, and I am taking i
 
 - **A PIN takeover from an unattended back-office session actually happens.** The residual this record knowingly accepts. Successor is option 2 — `currentPin` restored **together with** issue 11's throttle applied to it, never alone.
 - **A role gate is added to back-office sign-in, or a cashier exists without a back-office account.** Then first-use PIN setting dies silently and that cashier can never unlock. **The assumption I am least confident about**: it holds today and nothing in the repo protects it.
+  - **Half-fired, and answered — [063](063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md), 2026-08-04.** A role gate was added, but to **`_shell`**, not to `auth.signIn`: a `cashier` is refused from the shell and redirected to `/pin`. 063 relocates the surface in the same change rather than leaving it stranded, so this record's conclusion survives whole. **The other half stays armed**: a role gate on `auth.signIn` itself would still kill first-use PIN setting, and nothing yet protects against it.
 - **Any server procedure gains a comparison of a submitted PIN against a stored hash.** That voids the argument rather than tuning it; the grep above catches it.
 - **`auth.me` or any back-office payload starts carrying `pinHash` or a PIN-derived field.**
 - **The product needs a PIN to authenticate where no Device token is present** — 057 already names this trigger, and it supersedes both records at once.
