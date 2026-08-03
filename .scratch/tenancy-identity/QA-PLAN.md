@@ -7,6 +7,27 @@ is closed" trigger and its round cap of 2, per that section's staged-QA hook.
 correct at all. A single QA at the end would find a spine defect after nine slices were built
 on it. Each checkpoint runs at the seam that produced the work it judges.
 
+> ## ALL CHECKPOINTS DEFERRED — 2026-08-03
+>
+> **The human directed the run to continue to issue 13 without executing any QA checkpoint.**
+> A, B, C and D are **not run and not passed**. No verdict is recorded against any of them,
+> because none was earned. Nothing in this file may be read as a PASS.
+>
+> **What this costs, stated plainly.** Every issue in this PRD ships verified by the gate and by
+> two second-model review rounds — which proves the code does what its tests say, and proves
+> nothing about whether the area works. The specific gaps are named under checkpoint A below and
+> they now extend across all thirteen issues: the `happy-dom` cookie blind spot that has already
+> hidden one real bug, session lifetime end to end, the `Origin` gate, PIN unlock against a real
+> Device token, lockout surviving a reload with no network, and every wrong-tenant probe proven
+> to hide a row that is *there* rather than merely absent.
+>
+> **Running QA later does not become cheaper.** The staged design exists so a spine defect is
+> caught at the seam that produced it; deferring collapses all four checkpoints into one run
+> against thirteen issues, which is the shape this plan was written to avoid.
+>
+> To resume: run A first — it gates the rest — then B, C, D in order, each at its stated cap
+> of 1.
+
 ## The rule every checkpoint follows
 
 **One round, then the human.** QA runs. On FAIL, spawn `fixer` once with its findings, re-run
