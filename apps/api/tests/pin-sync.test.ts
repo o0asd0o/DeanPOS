@@ -1,0 +1,271 @@
+import { randomUUID } from "node:crypto";
+
+import { hashPassword } from "backend/src/common/password.ts";
+import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { hashPin } from "contract/src/pin.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
+import { createTestSeam } from "../src/test-seam.ts";
+
+// Issue 10: terminal.pinSync, the hash-sync payload. The payload assertions
+// are on the payload itself (record 057 Q3), not on device behaviour.
+const seam = createTestSeam();
+const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
+
+const tenantA = randomUUID();
+const tenantB = randomUUID();
+const adminA = randomUUID();
+const managerA = randomUUID(); // assigned to storeA1
+const cashierA = randomUUID(); // assigned to storeA1
+const cashierElsewhere = randomUUID(); // assigned to storeA2 only
+const deactivatedA = randomUUID(); // assigned to storeA1, but inactive
+const adminB = randomUUID();
+const storeA1 = randomUUID();
+const storeA2 = randomUUID();
+const storeB = randomUUID();
+
+async function assignStore(tenantId: string, userId: string, storeId: string) {
+  await withTenantScope(seam.db, tenantId, (db) =>
+    db
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: userId,
+        store_id: storeId,
+        assigned: true,
+        effective_from: new Date(Date.now() - 60_000),
+      })
+      .execute(),
+  );
+}
+
+async function enrolDeviceAt(storeId: string, code: string, actor: string, tenantId: string) {
+  const generated = await seam.actors
+    .asTenant(tenantId, { userId: actor, role: "admin" })
+    .client.device.generateCode({ storeId, name: "PIN Sync Terminal", code });
+  if (!generated.ok) throw new Error("setup: generateCode failed");
+  const exchanged = await seam.client.terminal.enrol({ secret: generated.secret });
+  if (!exchanged.ok) throw new Error("setup: enrol failed");
+  return exchanged;
+}
+
+beforeAll(async () => {
+  await ownerDb
+    .insertInto("Tenant")
+    .values([
+      { id: tenantA, name: "PIN Sync Tenant A" },
+      { id: tenantB, name: "PIN Sync Tenant B" },
+    ])
+    .execute();
+
+  const passwordHash = await hashPassword("irrelevant");
+  const pinHashCashier = await hashPin("135790");
+  const pinHashManager = await hashPin("246813");
+
+  await seedTenantUser(ownerDb, {
+    id: adminA,
+    tenantId: tenantA,
+    email: `pin-admin-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "admin",
+  });
+  await seedTenantUser(ownerDb, {
+    id: managerA,
+    tenantId: tenantA,
+    email: `pin-manager-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "manager",
+  });
+  await seedTenantUser(ownerDb, {
+    id: cashierA,
+    tenantId: tenantA,
+    email: `pin-cashier-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "cashier",
+  });
+  await seedTenantUser(ownerDb, {
+    id: cashierElsewhere,
+    tenantId: tenantA,
+    email: `pin-cashier-elsewhere-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "cashier",
+  });
+  await seedTenantUser(ownerDb, {
+    id: deactivatedA,
+    tenantId: tenantA,
+    email: `pin-deactivated-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "cashier",
+    active: false,
+  });
+  await seedTenantUser(ownerDb, {
+    id: adminB,
+    tenantId: tenantB,
+    email: `pin-admin-b-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "admin",
+  });
+
+  await withTenantScope(seam.db, tenantA, (db) =>
+    db
+      .insertInto("Store")
+      .values([
+        { id: storeA1, tenant_id: tenantA, name: "A Store 1" },
+        { id: storeA2, tenant_id: tenantA, name: "A Store 2" },
+      ])
+      .execute(),
+  );
+  await withTenantScope(seam.db, tenantB, (db) =>
+    db.insertInto("Store").values({ id: storeB, tenant_id: tenantB, name: "B Store" }).execute(),
+  );
+
+  await assignStore(tenantA, managerA, storeA1);
+  await assignStore(tenantA, cashierA, storeA1);
+  await assignStore(tenantA, cashierElsewhere, storeA2);
+  await assignStore(tenantA, deactivatedA, storeA1);
+
+  await ownerDb
+    .updateTable("User")
+    .set({ pin_hash: pinHashCashier })
+    .where("id", "=", cashierA)
+    .execute();
+  await ownerDb
+    .updateTable("User")
+    .set({ pin_hash: pinHashManager })
+    .where("id", "=", managerA)
+    .execute();
+  // adminA and cashierElsewhere have no PIN set yet — pinHash must be null.
+});
+
+afterAll(async () => {
+  // EnrolmentCode.device_id FKs Device with ON DELETE RESTRICT — clear the
+  // referencing rows first (mirrors device.test.ts).
+  await ownerDb.deleteFrom("DeviceAudit").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("EnrolmentCode").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Device").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("UserStore").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Store").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("User").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.destroy();
+  await seam.db.destroy();
+});
+
+describe("terminal.pinSync", () => {
+  it("contains exactly that Store's active Users: admin plus assigned cashiers/managers, no other Store, no deactivated User", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS1", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.storeId).toBe(storeA1);
+
+    const userIds = result.users.map((u) => u.userId).sort();
+    expect(userIds).toStrictEqual([adminA, cashierA, managerA].sort());
+    expect(userIds).not.toContain(cashierElsewhere);
+    expect(userIds).not.toContain(deactivatedA);
+  });
+
+  it("carries a hash for a User who has set one, null for one who has not, and never a password hash or email", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS2", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const cashierRow = result.users.find((u) => u.userId === cashierA);
+    const adminRow = result.users.find((u) => u.userId === adminA);
+    expect(cashierRow?.pinHash).toMatch(/^\$pbkdf2-sha256\$/);
+    expect(adminRow?.pinHash).toBeNull();
+
+    for (const user of result.users) {
+      expect(user).not.toHaveProperty("email");
+      expect(user).not.toHaveProperty("role");
+      expect(user).not.toHaveProperty("passwordHash");
+      expect(Object.keys(user).sort()).toStrictEqual(["displayName", "pinHash", "userId"].sort());
+    }
+  });
+
+  it("an admin's PIN hash lands on every terminal in the tenant, including a Store the admin is not assigned to", async () => {
+    const device = await enrolDeviceAt(storeA2, "PS3", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.users.map((u) => u.userId)).toContain(adminA);
+  });
+
+  it("deactivating a User removes their hash from the next payload; reactivating restores it", async () => {
+    const toggledId = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    const pinHash = await hashPin("998877");
+    await seedTenantUser(ownerDb, {
+      id: toggledId,
+      tenantId: tenantA,
+      email: `pin-toggle-${randomUUID()}@pin.test`,
+      passwordHash,
+      role: "cashier",
+    });
+    await assignStore(tenantA, toggledId, storeA1);
+    await ownerDb
+      .updateTable("User")
+      .set({ pin_hash: pinHash })
+      .where("id", "=", toggledId)
+      .execute();
+
+    const device = await enrolDeviceAt(storeA1, "PS4", adminA, tenantA);
+    const client = seam.actors.withBearerToken(device.token);
+
+    const before = await client.terminal.pinSync();
+    expect(before.ok && before.users.some((u) => u.userId === toggledId)).toBe(true);
+
+    await ownerDb.updateTable("User").set({ active: false }).where("id", "=", toggledId).execute();
+    const whileInactive = await client.terminal.pinSync();
+    expect(whileInactive.ok && whileInactive.users.some((u) => u.userId === toggledId)).toBe(false);
+
+    await ownerDb.updateTable("User").set({ active: true }).where("id", "=", toggledId).execute();
+    const afterReactivate = await client.terminal.pinSync();
+    expect(afterReactivate.ok && afterReactivate.users.some((u) => u.userId === toggledId)).toBe(
+      true,
+    );
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", toggledId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", toggledId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", toggledId).execute();
+  });
+
+  it("refuses with no Device token, an unrecognised token, and a revoked Device's token", async () => {
+    const noToken = await seam.actors.withBearerToken(null).terminal.pinSync();
+    expect(noToken.ok).toBe(false);
+
+    const badToken = await seam.actors.withBearerToken("not-a-real-token").terminal.pinSync();
+    expect(badToken.ok).toBe(false);
+
+    const device = await enrolDeviceAt(storeA1, "PS5", adminA, tenantA);
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: device.deviceId });
+    const revoked = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+    expect(revoked.ok).toBe(false);
+  });
+
+  it("a User's own tenant session (not a Device token) is refused — a PIN is never accepted without a valid, unrevoked Device token", async () => {
+    const asSession = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.terminal.pinSync();
+    expect(asSession.ok).toBe(false);
+  });
+
+  it("wrong-tenant probe: a Device enrolled at Tenant A never sees Tenant B's Users, even though B has an active admin", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.users.map((u) => u.userId)).not.toContain(adminB);
+    expect(result.storeId).not.toBe(storeB);
+  });
+});

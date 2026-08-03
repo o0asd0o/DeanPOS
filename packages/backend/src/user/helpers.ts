@@ -14,7 +14,7 @@ type UserOutput = {
 
 // Only the columns this shape needs — never the full row, so a caller
 // selecting an explicit column list (never selectAll on User, issue 10)
-// still satisfies this without pulling password_hash or pin_hash along.
+// still satisfies this without pulling any credential column along.
 type UserRow = {
   id: string;
   tenant_id: string;

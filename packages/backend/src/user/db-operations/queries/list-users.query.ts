@@ -3,7 +3,7 @@ import type { DatabaseInstance } from "../../../db/client.ts";
 // RLS confines this to the caller's Tenant; role narrowing is the handler's
 // job. Ordered by email (record 044 §1), the row identity. Explicit column
 // list, never selectAll — this feeds the back-office user list, and
-// selectAll would return pin_hash and password_hash into it (issue 10).
+// selectAll would carry every credential column into it (issue 10).
 export const listUsers = (db: DatabaseInstance) =>
   db
     .selectFrom("User")
