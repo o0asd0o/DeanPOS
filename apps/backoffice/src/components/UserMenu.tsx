@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
-import { ChevronDownIcon, LogOutIcon, SettingsIcon, UserRoundIcon } from "lucide-react";
+import { LogOutIcon, SettingsIcon } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -19,9 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 
+import { displayNameFromEmail, initialsFromEmail } from "./helpers.ts";
+
 // The one reachable path to auth.signOut. The confirm dialog is controlled
 // rather than triggered, because the menu unmounts its own items on select and
-// a `DialogTrigger` inside one closes with them.
+// a `DialogTrigger` inside one closes with them. Record 048.
 export function UserMenu() {
   const { orpc } = useRouteContext({ from: "/_shell" });
   const queryClient = useQueryClient();
@@ -30,6 +32,9 @@ export function UserMenu() {
 
   const me = useQuery(orpc.auth.me.queryOptions());
   const signOut = useMutation(orpc.auth.signOut.mutationOptions());
+
+  const email = me.data?.authenticated ? me.data.email : undefined;
+  const role = me.data?.authenticated ? me.data.role : undefined;
 
   const handleSignOut = async () => {
     await signOut.mutateAsync();
@@ -41,13 +46,19 @@ export function UserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2" aria-label="Account">
-            <UserRoundIcon />
-            <ChevronDownIcon className="text-muted-foreground" />
+          <Button className="h-auto gap-3 py-1 pr-4 pl-1" aria-label="Account">
+            {/* Initials until a User carries a photo — record 048. */}
+            <span className="flex size-9 items-center justify-center rounded-full bg-card text-sm font-medium text-foreground">
+              {initialsFromEmail(email)}
+            </span>
+            <span className="hidden text-left leading-tight sm:block">
+              <span className="block font-medium">{displayNameFromEmail(email)}</span>
+              <span className="block text-xs text-primary-foreground/70">{email ?? role}</span>
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{me.data?.authenticated ? me.data.role : "Account"}</DropdownMenuLabel>
+          <DropdownMenuLabel>{role ?? "Account"}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link to="/settings">

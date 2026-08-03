@@ -33,6 +33,7 @@ export function renderRoute<TRouter extends AnyRouter>(
     router: TRouter;
     tenantId?: string;
     mustChangePassword?: boolean;
+    email?: string;
     initialLocation?: string;
     userId?: string;
     role?: Principal["role"];
@@ -42,13 +43,21 @@ export function renderRoute<TRouter extends AnyRouter>(
   db: ReturnType<typeof createTestSeam>["db"];
   queryClient: QueryClient;
 } {
-  const { router, tenantId, mustChangePassword, initialLocation, userId, role, ...seamOptions } =
-    options;
+  const {
+    router,
+    tenantId,
+    mustChangePassword,
+    email,
+    initialLocation,
+    userId,
+    role,
+    ...seamOptions
+  } = options;
   if (initialLocation) window.history.pushState(null, "", initialLocation);
 
   const seam = createTestSeam(seamOptions);
   const actor = tenantId
-    ? seam.actors.asTenant(tenantId, { mustChangePassword, userId, role })
+    ? seam.actors.asTenant(tenantId, { mustChangePassword, userId, role, email })
     : seam;
 
   const client = createClient({

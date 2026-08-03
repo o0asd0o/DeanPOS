@@ -98,12 +98,18 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
       // pass `role` and `userId` explicitly, matching a seeded User.
       asTenant: (
         tenantId: string,
-        options: { mustChangePassword?: boolean; userId?: string; role?: Principal["role"] } = {},
+        options: {
+          mustChangePassword?: boolean;
+          userId?: string;
+          email?: string;
+          role?: Principal["role"];
+        } = {},
       ) =>
         buildActor({
           principal: {
             tenantId,
             userId: options.userId,
+            email: options.email,
             mustChangePassword: options.mustChangePassword,
             role: options.role ?? "admin",
           },

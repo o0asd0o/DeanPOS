@@ -115,6 +115,7 @@ describe("wrong-tenant probes on auth.*", () => {
       mustChangePassword: true,
       role: "admin",
       userId: pair.userA,
+      email: pair.emailA,
     });
 
     await cleanupPair(pair);

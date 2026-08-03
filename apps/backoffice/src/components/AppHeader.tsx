@@ -17,7 +17,7 @@ export function AppHeader() {
         />
         <Input type="search" aria-label="Search" placeholder="Search" className="pl-9" />
       </form>
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-2">
         <NotificationsMenu />
         <UserMenu />
       </div>

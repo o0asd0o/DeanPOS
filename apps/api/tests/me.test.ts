@@ -51,6 +51,7 @@ describe("auth.me", () => {
       mustChangePassword: false,
       role: "admin",
       userId,
+      email,
     });
   });
 
@@ -71,6 +72,7 @@ describe("auth.me", () => {
       mustChangePassword: true,
       role: "cashier",
       userId: tempUserId,
+      email: tempEmail,
     });
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", tempUserId).execute();

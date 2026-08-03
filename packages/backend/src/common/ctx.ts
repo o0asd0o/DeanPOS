@@ -7,6 +7,7 @@ import type { Role } from "../db/prisma/generated/types.ts";
 export type Principal = {
   tenantId: string;
   userId?: string;
+  email?: string;
   sessionId?: string;
   mustChangePassword?: boolean;
   role?: Role;

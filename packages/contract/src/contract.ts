@@ -118,6 +118,7 @@ export const meOutputSchema = z.discriminatedUnion("authenticated", [
     mustChangePassword: z.boolean(),
     role: roleSchema,
     userId: z.string().optional(),
+    email: z.string().optional(),
   }),
 ]);
 
