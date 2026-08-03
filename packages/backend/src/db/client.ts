@@ -51,3 +51,18 @@ export const withSessionScope = <T>(
   sessionId: string,
   fn: (scopedDb: DatabaseInstance) => Promise<T>,
 ): Promise<T> => withScope(db, "app.session_id", sessionId, fn);
+
+// Pre-auth Device lookup (issue 09, record 056 Q6/031): the tenant is
+// unknown until the Device is found by its token hash.
+export const withDeviceTokenScope = <T>(
+  db: DatabaseInstance,
+  tokenHash: string,
+  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+): Promise<T> => withScope(db, "app.device_token_hash", tokenHash, fn);
+
+// Pre-auth EnrolmentCode lookup for `terminal.enrol` (record 056 Q6/031).
+export const withEnrolmentCodeScope = <T>(
+  db: DatabaseInstance,
+  code: string,
+  fn: (scopedDb: DatabaseInstance) => Promise<T>,
+): Promise<T> => withScope(db, "app.enrolment_code", code, fn);

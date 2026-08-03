@@ -18,15 +18,37 @@ export type Principal = {
 // (issue 02, platform-admin-tenant-provisioning).
 export type PlatformAdminPrincipal = { platformAdminId: string };
 
+// The terminal's own principal (issue 09, record 056 Q6). Derived entirely
+// from the Device row — never from request input, which is what makes
+// "a Device cannot act for another Store" a compile-time property of every
+// handler that reads it.
+export type DevicePrincipal = {
+  tenantId: string;
+  deviceId: string;
+  storeId: string;
+  code: string;
+  name: string;
+};
+
 // Built once per app instance, not per request (issue 03 moves this). ADR-0008.
-// The three states are mutually exclusive by construction — a Ctx can never
-// carry both a tenant and a platform-admin principal (issue 02 review round 1).
+// The four states are mutually exclusive by construction — a Ctx can never
+// carry two of them at once (issue 02 review round 1). The Device arm's
+// field is `device`, never `principal` — that difference is the whole
+// enforcement that a Device-token request cannot satisfy a `ctx.principal`
+// check (record 056 Q6).
 type Identity =
   | { kind: "unauthenticated" }
   | { kind: "tenant"; principal: Principal }
-  | { kind: "platform-admin"; platformAdmin: PlatformAdminPrincipal };
+  | { kind: "platform-admin"; platformAdmin: PlatformAdminPrincipal }
+  | { kind: "device"; device: DevicePrincipal };
 
 // `resHeaders` (oRPC's ResponseHeadersPlugin, issue 03) is where sign-in/out
 // append `Set-Cookie`; absent outside a real HTTP request. `clientIp`
 // (record 033) is for sign-in throttling only — never authorisation.
 export type Ctx = { db: DatabaseInstance; resHeaders?: Headers; clientIp: string } & Identity;
+
+// A Device handler's own guard (record 056 Q6): narrows to the `device` arm
+// or returns null. Reading `ctx.device.storeId` after this cannot compile
+// against the tenant arm, and vice versa — the type is the enforcement.
+export const deviceCtx = (ctx: Ctx): (Ctx & { kind: "device" }) | null =>
+  ctx.kind === "device" ? ctx : null;

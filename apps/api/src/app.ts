@@ -1,18 +1,32 @@
 import { implement, ORPCError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ResponseHeadersPlugin } from "@orpc/server/plugins";
-import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
+import type {
+  Ctx,
+  DevicePrincipal,
+  PlatformAdminPrincipal,
+  Principal,
+} from "backend/src/common/ctx.ts";
 import type { DatabaseInstance } from "backend/src/db/client.ts";
 import { contract } from "contract/src/index.ts";
 import { toSafeErrorResponse } from "error/src/index.ts";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { buildContextFromSession, createContext } from "./context.ts";
+import { buildContextFromDeviceToken, buildContextFromSession, createContext } from "./context.ts";
 import { parseSessionCookie } from "./cookies.ts";
 import { allowedOrigins } from "./middlewares/cors.ts";
 import { isMustChangePasswordExempt } from "./middlewares/must-change-password.ts";
 import { createAuthRoutes } from "./routes/auth.ts";
+import {
+  deviceGenerateCodeRoute,
+  deviceListRoute,
+  deviceRenameRoute,
+  deviceRevokeRoute,
+  terminalEnrolRoute,
+  terminalHeartbeatRoute,
+  terminalMeRoute,
+} from "./routes/device.ts";
 import { healthRoute } from "./routes/health.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import {
@@ -50,6 +64,8 @@ export type CreateAppOptions = {
   principal?: Principal | null;
   /** Same shape as `principal`, for a platform-admin actor (issue 02) — a distinct principal, never a Tenant's. */
   platformAdmin?: PlatformAdminPrincipal | null;
+  /** Same shape as `principal`, for a Device actor (issue 09) — a distinct principal, never a Tenant's User. */
+  device?: DevicePrincipal | null;
 };
 
 const ADMIN_ORIGIN = (appDomain: string) => `https://admin.${appDomain}`;
@@ -61,9 +77,10 @@ export const createApp = ({
   devOrigins = [],
   principal = null,
   platformAdmin = null,
+  device = null,
 }: CreateAppOptions) => {
   const app = new Hono<{ Variables: { ctx: Ctx } }>();
-  const testSeamActor = principal || platformAdmin;
+  const testSeamActor = principal || platformAdmin || device;
 
   // credentials: true is required for the session cookie to survive the
   // cross-subdomain request (issue 03 round 2) — without it the browser
@@ -115,6 +132,19 @@ export const createApp = ({
       settings: { get: settingsGetRoute, update: settingsUpdateRoute },
       platformAdmin: { provisionTenant: provisionTenantRoute },
       auth: authRoutes,
+      // Cookie/admin (issue 09, record 056 Q6) — never accepts a Device token.
+      device: {
+        list: deviceListRoute,
+        generateCode: deviceGenerateCodeRoute,
+        rename: deviceRenameRoute,
+        revoke: deviceRevokeRoute,
+      },
+      // The terminal's own key — `enrol` unauthenticated, the rest Device-token.
+      terminal: {
+        enrol: terminalEnrolRoute,
+        me: terminalMeRoute,
+        heartbeat: terminalHeartbeatRoute,
+      },
     });
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
 
@@ -127,22 +157,30 @@ export const createApp = ({
     // Ctx is built per request, not once per app instance (issue 03).
     let ctx: Ctx;
     if (testSeamActor) {
-      ctx = createContext(db, clientIp, principal, platformAdmin);
+      ctx = createContext(db, clientIp, principal, platformAdmin, device);
     } else {
       // A device-token request (issue 09) carries `Authorization`, never the
       // session cookie's identity — the Origin gate below is this app's
       // cookie-CSRF defence and must not refuse a request that never relied
       // on the cookie in the first place, even if one rode along incidentally.
-      const isDeviceTokenRequest = c.req.header("Authorization") !== undefined;
-      const sessionId = isDeviceTokenRequest ? null : parseSessionCookie(c.req.header("Cookie"));
-      if (sessionId) {
-        // A missing Origin is a refusal, not a pass — PRD security criterion 20.
-        if (!cookieOrigins.includes(c.req.header("Origin") ?? "")) {
-          return c.json(toSafeErrorResponse(new ORPCError("FORBIDDEN")), 403);
-        }
-        ctx = await buildContextFromSession(db, sessionId, clientIp);
+      const authHeader = c.req.header("Authorization");
+      const isDeviceTokenRequest = authHeader !== undefined;
+      if (isDeviceTokenRequest) {
+        // Scheme matched case-insensitively; anything else resolves to
+        // unauthenticated rather than an error (record 056 Q2).
+        const match = /^bearer\s+(.+)$/i.exec(authHeader);
+        ctx = await buildContextFromDeviceToken(db, match ? match[1]! : null, clientIp);
       } else {
-        ctx = { db, clientIp, kind: "unauthenticated" };
+        const sessionId = parseSessionCookie(c.req.header("Cookie"));
+        if (sessionId) {
+          // A missing Origin is a refusal, not a pass — PRD security criterion 20.
+          if (!cookieOrigins.includes(c.req.header("Origin") ?? "")) {
+            return c.json(toSafeErrorResponse(new ORPCError("FORBIDDEN")), 403);
+          }
+          ctx = await buildContextFromSession(db, sessionId, clientIp);
+        } else {
+          ctx = { db, clientIp, kind: "unauthenticated" };
+        }
       }
     }
     c.set("ctx", ctx);

@@ -260,15 +260,19 @@ model PaymentMethodAudit {
   @@index([tenantId])
 }
 
-// A single-use, Store-bound code an admin types (issue 09, record 056 Q4).
-// `code` is reservation-only here — the hard uniqueness guarantee is
-// `Device`'s own full unique index, which bites at exchange.
+// A single-use, Store-bound enrolment (issue 09, record 056 Q4). `code` is
+// the Device's own short code, admin-typed here as a reservation only — the
+// hard uniqueness guarantee is `Device`'s own full unique index, which bites
+// at exchange. `secret` is the separate high-entropy value the terminal
+// exchanges (record 056 smaller call 3), unrelated to what prints on a
+// receipt.
 model EnrolmentCode {
   id          String    @id
   tenantId    String    @map("tenant_id")
   storeId     String    @map("store_id")
   name        String
   code        String
+  secret      String
   expiresAt   DateTime  @map("expires_at")
   consumedAt  DateTime? @map("consumed_at")
   deviceId    String?   @map("device_id")

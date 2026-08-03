@@ -5,6 +5,7 @@ CREATE TABLE "EnrolmentCode" (
     "store_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
+    "secret" TEXT NOT NULL,
     "expires_at" TIMESTAMP(3) NOT NULL,
     "consumed_at" TIMESTAMP(3),
     "device_id" TEXT,
@@ -28,11 +29,17 @@ CREATE TABLE "Device" (
     CONSTRAINT "Device_pkey" PRIMARY KEY ("id")
 );
 
--- Record 056 Q4: the admin-typed short code, 2-4 Crockford-safe symbols.
+-- Record 056 Q4: the admin-typed short code, 2-4 Crockford-safe symbols
+-- (excludes I, L, O; keeps 0 and 1).
 ALTER TABLE "EnrolmentCode" ADD CONSTRAINT "EnrolmentCode_code_check"
   CHECK ("code" ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}$');
 ALTER TABLE "Device" ADD CONSTRAINT "Device_code_check"
   CHECK ("code" ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}$');
+
+-- The separate exchange secret (record 056 smaller call 3): 8 symbols from
+-- Crockford's 32-symbol alphabet, unrelated to the receipt-facing code.
+ALTER TABLE "EnrolmentCode" ADD CONSTRAINT "EnrolmentCode_secret_check"
+  CHECK ("secret" ~ '^[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{8}$');
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Device_tenant_id_id_key" ON "Device"("tenant_id", "id");
@@ -40,6 +47,7 @@ CREATE UNIQUE INDEX "EnrolmentCode_tenant_id_id_key" ON "EnrolmentCode"("tenant_
 CREATE INDEX "Device_tenant_id_idx" ON "Device"("tenant_id");
 CREATE INDEX "EnrolmentCode_tenant_id_idx" ON "EnrolmentCode"("tenant_id");
 CREATE UNIQUE INDEX "Device_token_hash_key" ON "Device"("token_hash");
+CREATE UNIQUE INDEX "EnrolmentCode_secret_key" ON "EnrolmentCode"("secret");
 
 -- No `WHERE`: a revoked Device's row keeps its code, so it can never be
 -- reissued at the same Store (issue 09 acceptance criteria, record 056 Q4).
@@ -84,7 +92,7 @@ CREATE POLICY "enrolment_code_tenant_isolation" ON "EnrolmentCode"
 CREATE POLICY "device_token_lookup" ON "Device"
   FOR SELECT USING ("token_hash" = nullif(current_setting('app.device_token_hash', true), ''));
 CREATE POLICY "enrolment_code_lookup" ON "EnrolmentCode"
-  FOR SELECT USING ("code" = nullif(current_setting('app.enrolment_code', true), ''));
+  FOR SELECT USING ("secret" = nullif(current_setting('app.enrolment_code', true), ''));
 
 -- CreateTable
 CREATE TABLE "DeviceAudit" (

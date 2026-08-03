@@ -144,6 +144,77 @@ export const paymentMethodUpdateInputSchema = z.object({
 
 export const paymentMethodIdInputSchema = z.object({ id: z.string() });
 
+// Device management (issue 09, record 056). `admin`-only.
+export const deviceOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  storeId: z.string(),
+  name: z.string(),
+  code: z.string(),
+  enrolledAt: z.date(),
+  lastSeenAt: z.date(),
+  revokedAt: z.date().nullable(),
+});
+
+// The Device short code, admin-typed (record 056 Q4): 2-4 symbols from a
+// 33-symbol set that excludes I/L/O.
+const deviceCodeSchema = z
+  .string()
+  .regex(/^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}$/i, "2-4 characters, letters and digits, no I/L/O");
+
+export const deviceGenerateCodeInputSchema = z.object({
+  storeId: z.string(),
+  name: z.string().min(1),
+  code: deviceCodeSchema,
+});
+
+export const deviceGenerateCodeOutputSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    secret: z.string(),
+    name: z.string(),
+    code: z.string(),
+    storeId: z.string(),
+    expiresAt: z.date(),
+  }),
+  z.object({ ok: z.literal(false) }),
+]);
+
+export const deviceRenameInputSchema = z.object({ id: z.string(), name: z.string().min(1) });
+export const deviceIdInputSchema = z.object({ id: z.string() });
+
+// The terminal's own procedures (issue 09, record 056 Q6). `enrol` is
+// unauthenticated; `me`/`heartbeat` are Device-token.
+export const terminalEnrolInputSchema = z.object({ secret: z.string().min(1) });
+
+export const terminalEnrolOutputSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    // The one place the plaintext token ever appears (record 056 Q2).
+    token: z.string(),
+    deviceId: z.string(),
+    name: z.string(),
+    code: z.string(),
+    storeId: z.string(),
+    storeName: z.string(),
+  }),
+  z.object({ ok: z.literal(false) }),
+]);
+
+export const terminalMeOutputSchema = z.discriminatedUnion("authenticated", [
+  z.object({ authenticated: z.literal(false) }),
+  z.object({
+    authenticated: z.literal(true),
+    deviceId: z.string(),
+    name: z.string(),
+    code: z.string(),
+    storeId: z.string(),
+    storeName: z.string(),
+  }),
+]);
+
+export const terminalHeartbeatOutputSchema = z.object({ ok: z.boolean() });
+
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
@@ -248,5 +319,22 @@ export const contract = {
     signOut: oc.input(z.void()).output(signOutOutputSchema),
     setPassword: oc.input(setPasswordInputSchema).output(setPasswordOutputSchema),
     me: oc.input(z.void()).output(meOutputSchema),
+  },
+  // Device management (issue 09, record 056 Q6). Cookie/admin — never
+  // accepts a Device token, the same not-found/false shape other admin-only
+  // procedures use.
+  device: {
+    list: oc.input(z.void()).output(z.array(deviceOutputSchema)),
+    generateCode: oc.input(deviceGenerateCodeInputSchema).output(deviceGenerateCodeOutputSchema),
+    rename: oc.input(deviceRenameInputSchema).output(deviceOutputSchema.nullable()),
+    revoke: oc.input(deviceIdInputSchema).output(deviceOutputSchema.nullable()),
+  },
+  // The terminal's own key (issue 09, record 056 Q6) — distinct from
+  // `device` above so the two principals can never be mixed in one
+  // contract entry. `enrol` unauthenticated; `me`/`heartbeat` Device-token.
+  terminal: {
+    enrol: oc.input(terminalEnrolInputSchema).output(terminalEnrolOutputSchema),
+    me: oc.input(z.void()).output(terminalMeOutputSchema),
+    heartbeat: oc.input(z.void()).output(terminalHeartbeatOutputSchema),
   },
 };

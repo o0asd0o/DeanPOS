@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
+import type {
+  Ctx,
+  DevicePrincipal,
+  PlatformAdminPrincipal,
+  Principal,
+} from "backend/src/common/ctx.ts";
 import { createDb } from "backend/src/db/client.ts";
 import { createClient } from "contract/src/index.ts";
 
@@ -37,6 +42,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
   const buildActor = (actor: {
     principal?: Principal | null;
     platformAdmin?: PlatformAdminPrincipal | null;
+    device?: DevicePrincipal | null;
   }) => {
     const app = createApp({
       db,
@@ -44,6 +50,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
       devOrigins: options.devOrigins,
       principal: actor.principal ?? null,
       platformAdmin: actor.platformAdmin ?? null,
+      device: actor.device ?? null,
     });
     const client = createClient({
       url: `https://api.${appDomain}/rpc`,
@@ -66,6 +73,20 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
         if (origin !== null) request.headers.set("Origin", origin);
         else request.headers.delete("Origin");
         if (cookieHeader) request.headers.set("Cookie", cookieHeader);
+        return app.request(request);
+      },
+    });
+
+  // A Device-token client against the base app — the real `Authorization`
+  // header path (issue 09), not the direct-principal shortcut below. Proves
+  // `buildContextFromDeviceToken` end to end: hash, pre-auth lookup,
+  // revocation, and the `last_seen_at` touch.
+  const withBearerToken = (token: string | null) =>
+    createClient({
+      url: `https://api.${appDomain}/rpc`,
+      fetch: async (request) => {
+        forward(request);
+        if (token) request.headers.set("Authorization", `Bearer ${token}`);
         return app.request(request);
       },
     });
@@ -134,11 +155,17 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
         }),
       asPlatformAdmin: (platformAdminId: string) =>
         buildActor({ platformAdmin: { platformAdminId } }),
+      // Direct-principal shortcut for a Device actor (issue 09) — handler
+      // tests that don't need the real header path use this.
+      asDevice: (device: DevicePrincipal) => buildActor({ device }),
       asUnauthenticated: () => buildActor({}),
       // Issue 03: a real back-office session, driven through the actual
       // cookie/Origin path rather than the direct-principal shortcut above.
       signIn,
       withCookie: buildCookieClient,
+      // Issue 09: a real `Authorization: Bearer <token>` request against the
+      // base app — the production path, not the direct-principal shortcut.
+      withBearerToken,
       adminOrigin,
     },
     // No actor above can build this — they're exclusive by construction, and
