@@ -1,6 +1,13 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-// Every Device-token request touches this (issue 09 acceptance criteria:
-// "last-seen updates on activity") — called from buildContextFromDeviceToken.
+// Called from buildContextFromDeviceToken on every request (issue 09).
+// Conditioned on revoked_at IS NULL: zero rows back means a revoke won
+// the race, and the caller must refuse.
 export const touchDevice = (db: DatabaseInstance, id: string) =>
-  db.updateTable("Device").set({ last_seen_at: new Date() }).where("id", "=", id).execute();
+  db
+    .updateTable("Device")
+    .set({ last_seen_at: new Date() })
+    .where("id", "=", id)
+    .where("revoked_at", "is", null)
+    .returningAll()
+    .executeTakeFirst();

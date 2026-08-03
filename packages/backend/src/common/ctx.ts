@@ -19,9 +19,8 @@ export type Principal = {
 export type PlatformAdminPrincipal = { platformAdminId: string };
 
 // The terminal's own principal (issue 09, record 056 Q6). Derived entirely
-// from the Device row — never from request input, which is what makes
-// "a Device cannot act for another Store" a compile-time property of every
-// handler that reads it.
+// from the Device row, never from request input — a Device cannot act for
+// another Store.
 export type DevicePrincipal = {
   tenantId: string;
   deviceId: string;
@@ -31,11 +30,8 @@ export type DevicePrincipal = {
 };
 
 // Built once per app instance, not per request (issue 03 moves this). ADR-0008.
-// The four states are mutually exclusive by construction — a Ctx can never
-// carry two of them at once (issue 02 review round 1). The Device arm's
-// field is `device`, never `principal` — that difference is the whole
-// enforcement that a Device-token request cannot satisfy a `ctx.principal`
-// check (record 056 Q6).
+// The four states are mutually exclusive by construction. The Device arm's
+// field is `device`, never `principal` (record 056 Q6).
 type Identity =
   | { kind: "unauthenticated" }
   | { kind: "tenant"; principal: Principal }

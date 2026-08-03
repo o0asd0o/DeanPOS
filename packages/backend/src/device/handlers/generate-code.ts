@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
+import { getStore } from "../../store/db-operations/queries/get-store.query.ts";
 import { insertDeviceAudit } from "../db-operations/commands/insert-device-audit.command.ts";
 import { insertEnrolmentCode } from "../db-operations/commands/insert-enrolment-code.command.ts";
 import { isCodeReserved } from "../db-operations/queries/is-code-reserved.query.ts";
@@ -38,6 +39,9 @@ export const handler: Handler<GenerateCodeInput, GenerateCodeResult> = async ({ 
   if (!DEVICE_CODE_PATTERN.test(code)) return { ok: false };
 
   return withTenantScope(ctx.db, tenantId, async (scopedDb) => {
+    // Scoped to the caller's Tenant — a wrong-tenant storeId reads as
+    // not-found here instead of tripping the composite FK on insert.
+    if (!(await getStore(scopedDb, input.storeId))) return { ok: false };
     if (await isCodeReserved(scopedDb, input.storeId, code)) return { ok: false };
 
     const secret = generateEnrolmentSecret();

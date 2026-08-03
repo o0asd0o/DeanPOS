@@ -261,11 +261,8 @@ model PaymentMethodAudit {
 }
 
 // A single-use, Store-bound enrolment (issue 09, record 056 Q4). `code` is
-// the Device's own short code, admin-typed here as a reservation only — the
-// hard uniqueness guarantee is `Device`'s own full unique index, which bites
-// at exchange. `secret` is the separate high-entropy value the terminal
-// exchanges (record 056 smaller call 3), unrelated to what prints on a
-// receipt.
+// a reservation only — the hard uniqueness guarantee is `Device`'s own full
+// unique index. `secret` is the separate high-entropy value exchanged.
 model EnrolmentCode {
   id          String    @id
   tenantId    String    @map("tenant_id")
@@ -288,8 +285,7 @@ model EnrolmentCode {
 
 // The Device principal (issue 09, ADR-0007/0008, record 056 Q2/Q4). `code`
 // is never reissued after revocation — no `WHERE` on its unique index.
-// `store_id`/`tenant_id`/`code`/`tokenHash`/`enrolledAt` are immutable after
-// insert by a column-level grant, not by application code (record 056 Q6).
+// Most columns are immutable after insert by a column-level grant (Q6).
 model Device {
   id          String    @id
   tenantId    String    @map("tenant_id")

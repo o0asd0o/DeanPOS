@@ -27,10 +27,7 @@ type EnrolResult =
 
 // Unauthenticated (issue 09, record 056 Q4/Q6). One message covers expired,
 // consumed, and unknown alike — distinguishing them is an enumeration oracle.
-// Consuming the code and inserting the Device share one tenant-scoped
-// transaction; a unique-violation on (tenant, store, code) rolls both back.
-// This exchange writes no audit row — its actor is a terminal, not a User
-// (record 056 Q1).
+// Writes no audit row — its actor is a terminal, not a User (record 056 Q1).
 export const handler: Handler<EnrolInput, EnrolResult> = async ({ ctx, input }) => {
   const secret = normalizeEnrolmentSecret(input.secret);
 

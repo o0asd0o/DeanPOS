@@ -66,9 +66,8 @@ ALTER TABLE "Device" ADD CONSTRAINT "Device_tenant_id_store_id_fkey"
   FOREIGN KEY ("tenant_id", "store_id") REFERENCES "Store"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Never deleted (issue 09 acceptance criteria — revoked, not removed).
--- Column-level grant, record 056 Q6: only these three columns move after
--- insert. store_id/tenant_id/code/token_hash/enrolled_at are then immutable
--- by the database, so no path can re-point a Device at another Store.
+-- Column-level grant, record 056 Q6: only name/last_seen_at/revoked_at
+-- move after insert — the rest are then immutable by the database.
 REVOKE ALL ON "Device" FROM "deanpos_app";
 GRANT SELECT, INSERT ON "Device" TO "deanpos_app";
 GRANT UPDATE ("name", "last_seen_at", "revoked_at") ON "Device" TO "deanpos_app";

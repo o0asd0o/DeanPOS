@@ -1,6 +1,10 @@
 import { Kysely, PostgresDialect, sql } from "kysely";
 import { Pool } from "pg";
 
+// Re-exported so callers outside this package (tests, mainly) never add
+// kysely as their own dependency just to write a raw query.
+export { sql };
+
 import type { DB } from "./prisma/generated/types.ts";
 
 export type DatabaseInstance = Kysely<DB>;

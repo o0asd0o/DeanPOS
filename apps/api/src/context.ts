@@ -85,8 +85,6 @@ export const buildContextFromSession = async (
  * Production path for the Device token (issue 09, record 056 Q6): mirrors
  * `buildContextFromSession`. A missing, unknown, malformed, or revoked
  * Device all resolve to `unauthenticated`, never a distinguishable error.
- * `last_seen_at` is touched inside the tenant-scoped transaction — the one
- * place every Device-token request updates it (acceptance criteria 9).
  */
 export const buildContextFromDeviceToken = async (
   db: DatabaseInstance,
@@ -100,7 +98,8 @@ export const buildContextFromDeviceToken = async (
   if (!device || device.revoked_at) return { db, clientIp, kind: "unauthenticated" };
 
   return withTenantScope(db, device.tenant_id, async (scopedDb) => {
-    await touchDevice(scopedDb, device.id);
+    const touched = await touchDevice(scopedDb, device.id);
+    if (!touched) return { db, clientIp, kind: "unauthenticated" };
     return {
       db,
       clientIp,

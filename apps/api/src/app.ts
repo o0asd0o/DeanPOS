@@ -160,9 +160,8 @@ export const createApp = ({
       ctx = createContext(db, clientIp, principal, platformAdmin, device);
     } else {
       // A device-token request (issue 09) carries `Authorization`, never the
-      // session cookie's identity — the Origin gate below is this app's
-      // cookie-CSRF defence and must not refuse a request that never relied
-      // on the cookie in the first place, even if one rode along incidentally.
+      // session cookie's identity — the Origin gate below is cookie-CSRF
+      // defence and must not refuse a request that never relied on it.
       const authHeader = c.req.header("Authorization");
       const isDeviceTokenRequest = authHeader !== undefined;
       if (isDeviceTokenRequest) {
