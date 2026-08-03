@@ -333,10 +333,9 @@ model DeviceAudit {
   @@index([tenantId])
 }
 
-// Append-only (issue 12, record 060 Q3, copying the tenant_settings RLS
-// block verbatim). The id of what this authorised lives on
-// OverrideConsumption, not here — an Override does not know what it
-// authorised until consumed, and Order/DrawerSession do not exist yet.
+// Append-only (issue 12, record 060 Q3). The id of what this authorised
+// lives on OverrideConsumption, not here — an Override does not know what
+// it authorised until consumed.
 model Override {
   id             String   @id
   tenantId       String   @map("tenant_id")

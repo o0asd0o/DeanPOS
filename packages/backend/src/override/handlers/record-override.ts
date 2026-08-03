@@ -26,11 +26,9 @@ export const inputSchema = z.object({
 type RecordOverrideInput = z.infer<typeof inputSchema>;
 type RecordOverrideResult = { ok: true; overrideId: string } | { ok: false };
 
-// Device-token only (record 060 Q1) — the PIN is verified on the terminal
-// and never here. The server trusts the Device token (fixing tenant, store
-// and device with no input field) plus verifyOverrideAsOf, never the PIN:
-// a compromised terminal cannot mint an Override for a cashier, a stranger,
-// or a manager who was not at this Store at the stated time.
+// Device-token only (record 060 Q1) — the PIN is verified on the terminal,
+// never here. The server trusts the Device token (fixing tenant/store/
+// device) plus verifyOverrideAsOf, never the PIN itself.
 export const handler: Handler<RecordOverrideInput, RecordOverrideResult> = async ({
   ctx,
   input,

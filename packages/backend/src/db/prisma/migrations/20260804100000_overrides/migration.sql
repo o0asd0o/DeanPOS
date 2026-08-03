@@ -65,9 +65,8 @@ CREATE TABLE "OverrideConsumption" (
 );
 
 -- The control (record 060 Q2): a unique index, not ON CONFLICT, is what
--- Postgres documents atomicity for. checkout/drawer-sessions each add their
--- own composite FK to order_id/drawer_session_id in the migration that
--- creates their own table.
+-- Postgres documents atomicity for. Later areas add their own composite FK
+-- to order_id/drawer_session_id in the migration creating their own table.
 CREATE UNIQUE INDEX "OverrideConsumption_tenant_id_override_id_key" ON "OverrideConsumption"("tenant_id", "override_id");
 CREATE INDEX "OverrideConsumption_tenant_id_idx" ON "OverrideConsumption"("tenant_id");
 

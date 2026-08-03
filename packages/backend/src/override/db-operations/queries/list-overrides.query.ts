@@ -14,11 +14,9 @@ export type OverrideListRow = {
   device_name: string;
 };
 
-// `storeIds === null` is unrestricted (admin, criterion 8) — otherwise the
-// caller's own assigned Stores, today's, not an as-of claim (criterion 8's
-// "now, not as-of"). An empty array must read as zero rows, never as
-// unrestricted — `where … in ([])` is handled explicitly rather than trusted
-// to Kysely/Postgres.
+// `storeIds === null` is unrestricted (admin, criterion 8) — otherwise
+// today's assigned Stores, not an as-of claim. An empty array must read as
+// zero rows, never as unrestricted, so it's handled explicitly.
 export const listOverrides = (
   db: DatabaseInstance,
   storeIds: string[] | null,

@@ -20,13 +20,9 @@ export type VerifyOverrideAsOfResult =
         | "time-out-of-bounds";
     };
 
-// Server re-verification (record 060 Q4), not a contract procedure — its
-// callers are terminal.recordOverride (at insert) and offline-sync's replay
-// endpoint (in its own transaction, before the row is written). Reuses issue
-// 04's resolvers so the terminal's roster offer and this answer cannot
-// drift. The caller bounds `asOf` against Device.enrolledAt (the lower
-// bound needs the Device row, which only the caller has); this bounds the
-// upper edge against the server's own clock.
+// Server re-verification (record 060 Q4) for terminal.recordOverride and
+// offline-sync's replay. Callers bound `asOf`'s lower edge against
+// Device.enrolledAt; this bounds the upper edge against the server's clock.
 export const verifyOverrideAsOf = async (
   db: DatabaseInstance,
   { userId, storeId, asOf }: { tenantId: string; userId: string; storeId: string; asOf: Date },
