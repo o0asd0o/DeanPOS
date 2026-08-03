@@ -34,9 +34,15 @@ Return to an already-running agent with `SendMessage` rather than spawning a fre
 
 ```
 vp check
-vp run -r check
-vp run -r test
+vp run --no-cache -r check
+vp run --no-cache -r test
 ```
+
+**`--no-cache` goes before the task specifier, not after it.** `vp run` takes
+`[OPTIONS] [TASK] [ADDITIONAL_ARGS]`, so `vp run -r test --no-cache` forwards the flag to
+`vitest` and leaves `vp run`'s own task cache on — the gate then reports `10/10 cache hit` and
+replays an earlier verdict as if it had just run. A gate that replays is not a gate. Check the
+`cache hit` percentage on every run: it must read `0/N`.
 
 Run every command in that list, in that order, every time. A subset is not the gate. If one of them is slow enough that you are tempted to skip it, say so in the cycle report rather than dropping it silently.
 
