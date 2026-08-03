@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import type { Principal } from "backend/src/common/ctx.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AnyRouter } from "@tanstack/react-router";
 import { RouterProvider } from "@tanstack/react-router";
@@ -28,13 +29,18 @@ export function renderRoute<TRouter extends AnyRouter>(
     tenantId?: string;
     mustChangePassword?: boolean;
     initialLocation?: string;
+    userId?: string;
+    role?: Principal["role"];
   } & TestSeamOptions,
 ): { container: HTMLElement; db: ReturnType<typeof createTestSeam>["db"] } {
-  const { router, tenantId, mustChangePassword, initialLocation, ...seamOptions } = options;
+  const { router, tenantId, mustChangePassword, initialLocation, userId, role, ...seamOptions } =
+    options;
   if (initialLocation) window.history.pushState(null, "", initialLocation);
 
   const seam = createTestSeam(seamOptions);
-  const actor = tenantId ? seam.actors.asTenant(tenantId, { mustChangePassword }) : seam;
+  const actor = tenantId
+    ? seam.actors.asTenant(tenantId, { mustChangePassword, userId, role })
+    : seam;
 
   const client = createClient({
     url: "http://api.test/rpc",

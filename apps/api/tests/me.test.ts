@@ -49,6 +49,7 @@ describe("auth.me", () => {
     await expect(client.auth.me()).resolves.toStrictEqual({
       authenticated: true,
       mustChangePassword: false,
+      role: "admin",
     });
   });
 
@@ -67,6 +68,7 @@ describe("auth.me", () => {
     await expect(client.auth.me()).resolves.toStrictEqual({
       authenticated: true,
       mustChangePassword: true,
+      role: "cashier",
     });
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", tempUserId).execute();

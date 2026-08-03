@@ -46,6 +46,10 @@ const pairings: [string, string, number, string][] = [
   ["card-foreground", "card", 4.5, "1.4.3"],
   ["muted-foreground", "background", 4.5, "1.4.3"],
   ["muted-foreground", "muted", 4.5, "1.4.3"],
+  // TableHeader is `[&_tr]:bg-muted`, TableHead is `text-foreground` — shipped
+  // and unasserted until record 038 (the Store list, `packages/ui`'s first
+  // consumer of `Table`) named the gap.
+  ["foreground", "muted", 4.5, "1.4.3"],
   ["primary-foreground", "primary", 4.5, "1.4.3"],
   ["secondary-foreground", "secondary", 4.5, "1.4.3"],
   ["accent-foreground", "accent", 4.5, "1.4.3"],

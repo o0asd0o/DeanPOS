@@ -12,6 +12,7 @@ import {
   ReceiptTextIcon,
   SettingsIcon,
   ShieldAlertIcon,
+  StoreIcon,
   TagsIcon,
   Undo2Icon,
   UserRoundIcon,
@@ -43,6 +44,7 @@ const OPERATIONS: NavItem[] = [
 ];
 
 const ADMINISTRATION: NavItem[] = [
+  { label: "Stores", icon: StoreIcon, to: "/stores" },
   { label: "Devices", icon: MonitorSmartphoneIcon, to: "/devices" },
   { label: "Users", icon: UsersIcon, to: "/users" },
   { label: "Roster", icon: CalendarDaysIcon, to: "/roster" },

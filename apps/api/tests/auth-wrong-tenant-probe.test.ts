@@ -113,6 +113,7 @@ describe("wrong-tenant probes on auth.*", () => {
     await expect(aSignIn.client.auth.me()).resolves.toStrictEqual({
       authenticated: true,
       mustChangePassword: true,
+      role: "admin",
     });
 
     await cleanupPair(pair);

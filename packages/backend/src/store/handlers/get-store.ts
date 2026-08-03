@@ -4,16 +4,11 @@ import { canAccessStore, hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { getStore } from "../db-operations/queries/get-store.query.ts";
+import { toStoreOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({ id: z.string() });
 
-type StoreOutput = {
-  id: string;
-  tenantId: string;
-  name: string;
-  active: boolean;
-  createdAt: Date;
-};
+type StoreOutput = ReturnType<typeof toStoreOutput>;
 
 // Not-found, empty, and refused all return the same `null` — never a shape
 // that discloses whether the Store exists but is out of reach (issue 01's
@@ -29,13 +24,5 @@ export const handler: Handler<{ id: string }, StoreOutput | null> = async ({ ctx
   });
   if (!store) return null;
 
-  // "tenant_id" (schema.prisma @map) is the physical column; the contract's
-  // response shape stays camelCase (issue 01, findings on the tenant_id rename).
-  return {
-    id: store.id,
-    tenantId: store.tenant_id,
-    name: store.name,
-    active: store.active,
-    createdAt: store.createdAt,
-  };
+  return toStoreOutput(store);
 };

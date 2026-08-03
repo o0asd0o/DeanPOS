@@ -32,13 +32,19 @@ model Tenant {
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
 // FORCED in the same migration that creates this table.
 model Store {
-  id         String      @id
-  tenantId   String      @map("tenant_id")
-  name       String
-  active     Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  tenant     Tenant      @relation(fields: [tenantId], references: [id])
-  userStores UserStore[]
+  id                String      @id
+  tenantId          String      @map("tenant_id")
+  name              String
+  // `HH:mm`, 24-hour, the exact string an `<input type="time">` produces —
+  // no TIME column and no timezone conversion (issue 05, record 040 §2).
+  businessDayStart  String      @default("00:00") @map("business_day_start")
+  // An ordered list of free strings; order is only expressible as the whole
+  // array, which is why the editor saves it whole (issue 05, ADR-0011).
+  tableLabels       String[]    @default([]) @map("table_labels")
+  active            Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  tenant            Tenant      @relation(fields: [tenantId], references: [id])
+  userStores        UserStore[]
 
   @@unique([tenantId, id])
   @@index([tenantId])

@@ -16,7 +16,14 @@ import { createAuthRoutes } from "./routes/auth.ts";
 import { healthRoute } from "./routes/health.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import { pingRoute } from "./routes/ping.ts";
-import { storeGetRoute } from "./routes/store.ts";
+import {
+  storeCreateRoute,
+  storeDeactivateRoute,
+  storeGetRoute,
+  storeListRoute,
+  storeReactivateRoute,
+  storeUpdateRoute,
+} from "./routes/store.ts";
 
 export type CreateAppOptions = {
   db: DatabaseInstance;
@@ -66,7 +73,14 @@ export const createApp = ({
     .$context<Ctx>()
     .router({
       ping: pingRoute,
-      store: { get: storeGetRoute },
+      store: {
+        get: storeGetRoute,
+        list: storeListRoute,
+        create: storeCreateRoute,
+        update: storeUpdateRoute,
+        deactivate: storeDeactivateRoute,
+        reactivate: storeReactivateRoute,
+      },
       platformAdmin: { provisionTenant: provisionTenantRoute },
       auth: authRoutes,
     });

@@ -30,6 +30,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "api": "workspace:*",
+    "backend": "workspace:*",
     "happy-dom": "catalog:",
     "tailwindcss": "catalog:",
     "tsconfig": "workspace:*",
