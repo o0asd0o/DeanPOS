@@ -15,9 +15,16 @@ The set of actions requiring an Override is fixed by ADR-0005: void a paid Order
 beyond threshold. **This issue builds the mechanism; `checkout` and `drawer-sessions` attach it
 to their actions.** Nothing consumes an Override yet, and that is expected.
 
-**Online**, the server verifies the manager's PIN and role. **Offline**, the terminal verifies
-against the locally synced PIN hash (issue 10) and records the Override alongside the action.
-Everything the terminal asserts while offline is a claim, not a fact.
+**The PIN is verified on the terminal, online and offline alike**, against the locally synced
+hash (issue 10) — one path, so the online case is never the untested one. The server verifies
+the *approver*, never the PIN: it independently refuses to record an Override whose named
+approver was not `manager`-or-above and a member of that Store at the stated time. Everything
+the terminal asserts while offline is a claim, not a fact.
+
+_Amended 2026-08-04: this paragraph said the server verifies the PIN online, which
+[record 058](../../decisions/058-pin-management-is-a-back-office-action.md) forbids and a grep test
+enforces. [Record 060](../../decisions/060-the-override-is-verified-on-the-terminal-and-consumed-by-a-second-insert-only-table.md)
+upheld 058 and amended this issue instead._
 
 **So the second half of this issue is the re-verification procedure**, which `offline-sync`
 will call on replay: given an Override and its stated time, was that User a `manager` and a
