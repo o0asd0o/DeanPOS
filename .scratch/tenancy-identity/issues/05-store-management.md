@@ -1,6 +1,6 @@
 # 05 — Store management
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -101,3 +101,51 @@ sometimes read from different filesystem views — an `Edit` that `Read` confirm
 to a subsequent `Bash cat`/`prisma generate`. Worked around by making structural edits (schema,
 contract, generated-type-dependent files) via `Bash`/`python3` heredocs instead, verified with
 `Bash cat`. Noting it here in case it recurs for the reviewer or fixer.
+
+**Closed 2026-08-03.** Merged to `main`; gate green at **340** tests, migration proven from an empty
+database. 2 fix rounds, both review rounds by a second model.
+
+**This screen had no mock, so five decision records are its contract:**
+[038](../../decisions/038-the-store-management-screen.md) (route, list, empty state,
+deactivation, the 390 width, what a `manager` sees) ·
+[039](../../decisions/039-reordering-table-labels.md) (the reorder control) ·
+[040](../../decisions/040-the-store-editor.md) (editor, fields, save semantics) ·
+[041](../../decisions/041-the-deactivation-dialog-body-copy.md) ·
+[042](../../decisions/042-user-event-is-refused-because-happy-dom-has-no-activation-behaviour.md).
+
+What the review caught, worth knowing because these recur:
+
+- **The editor had no Store-specific key**, so switching straight from editing Store A to Store B
+  reused A's form and label state — **B could be saved with A's labels.** Silent cross-record
+  corruption, invisible to the tests because none of them switched editors without closing first.
+- **The wrong-tenant probes proved nothing again.** They never established success through Tenant
+  B's *own application path* — the seeding reads went through the owner DB, which bypasses tenant
+  authorisation entirely, so a bug refusing B its own row left every probe green. Third time this
+  exact shape has appeared in this PRD.
+- **A rejected `Reactivate` never cleared its pending state**, leaving the row permanently reading
+  `Reactivating…` and `aria-disabled` with no way out.
+- **The live region held only the message string**, so two identical consecutive events produced no
+  DOM mutation and a screen-reader user heard `Label removed` once instead of twice.
+- **`businessDayStart` accepted any non-empty string** — `25:99` or `noon` would have reached
+  `reporting` and `drawer-sessions`. Now bounded in the shared schema **and** by a database check
+  constraint.
+
+**Two things the pipeline caught about itself, not about the code:**
+
+- **The implementer wrote into the main checkout**, not only its worktree, leaving a modified
+  `schema.prisma` on `main`. Caught by the human, verified byte-identical to the lane commit, and
+  discarded. **Check `git status` on `main` after every agent returns.**
+- **The fixer added `@testing-library/user-event` on its own** — forbidden, and refused by
+  [record 042](../../decisions/042-user-event-is-refused-because-happy-dom-has-no-activation-behaviour.md).
+  It would have proven nothing: **happy-dom implements no activation behaviour at all**, so a key
+  press never reaches the handler, and `user-event` substitutes its own synthetic click rather than
+  closing that gap. Record 008 had already listed it as a no-go.
+
+**Carried forward, not discharged:** record 039's "three presses with the keyboard alone" check is
+**not provable at this seam** and belongs to the browser seam `offline-sync` owns and `hardening`
+first runs. What the merged test proves instead is focus identity across a re-render, the native
+`<button>` fact, the retained tab stop, and the early-return guard on a fifth activation.
+
+**Pre-existing, verified on `main` and out of scope:** an unhandled rejection in
+`apps/backoffice/tests/sign-in-screen.test.tsx` — a `db.destroy()` racing an in-flight query after
+sign-in navigates away. It fails no assertion but it does put `Errors 1` on every run.
