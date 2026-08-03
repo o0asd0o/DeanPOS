@@ -1,9 +1,13 @@
+import { z } from "zod";
+
 import { getAssignedStoreIdsAsOf } from "../../access/db-operations/queries/get-assigned-store-ids-as-of.query.ts";
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { listUsers } from "../db-operations/queries/list-users.query.ts";
 import { toUserOutput } from "../helpers.ts";
+
+export const inputSchema = z.void();
 
 type UserOutput = ReturnType<typeof toUserOutput>;
 
@@ -28,10 +32,8 @@ export const handler: Handler<void, UserOutput[]> = async ({ ctx }) => {
       return results;
     }
 
-    // A manager sees the Users assigned to their own Stores, and always
-    // themselves (record 044 §2). The Stores cell is projected through the
-    // caller's own visibility, server-side — never the caller's full
-    // assignment set (record 044 §2 clause 3).
+    // Manager visibility and the per-caller Stores-cell projection: record
+    // 044 §2 clause 3.
     const callerStoreIds = new Set(await getAssignedStoreIdsAsOf(scopedDb, userId, now));
     const results: UserOutput[] = [];
     for (const user of users) {

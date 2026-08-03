@@ -26,10 +26,8 @@ import { StoresField } from "./StoresField.tsx";
 
 type Role = "cashier" | "manager" | "admin";
 
-// The User editor (record 045): a `Select` for role, native checkboxes for
-// Stores, one form, one submit, one round trip (record 040's shape). Never
-// touches `active` or the password — deactivate/reactivate and reset are
-// their own procedures.
+// The User editor, one form/one submit (record 045, record 040's shape).
+// Never touches `active` or the password (their own procedures).
 export function UserEditor({
   user,
   onSaved,
@@ -69,6 +67,9 @@ export function UserEditor({
           });
       if (!saved) return;
 
+      // Never lingers in TanStack Query's retained `variables` (record 043
+      // no-go 8) — same reset ResetPasswordDialog already does.
+      if (!user) createUser.reset();
       onSaved();
     },
   });
@@ -117,7 +118,7 @@ export function UserEditor({
                   value={field.state.value}
                   onValueChange={(value) => field.handleChange(value as Role)}
                 >
-                  <SelectTrigger id="user-role">
+                  <SelectTrigger id="user-role" autoFocus={!!user}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

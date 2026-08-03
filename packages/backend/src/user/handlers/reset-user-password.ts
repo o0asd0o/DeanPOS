@@ -15,11 +15,9 @@ export const inputSchema = z.object({ id: z.string(), password: passwordSchema }
 type ResetUserPasswordInput = z.infer<typeof inputSchema>;
 type UserOutput = ReturnType<typeof toUserOutput>;
 
-// `admin` only. Its own procedure, never the editor's save (record 043's
-// "reset" section, record 040's rule): a new hash, `mustChangePassword` back
-// to `true`, and every one of the User's sessions revoked — all in the same
-// transaction, so a live session cannot outlive the reset meant to recover
-// from it.
+// `admin` only, its own procedure, never the editor's save (record 043
+// "reset", record 040). New hash, `mustChangePassword` true, sessions
+// revoked — one transaction.
 export const handler: Handler<ResetUserPasswordInput, UserOutput | null> = async ({
   ctx,
   input,

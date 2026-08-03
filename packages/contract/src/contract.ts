@@ -109,13 +109,8 @@ export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
 export const signOutOutputSchema = z.object({ ok: z.literal(true) });
 
-// What `_shell`'s `beforeLoad` guard reads (record 030). `role` is carried
-// from issue 05 on, for the Stores screen's admin check (record 038 §6).
-// `userId` is carried from issue 06 on, so the Users screen can tell its own
-// caller's row apart from every other User's (record 044 §4 clause 2) —
-// optional, since only a real session (never the test seam's bare-principal
-// shortcut) is guaranteed to carry one, and the shell's own guard depends on
-// `role` alone and must not start refusing a session that has no `userId`.
+// What `_shell`'s `beforeLoad` guard reads (record 030). `role` (038 §6)
+// and optional `userId` (044 §4 clause 2) feed the Stores/Users screens.
 export const meOutputSchema = z.discriminatedUnion("authenticated", [
   z.object({ authenticated: z.literal(false) }),
   z.object({
@@ -145,11 +140,8 @@ export const contract = {
     deactivate: oc.input(storeIdInputSchema).output(storeOutputSchema.nullable()),
     reactivate: oc.input(storeIdInputSchema).output(storeOutputSchema.nullable()),
   },
-  // Back-office User management (issue 06). Never discloses a User the
-  // caller may not see — no count, no total (record 044 §2). Refused
-  // entirely for `cashier`. `deactivate`/`reactivate`/`resetPassword` are
-  // deliberately not part of `update` — a save can never flip active state
-  // or a credential (records 040 §3, 043).
+  // Back-office User management (issue 06, record 044 §2). Deactivate/
+  // reactivate/resetPassword stay out of `update` (records 040 §3, 043).
   user: {
     list: oc.input(z.void()).output(z.array(userOutputSchema)),
     create: oc.input(userCreateInputSchema).output(userOutputSchema.nullable()),

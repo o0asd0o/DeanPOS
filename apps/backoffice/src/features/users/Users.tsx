@@ -20,6 +20,17 @@ export function Users() {
   const usersQuery = useUsersQuery();
   const storesQuery = useStoresQuery();
   const meQuery = useMeQuery();
+
+  // Both queries gate screen state (finding 5): a failed `store.list` must
+  // never silently read as "no stores" — that misreports every User's
+  // assignment and tells the editor to add a Store first.
+  const isPending = usersQuery.isPending || storesQuery.isPending;
+  const isError = usersQuery.isError || storesQuery.isError;
+  const isFetching = usersQuery.isFetching || storesQuery.isFetching;
+  const refetchAll = () => {
+    void usersQuery.refetch();
+    void storesQuery.refetch();
+  };
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
   const callerId = meQuery.data?.authenticated === true ? meQuery.data.userId : undefined;
 
@@ -84,10 +95,10 @@ export function Users() {
       <UserListCard
         users={usersQuery.data}
         stores={storesQuery.data ?? []}
-        isPending={usersQuery.isPending}
-        isError={usersQuery.isError}
-        isFetching={usersQuery.isFetching}
-        refetch={() => usersQuery.refetch()}
+        isPending={isPending}
+        isError={isError}
+        isFetching={isFetching}
+        refetch={refetchAll}
         isAdmin={isAdmin}
         callerId={callerId}
         editingId={editor.mode === "edit" ? editor.user.id : null}
@@ -98,7 +109,7 @@ export function Users() {
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}
       />
-      {editor.mode !== "closed" && (
+      {editor.mode !== "closed" && !isPending && !isError && (
         <UserEditor
           key={editor.mode === "edit" ? `edit-${editor.user.id}` : "create"}
           user={editor.mode === "edit" ? editor.user : null}

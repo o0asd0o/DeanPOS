@@ -1,10 +1,7 @@
 type Store = { id: string; name: string };
 
-// Native checkboxes in a `<fieldset>`, one per visible Store (record 045 §1
-// clause 3): `packages/ui` has no `Checkbox`, and SC 2.5.7 (record 039)
-// rules out a drag- or transfer-based control before it is compared. Left
-// unstyled — the UA rendering is the control, and the global focus
-// indicator (records 007/014) is its focus ring, unrestyled.
+// Native checkboxes in a `<fieldset>`, unstyled (record 045 §1 clause 3,
+// record 039).
 export function StoresField({
   stores,
   selectedIds,

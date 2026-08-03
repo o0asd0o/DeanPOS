@@ -278,3 +278,38 @@ describe("the Users screen — as an admin", () => {
     expect(within(selfRow).getByRole("button", { name: /^Edit/ })).toBeTruthy();
   });
 });
+
+describe("the Users screen — as a manager", () => {
+  let cleanup: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    await cleanup?.();
+    cleanup = undefined;
+  });
+
+  it("has no Add user button, no actions column at all, and shows the manager-only empty state", async () => {
+    // A manager with no Store assignment and no coworkers sharing a Store
+    // sees nobody — not even a self row, since this principal has no
+    // matching User row (record 044 §3: only a manager can ever reach this
+    // empty state — an admin's list always includes itself).
+    const { container, db } = renderRoute({
+      router,
+      tenantId,
+      userId: randomUUID(),
+      role: "manager",
+      initialLocation: "/users",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Users" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Add user" })).toBeNull();
+
+    await waitFor(() => expect(screen.getByText("No users to show")).toBeTruthy());
+    expect(screen.queryByRole("columnheader", { name: /Actions/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Deactivate/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Reactivate/ })).toBeNull();
+
+    await expectNoAxeViolations(container);
+  });
+});

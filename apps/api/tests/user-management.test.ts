@@ -176,22 +176,67 @@ describe("user.create", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot create a User visible to Tenant B, and B's own create still succeeds", async () => {
+  it("the wrong-tenant probe: Tenant A cannot create a User in Tenant B's Store, and B's own create still succeeds", async () => {
+    // B's own create, assigned to B's own proven Store, succeeds through the
+    // application path — a procedure that refuses everyone would otherwise
+    // pass the refusal below for the wrong reason.
     const createdAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.create({
-        email: `b-second-${randomUUID()}@user.test`,
+        email: `b-store-scoped-${randomUUID()}@user.test`,
         role: "cashier",
         password: "a temporary password",
-        storeIds: [],
+        storeIds: [storeB],
       });
     expect(createdAsB?.tenantId).toBe(tenantB);
+    expect(createdAsB?.storeIds).toStrictEqual([storeB]);
 
-    const listAsA = await seam.actors
-      .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.user.list();
-    expect(listAsA.map((user) => user.id)).not.toContain(createdAsB!.id);
+    const userRoleCountBefore = await ownerDb
+      .selectFrom("UserRole")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
+    const userStoreCountBefore = await ownerDb
+      .selectFrom("UserStore")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
 
+    // Tenant A cannot create a User assigned to Tenant B's Store: the
+    // composite (tenant, store) FK on UserStore rejects it, and the whole
+    // insert rolls back in the same transaction (record 045) — no User, no
+    // UserRole, no UserStore row survives.
+    const email = `should-not-exist-cross-tenant-${randomUUID()}@user.test`;
+    await expect(
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.create({
+        email,
+        role: "cashier",
+        password: "a temporary password",
+        storeIds: [storeB],
+      }),
+    ).rejects.toThrow();
+
+    const orphanedUser = await ownerDb
+      .selectFrom("User")
+      .select("id")
+      .where("email", "=", email)
+      .executeTakeFirst();
+    expect(orphanedUser).toBeUndefined();
+
+    const userRoleCountAfter = await ownerDb
+      .selectFrom("UserRole")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
+    const userStoreCountAfter = await ownerDb
+      .selectFrom("UserStore")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
+    expect(userRoleCountAfter.count).toBe(userRoleCountBefore.count);
+    expect(userStoreCountAfter.count).toBe(userStoreCountBefore.count);
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", createdAsB!.id).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", createdAsB!.id).execute();
     await ownerDb.deleteFrom("User").where("id", "=", createdAsB!.id).execute();
   });
@@ -260,6 +305,62 @@ describe("user.update — role and Store assignment", () => {
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+  });
+
+  it("a promotion's User.role write and its UserRole history row commit or roll back together", async () => {
+    const targetId = randomUUID();
+    const targetEmail = `atomic-promote-${randomUUID()}@user.test`;
+    await seedTenantUser(ownerDb, {
+      id: targetId,
+      tenantId: tenantA,
+      email: targetEmail,
+      passwordHash: await hashPassword("irrelevant"),
+      role: "cashier",
+      mustChangePassword: false,
+    });
+
+    const roleBefore = await ownerDb
+      .selectFrom("User")
+      .select("role")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+    const userRoleRowsBefore = await ownerDb
+      .selectFrom("UserRole")
+      .selectAll()
+      .where("user_id", "=", targetId)
+      .execute();
+
+    // Force a downstream failure inside the same transaction: storeB
+    // belongs to Tenant B, so the composite (tenant, store) FK on
+    // UserStore rejects the Store-assignment write that runs after the
+    // role write. If `User.role` and the `UserRole` history row were
+    // written in separate transactions, the role write would already be
+    // committed and this failure would never touch it — the denormalised
+    // role would then read `manager` while the history still says
+    // `cashier` (record 045 §4 clause 3, the most likely silent failure
+    // on this screen).
+    await expect(
+      seam.actors
+        .asTenant(tenantA, { userId: adminA, role: "admin" })
+        .client.user.update({ id: targetId, role: "manager", storeIds: [storeB] }),
+    ).rejects.toThrow();
+
+    const roleAfter = await ownerDb
+      .selectFrom("User")
+      .select("role")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+    expect(roleAfter.role).toBe(roleBefore.role);
+
+    const userRoleRowsAfter = await ownerDb
+      .selectFrom("UserRole")
+      .selectAll()
+      .where("user_id", "=", targetId)
+      .execute();
+    expect(userRoleRowsAfter).toStrictEqual(userRoleRowsBefore);
+
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });
@@ -374,14 +475,52 @@ describe("user.resetPassword", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot reset Tenant B's User password", async () => {
+  it("the wrong-tenant probe: Tenant A cannot reset Tenant B's User password; B's own reset still succeeds", async () => {
+    const targetId = randomUUID();
+    const targetEmail = `b-reset-target-${randomUUID()}@user.test`;
+    await seedTenantUser(ownerDb, {
+      id: targetId,
+      tenantId: tenantB,
+      email: targetEmail,
+      passwordHash: await hashPassword("irrelevant"),
+      role: "cashier",
+      mustChangePassword: false,
+    });
+
+    // B's own reset succeeds through the application path first — `null` is
+    // also what an authorised-but-not-found reset returns, so a refusal
+    // alone proves nothing without this.
+    const resetAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.user.resetPassword({ id: targetId, password: "b's new temporary password" });
+    expect(resetAsB?.id).toBe(targetId);
+
+    const hashAfterB = await ownerDb
+      .selectFrom("User")
+      .select("password_hash")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+
     await expectWrongTenantRefusal(
       () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
-          .client.user.resetPassword({ id: adminB, password: "hijacked from a" }),
+          .client.user.resetPassword({ id: targetId, password: "hijacked from a" }),
       (result) => result === null,
     );
+
+    // Not merely `null` — B's just-reset hash is provably untouched by A's
+    // attempt.
+    const hashAfterA = await ownerDb
+      .selectFrom("User")
+      .select("password_hash")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+    expect(hashAfterA.password_hash).toBe(hashAfterB.password_hash);
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });
 });
 
@@ -464,14 +603,7 @@ describe("user.deactivate and user.reactivate", () => {
     expect(stillActive.active).toBe(true);
   });
 
-  it("the wrong-tenant probe: Tenant A cannot deactivate Tenant B's User; B's row stays active", async () => {
-    const deactivatedAsB = await seam.actors
-      .asTenant(tenantB, { userId: adminB, role: "admin" })
-      .client.user.deactivate({ id: adminB });
-    // B cannot deactivate themselves either — prove B's own reactivate path
-    // works by using a fresh Store B User instead.
-    expect(deactivatedAsB).toBeNull();
-
+  it("the wrong-tenant probe: Tenant A cannot deactivate or reactivate Tenant B's User; B's own path succeeds both ways", async () => {
     const targetId = randomUUID();
     await seedTenantUser(ownerDb, {
       id: targetId,
@@ -481,10 +613,36 @@ describe("user.deactivate and user.reactivate", () => {
       role: "cashier",
       mustChangePassword: false,
     });
-    const deactivatedTargetAsB = await seam.actors
+
+    // B's own deactivate succeeds through the application path first — a
+    // procedure that refuses everyone would otherwise pass the refusal
+    // below for the wrong reason.
+    const deactivatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.deactivate({ id: targetId });
-    expect(deactivatedTargetAsB?.active).toBe(false);
+    expect(deactivatedAsB?.active).toBe(false);
+
+    await expectWrongTenantRefusal(
+      () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.user.deactivate({ id: targetId }),
+      (result) => result === null,
+    );
+
+    // B's own reactivate succeeds through the application path too, before
+    // it is probed.
+    const reactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.user.reactivate({ id: targetId });
+    expect(reactivatedAsB?.active).toBe(true);
+
+    // Deactivate again so the reactivate probe below would visibly change
+    // something if it (wrongly) succeeded.
+    const deactivatedAgainAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.user.deactivate({ id: targetId });
+    expect(deactivatedAgainAsB?.active).toBe(false);
 
     await expectWrongTenantRefusal(
       () =>
@@ -501,6 +659,7 @@ describe("user.deactivate and user.reactivate", () => {
       .executeTakeFirstOrThrow();
     expect(stillDeactivated.active).toBe(false);
 
+    await ownerDb.deleteFrom("Session").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });

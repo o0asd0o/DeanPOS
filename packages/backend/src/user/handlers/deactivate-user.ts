@@ -12,11 +12,9 @@ export const inputSchema = z.object({ id: z.string() });
 
 type UserOutput = ReturnType<typeof toUserOutput>;
 
-// `admin` only. Never hard-deletes — flips `active` to false and revokes
-// every one of the User's sessions in the same transaction (issue 06
-// criterion 5). An admin cannot deactivate themselves — with no
-// self-service reset, that would lock the tenant's only privileged surface
-// with nothing in the product to recover it (record 044 §4 clause 2).
+// `admin` only. Never hard-deletes; flips `active` and revokes sessions in
+// one transaction (issue 06 criterion 5). Self-deactivation refused —
+// record 044 §4 clause 2.
 export const handler: Handler<{ id: string }, UserOutput | null> = async ({ ctx, input }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return null;
   const { tenantId, role, userId: callerId } = ctx.principal;

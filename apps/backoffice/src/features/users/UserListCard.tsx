@@ -29,10 +29,8 @@ function storeNamesFor(storeIds: string[], stores: { id: string; name: string }[
   return names.length > 0 ? names.join(", ") : "None";
 }
 
-// The list (record 044 §§1–4). A deactivated User stays inline, at full
-// contrast, badged, with `Reactivate` as its only row action — never
-// hidden, filtered or dimmed. No `Name` column and no `PIN` column — `User`
-// has no name field, and the PIN half of this screen is issue 10.
+// The list (record 044 §§1–4). A deactivated User stays inline, badged,
+// never hidden or dimmed. No `Name`/`PIN` column (issue 10 owns PIN).
 export function UserListCard({
   users,
   stores,

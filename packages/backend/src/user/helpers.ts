@@ -12,10 +12,8 @@ type UserOutput = {
   storeIds: string[];
 };
 
-// Physical `@map`ped columns to the contract's camelCase shape (issue 01,
-// findings on the tenant_id rename). Every User handler routes through this.
-// `storeIds` never comes off the row — it is the caller-visibility-projected
-// assignment set the handler computed separately (record 044 §2 clause 3).
+// Physical columns to the contract's camelCase shape (issue 01). `storeIds`
+// is the handler's visibility-projected set, never off the row (044 §2.3).
 export const toUserOutput = (user: Selectable<User>, storeIds: string[]): UserOutput => ({
   id: user.id,
   tenantId: user.tenant_id,

@@ -21,13 +21,9 @@ export const inputSchema = z.object({
 type UpdateUserInput = z.infer<typeof inputSchema>;
 type UserOutput = ReturnType<typeof toUserOutput>;
 
-// `admin` only. Never touches `active` or the password — deactivate/
-// reactivate and reset are their own procedures (record 045 §4 clause 4).
-// Role and Store-assignment changes both write new append-only rows and
-// never `UPDATE` one (issue 04); `User.role` and the newest `UserRole` row
-// are written in the same transaction (record 045 §4 clause 3) — the two
-// must never disagree, or a promotion leaves the old permissions live with
-// a record saying otherwise.
+// `admin` only. Never touches `active`/password (record 045 §4 clause 4).
+// Append-only history rows (issue 04); `User.role` and the newest
+// `UserRole` row write in one transaction (record 045 §4 clause 3).
 export const handler: Handler<UpdateUserInput, UserOutput | null> = async ({ ctx, input }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return null;
   const { tenantId, role, userId: callerId } = ctx.principal;
