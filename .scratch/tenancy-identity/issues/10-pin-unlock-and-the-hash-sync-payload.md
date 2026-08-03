@@ -15,8 +15,13 @@ store*; the PIN proves *which person*. **A PIN is a second factor to Device poss
 a credential on its own.** Any server path that accepts a PIN without a valid, unrevoked
 Device token is a defect.
 
-PIN hashing uses `Bun.password` argon2id with **its own parameters**, chosen knowing the hash
+PIN hashing uses **`node:crypto` scrypt** with **its own parameters**, chosen knowing the hash
 sits on a tablet — configured separately from the password parameters issue 02 set.
+
+_Amended 2026-08-03: this paragraph named `Bun.password` argon2id, which
+[record 028](../../decisions/028-password-hashing-runs-on-both-runtimes.md) removed from the backend
+entirely — the tests run on Node, where `Bun` does not exist, and a grep test now keeps it out.
+Criterion 2 already read correctly; only this prose was stale._
 
 **The sync payload is this area's worst exposure and it is asserted on the payload itself**,
 not on the device's behaviour. ADR-0007 calls the PIN hashes at rest on a Device a deliberate,
