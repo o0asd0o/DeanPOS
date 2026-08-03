@@ -15,12 +15,9 @@ ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_variance_tolerance_centavos_check"
 ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_cash_movement_override_threshold_centavos_check"
   CHECK ("cash_movement_override_threshold_centavos" >= 0);
 
--- Tenant's RLS (tenant_isolation_spine) was ENABLED/FORCED with no SELECT or
--- UPDATE policy at all — deliberately unreachable until a tenant-scoped path
--- needed one. This is that path: a tenant-scoped deanpos_app connection may
--- now read and update only its own Tenant row, never another's, and never
--- INSERT or DELETE one (those stay platform-admin-only / never, per
--- tenant_provision_insert and the Tenant table's own comment).
+-- First reachable Tenant SELECT/UPDATE policy: a tenant-scoped connection
+-- may read and update only its own row, never INSERT/DELETE one.
+-- See .scratch/decisions/047-a-tenant-may-read-and-update-its-own-row.md.
 CREATE POLICY "tenant_settings_select" ON "Tenant"
   FOR SELECT USING ("id" = current_setting('app.tenant_id', true));
 CREATE POLICY "tenant_settings_update" ON "Tenant"
@@ -44,11 +41,8 @@ CREATE TABLE "TenantSettingsAudit" (
 -- CreateIndex
 CREATE INDEX "TenantSettingsAudit_tenant_id_idx" ON "TenantSettingsAudit"("tenant_id");
 
--- A history row's tenant_id and actor_user_id are checked together, not as
--- two independent foreign keys — a plain user_id FK would let a Tenant A
--- transaction attach an audit row to a Tenant B User merely because that
--- User exists somewhere, the same composite-FK trap issue 04 found
--- (record 046 §3).
+-- Composite FK on (tenant_id, actor_user_id), not a plain user_id FK — the
+-- same cross-tenant trap issue 04 found. See record 046 §3.
 ALTER TABLE "TenantSettingsAudit" ADD CONSTRAINT "TenantSettingsAudit_tenant_id_fkey"
   FOREIGN KEY ("tenant_id") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "TenantSettingsAudit" ADD CONSTRAINT "TenantSettingsAudit_tenant_id_actor_user_id_fkey"
@@ -59,11 +53,9 @@ ALTER TABLE "TenantSettingsAudit" ADD CONSTRAINT "TenantSettingsAudit_tenant_id_
 REVOKE ALL ON "TenantSettingsAudit" FROM "deanpos_app";
 GRANT SELECT, INSERT ON "TenantSettingsAudit" TO "deanpos_app";
 
--- SELECT and INSERT policies only, never FOR ALL — a FOR ALL policy would
--- authorise UPDATE and DELETE at the policy layer, so the REVOKE above would
--- be the only thing stopping a non-superuser owner under FORCE ROW LEVEL
--- SECURITY from mutating matching-tenant history. The REVOKE is belt; these
--- policies are the braces.
+-- SELECT and INSERT policies only, never FOR ALL, which would also
+-- authorise UPDATE/DELETE at the policy layer. The REVOKE above is belt;
+-- these policies are the braces.
 ALTER TABLE "TenantSettingsAudit" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "TenantSettingsAudit" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_settings_audit_tenant_isolation_select" ON "TenantSettingsAudit"

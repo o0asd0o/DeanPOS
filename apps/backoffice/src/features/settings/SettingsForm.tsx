@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { parseCentavos } from "schemas/src/money.ts";
 import { TENANT_TIMEZONES } from "schemas/src/timezones.ts";
 import type { TenantTimezone } from "schemas/src/timezones.ts";
 import {
@@ -15,8 +16,29 @@ import {
   SelectValue,
 } from "ui";
 
-import { centavosToPesosString, pesosStringToCentavos } from "./helpers.ts";
-import type { TenantSettingsOutput } from "./helpers.ts";
+export type TenantSettingsOutput = {
+  timezone: TenantTimezone;
+  vatEnabled: boolean;
+  vatRatePercent: number;
+  varianceToleranceCentavos: number;
+  cashMovementOverrideThresholdCentavos: number;
+};
+
+// Integer centavos to a "0.00" pesos string, by integer arithmetic only —
+// no float division ever touches a money value (ADR-0005).
+function centavosToPesosString(centavos: number): string {
+  const fraction = centavos % 100;
+  const whole = (centavos - fraction) / 100;
+  return `${whole}.${Math.abs(fraction).toString().padStart(2, "0")}`;
+}
+
+// The reverse: a "0.00"-shaped string to exact integer centavos, via the
+// one shared parser (ADR-0005) — never `parseFloat`. `null` on anything that
+// doesn't parse, so the caller can refuse the save instead of guessing.
+function pesosStringToCentavos(value: string): number | null {
+  const result = parseCentavos(value);
+  return result.ok ? result.value : null;
+}
 
 // One form, one Save, for all five settings (record 046 §"Three smaller
 // calls"). `TanStack Form` owns back-office forms (record 037).
@@ -126,6 +148,7 @@ export function SettingsForm({
                       type="checkbox"
                       id="vat-enabled"
                       checked={field.state.value}
+                      aria-describedby="vat-explanation"
                       onChange={(event) => field.handleChange(event.target.checked)}
                     />
                     <label htmlFor="vat-enabled">This business is VAT-registered</label>
@@ -149,13 +172,16 @@ export function SettingsForm({
                   </div>
                 )}
               </form.Field>
-              <p className="text-foreground">
-                A price is always what the customer pays. VAT is never added — where enabled it is
-                backed out of the recorded total for receipts and reports.
-              </p>
-              <p className="text-foreground">
-                Turning this on affects sales from now on. Last month stays as last month was sold.
-              </p>
+              <div id="vat-explanation">
+                <p className="text-foreground">
+                  A price is always what the customer pays. VAT is never added — where enabled it is
+                  backed out of the recorded total for receipts and reports.
+                </p>
+                <p className="text-foreground">
+                  Turning this on affects sales from now on. Last month stays as last month was
+                  sold.
+                </p>
+              </div>
             </fieldset>
 
             <div className="flex flex-col gap-2">

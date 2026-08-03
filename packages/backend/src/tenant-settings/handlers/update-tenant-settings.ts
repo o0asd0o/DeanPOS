@@ -8,7 +8,7 @@ import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { insertTenantSettingsAudit } from "../db-operations/commands/insert-tenant-settings-audit.command.ts";
 import { updateTenantSettings } from "../db-operations/commands/update-tenant-settings.command.ts";
-import { getTenantSettings } from "../db-operations/queries/get-tenant-settings.query.ts";
+import { getTenantSettingsForUpdate } from "../db-operations/queries/get-tenant-settings.query.ts";
 import { diffTenantSettings, toTenantSettingsOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({
@@ -34,7 +34,10 @@ export const handler: Handler<UpdateTenantSettingsInput, TenantSettingsOutput | 
   if (!hasAtLeastRole(role, "admin")) return null;
 
   const result = await withTenantScope(ctx.db, tenantId, async (scopedDb) => {
-    const before = await getTenantSettings(scopedDb, tenantId);
+    // Locked before the diff (record 034's pattern): two concurrent saves
+    // serialise, so the second sees the first's committed row rather than
+    // both reading the same pre-image.
+    const before = await getTenantSettingsForUpdate(scopedDb, tenantId);
     if (!before) return null;
     const beforeOutput = toTenantSettingsOutput(before);
 

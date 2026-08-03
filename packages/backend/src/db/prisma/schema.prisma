@@ -125,11 +125,8 @@ model UserStore {
   @@unique([userId, storeId, effectiveFrom])
 }
 
-// Append-only, structurally, like UserRole/UserStore (issue 07, record 046
-// §3): a save changing three settings writes three rows. `oldValue`/
-// `newValue` are text — the setting name says the type, and all five are
-// scalars. `actor`'s composite FK avoids the RLS-bypass trap issue 04 found
-// on a plain user_id FK.
+// Append-only, structurally, like UserRole/UserStore (record 046 §3).
+// `actor`'s composite FK avoids the same RLS-bypass trap issue 04 found.
 model TenantSettingsAudit {
   id          String   @id
   tenantId    String   @map("tenant_id")

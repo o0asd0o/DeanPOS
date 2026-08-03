@@ -77,23 +77,10 @@ so those assertions transfer to `checkout`, which owns the Order and the capture
 asserts the settings side — defaults, admin-only, and the audit trail — and nothing here may
 be built in a way that requires reading a current setting to interpret a past sale._
 
-_**Escalation (implementer, round 1): a genuine contradiction between record 046 and an
-invariant, not resolved here.** Record 046 §2 (human-decided directly) puts the five settings on
-`Tenant` and requires the running app to read and write its own Tenant row through
-`settings.get`/`settings.update`. But `apps/api` always connects as `deanpos_app`
-(`apps/api/src/env.ts`), and `Tenant`'s RLS (from `tenant_isolation_spine`) was `ENABLED`/`FORCED`
-with no `SELECT` or `UPDATE` policy at all — deliberately, so `deanpos_app` sees zero `Tenant` rows
-under any scope. `packages/backend/tests/db/with-tenant-scope.test.ts` (locked, invariant 6)
-asserts exactly that: "Tenant is outside tenant RLS and unreachable even from a tenant-scoped
-connection." There is no elevated connection available to the API layer (no `SECURITY DEFINER`
-allowed either, invariant 2), so satisfying record 046 requires a `SELECT`/`UPDATE` policy scoped
-to `id = current_setting('app.tenant_id', true)` — which is precisely what the locked test
-forbids. I added migration `20260803010000_tenant_settings` with that policy (own-row only, no
-`INSERT`/`DELETE` widening) because record 046 is unbuildable without it, but did not touch the
-locked test — that is not mine to decide. Everything else in this issue is implemented, tested,
-and green; the one failing test in the whole tree is
-`tests/db/with-tenant-scope.test.ts > Tenant is outside tenant RLS and unreachable even from a
-tenant-scoped connection`, which now fails because the new policy makes a Tenant's own row visible
-to its own tenant-scoped connection. This needs a human/decider call: amend that one assertion (a
-Tenant's own row, addressed by its own id, is now reachable — every other row stays unreachable),
-or reject record 046's storage shape in favour of one that doesn't touch `Tenant`'s RLS._
+_**Resolved by [record 047](../../decisions/047-a-tenant-may-read-and-update-its-own-row.md):
+own-row `Tenant` reachability, decided by the human directly.** `Tenant` carries own-row-only
+`SELECT`/`UPDATE` RLS policies; the old "unreachable even from a tenant-scoped connection"
+assertion was over-specified against what issue 01 actually needed (not-enumerable,
+not-cross-readable). `packages/backend/tests/db/with-tenant-scope.test.ts` is amended, not
+deleted — it now proves exactly-one-own-row, cross-tenant invisibility, zero rows unscoped, no
+`DELETE` grant, and that `UPDATE` cannot move a row to another tenant. The suite is green._

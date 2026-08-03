@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { ErrorState } from "@/components/ErrorState.tsx";
+
 import { useSettingsQuery, useUpdateSettingsMutation } from "./__common/queries.ts";
 import { SettingsForm } from "./SettingsForm.tsx";
 
@@ -12,12 +14,13 @@ export function Settings() {
   const updateSettings = useUpdateSettingsMutation();
   const [announcement, setAnnouncement] = useState("");
   const [moneyError, setMoneyError] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   if (settingsQuery.isPending) {
     return (
       <div className="flex flex-col gap-4 p-4">
         <h1 className="text-lg font-bold">Settings — sales</h1>
-        <p>Loading…</p>
+        <p role="status">Loading…</p>
       </div>
     );
   }
@@ -27,9 +30,10 @@ export function Settings() {
     return (
       <div className="flex flex-col gap-4 p-4">
         <h1 className="text-lg font-bold">Settings — sales</h1>
-        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
-          Couldn&rsquo;t load settings
-        </div>
+        <ErrorState
+          onRetry={() => void settingsQuery.refetch()}
+          isFetching={settingsQuery.isFetching}
+        />
       </div>
     );
   }
@@ -39,13 +43,20 @@ export function Settings() {
       key={JSON.stringify(settings)}
       settings={settings}
       saving={updateSettings.isPending}
-      failed={updateSettings.isError}
+      failed={updateSettings.isError || saveFailed}
       moneyError={moneyError}
       onMoneyError={setMoneyError}
       onSave={async (values) => {
-        const saved = await updateSettings.mutateAsync(values);
-        if (!saved) return;
-        setAnnouncement("Saved");
+        setSaveFailed(false);
+        try {
+          const saved = await updateSettings.mutateAsync(values);
+          if (!saved) return;
+          setAnnouncement("Saved");
+        } catch {
+          // isError is already set on the mutation; swallow so it doesn't
+          // also surface as an unhandled promise rejection.
+          setSaveFailed(true);
+        }
       }}
       announcement={announcement}
     />
