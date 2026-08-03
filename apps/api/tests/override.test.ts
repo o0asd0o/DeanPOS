@@ -241,7 +241,7 @@ describe("terminal.recordOverride", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("wrong-tenant probe: Tenant B's own Device records against Tenant B's own manager; Tenant A's Device cannot mint an Override naming Tenant B's manager", async () => {
+  it("wrong-tenant probe [terminal.recordOverride]: Tenant B's own Device records against Tenant B's own manager; Tenant A's Device cannot mint an Override naming Tenant B's manager", async () => {
     // Positive side first, through Tenant B's own Device and app-role scope —
     // proves a handler that refused everything would fail this test, not just
     // the wrong-tenant case below.
@@ -272,8 +272,11 @@ describe("terminal.recordOverride", () => {
     expect(rowB?.approver_user_id).toBe(managerB);
 
     const device = await enrolDeviceAt(storeA1, "XA5", adminA, tenantA);
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "terminal.recordOverride",
+      mode: "refusal",
+      ownerSees: recordedB,
+      otherGets: () =>
         seam.actors
           .asDevice({
             tenantId: tenantA,
@@ -288,8 +291,7 @@ describe("terminal.recordOverride", () => {
             reason: "Rung up in error",
             approvedAt: new Date(),
           }),
-      (result) => result.ok === false,
-    );
+    });
 
     const wrongTenantRows = await withTenantScope(ownerDb, tenantA, (db) =>
       db.selectFrom("Override").select("id").where("approver_user_id", "=", adminB).execute(),
@@ -338,7 +340,7 @@ describe("override.list", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("wrong-tenant probe: Tenant B never sees Tenant A's Override, seeded through A's own scoped connection", async () => {
+  it("wrong-tenant probe [override.list]: Tenant B never sees Tenant A's Override, seeded through A's own scoped connection", async () => {
     const device = await enrolDeviceAt(storeA1, "XA7", adminA, tenantA);
     const recorded = await seam.actors
       .asDevice({
@@ -362,6 +364,11 @@ describe("override.list", () => {
       db.selectFrom("Override").select("id").where("id", "=", recorded.overrideId).execute(),
     );
     expect(asA).toHaveLength(1);
+    const listAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.override.list();
+    const ownAsA = listAsA!.find((row) => row.id === recorded.overrideId);
+    expect(ownAsA).toBeTruthy();
 
     const asBTenant = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
@@ -372,5 +379,30 @@ describe("override.list", () => {
       db.selectFrom("Override").select("id").where("id", "=", recorded.overrideId).execute(),
     );
     expect(asB).toHaveLength(0);
+
+    // B's own genuine row, so "confined" has real data to compare against.
+    const deviceB = await enrolDeviceAt(storeB, "XB2", adminB, tenantB);
+    const recordedB = await seam.actors
+      .asDevice({ tenantId: tenantB, deviceId: deviceB.deviceId, storeId: storeB, code: "XB2", name: "t" })
+      .client.terminal.recordOverride({
+        approverUserId: managerB,
+        actionType: "refund",
+        reason: "Customer changed their mind",
+        approvedAt: new Date(),
+      });
+    if (!recordedB.ok) throw new Error("setup failed");
+    const listAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.override.list();
+    const ownAsB = listAsB!.find((row) => row.id === recordedB.overrideId);
+    expect(ownAsB).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "override.list",
+      mode: "confined",
+      ownerSees: ownAsA,
+      otherGets: async () => ownAsB,
+      otherOwn: ownAsB,
+    });
   });
 });
