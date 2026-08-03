@@ -63,6 +63,7 @@ export function TableLabelsField({
         return (
           <div key={row.id} className="flex items-center gap-1">
             <Input
+              placeholder={`Table ${n}`}
               ref={(el) => {
                 if (el) inputRefs.current.set(row.id, el);
                 else inputRefs.current.delete(row.id);

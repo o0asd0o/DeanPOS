@@ -47,6 +47,7 @@ export function TemporaryPasswordField({
         id={id}
         name={name}
         autoComplete="new-password"
+        placeholder="Type one, or use Generate"
         required
         minLength={6}
         aria-describedby={`${id}-hint`}

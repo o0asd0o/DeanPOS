@@ -80,6 +80,7 @@ export function StoreEditor({
             <Input
               id="store-name"
               name={field.name}
+              placeholder="Downtown"
               required
               autoFocus
               value={field.state.value}

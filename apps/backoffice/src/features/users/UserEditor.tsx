@@ -124,6 +124,7 @@ export function UserEditor({
               <Input
                 id="user-first-name"
                 name={field.name}
+                placeholder="Ana"
                 required
                 value={field.state.value}
                 onBlur={field.handleBlur}
@@ -139,6 +140,7 @@ export function UserEditor({
               <Input
                 id="user-last-name"
                 name={field.name}
+                placeholder="Reyes"
                 required
                 value={field.state.value}
                 onBlur={field.handleBlur}
@@ -157,6 +159,7 @@ export function UserEditor({
                 id="user-email"
                 type="email"
                 name={field.name}
+                placeholder="ana@restaurant.com"
                 required
                 autoFocus
                 value={field.state.value}
