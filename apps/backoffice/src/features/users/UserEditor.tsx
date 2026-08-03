@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CheckIcon, KeyRoundIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import {
   Button,
@@ -176,17 +177,30 @@ export function UserEditor({
               )}
             </form.Field>
           )}
-          {user && (
-            <Button type="button" variant="outline" onClick={() => setResettingPassword(true)}>
-              Reset password
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              <XIcon />
+              Cancel
             </Button>
-          )}
-          <Button type="submit" aria-disabled={saving}>
-            {user ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create user"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {user && (
+                <Button type="button" variant="outline" onClick={() => setResettingPassword(true)}>
+                  <KeyRoundIcon />
+                  Reset password
+                </Button>
+              )}
+              <Button type="submit" aria-disabled={saving}>
+                <CheckIcon />
+                {user
+                  ? saving
+                    ? "Saving…"
+                    : "Save changes"
+                  : saving
+                    ? "Creating…"
+                    : "Create user"}
+              </Button>
+            </div>
+          </div>
           {failed && (
             <div
               role="alert"

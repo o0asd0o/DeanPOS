@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, SheetTitle } from "ui";
 
@@ -112,12 +113,22 @@ export function StoreEditor({
             )}
           </form.Field>
           <TableLabelsField rows={labelRows} onChange={setLabelRows} onAnnounce={onAnnounce} />
-          <Button type="submit" aria-disabled={saving}>
-            {store ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create store"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              <XIcon />
+              Cancel
+            </Button>
+            <Button type="submit" aria-disabled={saving}>
+              <CheckIcon />
+              {store
+                ? saving
+                  ? "Saving…"
+                  : "Save changes"
+                : saving
+                  ? "Creating…"
+                  : "Create store"}
+            </Button>
+          </div>
           {failed && (
             <div
               role="alert"

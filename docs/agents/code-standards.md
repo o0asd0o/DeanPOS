@@ -2,7 +2,7 @@
 
 **Who reads this:** `implementer` and `fixer` before editing, and `reviewer` when judging its Standards axis. Nobody else — `explorer`, `qa`, and `decider` never write product code, so this is not loaded into their context.
 
-Eight rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rules 6–7 govern what it looks like, rule 8 governs how it is imported.
+Nine rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rules 6–7 govern what it looks like, rule 8 governs how it is imported, rule 9 governs how a form ends.
 
 ## 1. One change, one problem
 
@@ -205,6 +205,39 @@ relative imports until every consumer can be taught the same mapping. Node's `im
 
 `apps/backoffice/tests/import-style-grep.test.ts` enforces the rule for the three apps it
 applies to.
+
+## 9. A form's actions are one row: cancel left, the commit right, both with icons
+
+Every editor and dialog footer takes the same shape, so a user does not have to
+re-learn where the safe exit is on each screen:
+
+```tsx
+<div className="flex flex-wrap items-center justify-between gap-2">
+  <Button type="button" variant="outline" onClick={onCancel}>
+    <XIcon />
+    Cancel
+  </Button>
+  <div className="flex flex-wrap items-center gap-2">
+    {/* secondary actions, then the commit last */}
+    <Button type="submit">
+      <CheckIcon />
+      Save changes
+    </Button>
+  </div>
+</div>
+```
+
+- **Cancel sits left, alone.** The commit sits at the far right, last in the DOM
+  and last in the tab order.
+- **Buttons size to their content.** A button inside a `flex-col` form stretches
+  to the column's width unless it is wrapped in a row — that stretch is the
+  defect this rule exists to prevent, not a style preference.
+- **Every action carries a lucide icon before its label.** Icon-only is for
+  table rows, where the accessible name lives on `aria-label`; a footer action
+  keeps its word.
+- Row actions in a list are the mirror image: icon **and** word, `variant="outline"`,
+  in a right-aligned column, so the destructive one is never where a cursor
+  lands by accident.
 
 ## When this file and the existing code disagree
 
