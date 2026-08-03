@@ -49,7 +49,10 @@ export function ResetPinDialog({
           </DialogDescription>
         </DialogHeader>
         {resetPin.isError && (
-          <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+          <div
+            role="alert"
+            className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+          >
             Couldn&rsquo;t reset the PIN
           </div>
         )}

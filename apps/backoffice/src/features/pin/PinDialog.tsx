@@ -84,7 +84,10 @@ export function PinDialog({
             )}
           </form.Field>
           {setPin.isError && (
-            <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+            <div
+              role="alert"
+              className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+            >
               Couldn&rsquo;t save the PIN
             </div>
           )}
