@@ -117,6 +117,19 @@
   scrollbar-color: var(--color-accent) transparent;
 }
 
+/* Radix animates only the dialog content it owns, and our scrim is a portal
+   sibling rather than its overlay, so the scrim takes its cue from the panel's
+   own state. Radix's Presence keeps it mounted while this animation runs. */
+@keyframes sheet-scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+[data-slot="sheet-overlay"]:has(~ [data-slot="sheet-content"][data-state="closed"]) {
+  animation: sheet-scrim-out 150ms ease forwards;
+}
+
 @layer base {
   /* Touch rescales the base spacing by 1.25, putting stock `h-9` at 45px,
      over the 44px floor. Only font size is overridden; line heights are
