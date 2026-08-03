@@ -394,10 +394,9 @@ describe("the Override prompt", () => {
     },
   );
 
-  // Record 061: an in-process refusal (`{ ok: false }`) and a dropped
-  // connection are different failures with different copy. `renderRoute`'s
-  // `fetch` override forces a real rejection so this exercises the
-  // `unreachable` branch, not the refusal branch above.
+  // Record 061: a refusal and a dropped connection carry different copy. The
+  // `fetch` override forces a real rejection, so this reaches the
+  // `unreachable` branch rather than the refusal branch above.
   it("a dropped connection at Approve time shows the transport alert, keeps the dialog and form, and records nothing", async () => {
     await seedDeviceAndRoster();
     const reason = `Rung up in error ${randomUUID()}`;
