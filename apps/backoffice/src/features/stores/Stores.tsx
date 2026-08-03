@@ -28,6 +28,10 @@ export function Stores() {
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
+  // Held so the panel still has content while the sheet animates out.
+  const lastOpenEditor = useRef<EditorState>({ mode: "create" });
+  if (editor.mode !== "closed") lastOpenEditor.current = editor;
+  const shownEditor = editor.mode === "closed" ? lastOpenEditor.current : editor;
   const [deactivateTarget, setDeactivateTarget] = useState<StoreOutput | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
@@ -105,10 +109,10 @@ export function Stores() {
           side="right"
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
-          {editor.mode !== "closed" && (
+          {shownEditor.mode !== "closed" && (
             <StoreEditor
-              key={editor.mode === "edit" ? `edit-${editor.store.id}` : "create"}
-              store={editor.mode === "edit" ? editor.store : null}
+              key={shownEditor.mode === "edit" ? `edit-${shownEditor.store.id}` : "create"}
+              store={shownEditor.mode === "edit" ? shownEditor.store : null}
               onSaved={handleSaved}
               onCancel={closeEditor}
               onAnnounce={announce}
