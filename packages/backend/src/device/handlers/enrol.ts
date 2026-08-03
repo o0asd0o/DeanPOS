@@ -45,9 +45,9 @@ export const handler: Handler<EnrolInput, EnrolResult> = async ({ ctx, input }) 
 
   try {
     const inserted = await withTenantScope(ctx.db, enrolmentCode.tenant_id, async (scopedDb) => {
-      const consumed = await consumeEnrolmentCode(scopedDb, enrolmentCode.id, deviceId);
-      if (!consumed) return null;
-
+      // The Device must exist before the code's device_id FK can point at
+      // it, so insert first. If the consume below loses the race, throwing
+      // is what rolls this insert back too — returning null would commit it.
       const device = await insertDevice(scopedDb, {
         id: deviceId,
         tenantId: enrolmentCode.tenant_id,
@@ -56,6 +56,10 @@ export const handler: Handler<EnrolInput, EnrolResult> = async ({ ctx, input }) 
         code: enrolmentCode.code,
         tokenHash,
       });
+
+      const consumed = await consumeEnrolmentCode(scopedDb, enrolmentCode.id, deviceId);
+      if (!consumed) throw new Error("enrolment code already consumed");
+
       const store = await getStore(scopedDb, enrolmentCode.store_id);
       return { device, storeName: store?.name ?? "" };
     });

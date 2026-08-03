@@ -1,0 +1,569 @@
+import { randomUUID } from "node:crypto";
+
+import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { hashPassword } from "backend/src/common/password.ts";
+import { hashDeviceToken } from "backend/src/device/token.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
+
+import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
+
+// Issue 09: enrolment, the Device principal, and revocation.
+const seam = createTestSeam();
+const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
+
+const tenantA = randomUUID();
+const tenantB = randomUUID();
+const adminA = randomUUID();
+const managerA = randomUUID();
+const cashierA = randomUUID();
+const adminB = randomUUID();
+const storeA1 = randomUUID();
+const storeA2 = randomUUID();
+const storeB = randomUUID();
+
+beforeAll(async () => {
+  await ownerDb
+    .insertInto("Tenant")
+    .values([
+      { id: tenantA, name: "Device Tenant A" },
+      { id: tenantB, name: "Device Tenant B" },
+    ])
+    .execute();
+
+  const passwordHash = await hashPassword("irrelevant");
+  await ownerDb
+    .insertInto("User")
+    .values([
+      {
+        id: adminA,
+        tenant_id: tenantA,
+        email: `dev-admin-${randomUUID()}@dev.test`,
+        password_hash: passwordHash,
+        role: "admin",
+      },
+      {
+        id: managerA,
+        tenant_id: tenantA,
+        email: `dev-manager-${randomUUID()}@dev.test`,
+        password_hash: passwordHash,
+        role: "manager",
+      },
+      {
+        id: cashierA,
+        tenant_id: tenantA,
+        email: `dev-cashier-${randomUUID()}@dev.test`,
+        password_hash: passwordHash,
+        role: "cashier",
+      },
+      {
+        id: adminB,
+        tenant_id: tenantB,
+        email: `dev-admin-b-${randomUUID()}@dev.test`,
+        password_hash: passwordHash,
+        role: "admin",
+      },
+    ])
+    .execute();
+
+  await withTenantScope(seam.db, tenantA, (db) =>
+    db
+      .insertInto("Store")
+      .values([
+        { id: storeA1, tenant_id: tenantA, name: "A Store 1" },
+        { id: storeA2, tenant_id: tenantA, name: "A Store 2" },
+      ])
+      .execute(),
+  );
+  await withTenantScope(seam.db, tenantB, (db) =>
+    db.insertInto("Store").values({ id: storeB, tenant_id: tenantB, name: "B Store" }).execute(),
+  );
+});
+
+afterAll(async () => {
+  await ownerDb.deleteFrom("DeviceAudit").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  // EnrolmentCode.device_id FKs Device with ON DELETE RESTRICT — clear the
+  // referencing rows first.
+  await ownerDb.deleteFrom("EnrolmentCode").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Device").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Store").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("User").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.destroy();
+  await seam.db.destroy();
+});
+
+// One admin-generated code + exchange, reused by several tests below.
+async function generateAndExchange(storeId: string, code: string, actor = adminA) {
+  const generated = await seam.actors
+    .asTenant(tenantA, { userId: actor, role: "admin" })
+    .client.device.generateCode({ storeId, name: "Counter 1", code });
+  if (!generated.ok) throw new Error("setup: generateCode failed");
+  const exchanged = await seam.client.terminal.enrol({ secret: generated.secret });
+  return { generated, exchanged };
+}
+
+describe("device.generateCode", () => {
+  it("an admin generates a code bound to one Store, with a name and short code", async () => {
+    const result = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Counter 9", code: "C9" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.secret).toHaveLength(8);
+    expect(result.code).toBe("C9");
+    expect(result.storeId).toBe(storeA1);
+
+    const audit = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .selectAll()
+        .where("field", "=", "code_generated")
+        .where("new_value", "=", "C9")
+        .executeTakeFirst(),
+    );
+    expect(audit?.actor_user_id).toBe(adminA);
+    expect(audit?.enrolment_code_id).not.toBeNull();
+    expect(audit?.device_id).toBeNull();
+  });
+
+  it("a manager and a cashier are refused, server-side", async () => {
+    const asManager = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.generateCode({ storeId: storeA1, name: "X", code: "XX" });
+    const asCashier = await seam.actors
+      .asTenant(tenantA, { userId: cashierA, role: "cashier" })
+      .client.device.generateCode({ storeId: storeA1, name: "X", code: "XX" });
+
+    expect(asManager.ok).toBe(false);
+    expect(asCashier.ok).toBe(false);
+  });
+
+  it("refuses a code already reserved or in use at that Store", async () => {
+    const first = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Dup 1", code: "DP" });
+    expect(first.ok).toBe(true);
+
+    const second = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Dup 2", code: "DP" });
+    expect(second.ok).toBe(false);
+
+    // The same code at a different Store is unaffected.
+    const otherStore = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA2, name: "Dup 3", code: "DP" });
+    expect(otherStore.ok).toBe(true);
+  });
+});
+
+describe("terminal.enrol", () => {
+  it("exchanges a valid code for a high-entropy token, stored hashed", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "E1");
+
+    expect(exchanged.ok).toBe(true);
+    if (!exchanged.ok) return;
+    expect(exchanged.token.length).toBeGreaterThanOrEqual(40);
+    expect(exchanged.code).toBe("E1");
+    expect(exchanged.storeName).toBe("A Store 1");
+
+    const row = await withTenantScope(seam.db, tenantA, (db) =>
+      db.selectFrom("Device").selectAll().where("id", "=", exchanged.deviceId).executeTakeFirst(),
+    );
+    expect(row?.token_hash).toBe(hashDeviceToken(exchanged.token));
+    expect(row?.token_hash).not.toBe(exchanged.token);
+
+    // No audit row for the exchange itself — its actor is a terminal, not a User.
+    const audits = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .selectAll()
+        .where("device_id", "=", exchanged.deviceId)
+        .execute(),
+    );
+    expect(audits).toHaveLength(0);
+  });
+
+  it("a second exchange of the same code fails", async () => {
+    const generated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Reuse", code: "RU" });
+    if (!generated.ok) throw new Error("setup failed");
+
+    const first = await seam.client.terminal.enrol({ secret: generated.secret });
+    expect(first.ok).toBe(true);
+
+    const second = await seam.client.terminal.enrol({ secret: generated.secret });
+    expect(second.ok).toBe(false);
+  });
+
+  it("an unrecognised secret fails with the same shape as expired or consumed", async () => {
+    const result = await seam.client.terminal.enrol({ secret: "ZZZZZZZZ" });
+    expect(result.ok).toBe(false);
+  });
+
+  it("an expired code fails", async () => {
+    const generated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Expired", code: "EX" });
+    if (!generated.ok) throw new Error("setup failed");
+
+    await ownerDb
+      .updateTable("EnrolmentCode")
+      .set({ expires_at: new Date(Date.now() - 1000) })
+      .where("secret", "=", generated.secret)
+      .execute();
+
+    const result = await seam.client.terminal.enrol({ secret: generated.secret });
+    expect(result.ok).toBe(false);
+  });
+
+  // The claim this issue makes hardest: a real race, with a barrier, must
+  // mint at most one Device — not a Promise.all that happens to serialise.
+  it("two genuinely concurrent exchanges of the same code mint exactly one Device", async () => {
+    const generated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Race", code: "RC" });
+    if (!generated.ok) throw new Error("setup failed");
+
+    // Both requests are issued before either awaits a response — a genuine
+    // race on the same underlying connection pool, not a sequential pair.
+    const [first, second] = await Promise.all([
+      seam.client.terminal.enrol({ secret: generated.secret }),
+      seam.client.terminal.enrol({ secret: generated.secret }),
+    ]);
+
+    const outcomes = [first, second];
+    expect(outcomes.filter((r) => r.ok)).toHaveLength(1);
+    expect(outcomes.filter((r) => !r.ok)).toHaveLength(1);
+
+    const devices = await ownerDb
+      .selectFrom("Device")
+      .select("id")
+      .where("code", "=", "RC")
+      .where("tenant_id", "=", tenantA)
+      .execute();
+    expect(devices).toHaveLength(1);
+  });
+});
+
+describe("Device short code is not reissued after revocation", () => {
+  it("refuses a code already used by a revoked Device at that Store", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "RV");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+
+    const reserved = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Reissue Attempt", code: "RV" });
+    expect(reserved.ok).toBe(false);
+  });
+});
+
+describe("the Device token principal", () => {
+  it("derives Tenant and Store from the Device, never from input — heartbeat and me carry no such input", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T1");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const me = await seam.actors
+      .asDevice({
+        tenantId: tenantA,
+        deviceId: exchanged.deviceId,
+        storeId: storeA1,
+        code: "T1",
+        name: "Counter 1",
+      })
+      .client.terminal.me();
+
+    expect(me.authenticated).toBe(true);
+    if (!me.authenticated) return;
+    expect(me.storeId).toBe(storeA1);
+    expect(me.storeName).toBe("A Store 1");
+  });
+
+  it("real Authorization header: enrol, then me/heartbeat over the bearer token, matched case-insensitively", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T2");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const client = seam.actors.withBearerToken(exchanged.token);
+    const me = await client.terminal.me();
+    expect(me.authenticated).toBe(true);
+
+    const heartbeat = await client.terminal.heartbeat();
+    expect(heartbeat.ok).toBe(true);
+  });
+
+  it("cookie procedures do not accept a Device token — the two principals do not substitute", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T3");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const client = seam.actors.withBearerToken(exchanged.token);
+    const stores = await client.store.list();
+    // A Device Ctx is not "tenant" — the handler's own guard returns [].
+    expect(stores).toStrictEqual([]);
+  });
+
+  it("a Device-token request is exempt from the Origin gate: withBearerToken never sets Origin, and still succeeds", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T4");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    // The exact request a cookie-carrying client with no Origin header would
+    // have 403'd on (see the sibling "no Origin" cookie test elsewhere) —
+    // this one carries Authorization instead and is never routed through
+    // that gate at all (app.ts: the gate runs only inside `if (sessionId)`).
+    const me = await seam.actors.withBearerToken(exchanged.token).terminal.me();
+    expect(me.authenticated).toBe(true);
+  });
+
+  it("revocation is immediate: every subsequent authenticated request from that Device is refused", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T5");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const client = seam.actors.withBearerToken(exchanged.token);
+    expect((await client.terminal.me()).authenticated).toBe(true);
+
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+
+    // Asserted on more than one procedure (issue 09 acceptance criteria).
+    expect((await client.terminal.me()).authenticated).toBe(false);
+    expect((await client.terminal.heartbeat()).ok).toBe(false);
+  });
+
+  it("last-seen updates on activity", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "T6");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const before = await ownerDb
+      .selectFrom("Device")
+      .select("last_seen_at")
+      .where("id", "=", exchanged.deviceId)
+      .executeTakeFirstOrThrow();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await seam.actors.withBearerToken(exchanged.token).terminal.heartbeat();
+
+    const after = await ownerDb
+      .selectFrom("Device")
+      .select("last_seen_at")
+      .where("id", "=", exchanged.deviceId)
+      .executeTakeFirstOrThrow();
+    expect(after.last_seen_at.getTime()).toBeGreaterThan(before.last_seen_at.getTime());
+  });
+});
+
+describe("device.list", () => {
+  it("an admin sees every Device in their own Tenant, with last-seen", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "P1");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const list = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list();
+    const row = list.find((d) => d.id === exchanged.deviceId);
+    expect(row?.name).toBe("Counter 1");
+    expect(row?.lastSeenAt).toBeInstanceOf(Date);
+    expect(row?.revokedAt).toBeNull();
+  });
+
+  it("a manager and a cashier are refused, server-side, and see nothing", async () => {
+    const asManager = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.list();
+    const asCashier = await seam.actors
+      .asTenant(tenantA, { userId: cashierA, role: "cashier" })
+      .client.device.list();
+    expect(asManager).toStrictEqual([]);
+    expect(asCashier).toStrictEqual([]);
+  });
+
+  it("an unauthenticated caller sees nothing", async () => {
+    const list = await seam.actors.asUnauthenticated().client.device.list();
+    expect(list).toStrictEqual([]);
+  });
+
+  it("the wrong-tenant probe: Tenant B's Device is readable as Tenant B, never in Tenant A's list", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Device", code: "BB" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    const asB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.list();
+    expect(asB.map((d) => d.id)).toContain(exchangedAsB.deviceId);
+
+    const asA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list();
+    expect(asA.map((d) => d.id)).not.toContain(exchangedAsB.deviceId);
+  });
+});
+
+describe("device.rename", () => {
+  it("renames a Device and writes one audit row with the old and new name", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "RN");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const renamed = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.rename({ id: exchanged.deviceId, name: "Counter 1B" });
+    expect(renamed?.name).toBe("Counter 1B");
+
+    const audit = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .selectAll()
+        .where("device_id", "=", exchanged.deviceId)
+        .where("field", "=", "name")
+        .executeTakeFirstOrThrow(),
+    );
+    expect(audit.old_value).toBe("Counter 1");
+    expect(audit.new_value).toBe("Counter 1B");
+  });
+
+  it("a revoked Device may still be renamed", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "RR");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+
+    const renamed = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.rename({ id: exchanged.deviceId, name: "Still Named" });
+    expect(renamed?.name).toBe("Still Named");
+  });
+
+  it("a manager and a cashier are refused, server-side", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "RF");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const asManager = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.rename({ id: exchanged.deviceId, name: "Hijacked" });
+    expect(asManager).toBeNull();
+  });
+
+  it("the wrong-tenant probe: Tenant A cannot rename Tenant B's Device; B's row is untouched", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Rename Target", code: "BR" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    await expectWrongTenantRefusal(
+      () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.rename({ id: exchangedAsB.deviceId, name: "Hijacked From A" }),
+      (result) => result === null,
+    );
+
+    const stillAsB = await ownerDb
+      .selectFrom("Device")
+      .select("name")
+      .where("id", "=", exchangedAsB.deviceId)
+      .executeTakeFirstOrThrow();
+    expect(stillAsB.name).toBe("B Rename Target");
+  });
+});
+
+describe("device.revoke", () => {
+  it("an admin revokes a Device; a second revoke is a no-op refusal, never a hard delete", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "V1");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const revoked = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+    expect(revoked?.revokedAt).toBeInstanceOf(Date);
+
+    const stillReadable = await ownerDb
+      .selectFrom("Device")
+      .select("id")
+      .where("id", "=", exchanged.deviceId)
+      .executeTakeFirst();
+    expect(stillReadable?.id).toBe(exchanged.deviceId);
+
+    const second = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+    expect(second).toBeNull();
+  });
+
+  it("a manager and a cashier are refused, server-side", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "V2");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const asCashier = await seam.actors
+      .asTenant(tenantA, { userId: cashierA, role: "cashier" })
+      .client.device.revoke({ id: exchanged.deviceId });
+    expect(asCashier).toBeNull();
+  });
+
+  it("the wrong-tenant probe: Tenant A cannot revoke Tenant B's Device; B's own revoke still succeeds", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Revoke Target", code: "BV" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    await expectWrongTenantRefusal(
+      () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.revoke({ id: exchangedAsB.deviceId }),
+      (result) => result === null,
+    );
+
+    const stillActive = await ownerDb
+      .selectFrom("Device")
+      .select("revoked_at")
+      .where("id", "=", exchangedAsB.deviceId)
+      .executeTakeFirstOrThrow();
+    expect(stillActive.revoked_at).toBeNull();
+
+    const revokedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.revoke({ id: exchangedAsB.deviceId });
+    expect(revokedAsB?.revokedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("DeviceAudit isolation", () => {
+  it("the wrong-tenant probe: an actor reads their own Tenant's audit rows, never another Tenant's", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "Audit Isolation B", code: "AZ" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+
+    const ownerAuditsForB = await ownerDb
+      .selectFrom("DeviceAudit")
+      .selectAll()
+      .where("tenant_id", "=", tenantB)
+      .execute();
+    expect(ownerAuditsForB.length).toBeGreaterThan(0);
+
+    const asAScoped = await withTenantScope(seam.db, tenantA, (db) =>
+      db.selectFrom("DeviceAudit").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asAScoped).toHaveLength(0);
+
+    const asBScoped = await withTenantScope(seam.db, tenantB, (db) =>
+      db.selectFrom("DeviceAudit").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asBScoped.length).toBe(ownerAuditsForB.length);
+  });
+});
