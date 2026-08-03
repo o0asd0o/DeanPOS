@@ -1,6 +1,6 @@
 # 12 — The Override mechanism and its as-of-time re-verification
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -138,3 +138,60 @@ write path" rule is `offline-sync`'s to decide and record._
 _**Obligation carried forward to `checkout` and `drawer-sessions` (record 061):** mounting
 `OverridePrompt` makes its online-only limitation reachable by a cashier. Either mount it after
 `offline-sync` ships, or state in your own issue that Overrides are online-only until then._
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **589** tests, migration proven from an empty
+database and applied to `DeanPOS_dev`. 2 fix rounds — the cap — plus one comment trim the
+orchestrator applied directly. Reviewed by a second model all three rounds, final Spec verdict PASS.
+
+**Two records, both `Stakes: high`:**
+[060](../../decisions/060-the-override-is-verified-on-the-terminal-and-consumed-by-a-second-insert-only-table.md) ·
+[061](../../decisions/061-the-offline-override-is-carried-by-offline-sync-not-staged-here.md).
+
+**Record 060 refused to weaken record 058, and amended this issue instead.** Criterion 4 said the
+server verifies the PIN online — exactly what 058 forbids, enforced by a grep test, and 058 itself
+said such a thing would need a superseding record. The decider had explicit licence to write one and
+declined. The reasoning: **the Device token and the synced hash roster live in the same
+`localStorage`**, so anyone able to *call* a server PIN endpoint already holds the roster and can
+grind it in ~75 s (record 057), then submit the real PIN. A server-side check stops nobody and costs
+an unmetered manager-credential oracle that record 059's on-device throttle cannot reach.
+
+So the PIN is verified on the terminal on both paths, and **the server verifies the approver, never
+the PIN**. Three compensating controls stand in its place: the Device token (no input field, so
+tenant, store and device cannot be forged), `verifyOverrideAsOf` run **before** insert, and the
+append-only row plus the review list. **The residual is named and accepted:** a terminal whose
+storage is stolen can mint an Override for a genuine manager. No server check would have stopped
+that; revocation is the mitigation (ADR-0007). The decider's own least-confident assumption is that
+operators actually read the review list.
+
+**Two design knots, both dissolved rather than patched.** Criterion 1 demanded an append-only row
+carrying the id of the record it authorised, while nothing consumes an Override and neither `Order`
+nor `DrawerSession` exists — resolved by splitting consumption into a second insert-only table, so
+nothing is ever updated and `UNIQUE(tenant_id, override_id)` is what makes double-use impossible.
+And `consumeOverride` takes a **transaction**, so consumption commits atomically with the action
+rather than as a separate request.
+
+**Record 061 answered the review's blocking finding with "build nothing".** The prompt works only
+online and stages nothing — correct, and correct to leave. `.scratch/offline-sync/PRD.md` states
+that **an Override is not an Outbox entry kind**; it travels inside the payload of the action it
+authorised, and the Outbox is the only write path. A staging area here would have been a second
+durable queue in a shape the real system never uses. Criterion 5 was split rather than deleted, with
+obligations written into the Comments. Safety was proven by grep rather than argument:
+**`OverridePrompt` is imported by no file but its own test**, so the limitation is unreachable.
+
+What the review caught, across three rounds:
+
+- **`consumeOverride` took an ordinary database instance, not a transaction**, so a caller could
+  consume outside the action's transaction — and a crash would burn the Override without committing
+  what it authorised. The compiler now rejects it.
+- **No action/subject compatibility check**, so a `drawer_variance` Override could be recorded
+  against `order_id`.
+- **`recordPinSuccess` ran before the server accepted the Override**, so a demoted manager's correct
+  cached PIN cleared the till's shared lock even when recording was refused.
+- The dialog stayed closable while recording was pending, so a delayed success could call
+  `onApproved` after the cashier had cancelled.
+- **No screen-reader announcement on the attempt that causes a lock** — and the first fix for it
+  pre-seeded a lock and needed a second click, so it did not prove the thing it was written for.
+- **The `unreachable` transport branch had no test at all** — a cleared Device token resolves as a
+  clean refusal in the in-process harness. Now forced with a real `fetch` rejection.
+- **The wrong-tenant probe was hollow for the tenth consecutive issue** — it never proved Tenant B's
+  approver works for Tenant B, so a handler rejecting every request would have passed it.
