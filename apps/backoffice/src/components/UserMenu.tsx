@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
-import { LogOutIcon, SettingsIcon } from "lucide-react";
+import { KeyRoundIcon, LogOutIcon, SettingsIcon } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 
+import { PinDialog } from "@/features/pin/PinDialog.tsx";
 import { SettingsDialog } from "@/features/settings/SettingsDialog.tsx";
 
 import { displayNameFromEmail, initialsFromEmail } from "./helpers.ts";
@@ -32,6 +33,7 @@ export function UserMenu() {
   const navigate = useNavigate();
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
 
   const me = useQuery(orpc.auth.me.queryOptions());
   const signOut = useMutation(
@@ -79,6 +81,10 @@ export function UserMenu() {
               Settings
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onSelect={() => setPinOpen(true)}>
+            <KeyRoundIcon />
+            PIN
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setConfirmingSignOut(true)}>
             <LogOutIcon />
             Sign out
@@ -86,6 +92,7 @@ export function UserMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <PinDialog open={pinOpen} onOpenChange={setPinOpen} />
       <Dialog open={confirmingSignOut} onOpenChange={setConfirmingSignOut}>
         <DialogContent>
           <DialogHeader>

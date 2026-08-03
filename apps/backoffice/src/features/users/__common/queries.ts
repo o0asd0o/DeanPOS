@@ -81,6 +81,15 @@ export function useReactivateUserMutation() {
   );
 }
 
+export function useResetUserPinMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/employees" });
+  return useMutation(
+    orpc.user.resetPin.mutationOptions({
+      meta: { success: "PIN reset", error: "Couldn't reset the PIN" },
+    }),
+  );
+}
+
 export function useResetUserPasswordMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const queryClient = useQueryClient();

@@ -95,13 +95,10 @@ export const userResetPasswordInputSchema = z.object({
 // record 032. Never returned in any output.
 export const pinSchema = z.string().regex(/^\d{4,6}$/, "4 to 6 digits");
 
-// Self-service (issue 10, record 057 Q2/Q6): `currentPin` is required only
-// to change an existing PIN, absent for the first-use case. No response
-// ever carries the hash back to the caller.
-export const userSetPinInputSchema = z.object({
-  pin: pinSchema,
-  currentPin: pinSchema.optional(),
-});
+// Self-service, cookie/tenant session (issue 10, record 058) — one field,
+// covering first use and change alike. No procedure ever verifies a
+// submitted PIN, so there is no `currentPin`; no response carries the hash.
+export const userSetPinInputSchema = z.object({ pin: pinSchema });
 export const userSetPinOutputSchema = z.object({ ok: z.boolean() });
 
 // Admin-only (issue 10, record 057 "smaller calls" 4): clears the hash to

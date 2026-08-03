@@ -211,7 +211,9 @@ describe("the unlock screen", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText("Ben Cruz has no PIN yet. Connect to the network to set one"),
+        screen.getByText(
+          "Ben Cruz has no PIN yet. They set one in the back office, from their account menu",
+        ),
       ).toBeTruthy(),
     );
     expect(screen.getByRole("button", { name: "Unlock" }).getAttribute("aria-disabled")).toBe(

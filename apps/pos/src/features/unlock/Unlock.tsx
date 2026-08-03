@@ -99,7 +99,8 @@ export function Unlock() {
 
                 {selectedUser && selectedUser.pinHash === null && (
                   <p role="alert">
-                    {selectedUser.displayName} has no PIN yet. Connect to the network to set one
+                    {selectedUser.displayName} has no PIN yet. They set one in the back office,
+                    from their account menu
                   </p>
                 )}
                 {error && <p role="alert">{error}</p>}

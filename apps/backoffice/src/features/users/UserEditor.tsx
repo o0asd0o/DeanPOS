@@ -1,7 +1,7 @@
 import { SheetForm } from "@/components/SheetForm.tsx";
 import { TemporaryPasswordField } from "./TemporaryPasswordField.tsx";
 import { useState } from "react";
-import { CheckIcon, KeyRoundIcon, XIcon } from "lucide-react";
+import { CheckIcon, KeyRoundIcon, LockKeyholeIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
 
@@ -12,6 +12,7 @@ import {
 } from "./__common/queries.ts";
 import type { UserOutput } from "./helpers.ts";
 import { ResetPasswordDialog } from "./ResetPasswordDialog.tsx";
+import { ResetPinDialog } from "./ResetPinDialog.tsx";
 import { StoresField } from "./StoresField.tsx";
 
 type Role = "cashier" | "manager" | "admin";
@@ -34,6 +35,7 @@ export function UserEditor({
 
   const [storeIds, setStoreIds] = useState<Set<string>>(() => new Set(user?.storeIds ?? []));
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [resettingPin, setResettingPin] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
 
   const createUser = useCreateUserMutation();
@@ -100,6 +102,12 @@ export function UserEditor({
               <Button type="button" variant="outline" onClick={() => setResettingPassword(true)}>
                 <KeyRoundIcon />
                 Reset password
+              </Button>
+            )}
+            {user && (
+              <Button type="button" variant="outline" onClick={() => setResettingPin(true)}>
+                <LockKeyholeIcon />
+                Reset PIN
               </Button>
             )}
             <Button type="submit" aria-disabled={saving}>
@@ -220,6 +228,17 @@ export function UserEditor({
           onReset={() => {
             setResettingPassword(false);
             onAnnounce("Password reset");
+          }}
+        />
+      )}
+      {user && (
+        <ResetPinDialog
+          user={user}
+          open={resettingPin}
+          onOpenChange={setResettingPin}
+          onReset={() => {
+            setResettingPin(false);
+            onAnnounce("PIN reset");
           }}
         />
       )}
