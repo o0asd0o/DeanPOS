@@ -116,6 +116,55 @@ describe("the Settings screen — as an admin", () => {
 
     await expectNoAxeViolations(container);
   });
+
+  it("a resolved refusal (Tenant gone between load and submit) shows an error, not a silent success", async () => {
+    const refusalTenantId = randomUUID();
+    const refusalAdminId = randomUUID();
+    await ownerDb
+      .insertInto("Tenant")
+      .values({ id: refusalTenantId, name: "Refusal Tenant" })
+      .execute();
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: refusalAdminId,
+        tenant_id: refusalTenantId,
+        email: `settings-screen-refusal-${randomUUID()}@settings.test`,
+        password_hash: await hashPassword("irrelevant"),
+        role: "admin",
+      })
+      .execute();
+
+    const { db } = renderRoute({
+      router,
+      tenantId: refusalTenantId,
+      userId: refusalAdminId,
+      role: "admin",
+      initialLocation: "/settings",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("User").where("id", "=", refusalAdminId).execute();
+      await ownerDb.deleteFrom("Tenant").where("id", "=", refusalTenantId).execute();
+    };
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Sales settings" })).toBeTruthy(),
+    );
+
+    // The Tenant row vanishes between load and submit (e.g. deprovisioned
+    // mid-session) — the update resolves `null` rather than rejecting.
+    // The User row goes first: a live FK (`ON DELETE RESTRICT`) blocks
+    // deleting the Tenant while it still exists.
+    await ownerDb.deleteFrom("User").where("id", "=", refusalAdminId).execute();
+    await ownerDb.deleteFrom("Tenant").where("id", "=", refusalTenantId).execute();
+
+    fireEvent.change(screen.getByLabelText("Rate (%)"), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("status").textContent).not.toBe("Saved");
+  });
 });
 
 describe("the Settings screen — non-admin", () => {

@@ -8,8 +8,7 @@ ALTER TABLE "Tenant" ADD COLUMN "variance_tolerance_centavos" INTEGER NOT NULL D
 ALTER TABLE "Tenant" ADD COLUMN "cash_movement_override_threshold_centavos" INTEGER NOT NULL DEFAULT 0;
 
 -- Both centavo columns are non-negative — enforced here, not just accepted
--- as any int (record 046 §2, finding 6's reasoning from record 040 carried
--- forward: the schema alone is not the authority).
+-- as any int; the schema alone is not the authority (records 046 §2, 040).
 ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_variance_tolerance_centavos_check"
   CHECK ("variance_tolerance_centavos" >= 0);
 ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_cash_movement_override_threshold_centavos_check"

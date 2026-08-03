@@ -4,10 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb, type DatabaseInstance, withTenantScope } from "../../src/db/client.ts";
 
-// The migration owner seeds fixtures directly. Tenant carries own-row-only
-// SELECT/UPDATE policies for the app role, never a cross-tenant one
-// (record 047). The app role is what `withTenantScope` is exercised
-// against, matching production.
+// Tenant carries own-row-only SELECT/UPDATE policies for the app role,
+// never a cross-tenant one (record 047); `withTenantScope` exercises that
+// app role, matching production.
 const ownerDb: DatabaseInstance = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const appDb: DatabaseInstance = createDb({ databaseUrl: process.env.APP_DATABASE_URI! });
 

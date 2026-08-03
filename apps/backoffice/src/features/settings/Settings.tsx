@@ -5,10 +5,9 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import { useSettingsQuery, useUpdateSettingsMutation } from "./__common/queries.ts";
 import { SettingsForm } from "./SettingsForm.tsx";
 
-// The Sales settings screen (issue 07, record 046): one form, one Save, for
-// all five Tenant settings — record 040's shape, no list above it since
-// there is exactly one row per Tenant. Payment methods (same mock) are
-// issue 08, not built here.
+// The Sales settings screen (record 046): one form, one Save, for all five
+// Tenant settings — record 040's shape, no list since there is exactly one
+// row per Tenant.
 export function Settings() {
   const settingsQuery = useSettingsQuery();
   const updateSettings = useUpdateSettingsMutation();
@@ -50,7 +49,13 @@ export function Settings() {
         setSaveFailed(false);
         try {
           const saved = await updateSettings.mutateAsync(values);
-          if (!saved) return;
+          if (!saved) {
+            // A refusal server-side (e.g. demoted/deactivated mid-session)
+            // resolves `null` rather than rejecting — treated the same as
+            // a thrown error.
+            setSaveFailed(true);
+            return;
+          }
           setAnnouncement("Saved");
         } catch {
           // isError is already set on the mutation; swallow so it doesn't

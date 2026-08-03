@@ -12,10 +12,8 @@ export type TenantSettingsOutput = {
 };
 
 // Physical `@map`ped columns to the contract's camelCase shape (issue 01's
-// convention, carried here). `timezone` is narrowed to the curated list at
-// the DB CHECK-less boundary here — the contract's own `timezoneSchema`
-// re-validates on the way out, so a stray value never reaches a client
-// silently typed as valid.
+// convention). `timezone` is narrowed here without a DB CHECK; the
+// contract's `timezoneSchema` re-validates on the way out.
 export const toTenantSettingsOutput = (tenant: Selectable<Tenant>): TenantSettingsOutput => ({
   timezone: tenant.timezone as TenantTimezone,
   vatEnabled: tenant.vat_enabled,

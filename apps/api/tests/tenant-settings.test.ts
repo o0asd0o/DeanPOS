@@ -140,9 +140,9 @@ describe("settings.get", () => {
   });
 
   it("the wrong-tenant probe: settings.get has no addressable id, so RLS alone must confine a read to the caller's own Tenant — Tenant B changes its own settings first, then Tenant A's read is proven not to see them", async () => {
-    // Establish success through Tenant B's own application path first
-    // (finding 7): change B away from the shared defaults so the probe
-    // below cannot pass by coincidence.
+    // Change B away from the shared defaults on all five fields, through
+    // B's own application path, so the probe below cannot pass by
+    // coincidence on any single field.
     const changedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.settings.update({
@@ -152,13 +152,24 @@ describe("settings.get", () => {
         varianceToleranceCentavos: 7,
         cashMovementOverrideThresholdCentavos: 7,
       });
-    expect(changedAsB?.timezone).toBe("Asia/Tokyo");
+    expect(changedAsB).toStrictEqual({
+      timezone: "Asia/Tokyo",
+      vatEnabled: true,
+      vatRatePercent: 30,
+      varianceToleranceCentavos: 7,
+      cashMovementOverrideThresholdCentavos: 7,
+    });
 
     const asA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.settings.get();
-    expect(asA?.timezone).toBe("Asia/Manila");
-    expect(asA?.vatEnabled).toBe(false);
+    expect(asA).toStrictEqual({
+      timezone: "Asia/Manila",
+      vatEnabled: false,
+      vatRatePercent: 12,
+      varianceToleranceCentavos: 0,
+      cashMovementOverrideThresholdCentavos: 0,
+    });
 
     // Restore B.
     await seam.actors.asTenant(tenantB, { userId: adminB, role: "admin" }).client.settings.update({
@@ -310,18 +321,24 @@ describe("settings.update", () => {
   });
 
   it("the wrong-tenant probe: settings.update has no addressable id, so RLS alone must confine a write to the caller's own Tenant — Tenant B's own write succeeds first, then Tenant A's write is proven not to touch it", async () => {
-    // Establish success through Tenant B's own application path first
-    // (finding 7) — a write that never happened cannot prove isolation.
+    // Establish success through Tenant B's own application path first, on
+    // all five fields — a write that never happened cannot prove isolation.
     const beforeAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.settings.update({
         timezone: "Asia/Hong_Kong",
-        vatEnabled: false,
-        vatRatePercent: 12,
-        varianceToleranceCentavos: 0,
-        cashMovementOverrideThresholdCentavos: 0,
+        vatEnabled: true,
+        vatRatePercent: 8,
+        varianceToleranceCentavos: 3,
+        cashMovementOverrideThresholdCentavos: 5,
       });
-    expect(beforeAsB?.timezone).toBe("Asia/Hong_Kong");
+    expect(beforeAsB).toStrictEqual({
+      timezone: "Asia/Hong_Kong",
+      vatEnabled: true,
+      vatRatePercent: 8,
+      varianceToleranceCentavos: 3,
+      cashMovementOverrideThresholdCentavos: 5,
+    });
 
     // Tenant A writes its own settings — nothing here can name Tenant B's
     // row, so this is the probe: A's own write must land only on A.
@@ -339,7 +356,13 @@ describe("settings.update", () => {
     const afterAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.settings.get();
-    expect(afterAsB?.timezone).toBe("Asia/Hong_Kong");
+    expect(afterAsB).toStrictEqual({
+      timezone: "Asia/Hong_Kong",
+      vatEnabled: true,
+      vatRatePercent: 8,
+      varianceToleranceCentavos: 3,
+      cashMovementOverrideThresholdCentavos: 5,
+    });
 
     // Restore both tenants.
     await seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.settings.update({

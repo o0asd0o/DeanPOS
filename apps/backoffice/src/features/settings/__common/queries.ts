@@ -11,7 +11,11 @@ export function useUpdateSettingsMutation() {
   const queryClient = useQueryClient();
   return useMutation(
     orpc.settings.update.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.settings.get.queryKey() }),
+      // A server-side refusal resolves `null` rather than rejecting; only a
+      // real save invalidates the cached settings.
+      onSuccess: (data) => {
+        if (data) void queryClient.invalidateQueries({ queryKey: orpc.settings.get.queryKey() });
+      },
     }),
   );
 }

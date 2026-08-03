@@ -6,10 +6,9 @@ import { toTenantSettingsOutput } from "../helpers.ts";
 
 type TenantSettingsOutput = ReturnType<typeof toTenantSettingsOutput>;
 
-// `admin` only — `manager`/`cashier` do not see this screen at all, and a
-// read discloses the same financial controls a write would (issue 07,
-// record 046 §4). Refused with `null`, the same not-found shape every other
-// procedure in this codebase uses.
+// `admin` only — a read discloses the same financial controls a write
+// would (record 046 §4). Refused with `null`, this codebase's shared
+// not-found shape.
 export const handler: Handler<void, TenantSettingsOutput | null> = async ({ ctx }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return null;
   const { tenantId, role } = ctx.principal;

@@ -99,10 +99,9 @@ describe("TenantSettingsAudit: append-only, structurally", () => {
   });
 });
 
-// The same composite-FK trap issue 04 found on a plain user_id FK: a
-// tenant_id and actor_user_id checked independently would let a Tenant A
-// transaction attach an audit row to a Tenant B User merely because that
-// User exists somewhere.
+// The composite-FK trap issue 04 found on a plain user_id FK: checked
+// independently, tenant_id and actor_user_id would let a Tenant A
+// transaction attach an audit row to a Tenant B User.
 describe("TenantSettingsAudit: composite FK rejects a mismatched tenant", () => {
   it("TenantSettingsAudit(tenantA, actor=userB) is rejected", async () => {
     await expect(

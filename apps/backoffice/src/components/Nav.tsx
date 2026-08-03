@@ -5,7 +5,7 @@ import { SidebarContent } from "ui";
 import { NAV_GROUPS } from "./helpers.ts";
 import { NavGroup } from "./NavGroup.tsx";
 
-// `Settings` is admin-only (issue 07, record 046 §4). Dropping the entry is
+// `Settings` is admin-only (record 046 §4). Dropping the entry is
 // presentation; the route's own refusal is the enforcement.
 export function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const { orpc } = useRouteContext({ from: "/_shell" });
