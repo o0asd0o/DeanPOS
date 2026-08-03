@@ -13,9 +13,9 @@ import {
 import { hashPin } from "contract/src/pin.ts";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { readPinRoster } from "@/lib/pin-roster.ts";
+import { clearPinRoster, readPinRoster } from "@/lib/pin-roster.ts";
 import { router } from "@/router.tsx";
-import { writeDeviceToken } from "@/lib/device-token.ts";
+import { clearDeviceToken, readDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
 
 // The unlock screen (issue 10, record 057 Q4).
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
@@ -162,7 +162,8 @@ describe("the unlock screen", () => {
   });
 
   afterEach(async () => {
-    localStorage.clear();
+    clearDeviceToken();
+    clearPinRoster();
     await cleanup?.();
     cleanup = undefined;
   });
@@ -278,14 +279,14 @@ describe("the unlock screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
     await waitFor(() => expect(screen.getByText("Lock")).toBeTruthy(), { timeout: 3000 });
 
-    const tokenBefore = localStorage.getItem("deanpos.device.token");
-    const rosterBefore = localStorage.getItem("deanpos.pin.roster");
+    const tokenBefore = readDeviceToken();
+    const rosterBefore = readPinRoster();
 
     fireEvent.click(screen.getByText("Lock"));
 
     await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
-    expect(localStorage.getItem("deanpos.device.token")).toBe(tokenBefore);
-    expect(localStorage.getItem("deanpos.pin.roster")).toBe(rosterBefore);
+    expect(readDeviceToken()).toBe(tokenBefore);
+    expect(readPinRoster()).toEqual(rosterBefore);
   });
 
   it("syncs the roster into deanpos.pin.roster on load", async () => {

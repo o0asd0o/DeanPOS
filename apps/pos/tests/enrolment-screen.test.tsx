@@ -12,7 +12,7 @@ import {
 } from "api/src/test-seam-react.tsx";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { readDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
+import { clearDeviceToken, readDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
 import { router } from "@/router.tsx";
 
 // The POS enrolment screen (issue 09, record 056 Q5) — no lofi mock beyond
@@ -57,7 +57,7 @@ describe("the enrolment screen", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
-    localStorage.clear();
+    clearDeviceToken();
     await cleanup?.();
     cleanup = undefined;
   });

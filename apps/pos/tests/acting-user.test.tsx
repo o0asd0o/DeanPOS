@@ -2,6 +2,13 @@ import { fireEvent, render, screen } from "api/src/test-seam-react.tsx";
 import { describe, expect, it } from "vite-plus/test";
 
 import { ActingUserProvider, useActingUser } from "@/lib/acting-user.tsx";
+import {
+  clearDeviceToken,
+  readDeviceIdentity,
+  readDeviceToken,
+  writeDeviceToken,
+} from "@/lib/device-token.ts";
+import { clearPinRoster, readPinRoster, writePinRoster } from "@/lib/pin-roster.ts";
 
 // The acting User (issue 10, record 057 Q5): in memory only, and Lock is
 // `setActingUser(null)` and nothing else.
@@ -33,10 +40,17 @@ describe("ActingUserProvider", () => {
     expect(screen.getByText("locked")).toBeTruthy();
   });
 
-  it("lock never touches deanpos.device.token, deanpos.device.identity, or deanpos.pin.roster", () => {
-    localStorage.setItem("deanpos.device.token", "token-value");
-    localStorage.setItem("deanpos.device.identity", '{"deviceId":"d1"}');
-    localStorage.setItem("deanpos.pin.roster", '{"storeId":"s1","syncedAt":"now","users":[]}');
+  it("lock never touches the Device token, its identity, or the pin roster", () => {
+    const identity = {
+      deviceId: "d1",
+      name: "Front",
+      code: "AB",
+      storeId: "s1",
+      storeName: "Downtown",
+    };
+    const roster = { storeId: "s1", syncedAt: "now", users: [] };
+    writeDeviceToken("token-value", identity);
+    writePinRoster(roster);
 
     render(
       <ActingUserProvider>
@@ -47,13 +61,12 @@ describe("ActingUserProvider", () => {
     fireEvent.click(screen.getByText("unlock"));
     fireEvent.click(screen.getByText("lock"));
 
-    expect(localStorage.getItem("deanpos.device.token")).toBe("token-value");
-    expect(localStorage.getItem("deanpos.device.identity")).toBe('{"deviceId":"d1"}');
-    expect(localStorage.getItem("deanpos.pin.roster")).toBe(
-      '{"storeId":"s1","syncedAt":"now","users":[]}',
-    );
+    expect(readDeviceToken()).toBe("token-value");
+    expect(readDeviceIdentity()).toEqual(identity);
+    expect(readPinRoster()).toEqual(roster);
 
-    localStorage.clear();
+    clearDeviceToken();
+    clearPinRoster();
   });
 
   it("useActingUser throws outside a provider", () => {

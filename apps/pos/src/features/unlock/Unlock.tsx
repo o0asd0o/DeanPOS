@@ -12,7 +12,7 @@ const KEYPAD_DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 // The unlock screen (issue 10, record 057 Q4). Unlock is always local —
 // there is no online unlock path (Q1) — verified against the last synced
-// roster in localStorage.
+// roster (usePinRoster).
 export function Unlock() {
   const roster = usePinRoster();
   const identity = readDeviceIdentity();

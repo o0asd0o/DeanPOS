@@ -1,6 +1,6 @@
-// The only file in the repository that names these localStorage keys
-// (record 056 Q3) — `rg -n 'localStorage' apps/pos` must return only this
-// file.
+// One of two files in the repository that name a localStorage key directly
+// (record 056 Q3, issue 10) — the other is pin-roster.ts. Everywhere else
+// goes through an accessor here or there.
 const TOKEN_KEY = "deanpos.device.token";
 const IDENTITY_KEY = "deanpos.device.identity";
 

@@ -13,7 +13,8 @@ import {
 import { hashPin } from "contract/src/pin.ts";
 import { afterAll, afterEach, describe, expect, it } from "vite-plus/test";
 
-import { writeDeviceToken } from "@/lib/device-token.ts";
+import { clearDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
+import { clearPinRoster, writePinRoster } from "@/lib/pin-roster.ts";
 import { router } from "@/router.tsx";
 
 // Issue 10 gates "/" behind the unlock screen — this seeds one User with a
@@ -49,7 +50,8 @@ describe("the terminal shell's ping route, behind the unlock screen", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
-    localStorage.clear();
+    clearDeviceToken();
+    clearPinRoster();
     await cleanup?.();
     cleanup = undefined;
   });
@@ -133,14 +135,59 @@ describe("the terminal shell's ping route, behind the unlock screen", () => {
 
     await unlock();
 
-    const { message } = await db.selectFrom("Ping").select("message").executeTakeFirstOrThrow();
-    await waitFor(() => expect(screen.getByText(message)).toBeTruthy());
+    // TanStack Router's initial match runs in a layout effect after the first
+    // paint, so the route (and its pending state) only appears one tick later.
+    await waitFor(() => expect(screen.getByRole("status")).toBeTruthy());
+    expect(screen.getByRole("status").textContent).toBe("Loading…");
     await expectNoAxeViolations(container);
+
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+
+    const { message } = await db.selectFrom("Ping").select("message").executeTakeFirstOrThrow();
+    expect(screen.getByText(message)).toBeTruthy();
 
     expect(container.querySelectorAll("header")).toHaveLength(1);
     expect(container.querySelector("header")?.textContent).toContain("DeanPOS");
     expect(container.querySelectorAll("main")).toHaveLength(1);
     expect(container.querySelector("main")?.id).toBe("main-content");
+
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows a legible error state, with header intact and retry enabled, when the API cannot be reached", async () => {
+    const pinHash = await hashPin(pin);
+    writeDeviceToken("unreachable-api-token", {
+      deviceId: randomUUID(),
+      name: "Ping Terminal",
+      code: "PR",
+      storeId,
+      storeName: "Ping Store",
+    });
+    writePinRoster({
+      storeId,
+      syncedAt: new Date().toISOString(),
+      users: [{ userId, displayName: "Ana Reyes", pinHash }],
+    });
+
+    const { container, db } = renderRoute({
+      router,
+      databaseUrl: "postgresql://nobody:wrongpassword@127.0.0.1:1/does-not-exist",
+    });
+    cleanup = () => db.destroy();
+
+    // The Device token doesn't resolve against this unreachable database
+    // either, so terminal.pinSync transport-fails — unlock falls back to the
+    // cached roster written above (criterion 4: unlock works with no network).
+    await unlock();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+
+    expect(container.querySelectorAll("header")).toHaveLength(1);
+    const retry = screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(false);
+
+    const alertText = screen.getByRole("alert").textContent ?? "";
+    expect(alertText).not.toMatch(/\d{3}|http|Error:|ECONNREFUSED|wrongpassword/i);
 
     await expectNoAxeViolations(container);
   });
