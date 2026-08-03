@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 // Reusable wrong-tenant probe (issue 01, rebuilt issue 13 / record 062): the
 // caller cannot supply its own idea of "refused" — this helper owns the
 // refusal shapes, so a probe cannot be satisfied by a hand-picked predicate.
-export type WrongTenantProbeMode = "refusal" | "confined" | "shared";
+export type WrongTenantProbeMode = "refusal" | "confined" | "effect" | "shared";
 
 export type WrongTenantProbeArgs<T> = {
   /** The dotted contract path this probe covers, e.g. "store.update". */
@@ -15,17 +15,27 @@ export type WrongTenantProbeArgs<T> = {
   otherGets: () => Promise<T>;
   /** mode "confined" only: what the other Tenant should see of its own data. */
   otherOwn?: T;
-  /** mode "shared" only: why this procedure is genuinely tenant-neutral. Min 20 chars. */
+  /**
+   * mode "effect" only: resolves true iff the owner's write left the other
+   * Tenant's own data untouched (e.g. a re-read of the other Tenant's row).
+   */
+  otherUnaffected?: () => Promise<boolean>;
+  /** modes "shared"/"effect" only: why this result carries no tenant data. Min 20 chars. */
   why?: string;
 };
 
+// Exact refusal shapes only (record 062) — an object carrying `ok: false`
+// plus other keys is a leak riding along with a refusal, not a refusal.
 function isRefusalShape(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
+  if (value === null) return true;
   if (Array.isArray(value)) return value.length === 0;
   if (value !== null && typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>);
     const record = value as Record<string, unknown>;
-    if ("ok" in record && record.ok === false) return true;
-    if ("authenticated" in record && record.authenticated === false) return true;
+    if (keys.length === 1 && keys[0] === "ok" && record.ok === false) return true;
+    if (keys.length === 1 && keys[0] === "authenticated" && record.authenticated === false) {
+      return true;
+    }
   }
   return false;
 }
@@ -53,9 +63,10 @@ export async function expectWrongTenantRefusal<T>({
   ownerSees,
   otherGets,
   otherOwn,
+  otherUnaffected,
   why,
 }: WrongTenantProbeArgs<T>): Promise<void> {
-  if (isRefusalShape(ownerSees)) {
+  if (ownerSees === undefined || isRefusalShape(ownerSees)) {
     throw new Error(
       `wrong-tenant probe [${path}]: ownerSees is empty — an empty result is also the authorised answer, so this probe would pass against a table with no rows in it.`,
     );
@@ -65,9 +76,14 @@ export async function expectWrongTenantRefusal<T>({
       `wrong-tenant probe [${path}]: mode "confined" requires the other Tenant's result to equal otherOwn.`,
     );
   }
-  if (mode === "shared" && (!why || why.length < 20)) {
+  if (mode === "effect" && typeof otherUnaffected !== "function") {
     throw new Error(
-      `wrong-tenant probe [${path}]: mode "shared" requires a written why of at least 20 characters.`,
+      `wrong-tenant probe [${path}]: mode "effect" requires otherUnaffected, a thunk proving the write left the other Tenant's data untouched.`,
+    );
+  }
+  if ((mode === "shared" || mode === "effect") && (!why || why.length < 20)) {
+    throw new Error(
+      `wrong-tenant probe [${path}]: mode "${mode}" requires a written why of at least 20 characters.`,
     );
   }
 
@@ -87,8 +103,8 @@ export async function expectWrongTenantRefusal<T>({
     return;
   }
 
-  // Mode "shared" wants equality, so its own check below replaces this one.
-  if (mode !== "shared" && deepEqual(result, ownerSees)) {
+  // Modes "shared" and "effect" want equality, so their own checks below replace this one.
+  if (mode !== "shared" && mode !== "effect" && deepEqual(result, ownerSees)) {
     throw new Error(
       `wrong-tenant probe [${path}]: the other Tenant received the owner's own result.`,
     );
@@ -107,6 +123,20 @@ export async function expectWrongTenantRefusal<T>({
     if (isRefusalShape(result) || !deepEqual(result, otherOwn)) {
       throw new Error(
         `wrong-tenant probe [${path}]: mode "confined" requires the other Tenant's result to equal otherOwn.`,
+      );
+    }
+    return;
+  }
+
+  if (mode === "effect") {
+    if (isRefusalShape(result) || !deepEqual(result, ownerSees)) {
+      throw new Error(
+        `wrong-tenant probe [${path}]: mode "effect" requires both Tenants' own trivial results to match.`,
+      );
+    }
+    if (!(await otherUnaffected!())) {
+      throw new Error(
+        `wrong-tenant probe [${path}]: mode "effect" requires the other Tenant's data to remain unaffected by the owner's write, but otherUnaffected() returned false.`,
       );
     }
     return;
