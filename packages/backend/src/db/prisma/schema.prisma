@@ -41,6 +41,8 @@ model Tenant {
   devices                      Device[]
   enrolmentCodes               EnrolmentCode[]
   deviceAudits                 DeviceAudit[]
+  overrides                    Override[]
+  overrideConsumptions         OverrideConsumption[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -63,6 +65,7 @@ model Store {
   paymentMethodAudits         PaymentMethodAudit[]
   devices                     Device[]
   enrolmentCodes              EnrolmentCode[]
+  overrides                   Override[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -97,6 +100,7 @@ model User {
   tenantSettingsAudits TenantSettingsAudit[]
   paymentMethodAudits  PaymentMethodAudit[]
   deviceAudits         DeviceAudit[]
+  overridesApproved    Override[] @relation("overridesApproved")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -301,6 +305,7 @@ model Device {
   store          Store           @relation(fields: [tenantId, storeId], references: [tenantId, id])
   enrolmentCodes EnrolmentCode[]
   deviceAudits   DeviceAudit[]
+  overrides      Override[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, storeId, code])
@@ -325,5 +330,51 @@ model DeviceAudit {
   device        Device?        @relation(fields: [tenantId, deviceId], references: [tenantId, id])
   enrolmentCode EnrolmentCode? @relation(fields: [tenantId, enrolmentCodeId], references: [tenantId, id])
 
+  @@index([tenantId])
+}
+
+// Append-only (issue 12, record 060 Q3, copying the tenant_settings RLS
+// block verbatim). The id of what this authorised lives on
+// OverrideConsumption, not here — an Override does not know what it
+// authorised until consumed, and Order/DrawerSession do not exist yet.
+model Override {
+  id             String   @id
+  tenantId       String   @map("tenant_id")
+  storeId        String   @map("store_id")
+  deviceId       String   @map("device_id")
+  approverUserId String   @map("approver_user_id")
+  actionType     String   @map("action_type")
+  reason         String
+  note           String?
+  // The terminal's claim, bounded against Device.enrolledAt and server-now
+  // by verifyOverrideAsOf plus a DB CHECK against created_at.
+  approvedAt     DateTime @map("approved_at")
+  // The server's clock — kept alongside approvedAt so their gap is the only
+  // forensic tell an offline row leaves.
+  createdAt      DateTime @default(now()) @map("created_at")
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
+  store        Store                  @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  device       Device                 @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  approver     User                   @relation("overridesApproved", fields: [tenantId, approverUserId], references: [tenantId, id])
+  consumptions OverrideConsumption[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+// Append-only. Consumption is one INSERT guarded by the unique index below
+// (record 060 Q2) — the control, not ON CONFLICT. Order/DrawerSession don't
+// exist yet, so the subject columns carry no FK today (record 060 Q3).
+model OverrideConsumption {
+  id              String   @id
+  tenantId        String   @map("tenant_id")
+  overrideId      String   @map("override_id")
+  orderId         String?  @map("order_id")
+  drawerSessionId String?  @map("drawer_session_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  override Override @relation(fields: [tenantId, overrideId], references: [tenantId, id])
+
+  @@unique([tenantId, overrideId])
   @@index([tenantId])
 }

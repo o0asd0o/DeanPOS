@@ -37,6 +37,7 @@ const ALLOWED_PIN_HASH_FILES = [
   "packages/backend/src/user/handlers/set-pin.ts",
   "apps/pos/src/lib/pin-roster.ts",
   "apps/pos/src/features/unlock",
+  "apps/pos/src/features/override",
 ];
 
 // Every `console.<method>(`, `process.(stdout|stderr).write(`, or project

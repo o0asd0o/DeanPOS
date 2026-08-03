@@ -3,7 +3,12 @@ import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { getPinRoster } from "../db-operations/queries/get-pin-roster.query.ts";
 
-type PinSyncUser = { userId: string; displayName: string; pinHash: string | null };
+type PinSyncUser = {
+  userId: string;
+  displayName: string;
+  pinHash: string | null;
+  canApproveOverride: boolean;
+};
 type PinSyncResult = { storeId: string; syncedAt: string; users: PinSyncUser[] } | null;
 
 // Device-token only, no input at all (issue 10, record 057 Q3) — a wrong

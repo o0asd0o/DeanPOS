@@ -1,8 +1,14 @@
 import { getAssignedStoreIdsAsOf } from "../../../access/db-operations/queries/get-assigned-store-ids-as-of.query.ts";
 import { getRoleAsOf } from "../../../access/db-operations/queries/get-role-as-of.query.ts";
+import { hasAtLeastRole } from "../../../common/authorize.ts";
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-export type PinRosterRow = { userId: string; displayName: string; pinHash: string | null };
+export type PinRosterRow = {
+  userId: string;
+  displayName: string;
+  pinHash: string | null;
+  canApproveOverride: boolean;
+};
 
 // The hash-sync roster (issue 10, record 057 Q3): every active User who is
 // `admin`, or currently assigned to `storeId` — resolved through the same
@@ -33,6 +39,7 @@ export const getPinRoster = async (
       userId: user.id,
       displayName: `${user.first_name} ${user.last_name}`.trim(),
       pinHash: user.pin_hash,
+      canApproveOverride: currentRole !== undefined && hasAtLeastRole(currentRole.role, "manager"),
     });
   }
 

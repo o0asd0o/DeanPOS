@@ -31,6 +31,7 @@ import {
   terminalPinSyncRoute,
 } from "./routes/device.ts";
 import { healthRoute } from "./routes/health.ts";
+import { overrideListRoute, terminalRecordOverrideRoute } from "./routes/override.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import {
   paymentMethodCreateRoute,
@@ -154,7 +155,11 @@ export const createApp = ({
         me: terminalMeRoute,
         heartbeat: terminalHeartbeatRoute,
         pinSync: terminalPinSyncRoute,
+        recordOverride: terminalRecordOverrideRoute,
       },
+      // The Override review list (issue 12, record 060 Q5). Cookie/admin
+      // or manager — never accepts a Device token.
+      override: { list: overrideListRoute },
     });
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
 

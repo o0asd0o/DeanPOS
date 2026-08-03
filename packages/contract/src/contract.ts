@@ -249,6 +249,10 @@ export const pinRosterUserSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
   pinHash: z.string().nullable(),
+  // Issue 12, record 060 Q1: one boolean, not a role — membership is already
+  // applied when the list is built, so every eligible entry is by
+  // construction someone who may approve at this Device.
+  canApproveOverride: z.boolean(),
 });
 
 // Refusal is `null`, the same not-found shape store.get uses — the root
@@ -260,6 +264,47 @@ export const terminalPinSyncOutputSchema = z
     users: z.array(pinRosterUserSchema),
   })
   .nullable();
+
+// The Override mechanism (issue 12, record 060). ADR-0005's fixed four;
+// a fifth is an ADR amendment, not a contract change.
+export const overrideActionTypeSchema = z.enum([
+  "void_paid_order",
+  "refund",
+  "line_price_override",
+  "drawer_variance",
+]);
+
+// Device-token only (record 060 Q1). The approver is chosen by id, never
+// identified by a PIN sent to the server — no field here carries one.
+export const recordOverrideInputSchema = z.object({
+  approverUserId: z.string(),
+  actionType: overrideActionTypeSchema,
+  reason: z.string().trim().min(1).max(200),
+  note: z.string().trim().min(1).max(500).optional(),
+  // The terminal's claim (record 060 Q4) — the server bounds it, never
+  // trusts it unbounded.
+  approvedAt: z.date(),
+});
+
+export const recordOverrideOutputSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), overrideId: z.string() }),
+  z.object({ ok: z.literal(false) }),
+]);
+
+// The back-office review list (criterion 8). No `verified` column — every
+// row in Override passed re-verification at the instant it was inserted.
+export const overrideOutputSchema = z.object({
+  id: z.string(),
+  approvedAt: z.date(),
+  storeId: z.string(),
+  storeName: z.string(),
+  actionType: overrideActionTypeSchema,
+  approverName: z.string(),
+  reason: z.string(),
+  note: z.string().nullable(),
+  deviceId: z.string(),
+  deviceName: z.string(),
+});
 
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
@@ -391,5 +436,13 @@ export const contract = {
     // The hash-sync payload (issue 10, record 057 Q3). Pulled, never
     // pushed; no input, so a wrong-Store request has no field to ask with.
     pinSync: oc.input(z.void()).output(terminalPinSyncOutputSchema),
+    // Issue 12, record 060 Q1: no server procedure compares a PIN — the
+    // Device token plus verifyOverrideAsOf are what's trusted.
+    recordOverride: oc.input(recordOverrideInputSchema).output(recordOverrideOutputSchema),
+  },
+  // The Override review list (issue 12, record 060 Q5). Cookie/admin or
+  // manager; `null` for `cashier`, the shipped not-found/refusal shape.
+  override: {
+    list: oc.input(z.void()).output(z.array(overrideOutputSchema).nullable()),
   },
 };
