@@ -36,14 +36,24 @@ can be spotted.
 ## Acceptance criteria
 
 - [ ] The `Override` row is **append-only** and names the approving User, the action type, the
-      reason, the timestamp, the Device, the Store, and the id of the record it authorised.
-      An `UPDATE` against it is prevented.
+      reason, the timestamp, the Device, and the Store. **The id of the record it authorised
+      lives on the `OverrideConsumption` row, not here** (record 060 Q3): an Override does not
+      know what it authorised until it is consumed, and `Order` and `DrawerSession` do not yet
+      exist. An `UPDATE` against either table is prevented by policy and by grant.
 - [ ] A manager authorises by entering their PIN on the cashier's terminal, without signing in
       separately, and supplies a reason.
 - [ ] An Override is bound to one action instance and is **consumed** by it; a second attempt
       to use the same Override fails.
-- [ ] Online, the server verifies the PIN and the `manager`-or-above role. A `cashier`'s PIN
-      does not authorise.
+- [ ] The PIN is verified **on the terminal**, against the locally synced hash, on **both** the
+      online and the offline path — one path, exercised on every Override
+      ([record 057](../../decisions/057-pin-unlock-verifies-locally-with-pbkdf2.md) Q1,
+      [058](../../decisions/058-pin-management-is-a-back-office-action.md),
+      [060](../../decisions/060-the-override-is-verified-on-the-terminal-and-consumed-by-a-second-insert-only-table.md)).
+      **No server procedure compares a PIN against a stored hash.** The approver is *chosen by
+      id*, not identified by their PIN: only Users the synced roster marks `canApproveOverride`
+      are offered, and the server independently refuses to record an Override whose named
+      approver was not `manager`-or-above **and** a member of that Store **at the stated time**.
+      A `cashier` therefore cannot authorise, whether or not their PIN is correct.
 - [ ] Offline, the terminal verifies against the locally synced hash and records the Override.
 - [ ] The cashier sees a clear prompt when an action needs a manager — they know to call one
       rather than guess.
@@ -76,6 +86,9 @@ DrawerSession close is `drawer-sessions`'.
 - `apps/pos/src/features/**` — the Override prompt
 - `apps/backoffice/src/features/**` — the Override review list
 - `packages/contract/src/contract.ts`
+- `apps/pos/src/components/PinPad.tsx` — extracted verbatim from `features/unlock/`
+- `apps/backoffice/src/routes/_shell/reports/discounts-overrides.tsx` — the existing placeholder,
+  filled
 
 ## Comments
 
@@ -84,3 +97,12 @@ criteria 11 and 12. Merged from the originally-drafted mechanism and re-verifica
 
 _**Obligation carried forward to `offline-sync`:** it owns the replay endpoint and must call
 the re-verification procedure this issue exposes, quarantining the Order when it fails._
+
+_On replay it calls `verifyOverrideAsOf`; **on failure it writes no `Override` row at all** and
+quarantines the Order. It never re-verifies a PIN. It carries the terminal's `approvedAt`
+unchanged, and the server bounds it (record 060 Q4)._
+
+_`checkout` and `drawer-sessions` each call `consumeOverride(trx, …)` **inside the transaction
+that performs the action** — never as a separate request — and each adds its own composite
+`(tenant_id, order_id)` / `(tenant_id, drawer_session_id)` foreign key to `OverrideConsumption`
+in the migration that creates its own table, which must therefore carry `@@unique([tenantId, id])`._
