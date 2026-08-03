@@ -1,10 +1,84 @@
 # 063: The back-office shell refuses by default — every `_shell` route declares its minimum role, a `cashier` never enters the shell at all, and PIN self-service moves to a standalone `/pin` page
 
-- **Status:** decided
+- **Status:** decided, **amended same day — see Amendment 1 before reading the body**
 - **Stakes:** **high** — an authorisation default inherited by every back-office screen in nine remaining areas, and the surface that decides whether a cashier can set their first PIN.
 - **Date:** 2026-08-04
 - **Asked by:** the human, from the back-office authorisation handoff following record 058
 - **Relates to:** [058](058-pin-management-is-a-back-office-action.md) (two clauses superseded; stays `decided`), [046](046-how-tenant-settings-are-stored-and-audited.md) §4 (its enforcement/presentation split is the load-bearing rule here), [062](062-the-wrong-tenant-probe-coverage-guard.md) (same failure shape, and the reason a *mechanism* is required rather than fourteen edits), [030](030-the-session-guard-and-the-must-change-redirect.md) (`_shell`'s existing guard), [060](060-the-override-is-verified-on-the-terminal-and-consumed-by-a-second-insert-only-table.md) Q5, [056](056-the-device-principal-its-token-and-its-two-screens.md), [044](044-the-users-list.md) §2, [038](038-payment-methods-and-stores.md) §6, [010](010-the-word-layout-in-the-routes-layer.md), [009](009-the-error-and-empty-states.md)
+
+## Amendment 1 — 2026-08-04, same day, at the human's direction
+
+**§2 is reversed. §3 and §4 are revised. §1 and §5 stand unchanged, and §1 was always the
+valuable half.**
+
+**What I got wrong.** The body below reasons as though a cashier's back-office surface is empty
+apart from their PIN. It is not, and the PRD had already said so — `.scratch/tenancy-identity/PRD.md:311`,
+the per-role per-surface table:
+
+> `cashier` … Back-office (`admin.`): **sees only their own published Shifts and their own session summaries**
+
+That column is non-empty and I read it as empty. Compounding it, the human then asked for two
+more self-service surfaces that are plainly reasonable: **viewing one's own account, and changing
+one's own password.**
+
+**What that changes.** A cashier's surface becomes three screens, not one — account, own Shifts,
+own DrawerSession summaries. **Three screens is a shell.** Three standalone `_gate` pages with no
+nav is strictly worse than a shell, because nothing lets the cashier move between them. So this
+record reverses to **its own ranked runner-up, option 2 — deny-by-default with the cashier inside
+a role-filtered shell**, which scored 41 against the chosen option's 52. The margin came almost
+entirely from the empty-surface premise that Amendment 1 removes; on the corrected premise
+option 2 wins, and the ranking table below should be read with that known.
+
+**§2, reversed.** A `cashier` is **not** refused from `_shell`. The shell's `beforeLoad` keeps its
+`minRole` check from §1 and drops the cashier line. The three-role collapse §2 claimed as its
+prize does not happen, and the per-screen cashier case §2 wanted to delete is instead answered
+once, mechanically, by the same `staticData` declaration every other role uses.
+
+**§3, revised.** `PinDialog.tsx` is still deleted, but its destination changes: **not** a `/pin`
+page under `_gate`, but a **section of one `/account` screen inside the shell**. Profile, password
+and PIN are one screen — they are the same errand — and `/account` is where the `UserMenu` items
+point. `routes/_gate/pin.tsx` is not built. Everything §3 says about there being *one*
+self-service surface rather than two stands, and is now easier to hold.
+
+**§4, revised.** The table gains a `cashier` row:
+
+| `minRole` | Routes |
+| --- | --- |
+| `cashier` | `/`, `/account` |
+| `manager` | `/stores`, `/employees`, `/reports/discounts-overrides` |
+| `admin` | `/devices`, `/payment-methods`, and the 11 remaining placeholders |
+
+**`/roster` and `/reports/drawer-sessions` stay `admin` today and are the two exceptions worth
+writing down.** Both are placeholders owned by later areas, so §4's rule — a route with no handler
+declares `admin` — still applies unchanged. But their **destination is `cashier`, self-scoped**,
+fixed by PRD:311, and recording that here is the whole point: the scheduling and drawer-sessions
+areas should not have to rediscover it. One binding constraint travels with the second:
+**expected cash is `manager` and `admin` only** (PRD:316 — *"that right **is** the Role"*), so a
+cashier's own session summary shows counted cash and never expected. That is a handler shape, not
+a route gate, and a route lowered to `cashier` without it is a defect.
+
+**§5 is unchanged but is now load-bearing.** With a cashier inside the shell, nav filtering is
+what makes their sidebar two entries rather than nineteen. It is still presentation and still not
+the enforcement (046 §4), but the equality test earns its place.
+
+**One piece is blocked and is not decided here.** `auth.setPassword`
+(`packages/backend/src/auth/handlers/set-password.ts:20`) refuses unless `mustChangePassword` is
+set, deliberately: record 030 omitted a current-password field on the premise the user *"proved it
+at sign-in seconds ago"*, which is true only of the forced-change flow, and without the guard a
+long-lived stolen session could reset a password with no re-verification at all. Self-service
+password change therefore needs a `currentPassword` field and a decision, **and 058 is not
+precedent for refusing one**: 058 deleted `currentPin` because a 4–6 digit PIN is worthless
+without a terminal, so the guessing oracle cost more than the field defended. A password is the
+opposite — the strong secret, policy-bound (032), throttled at sign-in, and it guards everything.
+**The human's call, taken 2026-08-04: `currentPassword` is required.** It is scoped to issue 16
+and gets its own record before it is built. Also noted rather than glossed: **the PRD carries no
+story for self-service password change at all**, and PRD:301 says reset is admin-initiated with no
+email transport — so this is a deliberate scope addition, not a gap being closed.
+
+**Cheap and worth taking with it:** `meOutputSchema` (`contract.ts:341`) carries no name, though
+`User` has had `first_name`/`last_name` since record 053. Adding them feeds the account screen and
+clears the standing `ponytail:` marker at `apps/backoffice/src/components/helpers.ts:71`, which
+asks for exactly this and is why `UserMenu` still splits an email to guess a display name.
 
 ## The question
 
@@ -99,6 +173,10 @@ point of having one rule.
 
 ### 2. A `cashier` is refused from `_shell` entirely, before any per-route check
 
+> **REVERSED by Amendment 1.** A cashier does enter the shell, behind a role-filtered nav. The
+> reasoning below is kept because it is what the corrected premise defeats, not because it holds;
+> the line it adds to `_shell`'s `beforeLoad` is not written.
+
 Not "sees a filtered shell" — **never enters it.** The same `beforeLoad`, one line earlier.
 
 A cashier's legitimate back-office business is one field long: set my PIN. Giving them the shell
@@ -112,6 +190,11 @@ are only ever `manager` or `admin`.
 `_gate`, no sidebar, no nav, reached while holding a valid session.
 
 ### 3. PIN self-service becomes `/pin` under `_gate`, and it is the only such surface
+
+> **REVISED by Amendment 1.** `PinDialog.tsx` is still deleted and there is still exactly one
+> self-service surface — but it is a section of `/account` inside the shell, not a `_gate` page.
+> `routes/_gate/pin.tsx` is not built, and the Back-link and landing arguments below fall with it.
+> Everything about one surface rather than two stands.
 
 `PinDialog.tsx` is deleted. Its form body moves to `features/pin/SetPin.tsx`, rendered by
 `routes/_gate/pin.tsx` — `SetPassword`'s shape, one field, `AuthLayout`'s frame. The `UserMenu`
@@ -137,6 +220,11 @@ to `/pin`, and a link that returns you to where you are is worse than no link.
 and is amended with the file.
 
 ### 4. `minRole` mirrors what the handler already enforces — placeholders start closed
+
+> **REVISED by Amendment 1**, which adds a `cashier` row (`/`, `/account`) and records the
+> destination of `/roster` and `/reports/drawer-sessions`. The rule itself — a route declares what
+> its handlers refuse below, and a route with no handler declares `admin` — is unchanged, and is
+> what keeps those two at `admin` today.
 
 The rule is mechanical, so it cannot be argued case by case: **a route declares the minimum role
 its handlers already refuse below. A route with no handler declares `admin`.**
@@ -209,7 +297,7 @@ Record 058 shipped correctly against the shell as it stood. Three of its artefac
 | Artefact | Change |
 | --- | --- |
 | `features/pin/PinDialog.tsx` | **Deleted.** Form body becomes `features/pin/SetPin.tsx` |
-| `routes/_gate/pin.tsx` | **New.** `SetPassword`'s guard shape; any authenticated role |
+| ~~`routes/_gate/pin.tsx`~~ → `routes/_shell/account.tsx` | **Amendment 1.** A shell screen at `minRole: "cashier"`, holding profile, password and PIN as sections |
 | `components/UserMenu.tsx` | PIN item becomes a `Link to="/pin"`; `PinDialog` import and its `useState` go |
 | `features/users/ResetPinDialog.tsx` | **Unchanged.** `/employees` is `manager`+, the button is `isAdmin`-gated, `resetPin` is admin-only |
 | `user.setPin` / `user.resetPin` | **Unchanged.** No contract edit, no handler edit, no migration |
@@ -276,9 +364,15 @@ cashier's `/pin` work without a second procedure.
 - **Managers routinely need screens the four-route surface does not cover**, and issues start
   lowering `minRole` without shipping the scoping behind it. That is the pairing in §4 failing,
   and it means the declaration has become a formality.
-- **A cashier acquires legitimate back-office business beyond their PIN** — a timesheet, a
+- ~~**A cashier acquires legitimate back-office business beyond their PIN** — a timesheet, a
   roster view, their own sales. Successor is option 2, and it is cheap: one line out of the
-  shell guard.
+  shell guard.~~ **FIRED the same day, before any code was written.** It was never speculative:
+  PRD:311 had already granted a cashier their own Shifts and their own session summaries, and this
+  record failed to read it. The successor named here — option 2 — is what Amendment 1 adopts, at
+  the cost this trigger predicted: one line out of the shell guard. **Lesson worth keeping: the
+  trigger was correct and the evidence sweep that should have fired it before publication was
+  not.** The PRD's per-role per-surface table is the first thing a future authorisation record
+  reads, not the last.
 - **A role gate is added to `auth.signIn` itself.** 058's trigger, still armed, still unprotected.
 - **`notFound()` on refusal turns out to hide a real bug from developers** — a screen that
   silently 404s for everyone because its author forgot the declaration is exactly the intended
@@ -327,15 +421,25 @@ source above rather than by documentation that may describe a different version.
 
 ## Pass criteria for the issue that implements this
 
-- A `cashier` session on any `_shell` path is refused and lands on `/pin`; `/pin` renders and
-  saves for `cashier`, `manager` and `admin` alike.
-- A `manager` session gets `NotFoundState` on `/payment-methods` and on every placeholder;
-  renders `/`, `/stores`, `/employees`, `/reports/discounts-overrides`.
+*Restated under Amendment 1; the issue that implements this is
+[15](../tenancy-identity/issues/15-back-office-authorisation-for-non-admin-roles.md).*
+
+- A `cashier` session renders `/` and `/account` and gets `NotFoundState` on **every other**
+  `_shell` path, placeholders included.
+- `/account` renders and saves a PIN for `cashier`, `manager` and `admin` alike, and shows the
+  signed-in User's own name, email, role and assigned Stores — **nobody else's**.
+- A `manager` session gets `NotFoundState` on `/payment-methods`, `/devices` and every
+  placeholder; renders `/`, `/account`, `/stores`, `/employees`,
+  `/reports/discounts-overrides`.
 - **A route with `staticData` removed is refused for `admin`** — the default itself is asserted,
   not just the declarations.
-- Sidebar entry count matches reachable routes per role, held by the equality test in §5.
-- Automated accessibility check passes on `/pin`; clicks dispatch a real `MouseEvent`
+- Sidebar entry count matches reachable routes per role — for `cashier`, `manager` and `admin` —
+  held by the equality test in §5.
+- Automated accessibility check passes on `/account`; clicks dispatch a real `MouseEvent`
   (`happy-dom` implements no activation behaviour, record 042 — `user-event` stays refused).
+- **Out of scope, and must not be smuggled in:** the password section of `/account` (issue 16,
+  needs `currentPassword` and its own record) and any lowering of `/roster` or
+  `/reports/drawer-sessions`.
 - Gate, flag before the task specifier, reporting `0/10 cache hit`:
   `vp run -w codegen` · `vp check` · `vp run --no-cache -r check` · `vp run --no-cache -r test`.
   Baseline **589** tests on `main`.

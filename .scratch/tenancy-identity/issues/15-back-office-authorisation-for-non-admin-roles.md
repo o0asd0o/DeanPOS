@@ -17,9 +17,11 @@ this as a live authorisation defect.
 
 **Everything below is decided by
 [record 063](../../decisions/063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md).**
-Read it before starting — it carries the reasoning, the verified router API, and the costs this
-issue is knowingly accepting. Do not re-litigate the choices here; if one looks wrong, say so and
-stop rather than deviating.
+Read it before starting — **including Amendment 1 at the top, which reverses that record's §2 and
+revises §3 and §4.** This issue is written against the amended record; where the record's body and
+its Amendment 1 disagree, Amendment 1 wins. It carries the reasoning, the verified router API, and
+the costs this issue is knowingly accepting. Do not re-litigate the choices here; if one looks
+wrong, say so and stop rather than deviating.
 
 ### 1. The shell refuses by default
 
@@ -52,40 +54,49 @@ passed into each `beforeLoad` at `load-matches.js:247`.
 one `staticData` line each. Their behaviour changes from a bounce to `/` into a not-found; that is
 deliberate, and is the whole point of having one rule.
 
-### 2. A cashier never enters the shell
+### 2. A cashier enters the shell, behind a filtered nav
 
-The same `beforeLoad`, one line earlier: a `cashier` is refused from `_shell` outright and
-redirected to `/pin`. **Not a filtered shell — no shell.**
+The shell's `beforeLoad` has **one** check — the `minRole` comparison from §1. There is no
+separate cashier line. A cashier signing in lands on `/`, sees an **empty sidebar** — no
+`NAV_GROUPS` entry survives their role — and reaches `/account` from the `UserMenu`. Every other
+`_shell` path is `notFound()` to them by the same rule that governs a manager on `/devices`.
 
-A cashier's legitimate back-office business is one field long. Refusing at the frame deletes the
-per-screen cashier case across nine remaining areas instead of answering it repeatedly, and
-collapses the shell to two roles — which is why every `minRole` below is `manager` or `admin`.
+**Record 063's body argues the opposite and its Amendment 1 reverses it** — the PRD's per-role
+per-surface table (`PRD.md:311`) already grants a cashier their own published Shifts and their own
+session summaries, so their surface was never one page, and three standalone `_gate` pages with no
+nav is worse than a shell because nothing lets them move between the pages.
 
-### 3. PIN self-service moves to `/pin`
+### 3. `/account` — one screen, three sections
 
-`features/pin/PinDialog.tsx` is **deleted**. Its form body becomes `features/pin/SetPin.tsx`,
-rendered by `routes/_gate/pin.tsx` — `SetPassword`'s shape, one field, `AuthLayout`'s frame.
+`features/pin/PinDialog.tsx` is **deleted** and becomes a section of a new `/account` screen at
+`minRole: "cashier"`. Profile, PIN and (later) password are the same errand and are one screen,
+not three, and `/account` is where the `UserMenu` items point.
 
-`/pin` guards on session only, so **any authenticated role** reaches it: admins and managers
-unlock tills too. Its `beforeLoad` is `set-password.tsx`'s, with the must-change check the right
-way round — not authenticated → `/login`; `mustChangePassword` → `/set-password`, that flow
-finishes first.
+**In scope now — two sections:**
 
-The `UserMenu` item stays where record 048 put it and becomes a `Link to="/pin"`; the dialog
-state and import go with it. **One self-service surface, not two** — keeping the dialog for
-manager/admin would leave two copies of the same field, validation and mutation to keep in step,
-against record 058's own one-write-one-procedure principle.
+- **Profile, read-only.** The signed-in User's own name, email, role, and assigned Stores.
+  **Nobody else's, ever** (PRD story 13: a cashier *"cannot see or change anything about other
+  Users"*). Source it from `auth.me`, not from `user.list` — `list-users.ts:19` refuses below
+  `manager` and would return an empty array here anyway.
+- **PIN.** `PinDialog`'s form body, unchanged: one field, `user.setPin`, no `currentPin`.
 
-On success the page confirms in place. A **Back** link renders for `manager`-or-above only: a
-cashier clicking one would bounce off `_shell` straight back to `/pin`, and a link that returns
-you to where you already are is worse than no link.
+**`auth.me` gains `firstName` and `lastName`.** `User` has carried `first_name`/`last_name` since
+record 053 but `meOutputSchema` (`contract.ts:341`) exposes neither, which is why
+`components/helpers.ts` still splits an email to guess a display name. Adding the two fields feeds
+the profile section and **clears the standing `ponytail:` marker at `components/helpers.ts:71`,
+which asks for exactly this** — delete the marker and the derivation with it. Assigned Stores come
+from `getAssignedStoreIdsAsOf` for the caller's own `userId`; no new procedure.
 
-`_gate.tsx`'s comment saying `/login` and `/set-password` are its only two screens is now wrong;
-amend it with the file.
+The `UserMenu` PIN item becomes a `Link to="/account"`; the dialog state and import go with it.
+`_gate` is not touched at all — no `/pin` route is created, and its two-screens comment stays true.
 
-**This is required to keep issue 10 true, not an improvement on it.** Issue 10's criterion that a
-User sets their own PIN is today satisfied only through a shell that a cashier will no longer
-enter. Parts 2 and 3 ship together or neither ships.
+**Out of scope, and must not be smuggled in: the password section.** `auth.setPassword`
+(`packages/backend/src/auth/handlers/set-password.ts:20`) deliberately refuses unless
+`mustChangePassword` is set. Self-service change needs a `currentPassword` field and its own
+record — **issue 16.** Leave the section out entirely rather than stubbing it.
+
+**This keeps issue 10 true rather than improving on it.** Issue 10's criterion that a User sets
+their own PIN survives the move; deleting `PinDialog` without landing `/account` would strand it.
 
 ### 4. The `minRole` values
 
@@ -94,48 +105,66 @@ already refuse below; a route with no handler declares `admin`.**
 
 | `minRole` | Routes |
 | --- | --- |
-| `manager` | `/`, `/stores`, `/employees`, `/reports/discounts-overrides` |
-| `admin` | `/devices`, `/payment-methods`, and the 13 placeholders — `/catalog`, `/add-ons`, `/discounts`, `/availability`, `/roster`, `/quarantine`, and the eight `/reports/*` |
+| `cashier` | `/`, `/account` |
+| `manager` | `/stores`, `/employees`, `/reports/discounts-overrides` |
+| `admin` | `/devices`, `/payment-methods`, and the 11 remaining placeholders |
 | — | `_shell` itself declares nothing; it is the frame, not a screen |
 
-Those four `manager` routes are exactly the ones with shipped, tested, Store-scoped manager
-behaviour (`list-stores.ts:15`, `list-users.ts:19`, `list-overrides.ts:20`). Everything else is
-`admin` because no code has yet decided what a manager may see there.
+The three `manager` routes are exactly the ones with shipped, tested, Store-scoped manager
+behaviour (`list-stores.ts:15`, `list-users.ts:19`, `list-overrides.ts:20`).
 
-**Known cost, accepted deliberately: a manager's sidebar drops from 19 entries to 4, and Reports
+**`/roster` and `/reports/drawer-sessions` stay `admin` in this issue — do not lower them.** Both
+are placeholders owned by later areas, so the rule applies unchanged. Their destination is
+`cashier`, self-scoped, fixed by PRD:311, and record 063's Amendment 1 records it so those areas
+need not rediscover it. The constraint travelling with the second one: **expected cash is
+`manager` and `admin` only** (PRD:316 — *"that right **is** the Role"*), so a cashier's own session
+summary shows counted cash and never expected. That is a handler shape, and a route lowered to
+`cashier` without it is a defect.
+
+**Known cost, accepted deliberately: a manager's sidebar drops from 19 entries to 3, and Reports
 is not among them.** Do not "fix" this by lowering Reports. Record 063 §4 binds each future
-Reports issue to lower its own route in the same commit that ships the Store-scoped handler
-behind it, and not before.
+Reports issue to lower its own route in the same commit that ships the Store-scoped handler behind
+it, and not before.
 
 ### 5. The nav filters from the same fact
 
 `NavItem` gains `minRole`; `NavGroup` drops items above the caller's role, and a group with no
-surviving items does not render.
+surviving items does not render. `/account` is reached from the `UserMenu`, not the sidebar, so it
+takes no `NAV_GROUPS` entry — a cashier's sidebar is **empty**, and the Reports and Operations
+groups do not render for them at all.
 
 This is **presentation, not enforcement** (record 046 §4) — the router refuses whether or not the
 sidebar is honest. But a sidebar advertising screens that 404 is a bug, and two hand-written lists
 of the same fact drift, so one test holds them equal.
-
 ## Acceptance criteria
 
-- [ ] A `cashier` session on **any** `_shell` path is refused and lands on `/pin`.
-- [ ] `/pin` renders and saves a PIN for `cashier`, `manager` and `admin` alike; a `cashier` sees
-      no Back link, `manager`/`admin` do.
-- [ ] `/pin` redirects to `/login` with no session and to `/set-password` when
-      `mustChangePassword` is set.
+- [ ] A `cashier` session renders `/` and `/account`, and gets `NotFoundState` on **every other**
+      `_shell` path, placeholders included.
+- [ ] A `cashier`'s sidebar renders no `NAV_GROUPS` entry and no empty group heading.
+- [ ] `/account` renders and saves a PIN for `cashier`, `manager` and `admin` alike.
+- [ ] `/account`'s profile section shows the signed-in User's own first name, last name, email,
+      role and assigned Stores — **and no other User's, at any role**.
+- [ ] `auth.me` carries `firstName` and `lastName`; `components/helpers.ts` no longer derives a
+      display name from the email, and its `ponytail:` marker is deleted with the derivation.
 - [ ] A `manager` session gets `NotFoundState` on `/payment-methods`, `/devices`, and every
-      placeholder; and renders `/`, `/stores`, `/employees`, `/reports/discounts-overrides`.
+      placeholder; renders `/`, `/account`, `/stores`, `/employees`,
+      `/reports/discounts-overrides`.
 - [ ] **The default itself is asserted, not just the declarations**: a route with its
       `staticData` removed is refused for `admin`. Demonstrated and reverted.
-- [ ] Every route under `_shell/` declares a `minRole` matching the table in §4.
+- [ ] Every route under `_shell/` declares a `minRole` matching the table in §4, `/roster` and
+      `/reports/drawer-sessions` included and still at `admin`.
 - [ ] `devices.tsx` and `reports/discounts-overrides.tsx` carry no `beforeLoad` of their own.
-- [ ] The sidebar's visible entries equal the caller's reachable routes, for `manager` and for
-      `admin`, held by a test asserting every `NAV_GROUPS` item's `minRole` equals its route's
-      `staticData.minRole` and that the route exists.
+- [ ] The sidebar's visible entries equal the caller's reachable routes — for `cashier`,
+      `manager` and `admin` — held by a test asserting every `NAV_GROUPS` item's `minRole` equals
+      its route's `staticData.minRole` and that the route exists.
 - [ ] `PinDialog.tsx` no longer exists; `user.setPin` still has exactly one caller.
+- [ ] `_gate` is unchanged: no `/pin` route, and no edit to `_gate.tsx`.
 - [ ] **No handler guard is removed anywhere** — every `hasAtLeastRole` call site is unchanged,
-      and the contract, the handlers and the database are untouched.
-- [ ] The automated accessibility check passes on `/pin`.
+      and the handlers and the database are untouched. The one contract change is `firstName`
+      and `lastName` on `meOutputSchema`; there is no other, and no migration.
+- [ ] The automated accessibility check passes on `/account`.
+- [ ] **Not built here, and not stubbed:** the password section of `/account` (issue 16), and any
+      lowering of `/roster` or `/reports/drawer-sessions`.
 
 ## Depends on
 
@@ -144,19 +173,25 @@ of the same fact drift, so one test holds them equal.
 Touches surfaces shipped by 05 (Stores), 06 (Users), 08 (Payment methods), 09 (Devices) and
 12 (Overrides), but depends on none of them beyond their being merged — all are `done`.
 
+**Issue 16 (self-service password change) depends on this**, not the reverse: it adds a third
+section to the `/account` screen this issue builds.
+
 ## Relevant files
 
-- `apps/backoffice/src/routes/_shell.tsx` — parts 1 and 2 both live in this one `beforeLoad`
+- `apps/backoffice/src/routes/_shell.tsx` — §1's `minRole` check, the only guard added
 - all 20 route files under `apps/backoffice/src/routes/_shell/` — one `staticData` line each
-- `apps/backoffice/src/routes/_gate.tsx` — the stale two-screens comment
-- `apps/backoffice/src/routes/_gate/set-password.tsx` — the pattern `/pin` copies
-- `apps/backoffice/src/routes/_gate/pin.tsx` — new
-- `apps/backoffice/src/features/pin/PinDialog.tsx` → `features/pin/SetPin.tsx`
-- `apps/backoffice/src/components/UserMenu.tsx` — dialog trigger becomes a `Link`
-- `apps/backoffice/src/components/helpers.ts` — `NAV_GROUPS` gains `minRole`
+- `apps/backoffice/src/routes/_shell/account.tsx` — new
+- `apps/backoffice/src/features/pin/PinDialog.tsx` → an `/account` section
+- `apps/backoffice/src/components/UserMenu.tsx` — dialog trigger becomes a `Link to="/account"`
+- `apps/backoffice/src/components/helpers.ts` — `NAV_GROUPS` gains `minRole`; the email-derived
+  display name and its `ponytail:` marker at :71 go
 - `apps/backoffice/src/components/NavGroup.tsx` — the filter
+- `packages/contract/src/contract.ts:341` — `meOutputSchema` gains `firstName`/`lastName`
+- `packages/backend/src/auth/handlers/me.ts` — returns them
+- `packages/backend/src/access/db-operations/queries/get-assigned-store-ids-as-of.query.ts` —
+  reused for the caller's own Stores; **no new procedure**
 - `apps/backoffice/src/router.tsx:19` — `defaultNotFoundComponent`, already wired; read, do not edit
-
+- `apps/backoffice/src/routes/_gate.tsx` and `_gate/` — **read only, unchanged**
 ## Constraints
 
 - **No new dependency.** `@testing-library/user-event` is refused (record 042); `happy-dom`
@@ -164,7 +199,10 @@ Touches surfaces shipped by 05 (Stores), 06 (Users), 08 (Payment methods), 09 (D
 - Server-side refusal is the enforcement; hiding a nav entry is presentation, never enforcement
   (record 046 §4).
 - Migrations purely additive — this issue needs none at all; a drop, rename or backfill escalates
-  to a human.
+  to a human. `first_name`/`last_name` already exist (record 053); this only exposes them.
+- **`auth.setPassword` is not touched.** Its `mustChangePassword` guard
+  (`set-password.ts:20`) is deliberate and stays exactly as it is until issue 16's record decides
+  `currentPassword`.
 - Comments cap at three lines, and never narrate reviews, rounds, or findings.
 - WCAG 2.2 AA, asserted by the existing automated accessibility check.
 - Record 058 stands: no server procedure compares a PIN against a stored hash, enforced by
@@ -185,11 +223,13 @@ Baseline on `main` is **589 tests**.
 
 ## Comments
 
-_Decided by [record 063](../../decisions/063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md);
-[record 058](../../decisions/058-pin-management-is-a-back-office-action.md) amended in three
-places to match and stays `decided`. Not sliced from the PRD — this closes a gap 058 left open
-when it decided PIN self-service belonged in the back office without deciding what a cashier sees
-once inside._
+_Decided by [record 063](../../decisions/063-the-back-office-shell-refuses-by-default-and-a-cashier-never-enters-it.md)
+**as amended** — read Amendment 1 first, it reverses that record's §2.
+[Record 058](../../decisions/058-pin-management-is-a-back-office-action.md) is amended in three
+places and stays `decided`. Not sliced from the PRD — this closes a gap 058 left open when it
+decided PIN self-service belonged in the back office without deciding what a cashier sees once
+inside. **The cashier's own surface, however, was never a gap: `PRD.md:311` had already granted
+them their own Shifts and session summaries, and record 063 missed it before Amendment 1.**_
 
 _Sequencing: independent of issue 13 (test-only, different files). **Conflicts with the unmerged
 `issue-14-payment-method-payment-details` branch** at `apps/backoffice/src/routes/_shell/payment-methods.tsx`
