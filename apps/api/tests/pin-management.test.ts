@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { hashPassword } from "backend/src/common/password.ts";
 import { createDb } from "backend/src/db/client.ts";
-import { hashPin, verifyPin } from "contract/src/pin.ts";
+import { verifyPin } from "contract/src/pin.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 // Issue 10, record 058: a User sets their own PIN on first use, changes it
 // later — one shape, no `currentPin`, no procedure ever verifies a
@@ -20,6 +21,7 @@ const adminA = randomUUID();
 const managerA = randomUUID();
 const tenantB = randomUUID();
 const cashierB = randomUUID();
+const adminB = randomUUID();
 
 beforeAll(async () => {
   await ownerDb
@@ -58,11 +60,18 @@ beforeAll(async () => {
     passwordHash,
     role: "cashier",
   });
-  await ownerDb
-    .updateTable("User")
-    .set({ pin_hash: await hashPin("246810") })
-    .where("id", "=", cashierB)
-    .execute();
+  await seedTenantUser(ownerDb, {
+    id: adminB,
+    tenantId: tenantB,
+    email: `pin-mgmt-admin-b-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "admin",
+  });
+  // Seeded through B's own application path (finding 2), not the owner
+  // connection — a hand-set hash would prove nothing about reachability.
+  await seam.actors
+    .asTenant(tenantB, { userId: cashierB, role: "cashier" })
+    .client.user.setPin({ pin: "246810" });
 });
 
 afterAll(async () => {
@@ -102,7 +111,12 @@ describe("user.setPin", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("wrong-tenant probe: a Tenant A session cannot write Tenant B's PIN hash", async () => {
+  it("wrong-tenant probe [user.setPin]: a Tenant A session cannot write Tenant B's PIN hash", async () => {
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: cashierB, role: "cashier" })
+      .client.user.setPin({ pin: "246810" });
+    expect(ownerSees.ok).toBe(true);
+
     const beforeRow = await ownerDb
       .selectFrom("User")
       .select("pin_hash")
@@ -114,8 +128,13 @@ describe("user.setPin", () => {
       userId: cashierB,
       role: "cashier",
     }).client;
-    const result = await asTenantAWithBsId.user.setPin({ pin: "111111" });
-    expect(result.ok).toBe(false);
+
+    await expectWrongTenantRefusal({
+      path: "user.setPin",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () => asTenantAWithBsId.user.setPin({ pin: "111111" }),
+    });
 
     const afterRow = await ownerDb
       .selectFrom("User")
@@ -147,7 +166,7 @@ describe("user.resetPin", () => {
     expect((await asCashier.user.resetPin({ id: adminA })).ok).toBe(false);
   });
 
-  it("wrong-tenant probe: a Tenant A admin cannot reset Tenant B's PIN hash", async () => {
+  it("wrong-tenant probe [user.resetPin]: a Tenant A admin cannot reset Tenant B's PIN hash", async () => {
     const beforeRow = await ownerDb
       .selectFrom("User")
       .select("pin_hash")
@@ -155,15 +174,34 @@ describe("user.resetPin", () => {
       .executeTakeFirstOrThrow();
     expect(beforeRow.pin_hash).not.toBeNull();
 
+    const asAdminB = seam.actors.asTenant(tenantB, { userId: adminB, role: "admin" }).client;
+    const ownerSees = await asAdminB.user.resetPin({ id: cashierB });
+    expect(ownerSees.ok).toBe(true);
+
+    // Re-seed through B's own path so the probe below has something to protect.
+    await seam.actors
+      .asTenant(tenantB, { userId: cashierB, role: "cashier" })
+      .client.user.setPin({ pin: "246810" });
+    const reseededRow = await ownerDb
+      .selectFrom("User")
+      .select("pin_hash")
+      .where("id", "=", cashierB)
+      .executeTakeFirstOrThrow();
+
     const asAdminA = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client;
-    const result = await asAdminA.user.resetPin({ id: cashierB });
-    expect(result.ok).toBe(false);
+
+    await expectWrongTenantRefusal({
+      path: "user.resetPin",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () => asAdminA.user.resetPin({ id: cashierB }),
+    });
 
     const afterRow = await ownerDb
       .selectFrom("User")
       .select("pin_hash")
       .where("id", "=", cashierB)
       .executeTakeFirstOrThrow();
-    expect(afterRow.pin_hash).toBe(beforeRow.pin_hash);
+    expect(afterRow.pin_hash).toBe(reseededRow.pin_hash);
   });
 });

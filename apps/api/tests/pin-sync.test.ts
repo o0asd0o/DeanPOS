@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 // Issue 10: terminal.pinSync, the hash-sync payload. The payload assertions
 // are on the payload itself (record 057 Q3), not on device behaviour.
@@ -283,7 +284,7 @@ describe("terminal.pinSync", () => {
     expect(asSession).toBeNull();
   });
 
-  it("wrong-tenant probe: Tenant B's own Device receives its cashier's row; Tenant A's Device receives none of it", async () => {
+  it("wrong-tenant probe [terminal.pinSync]: Tenant B's own Device receives its cashier's row; Tenant A's Device receives none of it", async () => {
     const deviceB = await enrolDeviceAt(storeB, "PSB1", adminB, tenantB);
     const resultB = await seam.actors.withBearerToken(deviceB.token).terminal.pinSync();
 
@@ -304,5 +305,13 @@ describe("terminal.pinSync", () => {
     expect(resultA.users.map((u) => u.userId)).not.toContain(adminB);
     expect(resultA.users.map((u) => u.pinHash)).not.toContain(cashierBRow!.pinHash);
     expect(resultA.users.map((u) => u.displayName)).not.toContain(cashierBRow!.displayName);
+
+    await expectWrongTenantRefusal({
+      path: "terminal.pinSync",
+      mode: "confined",
+      ownerSees: resultB,
+      otherGets: async () => resultA,
+      otherOwn: resultA,
+    });
   });
 });
