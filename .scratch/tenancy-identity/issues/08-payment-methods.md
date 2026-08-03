@@ -1,6 +1,6 @@
 # 08 — Payment methods
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -108,3 +108,45 @@ partial unique index exists to prevent, arriving through the back door._
 _`paymentMethod.list` being `admin`-only starves no one today (`apps/pos` has no sale flow); it
 becomes a gap the day `checkout` ships, and record 054 §"Smaller calls" 1 pre-prices that
 reversal._
+
+**Closed 2026-08-03.** Merged to `main`; gate green at **455** tests, migration proven from an empty
+database and applied to `DeanPOS_dev`. 1 fix round, reviewed by a second model both rounds.
+
+**Two records:** [054](../../decisions/054-payment-method-availability-and-its-audit.md) (storage,
+audit and the screen — `Stakes: high`) · [055](../../decisions/055-availability-enforcement-belongs-to-checkout.md)
+(criterion 4's read half moves to `checkout`).
+
+**Two places the build deliberately departs from the mock**, both recorded in 054. The mock draws
+one table column per Store; at twelve Stores there is no drawable table, so the columns collapse to
+a single `Available at` column reusing record 044's `Stores` column verbatim. And the mock's inline
+`[ON]/[OFF]` switches were refused: **an inline switch writes one permanently uncorrectable audit
+row per tap**, so three outlets means three independent failure points and a partial failure leaves
+an audit trail faithfully recording a state nobody intended. Availability moved into the editor
+sheet behind the one Save.
+
+What the review caught:
+
+- **`cash` immutability had no database enforcement.** The handlers refused renaming and
+  deactivating it, but `deanpos_app` holds `UPDATE` on the table, so an application bug could still
+  configure a till that cannot sell anything. Now a `BEFORE UPDATE` trigger, tested against direct
+  SQL rather than only through the handler.
+- **`PaymentMethodAudit.new_value` was nullable**, against 046 §3's shape and criterion 7's demand
+  for both values. An append-only row can never be corrected, so a nullable column is permanent.
+- **Wrong-tenant probes were missing for `create` and `reactivate`**, and for the audit table
+  entirely. This is the sixth time in this PRD a probe set has shipped incomplete.
+- **The `cash` concurrency test proved nothing** — no barrier, so it passed when the two
+  transactions happened to run serially, and would have passed with the partial unique index
+  dropped. `deactivate` and `reactivate` had no concurrency test at all despite both doing a locked
+  read-then-write whose `old_value` would be false without the lock.
+- **The no-name-branch grep walked four directories** out of the whole repository, and its pattern
+  missed bracket access, destructuring, and case-insensitive comparison. Criterion 5 says "anywhere".
+
+**Three review findings were refused, deliberately.** The `cash` backfill is mandated by this
+issue's own text and an `INSERT` of a required seed row cannot lose data. The missing Store-scoped
+list procedure went to the decider as a contradiction and became record 055. And
+`DeactivateDialog.tsx`'s footer was flagged for lacking icons while being byte-for-byte the shipped
+Stores and Users dialogs — matching the built basis was the instruction.
+
+**`main` went red after the fast-forward** with `relation "PaymentMethodAudit" does not exist`: the
+migration had not reached `DeanPOS_dev`. Applied it — purely additive, verified statement by
+statement first — and `cash` seeded for all **189** existing Tenants, one each.
