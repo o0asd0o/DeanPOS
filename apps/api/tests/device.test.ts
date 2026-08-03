@@ -141,16 +141,21 @@ describe("device.generateCode", () => {
     expect(asCashier.ok).toBe(false);
   });
 
-  it("Tenant A submitting Tenant B's storeId is refused; B may use that same storeId", async () => {
-    const asA = await seam.actors
-      .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.device.generateCode({ storeId: storeB, name: "Cross Tenant", code: "XT" });
-    expect(asA.ok).toBe(false);
-
+  it("wrong-tenant probe [device.generateCode]: Tenant A submitting Tenant B's storeId is refused; B may use that same storeId", async () => {
     const asB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.generateCode({ storeId: storeB, name: "Cross Tenant", code: "XT" });
     expect(asB.ok).toBe(true);
+
+    await expectWrongTenantRefusal({
+      path: "device.generateCode",
+      mode: "refusal",
+      ownerSees: asB,
+      otherGets: () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.generateCode({ storeId: storeB, name: "Cross Tenant", code: "XT2" }),
+    });
   });
 
   it("refuses a code already reserved or in use at that Store", async () => {
@@ -218,6 +223,88 @@ describe("device.pendingCodes and device.cancelCode", () => {
       .client.device.generateCode({ storeId: storeA1, name: "Counter 7 again", code: "P7" });
     expect(reissued.ok).toBe(true);
   });
+
+  it("wrong-tenant probe [device.pendingCodes]: Tenant B's own pending code is never visible in Tenant A's list", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Pending Probe", code: "PB1" });
+    if (!generatedAsB.ok) throw new Error("setup: generateCode failed");
+
+    const pendingAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.pendingCodes();
+    const ownAsB = pendingAsB.find((code) => code.code === "PB1");
+    expect(ownAsB).toBeTruthy();
+
+    const generatedAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "A Pending Probe", code: "PA1" });
+    if (!generatedAsA.ok) throw new Error("setup: generateCode failed");
+
+    const pendingAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.pendingCodes();
+    expect(pendingAsA.map((code) => code.code)).not.toContain("PB1");
+    const ownAsA = pendingAsA.find((code) => code.code === "PA1");
+    expect(ownAsA).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "device.pendingCodes",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
+
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.cancelCode({ id: ownAsB!.id });
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.cancelCode({ id: ownAsA!.id });
+  });
+
+  it("wrong-tenant probe [device.cancelCode]: Tenant A cannot cancel Tenant B's pending code; B's own cancel still succeeds", async () => {
+    const firstAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Cancel Probe", code: "CB1" });
+    if (!firstAsB.ok) throw new Error("setup: generateCode failed");
+    const pendingFirst = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.pendingCodes();
+    const firstRow = pendingFirst.find((code) => code.code === "CB1")!;
+
+    // B's own cancel succeeds through the application path first (finding
+    // 7) — a procedure that refuses everyone would otherwise pass the
+    // refusal below for the wrong reason.
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.cancelCode({ id: firstRow.id });
+    expect(ownerSees.ok).toBe(true);
+
+    const secondAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Cancel Probe 2", code: "CB2" });
+    if (!secondAsB.ok) throw new Error("setup: generateCode failed");
+    const pendingSecond = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.pendingCodes();
+    const secondRow = pendingSecond.find((code) => code.code === "CB2")!;
+
+    await expectWrongTenantRefusal({
+      path: "device.cancelCode",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.cancelCode({ id: secondRow.id }),
+    });
+
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.cancelCode({ id: secondRow.id });
+  });
 });
 
 describe("terminal.enrol", () => {
@@ -260,7 +347,7 @@ describe("terminal.enrol", () => {
     expect(second.ok).toBe(false);
   });
 
-  it("the wrong-tenant probe: exchanging under Tenant A's session still enrols the Device into the code's own Tenant, B", async () => {
+  it("wrong-tenant probe [terminal.enrol]: exchanging under Tenant A's session still enrols the Device into the code's own Tenant, B", async () => {
     const generatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.generateCode({ storeId: storeB, name: "B Enrol Target", code: "BE" });
@@ -293,6 +380,36 @@ describe("terminal.enrol", () => {
       db.selectFrom("Device").select("id").where("id", "=", exchanged.deviceId).execute(),
     );
     expect(asB).toHaveLength(1);
+
+    // Reaches for the same fact through B's own contract call, and proves A
+    // is confined to a device it actually owns, not merely absent here.
+    const listAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.list();
+    const ownAsB = listAsB.find((device) => device.id === exchanged.deviceId);
+    expect(ownAsB).toBeTruthy();
+
+    const generatedAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "A Enrol Own", code: "AE" });
+    if (!generatedAsA.ok) throw new Error("setup failed");
+    const exchangedAsA = await seam.client.terminal.enrol({ secret: generatedAsA.secret });
+    if (!exchangedAsA.ok) throw new Error("setup failed");
+
+    const listAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list();
+    expect(listAsA.map((device) => device.id)).not.toContain(exchanged.deviceId);
+    const ownAsA = listAsA.find((device) => device.id === exchangedAsA.deviceId);
+    expect(ownAsA).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "terminal.enrol",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
   });
 
   it("an unrecognised secret fails with the same shape as expired or consumed", async () => {
@@ -537,7 +654,7 @@ describe("the Device token principal", () => {
     expect(me.storeName).toBe("A Store 1");
   });
 
-  it("the wrong-tenant probe: A's and B's Device tokens each resolve me/heartbeat to their own Tenant's Store only, and one Tenant's heartbeat never touches the other's row", async () => {
+  it("wrong-tenant probe [terminal.me]: A's and B's Device tokens each resolve me to their own Tenant's Store only", async () => {
     const { exchanged: exchangedAsA } = await generateAndExchange(storeA1, "TA");
     if (!exchangedAsA.ok) throw new Error("setup failed");
     const generatedAsB = await seam.actors
@@ -552,6 +669,25 @@ describe("the Device token principal", () => {
 
     expect(meAsA.authenticated && meAsA.storeId).toBe(storeA1);
     expect(meAsB.authenticated && meAsB.storeId).toBe(storeB);
+
+    await expectWrongTenantRefusal({
+      path: "terminal.me",
+      mode: "confined",
+      ownerSees: meAsB,
+      otherGets: async () => meAsA,
+      otherOwn: meAsA,
+    });
+  });
+
+  it("wrong-tenant probe [terminal.heartbeat]: a heartbeat moves only its own Tenant's Device row, never the other's", async () => {
+    const { exchanged: exchangedAsA } = await generateAndExchange(storeA1, "HA");
+    if (!exchangedAsA.ok) throw new Error("setup failed");
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Heartbeat", code: "HB" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
 
     const lastSeen = async (deviceId: string) =>
       (
@@ -569,19 +705,25 @@ describe("the Device token principal", () => {
     const beforeB = await lastSeen(exchangedAsB.deviceId);
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    expect((await seam.actors.withBearerToken(exchangedAsA.token).terminal.heartbeat()).ok).toBe(
-      true,
-    );
+    const heartbeatAsA = await seam.actors.withBearerToken(exchangedAsA.token).terminal.heartbeat();
+    expect(heartbeatAsA.ok).toBe(true);
     const afterA = await lastSeen(exchangedAsA.deviceId);
     expect(afterA).toBeGreaterThan(beforeA);
     expect(await lastSeen(exchangedAsB.deviceId)).toBe(beforeB);
 
     await new Promise((resolve) => setTimeout(resolve, 5));
-    expect((await seam.actors.withBearerToken(exchangedAsB.token).terminal.heartbeat()).ok).toBe(
-      true,
-    );
+    const heartbeatAsB = await seam.actors.withBearerToken(exchangedAsB.token).terminal.heartbeat();
+    expect(heartbeatAsB.ok).toBe(true);
     expect(await lastSeen(exchangedAsB.deviceId)).toBeGreaterThan(beforeB);
     expect(await lastSeen(exchangedAsA.deviceId)).toBe(afterA);
+
+    await expectWrongTenantRefusal({
+      path: "terminal.heartbeat",
+      mode: "shared",
+      ownerSees: heartbeatAsB,
+      otherGets: async () => heartbeatAsA,
+      why: "heartbeat's { ok: true } carries no tenant data by design; isolation is proven above by the last_seen canary, which the response shape can't show.",
+    });
   });
 
   it("real Authorization header: enrol, then me/heartbeat over the bearer token, matched case-insensitively", async () => {
@@ -751,7 +893,7 @@ describe("device.list", () => {
     expect(list).toStrictEqual([]);
   });
 
-  it("the wrong-tenant probe: Tenant B's Device is readable as Tenant B, never in Tenant A's list", async () => {
+  it("wrong-tenant probe [device.list]: Tenant B's Device is readable as Tenant B, never in Tenant A's list", async () => {
     const generatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.generateCode({ storeId: storeB, name: "B Device", code: "BB" });
@@ -759,15 +901,33 @@ describe("device.list", () => {
     const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
     if (!exchangedAsB.ok) throw new Error("setup failed");
 
-    const asB = await seam.actors
+    const listAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.list();
-    expect(asB.map((d) => d.id)).toContain(exchangedAsB.deviceId);
+    expect(listAsB.map((d) => d.id)).toContain(exchangedAsB.deviceId);
+    const ownAsB = listAsB.find((d) => d.id === exchangedAsB.deviceId);
 
-    const asA = await seam.actors
+    const generatedAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "A Device", code: "AA" });
+    if (!generatedAsA.ok) throw new Error("setup failed");
+    const exchangedAsA = await seam.client.terminal.enrol({ secret: generatedAsA.secret });
+    if (!exchangedAsA.ok) throw new Error("setup failed");
+
+    const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.device.list();
-    expect(asA.map((d) => d.id)).not.toContain(exchangedAsB.deviceId);
+    expect(listAsA.map((d) => d.id)).not.toContain(exchangedAsB.deviceId);
+    const ownAsA = listAsA.find((d) => d.id === exchangedAsA.deviceId);
+    expect(ownAsA).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "device.list",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
   });
 });
 
@@ -817,7 +977,7 @@ describe("device.rename", () => {
     expect(asManager).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot rename Tenant B's Device; B's row is untouched", async () => {
+  it("wrong-tenant probe [device.rename]: Tenant A cannot rename Tenant B's Device; B's row is untouched", async () => {
     const generatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.generateCode({ storeId: storeB, name: "B Rename Target", code: "BR" });
@@ -825,13 +985,20 @@ describe("device.rename", () => {
     const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
     if (!exchangedAsB.ok) throw new Error("setup failed");
 
-    await expectWrongTenantRefusal(
-      () =>
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.rename({ id: exchangedAsB.deviceId, name: "B Rename Target" });
+    expect(ownerSees?.id).toBe(exchangedAsB.deviceId);
+
+    await expectWrongTenantRefusal({
+      path: "device.rename",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.device.rename({ id: exchangedAsB.deviceId, name: "Hijacked From A" }),
-      (result) => result === null,
-    );
+    });
 
     // Through Tenant B's own scoped connection, not the owner bypass — this
     // is what proves RLS itself refused A's write, not just that no row
@@ -880,7 +1047,21 @@ describe("device.revoke", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot revoke Tenant B's Device; B's own revoke still succeeds", async () => {
+  it("wrong-tenant probe [device.revoke]: Tenant A cannot revoke Tenant B's Device; B's own revoke still succeeds", async () => {
+    // B's own revoke succeeds through the application path first (finding
+    // 7) — a procedure that refuses everyone would otherwise pass the
+    // refusal below for the wrong reason.
+    const firstAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Revoke Canary", code: "BC" });
+    if (!firstAsB.ok) throw new Error("setup failed");
+    const exchangedCanary = await seam.client.terminal.enrol({ secret: firstAsB.secret });
+    if (!exchangedCanary.ok) throw new Error("setup failed");
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.revoke({ id: exchangedCanary.deviceId });
+    expect(ownerSees?.revokedAt).toBeInstanceOf(Date);
+
     const generatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.device.generateCode({ storeId: storeB, name: "B Revoke Target", code: "BV" });
@@ -888,13 +1069,15 @@ describe("device.revoke", () => {
     const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
     if (!exchangedAsB.ok) throw new Error("setup failed");
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "device.revoke",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.device.revoke({ id: exchangedAsB.deviceId }),
-      (result) => result === null,
-    );
+    });
 
     const stillActive = await ownerDb
       .selectFrom("Device")
