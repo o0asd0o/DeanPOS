@@ -2,6 +2,21 @@
 
 **Status:** ready-for-agent
 
+_**Carried in from [record 058](../../decisions/058-pin-management-is-a-back-office-action.md),
+before this issue is built.** Issue 10 removed every server-side PIN comparison, which changes what
+this issue can be:_
+
+> - _Throttling is **on-device and nowhere else** — unlock is verified in the browser (057 Q1) and
+>   **no server procedure verifies a PIN** (058), so no server-side attempt counter exists or may be
+>   added._
+> - _Keyed per `userId`, **persisted behind the existing accessor-module pattern so it survives a
+>   page reload** — an unthrottled reload is the whole bypass._
+> - _**On-device throttling is not a security boundary and this issue must say so.** Whoever holds
+>   the tablet can clear it; 057 already concedes the roster is grindable in ~75 s. It exists against
+>   a bystander. Revocation is the mitigation (ADR-0007)._
+> - _A server-side attempt counter needs a superseding record — it means a PIN authenticating a
+>   request._
+
 ## What to build
 
 The only thing standing between a shoulder-surfed Device and a manager's authority. A 4–6

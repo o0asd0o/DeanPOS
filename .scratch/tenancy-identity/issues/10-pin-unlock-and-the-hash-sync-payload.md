@@ -11,9 +11,12 @@ them enter it, and an admin can reset a forgotten one without a support call. A 
 the terminal when they step away, so the next person enters their own PIN.
 
 **The rule that governs every line of this issue:** the Device proves *which tenant and
-store*; the PIN proves *which person*. **A PIN is a second factor to Device possession, never
-a credential on its own.** Any server path that accepts a PIN without a valid, unrevoked
-Device token is a defect.
+store*; the PIN proves *which person*. **A PIN never authenticates a request.** Any server path
+that accepts a PIN as proof of identity — with or without a Device token — is a defect, and
+unlock in particular is refused without a valid, unrevoked Device token. **Setting, changing and
+resetting a PIN are back-office actions authenticated by the signed-in password session, which
+is a stronger factor than the PIN it writes; they require no Device token and they verify no
+PIN** — see [record 058](../../decisions/058-pin-management-is-a-back-office-action.md).
 
 PIN hashing uses **PBKDF2-HMAC-SHA-256 via WebCrypto**, with **its own parameters in its own
 file** — see [record 057](../../decisions/057-pin-unlock-verifies-locally-with-pbkdf2.md). It is
@@ -41,8 +44,10 @@ or unlock is refused; an `admin` is exempt and may unlock any Device in their Te
 
 ## Acceptance criteria
 
-- [ ] A User sets their own PIN on first use, changes it later, and an `admin` resets it. The
-      PIN is 4–6 digits.
+- [ ] A User sets their own PIN, and changes it, from the account menu in the back office; an
+      `admin` resets a forgotten one from the user editor, which clears it so the User sets a
+      new one. The PIN is 4–6 digits, and **no procedure ever verifies a submitted PIN against
+      a stored hash** (record 058).
 - [ ] PIN hashing uses **PBKDF2-HMAC-SHA-256 via WebCrypto** (record 057) with **its own
       parameters in its own file**, chosen knowing the hash sits on a tablet and must be
       verified by a browser with no network; the hash/verify round-trip **and RFC 7914 §11's
