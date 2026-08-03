@@ -14,13 +14,17 @@ export type PinThrottleState = { device: Counter; users: Record<string, Counter>
 const emptyCounter = (): Counter => ({ failures: 0, lockedUntil: null, lastAttemptAt: null });
 const emptyState = (): PinThrottleState => ({ device: emptyCounter(), users: {} });
 
+const isFiniteOrNull = (value: unknown): value is number | null =>
+  value === null || (typeof value === "number" && Number.isFinite(value));
+
 function isCounter(value: unknown): value is Counter {
   if (typeof value !== "object" || value === null) return false;
   const { failures, lockedUntil, lastAttemptAt } = value as Record<string, unknown>;
   return (
     typeof failures === "number" &&
-    (lockedUntil === null || typeof lockedUntil === "number") &&
-    (lastAttemptAt === null || typeof lastAttemptAt === "number")
+    Number.isFinite(failures) &&
+    isFiniteOrNull(lockedUntil) &&
+    isFiniteOrNull(lastAttemptAt)
   );
 }
 
@@ -28,7 +32,7 @@ function isValidState(value: unknown): value is PinThrottleState {
   if (typeof value !== "object" || value === null) return false;
   const { device, users } = value as Record<string, unknown>;
   if (!isCounter(device)) return false;
-  if (typeof users !== "object" || users === null) return false;
+  if (typeof users !== "object" || users === null || Array.isArray(users)) return false;
   return Object.values(users).every(isCounter);
 }
 

@@ -117,18 +117,50 @@ describe("pin-throttle", () => {
     expect(readPinThrottle().users["u1"]!.failures).toBe(1);
   });
 
-  it("does not count an attempt or advance lastAttemptAt while locked", () => {
+  it("does not advance any counter while the User is locked", () => {
     for (let i = 0; i < PIN_USER_FAILURE_LIMIT; i++) recordPinFailure("u1");
-    const before = readPinThrottle().users["u1"]!;
+    const before = readPinThrottle();
     recordPinFailure("u1");
-    const after = readPinThrottle().users["u1"]!;
-    expect(after.failures).toBe(before.failures);
-    expect(after.lastAttemptAt).toBe(before.lastAttemptAt);
+    const after = readPinThrottle();
+    expect(after).toEqual(before);
+  });
+
+  it("does not advance any counter while the Device is locked", () => {
+    for (let i = 0; i < 5; i++) recordPinFailure("u1");
+    for (let i = 0; i < 5; i++) recordPinFailure("u2");
+    const before = readPinThrottle();
+    recordPinFailure("u3");
+    const after = readPinThrottle();
+    expect(after).toEqual(before);
+    expect(after.users["u3"]).toBeUndefined();
   });
 
   it("returns a fresh empty state on malformed storage", () => {
     localStorage.setItem("deanpos.pin.throttle", "{not json");
     expect(pinLockUntil(readPinThrottle(), "u1")).toBeNull();
+  });
+
+  it.each(["1e400", "-1e400"])(
+    "rejects a stored lockedUntil that overflows to %s via JSON.parse",
+    (overflowLiteral) => {
+      localStorage.setItem(
+        "deanpos.pin.throttle",
+        `{"device":{"failures":0,"lockedUntil":null,"lastAttemptAt":null},` +
+          `"users":{"u1":{"failures":5,"lockedUntil":${overflowLiteral},"lastAttemptAt":${Date.now()}}}}`,
+      );
+      expect(readPinThrottle().users).toEqual({});
+    },
+  );
+
+  it("rejects a stored users value that is an array", () => {
+    localStorage.setItem(
+      "deanpos.pin.throttle",
+      JSON.stringify({
+        device: { failures: 0, lockedUntil: null, lastAttemptAt: null },
+        users: [],
+      }),
+    );
+    expect(readPinThrottle().users).toEqual({});
   });
 
   it("the unlock screen locks a User serving from a cached roster with the request path forced to fail — criterion 3", async () => {
