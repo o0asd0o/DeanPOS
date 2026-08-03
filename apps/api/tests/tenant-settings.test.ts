@@ -108,6 +108,11 @@ describe("a freshly provisioned Tenant", () => {
       .deleteFrom("PlatformAuditLog")
       .where("tenant_id", "=", provisioned.tenantId)
       .execute();
+    // Issue 08: provisioning seeds `cash` for every Tenant it creates.
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("tenant_id", "=", provisioned.tenantId)
+      .execute();
     await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", provisioned.tenantId).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "=", provisioned.tenantId).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "=", provisioned.tenantId).execute();

@@ -10,6 +10,7 @@ import { insertUserRole } from "../../access/db-operations/commands/insert-user-
 import { insertPlatformAuditLog } from "../db-operations/commands/insert-platform-audit-log.command.ts";
 import { insertTenant } from "../db-operations/commands/insert-tenant.command.ts";
 import { insertUser } from "../../user/db-operations/commands/insert-user.command.ts";
+import { insertCashPaymentMethod } from "../../payment-method/db-operations/commands/insert-cash-payment-method.command.ts";
 
 export const inputSchema = z.object({
   tenantName: z.string().min(1),
@@ -59,6 +60,9 @@ export const handler: Handler<ProvisionTenantInput, ProvisionTenantOutput | null
       action: "provision_tenant",
       tenantId,
     });
+    // Issue 08: a freshly provisioned Tenant has exactly one PaymentMethod.
+    // No audit row — provisioning writes no actor.
+    await insertCashPaymentMethod(db, { id: randomUUID(), tenantId });
   });
 
   return { tenantId, userId };

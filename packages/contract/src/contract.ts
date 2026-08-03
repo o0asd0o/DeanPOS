@@ -109,6 +109,41 @@ export const tenantSettingsUpdateInputSchema = z.object({
   cashMovementOverrideThresholdCentavos: z.number().int().min(0),
 });
 
+// `kind` is the only thing anything downstream may branch on — never `name`
+// (issue 08 acceptance criteria). Presets (Card, GCash, Maya, Bank transfer)
+// are seed suggestions on the Name field's `<datalist>`, not an enum.
+export const paymentMethodKindSchema = z.enum(["cash", "recorded"]);
+
+export const paymentMethodOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  kind: paymentMethodKindSchema,
+  active: z.boolean(),
+  createdAt: z.date(),
+  // Empty for `cash`, which is available everywhere unconditionally and
+  // holds no join rows (record 054 §"Smaller calls" 3).
+  storeIds: z.array(z.string()),
+});
+
+// Every created method is `recorded` — there is no `kind` control (record 054
+// Q3). Availability defaults to every Store checked (record 054 §"Smaller
+// calls" 4); the caller decides which to uncheck.
+export const paymentMethodCreateInputSchema = z.object({
+  name: z.string().min(1),
+  storeIds: z.array(z.string()),
+});
+
+// Name and the whole availability set move together — one form, one Save,
+// one transaction (record 054 Q3). Never `active`; that is its own procedure.
+export const paymentMethodUpdateInputSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  storeIds: z.array(z.string()),
+});
+
+export const paymentMethodIdInputSchema = z.object({ id: z.string() });
+
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
@@ -180,6 +215,19 @@ export const contract = {
     deactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     reactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     resetPassword: oc.input(userResetPasswordInputSchema).output(userOutputSchema.nullable()),
+  },
+  // Payment methods (issue 08, record 054). `admin`-only, and the route
+  // itself refuses (record 054 §"Smaller calls" 1) — `null` for any
+  // non-admin or unauthenticated caller, the same not-found shape store.get
+  // uses.
+  paymentMethod: {
+    list: oc.input(z.void()).output(z.array(paymentMethodOutputSchema)),
+    create: oc.input(paymentMethodCreateInputSchema).output(paymentMethodOutputSchema.nullable()),
+    update: oc.input(paymentMethodUpdateInputSchema).output(paymentMethodOutputSchema.nullable()),
+    // Deliberately not `update` — a save can never accidentally flip active
+    // state (record 040 §3, carried into record 054 Q3).
+    deactivate: oc.input(paymentMethodIdInputSchema).output(paymentMethodOutputSchema.nullable()),
+    reactivate: oc.input(paymentMethodIdInputSchema).output(paymentMethodOutputSchema.nullable()),
   },
   // `admin`-only, tenant-wide financial controls (issue 07). `null` for any
   // non-admin or unauthenticated caller — the same not-found shape store.get

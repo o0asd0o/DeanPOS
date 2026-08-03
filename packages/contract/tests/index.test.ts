@@ -9,11 +9,12 @@ describe("contract", () => {
     expect(parsed.message).toBe("pong");
   });
 
-  it("declares exactly ping, store, user, settings, platformAdmin, and auth, ready for implement()", () => {
+  it("declares exactly ping, store, user, paymentMethod, settings, platformAdmin, and auth, ready for implement()", () => {
     expect(Object.keys(contract)).toStrictEqual([
       "ping",
       "store",
       "user",
+      "paymentMethod",
       "settings",
       "platformAdmin",
       "auth",

@@ -30,11 +30,14 @@ model Tenant {
   vatRatePercent                         Int     @default(12) @map("vat_rate_percent")
   varianceToleranceCentavos              Int     @default(0) @map("variance_tolerance_centavos")
   cashMovementOverrideThresholdCentavos  Int     @default(0) @map("cash_movement_override_threshold_centavos")
-  stores               Store[]
-  users                User[]
-  userRoles            UserRole[]
-  userStores           UserStore[]
-  tenantSettingsAudits TenantSettingsAudit[]
+  stores                       Store[]
+  users                        User[]
+  userRoles                    UserRole[]
+  userStores                   UserStore[]
+  tenantSettingsAudits         TenantSettingsAudit[]
+  paymentMethods               PaymentMethod[]
+  paymentMethodAvailabilities  PaymentMethodAvailability[]
+  paymentMethodAudits          PaymentMethodAudit[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -53,6 +56,8 @@ model Store {
   createdAt         DateTime    @default(now())
   tenant            Tenant      @relation(fields: [tenantId], references: [id])
   userStores        UserStore[]
+  paymentMethodAvailabilities PaymentMethodAvailability[]
+  paymentMethodAudits         PaymentMethodAudit[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -82,6 +87,7 @@ model User {
   userRoles            UserRole[]
   userStores           UserStore[]
   tenantSettingsAudits TenantSettingsAudit[]
+  paymentMethodAudits  PaymentMethodAudit[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -185,4 +191,67 @@ model SignInThrottle {
   failures    Int       @default(0)
   lockedUntil DateTime? @map("locked_until")
   updatedAt   DateTime  @default(now()) @map("updated_at")
+}
+
+enum PaymentMethodKind {
+  cash
+  recorded
+}
+
+// Deactivated, never deleted (issue 08). `kind` is the only field anything
+// may branch on — never `name`. The partial unique index that keeps exactly
+// one `cash` row per Tenant lives in this model's migration; Prisma cannot
+// express a partial index in schema.prisma (record 054).
+model PaymentMethod {
+  id        String            @id
+  tenantId  String            @map("tenant_id")
+  name      String
+  kind      PaymentMethodKind
+  active    Boolean           @default(true)
+  createdAt DateTime          @default(now()) @map("created_at")
+  tenant         Tenant                      @relation(fields: [tenantId], references: [id])
+  availabilities PaymentMethodAvailability[]
+  audits         PaymentMethodAudit[]        @relation("PaymentMethodAuditMethod")
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+// Positive join, current state only (record 054 §"Smaller calls" 2): a row
+// means the method is offered at that Store. `cash` holds no rows here — it
+// is available everywhere unconditionally (record 054 §"Smaller calls" 3).
+model PaymentMethodAvailability {
+  id              String   @id
+  tenantId        String   @map("tenant_id")
+  paymentMethodId String   @map("payment_method_id")
+  storeId         String   @map("store_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  paymentMethod PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store         Store         @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@unique([paymentMethodId, storeId])
+  @@index([tenantId])
+}
+
+// Append-only (record 054 Q1), copying TenantSettingsAudit's structure.
+// `storeId` nullable is the discriminator: NULL is a change to the method
+// itself, non-null is availability at that Store. Three CHECKs and three
+// composite FKs live in this model's migration, not here.
+model PaymentMethodAudit {
+  id              String   @id
+  tenantId        String   @map("tenant_id")
+  actorUserId     String   @map("actor_user_id")
+  paymentMethodId String   @map("payment_method_id")
+  storeId         String?  @map("store_id")
+  field           String
+  oldValue        String?  @map("old_value")
+  newValue        String?  @map("new_value")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  actor         User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+  paymentMethod PaymentMethod @relation("PaymentMethodAuditMethod", fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@index([tenantId])
 }

@@ -15,6 +15,13 @@ import { isMustChangePasswordExempt } from "./middlewares/must-change-password.t
 import { createAuthRoutes } from "./routes/auth.ts";
 import { healthRoute } from "./routes/health.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
+import {
+  paymentMethodCreateRoute,
+  paymentMethodDeactivateRoute,
+  paymentMethodListRoute,
+  paymentMethodReactivateRoute,
+  paymentMethodUpdateRoute,
+} from "./routes/payment-method.ts";
 import { pingRoute } from "./routes/ping.ts";
 import { settingsGetRoute, settingsUpdateRoute } from "./routes/settings.ts";
 import {
@@ -97,6 +104,13 @@ export const createApp = ({
         deactivate: userDeactivateRoute,
         reactivate: userReactivateRoute,
         resetPassword: userResetPasswordRoute,
+      },
+      paymentMethod: {
+        list: paymentMethodListRoute,
+        create: paymentMethodCreateRoute,
+        update: paymentMethodUpdateRoute,
+        deactivate: paymentMethodDeactivateRoute,
+        reactivate: paymentMethodReactivateRoute,
       },
       settings: { get: settingsGetRoute, update: settingsUpdateRoute },
       platformAdmin: { provisionTenant: provisionTenantRoute },

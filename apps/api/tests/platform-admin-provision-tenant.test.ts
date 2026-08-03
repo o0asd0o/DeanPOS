@@ -35,6 +35,11 @@ afterAll(async () => {
       .deleteFrom("PlatformAuditLog")
       .where("tenant_id", "in", provisionedTenantIds)
       .execute();
+    // Issue 08: provisioning seeds `cash` for every Tenant it creates.
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("tenant_id", "in", provisionedTenantIds)
+      .execute();
     await ownerDb.deleteFrom("UserRole").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "in", provisionedTenantIds).execute();
@@ -87,6 +92,30 @@ describe("platformAdmin.provisionTenant", () => {
     expect(users[0]?.must_change_password).toBe(true);
     expect(users[0]?.password_hash).not.toBe("temporary-password-1");
     expect(users[0]?.password_hash).toMatch(/^\$scrypt\$/);
+  });
+
+  // Issue 08 acceptance criteria: a freshly provisioned Tenant has exactly
+  // one PaymentMethod, `cash`, and no audit row for it (provisioning writes
+  // no actor).
+  it("seeds exactly one cash PaymentMethod, with no audit row", async () => {
+    const result = await provisionAsPlatformAdmin({ tenantName: "Cash Seeded Restaurant" });
+
+    const methods = await ownerDb
+      .selectFrom("PaymentMethod")
+      .selectAll()
+      .where("tenant_id", "=", result.tenantId)
+      .execute();
+    expect(methods).toHaveLength(1);
+    expect(methods[0]?.name).toBe("Cash");
+    expect(methods[0]?.kind).toBe("cash");
+    expect(methods[0]?.active).toBe(true);
+
+    const audits = await ownerDb
+      .selectFrom("PaymentMethodAudit")
+      .selectAll()
+      .where("tenant_id", "=", result.tenantId)
+      .execute();
+    expect(audits).toHaveLength(0);
   });
 
   // Issue 04, round 1 finding 1: the User and its opening UserRole row are

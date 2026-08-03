@@ -42,6 +42,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (provisionedTenantIds.length > 0) {
+    // Issue 08: provisioning seeds `cash` for every Tenant it creates.
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("tenant_id", "in", provisionedTenantIds)
+      .execute();
     await ownerDb.deleteFrom("UserRole").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "in", provisionedTenantIds).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "in", provisionedTenantIds).execute();

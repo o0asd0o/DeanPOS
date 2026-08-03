@@ -51,6 +51,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Administration",
     items: [
       { label: "Stores", icon: StoreIcon, to: "/stores" },
+      { label: "Payment methods", icon: CreditCardIcon, to: "/payment-methods" },
       { label: "Devices", icon: MonitorSmartphoneIcon, to: "/devices" },
       { label: "Employees", icon: UsersIcon, to: "/employees" },
       { label: "Roster", icon: CalendarDaysIcon, to: "/roster" },
