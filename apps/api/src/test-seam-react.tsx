@@ -20,7 +20,7 @@ import { createTestSeam, type TestSeamOptions } from "./test-seam.ts";
 // every render that goes through this helper. .scratch/decisions/008.
 afterEach(cleanup);
 
-export { fireEvent, screen, waitFor, within };
+export { cleanup, fireEvent, render, screen, waitFor, within };
 
 // Fixture operations for a UI-app test file (finding 12, ADR-0009): a UI
 // app's test suite goes through `api`'s seam, never `backend` directly.
@@ -67,6 +67,11 @@ export function renderRoute<TRouter extends AnyRouter>(
       // Same per-seam throttle bucket as the server seam: without this every
       // React screen test shares `ip:no-forwarded-for` (records 033–034).
       request.headers.set("X-Forwarded-For", seam.clientIp);
+      // Mirrors apps/pos/src/lib/orpc.ts's own fetch wrapper (record 056):
+      // a Device-token request rides `Authorization`. Backoffice tests never
+      // set this key, so this is a no-op there.
+      const deviceToken = localStorage.getItem("deanpos.device.token");
+      if (deviceToken) request.headers.set("Authorization", `Bearer ${deviceToken}`);
       return actor.app.request(request, init);
     },
   });
