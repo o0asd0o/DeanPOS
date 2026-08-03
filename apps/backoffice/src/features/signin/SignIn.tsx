@@ -15,7 +15,13 @@ export function SignIn() {
   // neither field, so it is the submit's outcome and not the form's state.
   const [failed, setFailed] = useState(false);
 
-  const signIn = useMutation(orpc.auth.signIn.mutationOptions());
+  // `{ ok: false }` is a refusal, so the toast layer reads it as a failure —
+  // the sentence below stays the precise one.
+  const signIn = useMutation(
+    orpc.auth.signIn.mutationOptions({
+      meta: { success: "Signed in", error: "Couldn't sign in" },
+    }),
+  );
 
   const form = useForm({
     defaultValues: { email: "", password: "" },

@@ -29,6 +29,7 @@
     "react-dom": "catalog:",
     "tsconfig": "workspace:*",
     "typescript": "^7.0.2",
+    "ui": "workspace:*",
     "vite-plus": "catalog:"
   }
 }

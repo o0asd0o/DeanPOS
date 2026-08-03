@@ -22,23 +22,43 @@ function useInvalidateStores() {
 export function useCreateStoreMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
   const invalidate = useInvalidateStores();
-  return useMutation(orpc.store.create.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.store.create.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Store created", error: "Couldn't create the store" },
+    }),
+  );
 }
 
 export function useUpdateStoreMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
   const invalidate = useInvalidateStores();
-  return useMutation(orpc.store.update.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.store.update.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Store saved", error: "Couldn't update the store" },
+    }),
+  );
 }
 
 export function useDeactivateStoreMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
   const invalidate = useInvalidateStores();
-  return useMutation(orpc.store.deactivate.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.store.deactivate.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Store deactivated", error: "Couldn't update the store" },
+    }),
+  );
 }
 
 export function useReactivateStoreMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
   const invalidate = useInvalidateStores();
-  return useMutation(orpc.store.reactivate.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.store.reactivate.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Store reactivated", error: "Couldn't update the store" },
+    }),
+  );
 }

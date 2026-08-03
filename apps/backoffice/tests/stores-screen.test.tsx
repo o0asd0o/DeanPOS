@@ -181,6 +181,8 @@ describe("the Stores screen — as an admin", () => {
       const updatedRow = screen.getByText("Closing Soon").closest("tr")!;
       expect(within(updatedRow).getByText("Deactivated")).toBeTruthy();
     });
+    // Every mutation says what happened — the wiring, not just the copy.
+    expect(screen.getByText("Store deactivated")).toBeTruthy();
 
     const deactivatedRow = screen.getByText("Closing Soon").closest("tr")!;
     expect(within(deactivatedRow).queryByRole("button", { name: /^Edit/ })).toBeNull();

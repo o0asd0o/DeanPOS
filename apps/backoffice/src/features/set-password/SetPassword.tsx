@@ -21,7 +21,11 @@ export function SetPassword() {
   const { orpc } = useRouteContext({ from: "/_gate/set-password" });
   const navigate = useNavigate();
 
-  const setPassword = useMutation(orpc.auth.setPassword.mutationOptions());
+  const setPassword = useMutation(
+    orpc.auth.setPassword.mutationOptions({
+      meta: { success: "Password changed", error: "Couldn't change the password" },
+    }),
+  );
   const policyMessage = policyRejectionMessage(setPassword.error);
 
   const form = useForm({

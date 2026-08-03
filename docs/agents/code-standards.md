@@ -241,6 +241,31 @@ re-learn where the safe exit is on each screen:
   in a right-aligned column, so the destructive one is never where a cursor
   lands by accident.
 
+## 10. Every mutation toasts its outcome, and the copy lives on `meta`
+
+The `QueryClient` both apps use comes from `createQueryClient()` in `ui`, whose
+`MutationCache` toasts every mutation: success on a resolved value, error on a
+rejection **and** on the repo's refusal shapes (`null`, `{ ok: false }`). A new
+mutation is therefore loud without doing anything, and there is no opt-out —
+silence is the defect this exists to prevent.
+
+```ts
+useMutation(
+  orpc.store.update.mutationOptions({
+    onSuccess: invalidate,
+    meta: { success: "Store saved", error: "Couldn't update the store" },
+  }),
+);
+```
+
+- **`meta` only swaps the copy.** Leaving it off falls back to "Saved" and
+  "Something went wrong" — correct, but say what happened when you can.
+- **Toasts do not replace an inline surface.** A sentence a form owns (a
+  wrong-password line, a field's policy rejection) stays where it is; the toast
+  is the ambient confirmation, not the explanation.
+- **`<Toaster />` is mounted once per app** in `main.tsx`, and by the test seam,
+  so a screen test can assert the sentence a user would read.
+
 ## When this file and the existing code disagree
 
 The existing code is not automatically right, and neither is this file. Say so in your report rather than silently copying the older pattern or silently overriding it. If the disagreement is a real contradiction rather than drift, it goes to the `decider` — a standard and a shipped pattern that contradict each other is exactly the class of question a fixer must not settle by picking a side.

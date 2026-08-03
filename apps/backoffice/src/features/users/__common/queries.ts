@@ -38,7 +38,12 @@ export function useCreateUserMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const invalidate = useInvalidateUsers();
   const queryClient = useQueryClient();
-  const mutation = useMutation(orpc.user.create.mutationOptions({ onSuccess: invalidate }));
+  const mutation = useMutation(
+    orpc.user.create.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Employee created", error: "Couldn't create the employee" },
+    }),
+  );
   const evictPassword = () => evictMutation(queryClient, orpc.user.create.mutationKey());
   return { ...mutation, evictPassword };
 }
@@ -46,25 +51,44 @@ export function useCreateUserMutation() {
 export function useUpdateUserMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const invalidate = useInvalidateUsers();
-  return useMutation(orpc.user.update.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.user.update.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Employee saved", error: "Couldn't update the employee" },
+    }),
+  );
 }
 
 export function useDeactivateUserMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const invalidate = useInvalidateUsers();
-  return useMutation(orpc.user.deactivate.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.user.deactivate.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Employee deactivated", error: "Couldn't update the employee" },
+    }),
+  );
 }
 
 export function useReactivateUserMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const invalidate = useInvalidateUsers();
-  return useMutation(orpc.user.reactivate.mutationOptions({ onSuccess: invalidate }));
+  return useMutation(
+    orpc.user.reactivate.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Employee reactivated", error: "Couldn't update the employee" },
+    }),
+  );
 }
 
 export function useResetUserPasswordMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const queryClient = useQueryClient();
-  const mutation = useMutation(orpc.user.resetPassword.mutationOptions());
+  const mutation = useMutation(
+    orpc.user.resetPassword.mutationOptions({
+      meta: { success: "Temporary password set", error: "Couldn't reset the password" },
+    }),
+  );
   const evictPassword = () => evictMutation(queryClient, orpc.user.resetPassword.mutationKey());
   return { ...mutation, evictPassword };
 }

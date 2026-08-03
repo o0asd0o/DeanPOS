@@ -18,6 +18,7 @@ export function useUpdateSettingsMutation() {
       onSuccess: (data) => {
         if (data) void queryClient.invalidateQueries({ queryKey: orpc.settings.get.queryKey() });
       },
+      meta: { success: "Settings saved", error: "Couldn't save the settings" },
     }),
   );
 }

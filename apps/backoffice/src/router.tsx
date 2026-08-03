@@ -1,12 +1,13 @@
-import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
+import { createQueryClient } from "ui";
 
 import { ErrorState } from "./components/ErrorState.tsx";
 import { NotFoundState } from "./components/NotFoundState.tsx";
 import { routeTree } from "./generated/routeTree.gen.ts";
 import { orpc } from "./lib/orpc.ts";
 
-export const queryClient = new QueryClient();
+// Toasts every mutation's outcome — see `createQueryClient`.
+export const queryClient = createQueryClient();
 
 export const router = createRouter({
   routeTree,

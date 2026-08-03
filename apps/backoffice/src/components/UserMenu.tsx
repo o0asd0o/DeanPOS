@@ -34,7 +34,11 @@ export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const me = useQuery(orpc.auth.me.queryOptions());
-  const signOut = useMutation(orpc.auth.signOut.mutationOptions());
+  const signOut = useMutation(
+    orpc.auth.signOut.mutationOptions({
+      meta: { success: "Signed out", error: "Couldn't sign out" },
+    }),
+  );
 
   const email = me.data?.authenticated ? me.data.email : undefined;
   const role = me.data?.authenticated ? me.data.role : undefined;

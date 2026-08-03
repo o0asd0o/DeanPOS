@@ -5,11 +5,12 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { hashPassword } from "backend/src/common/password.ts";
 import type { Principal } from "backend/src/common/ctx.ts";
 import { createDb, withTenantScope } from "backend/src/db/client.ts";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type AnyRouter, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import axe from "axe-core";
 import { createClient } from "contract/src/index.ts";
+import { createQueryClient, Toaster } from "ui";
 import { afterEach, expect } from "vite-plus/test";
 
 import { createTestSeam, type TestSeamOptions } from "./test-seam.ts";
@@ -70,7 +71,9 @@ export function renderRoute<TRouter extends AnyRouter>(
     },
   });
   const orpc = createTanstackQueryUtils(client);
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // The app's own client, so mutation toasts fire in tests exactly as they do
+  // in the browser.
+  const queryClient = createQueryClient({ defaultOptions: { queries: { retry: false } } });
   const testRouter = createRouter({
     ...router.options,
     context: { queryClient, orpc },
@@ -79,6 +82,7 @@ export function renderRoute<TRouter extends AnyRouter>(
   const { container } = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={testRouter} />
+      <Toaster />
     </QueryClientProvider>,
   );
 
