@@ -62,7 +62,12 @@ export function renderRoute<TRouter extends AnyRouter>(
 
   const client = createClient({
     url: "http://api.test/rpc",
-    fetch: async (request, init) => actor.app.request(request, init),
+    fetch: async (request, init) => {
+      // Same per-seam throttle bucket as the server seam: without this every
+      // React screen test shares `ip:no-forwarded-for` (records 033–034).
+      request.headers.set("X-Forwarded-For", seam.clientIp);
+      return actor.app.request(request, init);
+    },
   });
   const orpc = createTanstackQueryUtils(client);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

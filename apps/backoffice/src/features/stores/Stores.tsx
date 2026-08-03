@@ -107,6 +107,7 @@ export function Stores() {
       >
         <SheetContent
           side="right"
+          showCloseButton={false}
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
           {shownEditor.mode !== "closed" && (

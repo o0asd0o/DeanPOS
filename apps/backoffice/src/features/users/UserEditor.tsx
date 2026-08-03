@@ -1,14 +1,10 @@
 import { Hint } from "@/components/Hint.tsx";
+import { SheetForm } from "@/components/SheetForm.tsx";
 import { useState } from "react";
 import { CheckIcon, KeyRoundIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import {
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  SheetTitle,
   Input,
   PasswordInput,
   Select,
@@ -92,125 +88,102 @@ export function UserEditor({
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <SheetTitle asChild>
-          <CardTitle role="heading" aria-level={2}>
-            {user ? `Edit ${user.email}` : "New user"}
-          </CardTitle>
-        </SheetTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (saving) return;
-            void form.handleSubmit();
-          }}
-          aria-busy={saving}
-          className="flex flex-col gap-4"
-        >
-          {!user && (
-            <form.Field name="email">
-              {(field) => (
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="user-email">Email</label>
-                  <Input
-                    id="user-email"
-                    type="email"
-                    name={field.name}
-                    required
-                    autoFocus
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-          )}
-          <form.Field name="role">
-            {(field) => (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="user-role">Role</label>
-                <Select
-                  value={field.state.value}
-                  onValueChange={(value) => field.handleChange(value as Role)}
-                >
-                  <SelectTrigger id="user-role" autoFocus={!!user}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cashier">Cashier</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </form.Field>
-          <StoresField stores={stores} selectedIds={storeIds} onChange={setStoreIds} />
-          {!user && (
-            <form.Field name="password">
-              {(field) => (
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="temporary-password">Temporary password</label>
-                  <Hint
-                    id="temporary-password-hint-1"
-                    detail="Tell this person their password yourself. It is not shown again after you save, and they choose their own the first time they sign in."
-                  >
-                    At least 8 characters. Any characters, including spaces — there are no other
-                    rules.
-                  </Hint>
-                  <PasswordInput
-                    id="temporary-password"
-                    name={field.name}
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    aria-describedby="temporary-password-hint-1"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-          )}
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <XIcon />
-              Cancel
-            </Button>
-            <div className="flex flex-wrap items-center gap-2">
-              {user && (
-                <Button type="button" variant="outline" onClick={() => setResettingPassword(true)}>
-                  <KeyRoundIcon />
-                  Reset password
-                </Button>
-              )}
-              <Button type="submit" aria-disabled={saving}>
-                <CheckIcon />
-                {user
-                  ? saving
-                    ? "Saving…"
-                    : "Save changes"
-                  : saving
-                    ? "Creating…"
-                    : "Create user"}
+    <SheetForm
+      title={user ? `Edit ${user.email}` : "New user"}
+      busy={saving}
+      onSubmit={() => void form.handleSubmit()}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            <XIcon />
+            Cancel
+          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {user && (
+              <Button type="button" variant="outline" onClick={() => setResettingPassword(true)}>
+                <KeyRoundIcon />
+                Reset password
               </Button>
-            </div>
+            )}
+            <Button type="submit" aria-disabled={saving}>
+              <CheckIcon />
+              {user ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create user"}
+            </Button>
           </div>
-          {failed && (
-            <div
-              role="alert"
-              className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-            >
-              Couldn&rsquo;t save the user
+        </>
+      }
+    >
+      {!user && (
+        <form.Field name="email">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="user-email">Email</label>
+              <Input
+                id="user-email"
+                type="email"
+                name={field.name}
+                required
+                autoFocus
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
             </div>
           )}
-        </form>
-      </CardContent>
+        </form.Field>
+      )}
+      <form.Field name="role">
+        {(field) => (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="user-role">Role</label>
+            <Select
+              value={field.state.value}
+              onValueChange={(value) => field.handleChange(value as Role)}
+            >
+              <SelectTrigger id="user-role" autoFocus={!!user}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cashier">Cashier</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </form.Field>
+      <StoresField stores={stores} selectedIds={storeIds} onChange={setStoreIds} />
+      {!user && (
+        <form.Field name="password">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="temporary-password">Temporary password</label>
+              <Hint
+                id="temporary-password-hint-1"
+                detail="Tell this person their password yourself. It is not shown again after you save, and they choose their own the first time they sign in."
+              >
+                At least 8 characters. Any characters, including spaces — there are no other rules.
+              </Hint>
+              <PasswordInput
+                id="temporary-password"
+                name={field.name}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                aria-describedby="temporary-password-hint-1"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            </div>
+          )}
+        </form.Field>
+      )}
+      {failed && (
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+          Couldn&rsquo;t save the user
+        </div>
+      )}
       {user && resettingPassword && (
         <ResetPasswordDialog
           user={user}
@@ -223,6 +196,6 @@ export function UserEditor({
           }}
         />
       )}
-    </Card>
+    </SheetForm>
   );
 }

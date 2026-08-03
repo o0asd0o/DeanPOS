@@ -2,7 +2,9 @@ import { Hint } from "@/components/Hint.tsx";
 import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, SheetTitle } from "ui";
+import { Button, Input } from "ui";
+
+import { SheetForm } from "@/components/SheetForm.tsx";
 
 import { useCreateStoreMutation, useUpdateStoreMutation } from "./__common/queries.ts";
 import type { StoreOutput } from "./helpers.ts";
@@ -54,91 +56,69 @@ export function StoreEditor({
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <SheetTitle asChild>
-          <CardTitle role="heading" aria-level={2}>
-            {store ? `Edit ${store.name}` : "New store"}
-          </CardTitle>
-        </SheetTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (saving) return;
-            void form.handleSubmit();
-          }}
-          aria-busy={saving}
-          className="flex flex-col gap-4"
-        >
-          <form.Field name="name">
-            {(field) => (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="store-name">Name</label>
-                <Input
-                  id="store-name"
-                  name={field.name}
-                  required
-                  autoFocus
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              </div>
-            )}
-          </form.Field>
-          <form.Field name="businessDayStart">
-            {(field) => (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="business-day-start">Business-day start</label>
-                <Input
-                  id="business-day-start"
-                  name={field.name}
-                  type="time"
-                  step={60}
-                  required
-                  aria-describedby="business-day-start-hint"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-                <Hint
-                  id="business-day-start-hint"
-                  detail="Changing this affects reports from now on. Sales already recorded keep the day they were recorded under."
-                >
-                  Sales made before this time count towards the previous business day.
-                </Hint>
-              </div>
-            )}
-          </form.Field>
-          <TableLabelsField rows={labelRows} onChange={setLabelRows} onAnnounce={onAnnounce} />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <XIcon />
-              Cancel
-            </Button>
-            <Button type="submit" aria-disabled={saving}>
-              <CheckIcon />
-              {store
-                ? saving
-                  ? "Saving…"
-                  : "Save changes"
-                : saving
-                  ? "Creating…"
-                  : "Create store"}
-            </Button>
+    <SheetForm
+      title={store ? `Edit ${store.name}` : "New store"}
+      busy={saving}
+      onSubmit={() => void form.handleSubmit()}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            <XIcon />
+            Cancel
+          </Button>
+          <Button type="submit" aria-disabled={saving}>
+            <CheckIcon />
+            {store ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create store"}
+          </Button>
+        </>
+      }
+    >
+      <form.Field name="name">
+        {(field) => (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="store-name">Name</label>
+            <Input
+              id="store-name"
+              name={field.name}
+              required
+              autoFocus
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+            />
           </div>
-          {failed && (
-            <div
-              role="alert"
-              className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+        )}
+      </form.Field>
+      <form.Field name="businessDayStart">
+        {(field) => (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="business-day-start">Business-day start</label>
+            <Input
+              id="business-day-start"
+              name={field.name}
+              type="time"
+              step={60}
+              required
+              aria-describedby="business-day-start-hint"
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) => field.handleChange(event.target.value)}
+            />
+            <Hint
+              id="business-day-start-hint"
+              detail="Changing this affects reports from now on. Sales already recorded keep the day they were recorded under."
             >
-              Couldn&rsquo;t save the store
-            </div>
-          )}
-        </form>
-      </CardContent>
-    </Card>
+              Sales made before this time count towards the previous business day.
+            </Hint>
+          </div>
+        )}
+      </form.Field>
+      <TableLabelsField rows={labelRows} onChange={setLabelRows} onAnnounce={onAnnounce} />
+      {failed && (
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+          Couldn&rsquo;t save the store
+        </div>
+      )}
+    </SheetForm>
   );
 }

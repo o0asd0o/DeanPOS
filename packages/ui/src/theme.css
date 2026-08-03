@@ -102,11 +102,10 @@
 @utility detached-panel {
   overflow-y: auto;
 
-  /* The panel is the card inside, so it takes the sheet's whole height and
-     scrolls within it. Scoped to the card: the close control is a sibling. */
-  & > [data-slot="card"] {
+  /* The panel inside takes the sheet's whole height; its own body is what
+     scrolls (record 050). */
+  & > * {
     block-size: 100%;
-    overflow-y: auto;
   }
 }
 
