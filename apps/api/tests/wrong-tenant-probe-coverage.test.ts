@@ -34,8 +34,10 @@ function collectTestFiles(path: string): string[] {
 const testFiles = collectTestFiles(testsDir).filter((file) => !file.endsWith(guardFileName));
 
 const TAG = /wrong-tenant probe \[([\w.]+)\]/;
-const IT_OPEN = /\b(?:it|test)(\.skip|\.todo)?\s*\(/g;
+const IT_OPEN = /\b(?:it|test)(\.skip|\.todo|\.skipIf\([^)]*\)|\.runIf\([^)]*\))?\s*\(/g;
+const CONDITIONAL_DESCRIBE = /\bdescribe(\.skip|\.skipIf\([^)]*\)|\.runIf\([^)]*\))\s*\(/;
 const NAME_LITERAL = /^\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`)/;
+const REGEX_PRECEDERS = /[([{,;:=&|!?+\-*/%~^<>]/;
 
 type Probe = {
   file: string;
@@ -45,38 +47,109 @@ type Probe = {
   body: string;
 };
 
-// Walks paren depth from an `it(`/`test(` opening paren, skipping string and
-// template literals — the technique pin-no-logging-grep.test.ts hand-rolls
-// for the same reason: a single-line regex can't see a multi-line call.
+// Classifies every character as code or not — string, template literal,
+// regex literal, or comment — so a tagged `it(...)` in prose or a comment
+// is never mistaken for a real test.
+function classifyChars(contents: string): boolean[] {
+  const isCode = Array.from<boolean>({ length: contents.length }).fill(true);
+  let lastSignificant = "";
+  let i = 0;
+  while (i < contents.length) {
+    const char = contents[i]!;
+    if (char === "/" && contents[i + 1] === "/") {
+      const nextNewline = contents.indexOf("\n", i);
+      const end = nextNewline === -1 ? contents.length : nextNewline;
+      for (let j = i; j < end; j++) isCode[j] = false;
+      i = end;
+      continue;
+    }
+    if (char === "/" && contents[i + 1] === "*") {
+      const close = contents.indexOf("*/", i + 2);
+      const end = close === -1 ? contents.length : close + 2;
+      for (let j = i; j < end; j++) isCode[j] = false;
+      i = end;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      const quote = char;
+      isCode[i] = false;
+      i++;
+      while (i < contents.length) {
+        isCode[i] = false;
+        if (contents[i] === "\\") {
+          if (i + 1 < contents.length) isCode[i + 1] = false;
+          i += 2;
+          continue;
+        }
+        if (contents[i] === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      lastSignificant = quote;
+      continue;
+    }
+    if (char === "/" && (lastSignificant === "" || REGEX_PRECEDERS.test(lastSignificant))) {
+      let j = i + 1;
+      let inClass = false;
+      let closed = false;
+      while (j < contents.length && contents[j] !== "\n") {
+        if (contents[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (contents[j] === "[") inClass = true;
+        else if (contents[j] === "]") inClass = false;
+        else if (contents[j] === "/" && !inClass) {
+          j++;
+          closed = true;
+          break;
+        }
+        j++;
+      }
+      if (closed) {
+        for (let k = i; k < j; k++) isCode[k] = false;
+        i = j;
+        lastSignificant = "/";
+        continue;
+      }
+      // Not actually a regex (an unterminated `/` before a newline) — a bare
+      // division, left as code.
+    }
+    if (!/\s/.test(char)) lastSignificant = char;
+    i++;
+  }
+  return isCode;
+}
+
+function maskNonCode(contents: string, isCode: boolean[]): string {
+  let masked = "";
+  for (let i = 0; i < contents.length; i++) masked += isCode[i] ? contents[i] : " ";
+  return masked;
+}
+
+// Walks paren depth from an `it(`/`test(` opening paren using the same
+// code/non-code classification as the candidate search, so a probe name
+// or a comment can never contribute a stray paren or quote to the walk.
 function extractProbes(contents: string, file: string): Probe[] {
+  const isCode = classifyChars(contents);
+  const fileSkipsDescribe = CONDITIONAL_DESCRIBE.test(maskNonCode(contents, isCode));
   const probes: Probe[] = [];
-  const fileSkipsDescribe = /\bdescribe(\.skip)\s*\(/.test(contents);
+
   for (const match of contents.matchAll(IT_OPEN)) {
+    if (!isCode[match.index]) continue;
     const openIndex = match.index + match[0].length - 1;
     const nameMatch = contents.slice(openIndex + 1).match(NAME_LITERAL);
     if (!nameMatch) continue;
     const name = nameMatch[1] ?? nameMatch[2] ?? nameMatch[3] ?? "";
 
     let depth = 0;
-    let quote: string | null = null;
     let end = -1;
     for (let i = openIndex; i < contents.length; i++) {
+      if (!isCode[i]) continue;
       const char = contents[i];
-      if (quote) {
-        if (char === "\\") i++;
-        else if (char === quote) quote = null;
-        continue;
-      }
-      // A `//` line comment can carry an apostrophe (e.g. "B's own path")
-      // that would otherwise be mistaken for an opening quote — skip to
-      // the newline instead of tracking depth through it.
-      if (char === "/" && contents[i + 1] === "/") {
-        const nextNewline = contents.indexOf("\n", i);
-        i = nextNewline === -1 ? contents.length : nextNewline;
-        continue;
-      }
-      if (char === '"' || char === "'" || char === "`") quote = char;
-      else if (char === "(") depth++;
+      if (char === "(") depth++;
       else if (char === ")") {
         depth--;
         if (depth === 0) {
@@ -198,5 +271,71 @@ describe("scanner regressions", () => {
     ].join("\n");
     const [probe] = extractProbes(contents, "fake.test.ts");
     expect(probe!.body.includes("expectWrongTenantRefusal")).toBe(true);
+  });
+
+  it("a tagged it(...) inside a normal string is not a probe", () => {
+    const contents =
+      "const fixture = 'it(\"wrong-tenant probe [store.update]: fake\", async () => { await client.store.update(); await expectWrongTenantRefusal({}); });';";
+    expect(extractProbes(contents, "fake.test.ts")).toStrictEqual([]);
+  });
+
+  it("a tagged it(...) inside a template literal is not a probe", () => {
+    const contents =
+      'const fixture = `it("wrong-tenant probe [store.update]: fake", async () => { await client.store.update(); await expectWrongTenantRefusal({}); });`;';
+    expect(extractProbes(contents, "fake.test.ts")).toStrictEqual([]);
+  });
+
+  it("a tagged it(...) inside a block comment is not a probe", () => {
+    const contents = [
+      "/*",
+      'it("wrong-tenant probe [store.update]: fake", async () => {',
+      "  await client.store.update();",
+      "  await expectWrongTenantRefusal({});",
+      "});",
+      "*/",
+    ].join("\n");
+    expect(extractProbes(contents, "fake.test.ts")).toStrictEqual([]);
+  });
+
+  it("a tagged it(...) inside a regex literal is not a probe", () => {
+    const contents = String.raw`const pattern = /it\("wrong-tenant probe \[store\.update\]: fake"\)/;`;
+    expect(extractProbes(contents, "fake.test.ts")).toStrictEqual([]);
+  });
+
+  it("a real probe whose name uses escaped quotes is still found and parsed", () => {
+    const contents = String.raw`it("wrong-tenant probe [store.update]: has \"escaped\" quotes", async () => {
+  await client.store.update();
+  await expectWrongTenantRefusal({});
+});`;
+    const [probe] = extractProbes(contents, "fake.test.ts");
+    expect(probe!.tag).toBe("store.update");
+    expect(probe!.body.includes("expectWrongTenantRefusal")).toBe(true);
+  });
+
+  it("rejects it.skipIf as skipped regardless of the condition", () => {
+    const contents =
+      'it.skipIf(true)("wrong-tenant probe [store.update]: conditional", async () => { await client.store.update(); await expectWrongTenantRefusal({}); });';
+    const [probe] = extractProbes(contents, "fake.test.ts");
+    expect(probe!.skipped).toBe(true);
+  });
+
+  it("rejects it.runIf as skipped regardless of the condition", () => {
+    const contents =
+      'it.runIf(false)("wrong-tenant probe [store.update]: conditional", async () => { await client.store.update(); await expectWrongTenantRefusal({}); });';
+    const [probe] = extractProbes(contents, "fake.test.ts");
+    expect(probe!.skipped).toBe(true);
+  });
+
+  it("rejects a describe.skipIf suite wrapping a tagged probe", () => {
+    const contents = [
+      'describe.skipIf(true)("suite", () => {',
+      '  it("wrong-tenant probe [store.update]: conditional describe", async () => {',
+      "    await client.store.update();",
+      "    await expectWrongTenantRefusal({});",
+      "  });",
+      "});",
+    ].join("\n");
+    const [probe] = extractProbes(contents, "fake.test.ts");
+    expect(probe!.skipped).toBe(true);
   });
 });
