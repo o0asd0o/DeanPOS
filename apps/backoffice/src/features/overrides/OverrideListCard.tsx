@@ -24,11 +24,9 @@ const SORT_VALUES: Record<SortKey, (row: OverrideOutput) => string | number> = {
   approver: (row) => row.approverName.toLowerCase(),
 };
 
-// The Override review list (issue 12, record 060 Q5): copies UserListCard's
-// shape exactly. No `Actions` column and no `ListToolbar` — nothing on an
-// append-only table is editable, and these rows have no status to filter.
-// Criterion 8's tenant/Store scoping is enforced in list-overrides.ts, not
-// here — this Card only sorts and pages whatever rows it is handed.
+// The Override review list (issue 12, record 060 Q5). No `Actions` column
+// and no `ListToolbar` — an append-only table has nothing to edit or filter.
+// Tenant/Store scoping (criterion 8) lives in list-overrides.ts, not here.
 export function OverrideListCard({
   overrides,
   isPending,
