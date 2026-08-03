@@ -4,10 +4,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createDb, type DatabaseInstance, withTenantScope } from "../../src/db/client.ts";
 
-// The migration owner seeds fixtures directly — Tenant carries no policy
-// permitting the app role to write it (issue 01 acceptance criteria: Tenant
-// is unreachable from a tenant-scoped principal). The app role is what
-// `withTenantScope` is exercised against, matching production.
+// The migration owner seeds fixtures directly. Tenant carries own-row-only
+// SELECT/UPDATE policies for the app role, never a cross-tenant one
+// (record 047). The app role is what `withTenantScope` is exercised
+// against, matching production.
 const ownerDb: DatabaseInstance = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const appDb: DatabaseInstance = createDb({ databaseUrl: process.env.APP_DATABASE_URI! });
 
@@ -81,11 +81,47 @@ describe("withTenantScope", () => {
     expect(rows).toStrictEqual([]);
   });
 
-  it("Tenant is outside tenant RLS and unreachable even from a tenant-scoped connection", async () => {
+  it("a tenant-scoped connection reading Tenant sees exactly one row, its own", async () => {
     const rows = await withTenantScope(appDb, tenantA, (db) =>
       db.selectFrom("Tenant").selectAll().execute(),
     );
 
+    expect(rows.map((r) => r.id)).toStrictEqual([tenantA]);
+  });
+
+  it("another tenant's row is invisible, including when addressed directly by id (record 047)", async () => {
+    // Prove it exists and is readable elsewhere first (this repo's probe
+    // discipline) — a bare empty-result assertion proves nothing.
+    const asB = await withTenantScope(appDb, tenantB, (db) =>
+      db.selectFrom("Tenant").selectAll().where("id", "=", tenantB).execute(),
+    );
+    expect(asB.map((r) => r.id)).toStrictEqual([tenantB]);
+
+    const asA = await withTenantScope(appDb, tenantA, (db) =>
+      db.selectFrom("Tenant").selectAll().where("id", "=", tenantB).execute(),
+    );
+    expect(asA).toStrictEqual([]);
+  });
+
+  it("a connection with no tenant scope set reads zero Tenant rows", async () => {
+    const rows = await withTenantScope(appDb, null, (db) =>
+      db.selectFrom("Tenant").selectAll().execute(),
+    );
+
     expect(rows).toStrictEqual([]);
+  });
+
+  it("deanpos_app holds no DELETE on Tenant, and an UPDATE cannot move a row to another tenant", async () => {
+    await expect(
+      withTenantScope(appDb, tenantA, (db) =>
+        db.deleteFrom("Tenant").where("id", "=", tenantA).execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
+
+    await expect(
+      withTenantScope(appDb, tenantA, (db) =>
+        db.updateTable("Tenant").set({ id: tenantB }).where("id", "=", tenantA).execute(),
+      ),
+    ).rejects.toThrow(/row-level security/);
   });
 });
