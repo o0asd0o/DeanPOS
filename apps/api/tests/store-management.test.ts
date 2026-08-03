@@ -235,7 +235,7 @@ describe("store.update", () => {
     expect(result).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A addressing Tenant B's Store id is refused, B's row is untouched", async () => {
+  it("wrong-tenant probe [store.update]: Tenant A addressing Tenant B's Store id is refused, B's row is untouched", async () => {
     // Establish success through Tenant B's own application path first
     // (finding 7) — seeding through the owner DB proves nothing about
     // authorisation, since it bypasses it entirely.
@@ -249,16 +249,18 @@ describe("store.update", () => {
       });
     expect(beforeAsB?.name).toBe("B's Store");
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "store.update",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () =>
         seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.store.update({
           id: storeB,
           name: "Hijacked From A",
           businessDayStart: "00:00",
           tableLabels: [],
         }),
-      (result) => result === null,
-    );
+    });
 
     const afterAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
@@ -266,7 +268,16 @@ describe("store.update", () => {
     expect(afterAsB?.name).toBe("B's Store");
   });
 
-  it("the wrong-tenant probe: Tenant A cannot create a Store visible to Tenant B, and Tenant B's own create still succeeds", async () => {
+  it("wrong-tenant probe [store.create]: Tenant A cannot create a Store visible to Tenant B, and Tenant B's own create still succeeds", async () => {
+    const createdAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.store.create({
+        name: "A's Second Store",
+        businessDayStart: "00:00",
+        tableLabels: [],
+      });
+    expect(createdAsA?.tenantId).toBe(tenantA);
+
     const createdAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.store.create({
@@ -284,9 +295,18 @@ describe("store.update", () => {
     const listAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.store.list();
+    expect(listAsB.map((store) => store.id)).not.toContain(createdAsA!.id);
     expect(listAsB.map((store) => store.id)).toContain(createdAsB!.id);
 
-    await ownerDb.deleteFrom("Store").where("id", "=", createdAsB!.id).execute();
+    await expectWrongTenantRefusal({
+      path: "store.create",
+      mode: "confined",
+      ownerSees: createdAsA,
+      otherGets: async () => createdAsB,
+      otherOwn: createdAsB,
+    });
+
+    await ownerDb.deleteFrom("Store").where("id", "in", [createdAsA!.id, createdAsB!.id]).execute();
   });
 });
 
@@ -349,7 +369,7 @@ describe("store.deactivate and store.reactivate", () => {
     expect(stillActive.active).toBe(true);
   });
 
-  it("the wrong-tenant probe: Tenant A cannot deactivate Tenant B's Store; B's row stays active and readable in B", async () => {
+  it("wrong-tenant probe [store.deactivate]: Tenant A cannot deactivate Tenant B's Store; B's row stays active and readable in B", async () => {
     // Prove Tenant B's own deactivate/reactivate path actually works before
     // trusting a refusal from A to mean anything (finding 7).
     const deactivatedAsB = await seam.actors
@@ -361,13 +381,15 @@ describe("store.deactivate and store.reactivate", () => {
       .client.store.reactivate({ id: storeB });
     expect(reactivatedAsB?.active).toBe(true);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "store.deactivate",
+      mode: "refusal",
+      ownerSees: reactivatedAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.store.deactivate({ id: storeB }),
-      (result) => result === null,
-    );
+    });
 
     const stillAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
@@ -375,19 +397,21 @@ describe("store.deactivate and store.reactivate", () => {
     expect(stillAsB?.active).toBe(true);
   });
 
-  it("the wrong-tenant probe: Tenant A cannot reactivate Tenant B's Store; B's row stays deactivated and readable in B", async () => {
+  it("wrong-tenant probe [store.reactivate]: Tenant A cannot reactivate Tenant B's Store; B's row stays deactivated and readable in B", async () => {
     const deactivatedAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.store.deactivate({ id: storeB });
     expect(deactivatedAsB?.active).toBe(false);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "store.reactivate",
+      mode: "refusal",
+      ownerSees: deactivatedAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.store.reactivate({ id: storeB }),
-      (result) => result === null,
-    );
+    });
 
     const stillAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
@@ -412,16 +436,26 @@ describe("store.list", () => {
     expect(ids).not.toContain(storeB);
   });
 
-  it("the wrong-tenant probe: Tenant B's Store is readable as Tenant B, but never appears in Tenant A's list", async () => {
+  it("wrong-tenant probe [store.list]: Tenant B's Store is readable as Tenant B, but never appears in Tenant A's list", async () => {
     const asB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.store.get({ id: storeB });
     expect(asB?.id).toBe(storeB);
 
-    const asA = await seam.actors
+    const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.store.list();
-    expect(asA.map((store) => store.id)).not.toContain(storeB);
+    expect(listAsA.map((store) => store.id)).not.toContain(storeB);
+    const ownAsA = listAsA.find((store) => store.id === storeA);
+    expect(ownAsA).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "store.list",
+      mode: "confined",
+      ownerSees: asB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
   });
 
   it("a manager sees only their assigned Stores", async () => {

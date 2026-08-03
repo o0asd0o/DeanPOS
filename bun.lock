@@ -20,6 +20,7 @@
         "hono": "4.12.33",
       },
       "devDependencies": {
+        "@orpc/contract": "catalog:",
         "@orpc/tanstack-query": "catalog:",
         "@tanstack/react-query": "catalog:",
         "@tanstack/react-router": "catalog:",

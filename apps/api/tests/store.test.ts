@@ -64,7 +64,7 @@ describe("store.get", () => {
     expect(store?.tenantId).toBe(tenantA);
   });
 
-  it("the wrong-tenant probe: Tenant A addressing Tenant B's Store id directly gets refused, never B's row", async () => {
+  it("wrong-tenant probe [store.get]: Tenant A addressing Tenant B's Store id directly gets refused, never B's row", async () => {
     // Prove B's own path actually reads the row before trusting A's refusal
     // to mean anything (finding 7) — seeding through the owner DB bypasses
     // authorisation entirely and proves nothing about it.
@@ -73,13 +73,15 @@ describe("store.get", () => {
       .client.store.get({ id: storeB });
     expect(asB?.id).toBe(storeB);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "store.get",
+      mode: "refusal",
+      ownerSees: asB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.store.get({ id: storeB }),
-      (result) => result === null,
-    );
+    });
   });
 
   it("an unauthenticated caller reaches no Store at all", async () => {
