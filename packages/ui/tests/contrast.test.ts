@@ -50,9 +50,12 @@ const pairings: [string, string, number, string][] = [
   // and unasserted until record 038 (the Store list, `packages/ui`'s first
   // consumer of `Table`) named the gap.
   ["foreground", "muted", 4.5, "1.4.3"],
-  ["foreground", "surface-tint", 4.5, "1.4.3"],
-  ["muted-foreground", "surface-tint", 4.5, "1.4.3"],
-  ["ring", "surface-tint", 3.0, "1.4.11"],
+  ["foreground", "table-header", 4.5, "1.4.3"],
+  ["muted-foreground", "table-header", 4.5, "1.4.3"],
+  ["ring", "table-header", 3.0, "1.4.11"],
+  ["foreground", "tab-list", 4.5, "1.4.3"],
+  ["muted-foreground", "tab-list", 4.5, "1.4.3"],
+  ["ring", "tab-list", 3.0, "1.4.11"],
   ["primary-foreground", "primary", 4.5, "1.4.3"],
   ["secondary-foreground", "secondary", 4.5, "1.4.3"],
   ["accent-foreground", "accent", 4.5, "1.4.3"],

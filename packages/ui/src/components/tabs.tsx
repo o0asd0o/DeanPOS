@@ -25,7 +25,7 @@ const tabsListVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-surface-tint",
+        default: "bg-tab-list",
         line: "gap-1 bg-transparent",
       },
     },
