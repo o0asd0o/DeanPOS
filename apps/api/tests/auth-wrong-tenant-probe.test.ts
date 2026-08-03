@@ -163,6 +163,7 @@ describe("wrong-tenant probes on auth.*", () => {
     // the same plaintext would also be, salt notwithstanding.
     expect(rowA.password_hash).not.toBe(before.password_hash);
     expect(rowB.password_hash).toBe(before.password_hash);
+    const bWasUnaffected = rowB.password_hash === before.password_hash;
 
     const bSignIn = await seam.actors.signIn(pair.emailB, password);
     expect(bSignIn.result.ok).toBe(true);
@@ -172,10 +173,11 @@ describe("wrong-tenant probes on auth.*", () => {
 
     await expectWrongTenantRefusal({
       path: "auth.setPassword",
-      mode: "shared",
+      mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      why: "setPassword's { ok: true } carries no tenant data by design; isolation is proven above by the per-row password hash comparison.",
+      otherUnaffected: async () => bWasUnaffected,
+      why: "setPassword's { ok: true } carries no tenant data by design; isolation is proven by the per-row password hash comparison.",
     });
 
     await cleanupPair(pair);
@@ -203,15 +205,17 @@ describe("wrong-tenant probes on auth.*", () => {
       .executeTakeFirstOrThrow();
     expect(rowA.revoked_at).not.toBeNull();
     expect(rowB.revoked_at).toBeNull();
+    const bWasUnaffected = rowB.revoked_at === null;
 
     const otherSees = await sessionB.client.auth.signOut();
 
     await expectWrongTenantRefusal({
       path: "auth.signOut",
-      mode: "shared",
+      mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      why: "signOut's { ok: true } carries no tenant data by design; isolation is proven above by the per-row revoked_at comparison.",
+      otherUnaffected: async () => bWasUnaffected,
+      why: "signOut's { ok: true } carries no tenant data by design; isolation is proven by the per-row revoked_at comparison.",
     });
 
     await cleanupPair(pair);

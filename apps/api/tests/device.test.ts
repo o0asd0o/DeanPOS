@@ -719,10 +719,11 @@ describe("the Device token principal", () => {
 
     await expectWrongTenantRefusal({
       path: "terminal.heartbeat",
-      mode: "shared",
+      mode: "effect",
       ownerSees: heartbeatAsB,
       otherGets: async () => heartbeatAsA,
-      why: "heartbeat's { ok: true } carries no tenant data by design; isolation is proven above by the last_seen canary, which the response shape can't show.",
+      otherUnaffected: async () => (await lastSeen(exchangedAsA.deviceId)) === afterA,
+      why: "heartbeat's { ok: true } carries no tenant data by design; isolation is proven by the last_seen canary, which the response shape can't show.",
     });
   });
 

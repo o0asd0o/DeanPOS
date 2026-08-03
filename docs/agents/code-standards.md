@@ -290,10 +290,15 @@ it("wrong-tenant probe [store.update]: Tenant A addressing Tenant B's Store id i
   value isn't empty. A probe that seeds `ownerSees` from the owner connection satisfies the guard
   while proving nothing about reachability.
 - DO pick the right `mode`: `"refusal"` for a procedure that must refuse the wrong Tenant outright
-  (`null`, `[]`, `{ok:false}`, `{authenticated:false}`, or a non-leaking `NOT_FOUND`); `"confined"`
-  for one with no addressable id, where the other Tenant legitimately gets its own data instead
-  (`list`, `settings.get`); `"shared"` only for a procedure that is genuinely tenant-neutral, with
-  a written `why` of real length — never as a way to route around a hard case.
+  (exactly `null`, `[]`, `{ok:false}`, `{authenticated:false}` — no extra keys riding along — or a
+  non-leaking `NOT_FOUND`); `"confined"` for one with no addressable id, where the other Tenant
+  legitimately gets its own data instead (`list`, `settings.get`); `"effect"` for a write whose own
+  result is trivial and identical for every caller but whose side effect must never cross Tenants
+  (`auth.setPassword`, `auth.signOut`, `terminal.heartbeat`) — requires `otherUnaffected`, a thunk
+  that re-reads the other Tenant's own data and resolves `true` only if the write left it untouched,
+  plus a written `why`; `"shared"` only for a procedure that is genuinely tenant-neutral — no write,
+  no per-Tenant data at all — which today is `ping` alone, with a written `why` of real length.
+  Never reach for `"shared"` to route around a hard case.
 - DON'T add an exclusion. There is no exclusions list and none may be created — a tenant-neutral
   procedure takes `mode: "shared"` and a reason, because that assertion fails the day the
   procedure gains a tenant dimension, where an exclusion would not.
