@@ -77,7 +77,9 @@ export async function expectWrongTenantRefusal<T>({
   } catch (error) {
     if (!(error instanceof ORPCError) || error.code !== "NOT_FOUND") throw error;
     if (/tenant|exists/i.test(error.message)) {
-      throw new Error(`wrong-tenant probe [${path}]: error message may confirm existence: ${error.message}`);
+      throw new Error(
+        `wrong-tenant probe [${path}]: error message may confirm existence: ${error.message}`,
+      );
     }
     if (mode !== "refusal") {
       throw new Error(`wrong-tenant probe [${path}]: unexpected NOT_FOUND for mode "${mode}".`);
@@ -87,7 +89,9 @@ export async function expectWrongTenantRefusal<T>({
 
   // Mode "shared" wants equality, so its own check below replaces this one.
   if (mode !== "shared" && deepEqual(result, ownerSees)) {
-    throw new Error(`wrong-tenant probe [${path}]: the other Tenant received the owner's own result.`);
+    throw new Error(
+      `wrong-tenant probe [${path}]: the other Tenant received the owner's own result.`,
+    );
   }
 
   if (mode === "refusal") {
@@ -109,6 +113,8 @@ export async function expectWrongTenantRefusal<T>({
   }
 
   if (isRefusalShape(result) || !deepEqual(result, ownerSees)) {
-    throw new Error(`wrong-tenant probe [${path}]: mode "shared" requires both Tenants to receive identical data.`);
+    throw new Error(
+      `wrong-tenant probe [${path}]: mode "shared" requires both Tenants to receive identical data.`,
+    );
   }
 }

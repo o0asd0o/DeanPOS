@@ -80,8 +80,14 @@ describe("a real back-office session cannot reach platform-admin provisioning", 
       .execute();
     expect(leaked).toStrictEqual([]);
 
-    await ownerDb.deleteFrom("PlatformAuditLog").where("tenant_id", "=", provisioned.tenantId).execute();
-    await ownerDb.deleteFrom("PaymentMethod").where("tenant_id", "=", provisioned.tenantId).execute();
+    await ownerDb
+      .deleteFrom("PlatformAuditLog")
+      .where("tenant_id", "=", provisioned.tenantId)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("tenant_id", "=", provisioned.tenantId)
+      .execute();
     await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", provisioned.tenantId).execute();
     await ownerDb.deleteFrom("User").where("tenant_id", "=", provisioned.tenantId).execute();
     await ownerDb.deleteFrom("Tenant").where("id", "=", provisioned.tenantId).execute();

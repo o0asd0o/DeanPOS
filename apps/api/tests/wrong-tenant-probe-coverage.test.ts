@@ -23,7 +23,9 @@ function collectContractPaths(node: unknown, prefix: string[] = []): string[] {
 const contractPaths = collectContractPaths(contract);
 
 const testsDir = resolve(dirname(fileURLToPath(import.meta.url)));
-const guardFileName = fileURLToPath(import.meta.url).split("/").pop()!;
+const guardFileName = fileURLToPath(import.meta.url)
+  .split("/")
+  .pop()!;
 
 function collectTestFiles(path: string): string[] {
   if (!statSync(path).isDirectory()) return /\.test\.tsx?$/.test(path) ? [path] : [];
@@ -33,8 +35,7 @@ const testFiles = collectTestFiles(testsDir).filter((file) => !file.endsWith(gua
 
 const TAG = /wrong-tenant probe \[([\w.]+)\]/;
 const IT_OPEN = /\b(?:it|test)(\.skip|\.todo)?\s*\(/g;
-const NAME_LITERAL =
-  /^\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`)/;
+const NAME_LITERAL = /^\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`((?:[^`\\]|\\.)*)`)/;
 
 type Probe = {
   file: string;
@@ -106,9 +107,15 @@ describe("wrong-tenant probe coverage", () => {
   it("every contract path has a wrong-tenant probe", () => {
     const tagged = new Set(taggedProbes.map((probe) => probe.tag));
     const missing = contractPaths.filter((path) => !tagged.has(path));
-    expect(missing, missing.map((path) =>
-      `wrong-tenant probe coverage: no probe for "${path}". Add a test named: wrong-tenant probe [${path}]: <what it proves>`,
-    ).join("\n")).toStrictEqual([]);
+    expect(
+      missing,
+      missing
+        .map(
+          (path) =>
+            `wrong-tenant probe coverage: no probe for "${path}". Add a test named: wrong-tenant probe [${path}]: <what it proves>`,
+        )
+        .join("\n"),
+    ).toStrictEqual([]);
   });
 
   it("every tag names a real contract path", () => {
@@ -144,10 +151,7 @@ describe("wrong-tenant probe coverage", () => {
   it("no tagged probe is skipped", () => {
     const offenders = taggedProbes
       .filter((probe) => probe.skipped)
-      .map(
-        (probe) =>
-          `wrong-tenant probe coverage: the probe tagged [${probe.tag}] is skipped.`,
-      );
+      .map((probe) => `wrong-tenant probe coverage: the probe tagged [${probe.tag}] is skipped.`);
     expect(offenders).toStrictEqual([]);
   });
 });

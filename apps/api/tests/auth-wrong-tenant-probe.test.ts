@@ -166,7 +166,9 @@ describe("wrong-tenant probes on auth.*", () => {
 
     const bSignIn = await seam.actors.signIn(pair.emailB, password);
     expect(bSignIn.result.ok).toBe(true);
-    const otherSees = await bSignIn.client.auth.setPassword({ newPassword: "b's own new password" });
+    const otherSees = await bSignIn.client.auth.setPassword({
+      newPassword: "b's own new password",
+    });
 
     await expectWrongTenantRefusal({
       path: "auth.setPassword",

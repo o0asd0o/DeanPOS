@@ -383,7 +383,13 @@ describe("override.list", () => {
     // B's own genuine row, so "confined" has real data to compare against.
     const deviceB = await enrolDeviceAt(storeB, "XB2", adminB, tenantB);
     const recordedB = await seam.actors
-      .asDevice({ tenantId: tenantB, deviceId: deviceB.deviceId, storeId: storeB, code: "XB2", name: "t" })
+      .asDevice({
+        tenantId: tenantB,
+        deviceId: deviceB.deviceId,
+        storeId: storeB,
+        code: "XB2",
+        name: "t",
+      })
       .client.terminal.recordOverride({
         approverUserId: managerB,
         actionType: "refund",
