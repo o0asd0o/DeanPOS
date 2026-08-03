@@ -58,6 +58,21 @@ browser**, and the `happy-dom` cookie blind spot has already hidden exactly that
   **Check `git status` on `main` after every agent returns.** A stray file there is one `git commit -a`
   away from putting unreviewed lane work on the integration branch.
 
+- **`SignInThrottle` rows persist across test runs, and `ip:no-forwarded-for` is a key every test
+  shares** (found 2026-08-03). `apps/api/src/app.ts:109` falls back to the literal
+  `"no-forwarded-for"` whenever a request carries no `X-Forwarded-For`, which is every test that does
+  not set one. Nothing cleans the table, so the count accumulates run over run — `DeanPOS_dev` held
+  **124 rows** with that key at `failures: 4`.
+
+  **Consequence: the suite is only reliably green against a fresh database.** Lanes get one, so the
+  pipeline never sees it; a developer running the suite twice against `DeanPOS_dev` does. The test
+  `a successful sign-in decrements the IP key rather than clearing it` is the one that fails first,
+  because it asserts a decrement from a count it assumes it controls.
+
+  **This is a test-isolation defect, not a throttle defect** — the mechanism is behaving exactly as
+  records 033/034 specify. The fix belongs with whoever owns the seam: either give each test its own
+  forwarded address, or clean the table in `afterAll` the way the other suites clean theirs.
+
 ### Open for the human
 
 - **`DeanPOS_dev` holds 2 `User` rows with no `UserRole` row.** They are stale test residue and they
