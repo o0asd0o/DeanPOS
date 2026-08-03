@@ -17,8 +17,7 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import type { SortState } from "@/lib/table.ts";
-import { nextSort, PAGE_SIZE, sortRows } from "@/lib/table.ts";
+import { useTableView } from "@/lib/table.ts";
 import type { StoreOutput } from "./helpers.ts";
 
 type SortKey = "name" | "businessDayStart" | "tableLabels" | "status";
@@ -64,9 +63,6 @@ export function StoreListCard({
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
 
-  const [sort, setSort] = useState<SortState<SortKey>>({ key: "name", direction: "asc" });
-  const [page, setPage] = useState(1);
-
   const term = query.trim().toLowerCase();
   const visible = (stores ?? []).filter(
     (store) =>
@@ -74,16 +70,7 @@ export function StoreListCard({
       (term === "" || store.name.toLowerCase().includes(term)),
   );
 
-  const sorted = sortRows(visible, SORT_VALUES[sort.key], sort.direction);
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  // Clamped rather than reset: a filter that shortens the list must not strand
-  // the reader on a page that no longer exists.
-  const current = Math.min(page, pageCount);
-  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-  const sortBy = (key: SortKey) => {
-    setSort(nextSort(sort, key));
-    setPage(1);
-  };
+  const table = useTableView(visible, SORT_VALUES, "name");
 
   return (
     <Card className="gap-4">
@@ -123,27 +110,24 @@ export function StoreListCard({
             <Table aria-label="Stores">
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    sorted={sort.key === "name" ? sort.direction : undefined}
-                    onSort={() => sortBy("name")}
-                  >
+                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
                     Name
                   </TableHead>
                   <TableHead
-                    sorted={sort.key === "businessDayStart" ? sort.direction : undefined}
-                    onSort={() => sortBy("businessDayStart")}
+                    sorted={table.sortedBy("businessDayStart")}
+                    onSort={() => table.sortBy("businessDayStart")}
                   >
                     Business-day start
                   </TableHead>
                   <TableHead
-                    sorted={sort.key === "tableLabels" ? sort.direction : undefined}
-                    onSort={() => sortBy("tableLabels")}
+                    sorted={table.sortedBy("tableLabels")}
+                    onSort={() => table.sortBy("tableLabels")}
                   >
                     Table labels
                   </TableHead>
                   <TableHead
-                    sorted={sort.key === "status" ? sort.direction : undefined}
-                    onSort={() => sortBy("status")}
+                    sorted={table.sortedBy("status")}
+                    onSort={() => table.sortBy("status")}
                   >
                     Status
                   </TableHead>
@@ -155,7 +139,7 @@ export function StoreListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((store) => (
+                {table.rows.map((store) => (
                   <TableRow
                     key={store.id}
                     data-state={store.id === editingId ? "selected" : undefined}
@@ -224,9 +208,9 @@ export function StoreListCard({
               </p>
             )}
             <TablePagination
-              page={current}
-              pageCount={pageCount}
-              onPageChange={setPage}
+              page={table.page}
+              pageCount={table.pageCount}
+              onPageChange={table.setPage}
               label="Stores pages"
             />
           </div>

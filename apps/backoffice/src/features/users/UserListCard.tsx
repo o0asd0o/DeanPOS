@@ -17,8 +17,7 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import type { SortState } from "@/lib/table.ts";
-import { nextSort, PAGE_SIZE, sortRows } from "@/lib/table.ts";
+import { useTableView } from "@/lib/table.ts";
 import type { UserOutput } from "./helpers.ts";
 
 const ROLE_LABEL: Record<UserOutput["role"], string> = {
@@ -78,8 +77,6 @@ export function UserListCard({
 }) {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortState<SortKey>>({ key: "name", direction: "asc" });
-  const [page, setPage] = useState(1);
 
   const term = query.trim().toLowerCase();
   const visible = (users ?? []).filter(
@@ -92,16 +89,7 @@ export function UserListCard({
         `${user.firstName} ${user.lastName}`.toLowerCase().includes(term)),
   );
 
-  const sorted = sortRows(visible, SORT_VALUES[sort.key], sort.direction);
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  // Clamped rather than reset: a filter that shortens the list must not strand
-  // the reader on a page that no longer exists.
-  const current = Math.min(page, pageCount);
-  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-  const sortBy = (key: SortKey) => {
-    setSort(nextSort(sort, key));
-    setPage(1);
-  };
+  const table = useTableView(visible, SORT_VALUES, "name");
 
   return (
     <Card className="gap-4">
@@ -133,28 +121,19 @@ export function UserListCard({
             <Table aria-label="Employees">
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    sorted={sort.key === "name" ? sort.direction : undefined}
-                    onSort={() => sortBy("name")}
-                  >
+                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
                     Name
                   </TableHead>
-                  <TableHead
-                    sorted={sort.key === "email" ? sort.direction : undefined}
-                    onSort={() => sortBy("email")}
-                  >
+                  <TableHead sorted={table.sortedBy("email")} onSort={() => table.sortBy("email")}>
                     Email
                   </TableHead>
-                  <TableHead
-                    sorted={sort.key === "role" ? sort.direction : undefined}
-                    onSort={() => sortBy("role")}
-                  >
+                  <TableHead sorted={table.sortedBy("role")} onSort={() => table.sortBy("role")}>
                     Role
                   </TableHead>
                   <TableHead>Stores</TableHead>
                   <TableHead
-                    sorted={sort.key === "status" ? sort.direction : undefined}
-                    onSort={() => sortBy("status")}
+                    sorted={table.sortedBy("status")}
+                    onSort={() => table.sortBy("status")}
                   >
                     Status
                   </TableHead>
@@ -166,7 +145,7 @@ export function UserListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((user) => (
+                {table.rows.map((user) => (
                   <TableRow
                     key={user.id}
                     data-state={user.id === editingId ? "selected" : undefined}
@@ -238,9 +217,9 @@ export function UserListCard({
               </p>
             )}
             <TablePagination
-              page={current}
-              pageCount={pageCount}
-              onPageChange={setPage}
+              page={table.page}
+              pageCount={table.pageCount}
+              onPageChange={table.setPage}
               label="Employees pages"
             />
           </div>

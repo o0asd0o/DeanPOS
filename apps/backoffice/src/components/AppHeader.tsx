@@ -15,11 +15,15 @@ export function AppHeader() {
   const email = me.data?.authenticated ? me.data.email : undefined;
 
   return (
-    <div className="mx-4 flex items-center gap-3 border-b py-4">
-      <p className="hidden font-medium whitespace-nowrap sm:block">
+    <div className="relative mx-4 flex min-h-20 items-center gap-3 border-b py-4">
+      <p className="hidden text-lg font-medium whitespace-nowrap sm:block">
         👋 Hi {firstNameFromEmail(email)}
       </p>
-      <GlobalSearch />
+      {/* Out of the flow: the search sits on the screen's centre line, which is
+          left of this column's own (`screen-centered`). */}
+      <div className="screen-centered w-72">
+        <GlobalSearch />
+      </div>
       <div className="ml-auto flex items-center gap-2">
         <NotificationsMenu />
         <UserMenu />

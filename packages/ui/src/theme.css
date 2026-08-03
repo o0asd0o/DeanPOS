@@ -112,6 +112,21 @@
   }
 }
 
+/* Centres on the viewport rather than on the box it sits in. The content
+   column starts after the sidebar, so half that width comes back off — which
+   is why this cannot be a plain `left-1/2`. */
+@utility screen-centered {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+
+  /* Below `md` the sidebar is a drawer and the column is the whole screen. */
+  @media (width >= 48rem) {
+    left: calc(50% - var(--sidebar-width) / 2);
+  }
+}
+
 /* Thumb only — no track fill, no track border. Both properties inherit, so one
    application covers every scroller under it. Record 023. */
 @utility scrollbar-slim {
