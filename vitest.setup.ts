@@ -2,10 +2,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-// `vp test` runs each package with that package's directory as cwd, so
-// Bun's own .env autoload (cwd-only) never reaches the workspace-root
-// `.env` a lane's DATABASE_URI lives in. Load it here, once, for every
-// package's test run.
+// `vp test` gives each package its own cwd, so Bun's cwd-only .env autoload
+// never reaches the workspace-root `.env` holding a lane's DATABASE_URI.
+// Load it here, once, for every package.
 const workspaceRoot = dirname(fileURLToPath(import.meta.url));
 
 try {
