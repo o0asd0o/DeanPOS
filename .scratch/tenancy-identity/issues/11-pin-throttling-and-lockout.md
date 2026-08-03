@@ -1,6 +1,6 @@
 # 11 — PIN throttling and lockout
 
-**Status:** ready-for-agent
+**Status:** done
 
 _**Carried in from [record 058](../../decisions/058-pin-management-is-a-back-office-action.md),
 before this issue is built.** Issue 10 removed every server-side PIN comparison, which changes what
@@ -90,3 +90,60 @@ procedure that compares a PIN against a stored hash** — enforced by
 ([record 059](../../decisions/059-the-pin-lockout-is-keyed-per-device-and-per-user.md)); a
 server-side attempt counter would mean a PIN authenticating a request and needs a superseding
 record.
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **557** tests. No migration — this issue
+touches no file under `packages/backend/`, `apps/api/src/`, or `packages/contract/`. 2 fix rounds —
+the cap — reviewed by a second model all three rounds, final verdict PASS on both axes.
+
+**One record:** [059](../../decisions/059-the-pin-lockout-is-keyed-per-device-and-per-user.md),
+`Stakes: high`.
+
+**Record 059 corrected record 058**, which is the first time a decision record has amended another
+in this PRD. 058's carried-in block said the throttle is "keyed per `userId`"; criterion 4 says
+throttling applies per Device *so it cannot be reset by trying a different User's PIN* — per-user
+keying permits exactly the attack criterion 4 names. 059 found 058 had scored no keying option at
+all, ruled the line a slip rather than a decision, and amended it. The answer is **both counters**:
+per-User at 5 so one cashier's fumbling does not close the till, per-Device at 10 that switching
+User cannot reset. Either locks, for 2 minutes, with no escalation.
+
+**059 also refused, up front, a trap this codebase already shipped once.**
+[Record 035](../../decisions/035-the-throttle-lock-is-deferred-to-hardening.md) documents a
+never-opening window in the sign-in throttle, where a persistent attacker re-locks forever and the
+owner never gets a gap. 059 required that **while a key is locked nothing is counted and
+`lastAttemptAt` is not advanced** — and the review then found the implementation had reintroduced it
+anyway, on the *other* counter.
+
+**The honest framing, which 059 insists on:** this is **not a security boundary**. Devtools clears
+it, and record 057 concedes the roster grinds in ~75 seconds. It exists against a bystander;
+revocation is the mitigation (ADR-0007). The device-clock attack is accepted and deliberately
+unmitigated — no server time, no monotonic anchor, no rollback detection — guarded only by the clamp
+invariant, which treats any `lockedUntil` more than `PIN_LOCK_MS` away as already expired.
+
+What the review caught, across three rounds:
+
+- **A stored `{}` crashed the unlock screen.** Validation trusted any syntactically valid JSON, so
+  one corrupt entry took the till out of service — the opposite of failing open.
+- **A correct PIN could not unlock when storage was full or denied**, because `setItem` threw out of
+  `recordPinSuccess` before `setActingUser` ran. The throttle module could block a sale.
+- **`Infinity` and `users: []` both passed the round-1 shape validation** — `1e400` parses to
+  `Infinity` and `typeof Infinity === "number"`; an array is `typeof "object"` and non-null.
+- **The never-opening window, reintroduced.** `recordPinFailure` advanced the *unlocked* counter
+  while the other was locked, so an in-flight failure consumed Device budget and advanced its
+  `lastAttemptAt` — 035's defect in a new mechanism, after 059 had refused it.
+- **A successful unlock cleared only the succeeding User's entry**, so Ana stayed locked after Carla
+  unlocked correctly, against 059's "clears all locks".
+- **Two tests proved nothing.** The "no network" test stubbed `fetch` and then exercised only the
+  storage module — deleting the cached-roster fallback entirely would have passed it. And the
+  never-opening-window guard's own test passed with the guard removed, because it asserted only the
+  locked User's counter while the Device counter advanced underneath.
+
+**The `localStorage` confinement had never been enforced.** Records 056 and 057 assert in prose that
+`rg -n 'localStorage' apps/pos` returns only the accessor modules; 059 checked and found **no test
+enforcing it**. `apps/pos/tests/local-storage-confinement.test.ts` now does, for
+`device-token.ts`, `pin-roster.ts` and `pin-throttle.ts`.
+
+**Gate reliability, measured rather than assumed.** Five consecutive full runs on this lane: three
+fully clean, two with a single failure each — `stores-screen.test.tsx` once and
+`payment-method/deactivate-reactivate-concurrency.test.ts` once. **Every test this issue owns passed
+in all five.** Both unstable tests are pre-existing and load-sensitive; the second is issue 08's
+`pg_stat_activity` barrier, which was reviewed as deterministic and is not.
