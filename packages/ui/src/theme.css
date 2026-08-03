@@ -28,6 +28,8 @@
   --color-secondary: #eaeae6;
   --color-secondary-foreground: #1e1e1e;
   --color-muted: #f0f0ed;
+  /* The subtle fill behind a table's header row and a tab list. */
+  --color-surface-tint: #f4f9fa;
   --color-muted-foreground: #5b5b57;
   --color-accent: #e4e4df;
   --color-accent-foreground: #1e1e1e;

@@ -13,10 +13,10 @@ import { createDb } from "backend/src/db/client.ts";
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
-// Record 033. Every request in this file shares the "ip:no-forwarded-for"
-// bucket (the test seam never sets X-Forwarded-For), so it clears that key
-// before and after to stay isolated from every other test file.
-const seam = createTestSeam();
+// Record 033. This file pins the unproxied case — no X-Forwarded-For, so
+// every request lands in the "ip:no-forwarded-for" bucket, which is what the
+// per-address assertions are about. It clears that key before and after.
+const seam = createTestSeam({ clientIp: null });
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const IP_KEY = "ip:no-forwarded-for";
 

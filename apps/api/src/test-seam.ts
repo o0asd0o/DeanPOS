@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { Ctx, PlatformAdminPrincipal, Principal } from "backend/src/common/ctx.ts";
 import { createDb } from "backend/src/db/client.ts";
 import { createClient } from "contract/src/index.ts";
@@ -10,6 +12,8 @@ export type TestSeamOptions = {
   databaseUrl?: string;
   appDomain?: string;
   devOrigins?: string[];
+  /** `null` sends no X-Forwarded-For, which is the unproxied production case. */
+  clientIp?: string | null;
 };
 
 // The server half of the one test seam. foundation PRD "Testing Decisions"; .scratch/decisions/006.
@@ -19,6 +23,16 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
   const appDomain = options.appDomain ?? requireEnv(ENV_KEYS.appDomain);
 
   const db = createDb({ databaseUrl });
+
+  // One throttle bucket per seam. Without this every test in the repo shares
+  // `ip:no-forwarded-for`, and a few consecutive runs push that one row past
+  // IP_FAILURE_LIMIT — after which every sign-in in the suite is refused
+  // (records 033, 034).
+  const clientIp = options.clientIp === undefined ? randomUUID() : options.clientIp;
+  const forward = (request: Request) => {
+    if (clientIp !== null) request.headers.set("X-Forwarded-For", clientIp);
+    return request;
+  };
 
   const buildActor = (actor: {
     principal?: Principal | null;
@@ -33,7 +47,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     });
     const client = createClient({
       url: `https://api.${appDomain}/rpc`,
-      fetch: async (request, init) => app.request(request, init),
+      fetch: async (request, init) => app.request(forward(request), init),
     });
     return { app, client };
   };
@@ -48,6 +62,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     createClient({
       url: `https://api.${appDomain}/rpc`,
       fetch: async (request) => {
+        forward(request);
         if (origin !== null) request.headers.set("Origin", origin);
         else request.headers.delete("Origin");
         if (cookieHeader) request.headers.set("Cookie", cookieHeader);
@@ -67,6 +82,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     const signInClient = createClient({
       url: `https://api.${appDomain}/rpc`,
       fetch: async (request) => {
+        forward(request);
         request.headers.set("Origin", adminOrigin);
         const response = await app.request(request);
         captured.setCookie = response.headers.get("Set-Cookie");
@@ -93,6 +109,8 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     app,
     client,
     db,
+    /** The throttle bucket this seam's requests land in (records 033–034). */
+    clientIp: clientIp ?? "no-forwarded-for",
     actors: {
       // `role` defaults to "admin" (issue 04) — tests exercising the gate
       // pass `role` and `userId` explicitly, matching a seeded User.
