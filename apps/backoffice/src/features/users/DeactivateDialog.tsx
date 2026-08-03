@@ -27,9 +27,14 @@ export function DeactivateDialog({
 
   const handleDeactivate = async () => {
     if (deactivateUser.isPending) return;
-    const result = await deactivateUser.mutateAsync({ id: user.id });
-    if (!result) return;
-    onDeactivated(user.email);
+    try {
+      const result = await deactivateUser.mutateAsync({ id: user.id });
+      if (!result) return;
+      onDeactivated(user.email);
+    } catch {
+      // isError is already set on the mutation; swallow so it doesn't also
+      // surface as an unhandled promise rejection.
+    }
   };
 
   return (

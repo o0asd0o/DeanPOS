@@ -30,12 +30,15 @@ export function ResetPasswordDialog({
   const form = useForm({
     defaultValues: { password: "" },
     onSubmit: async ({ value }) => {
-      const result = await resetPassword.mutateAsync({ id: user.id, password: value.password });
-      if (!result) return;
-      // Never lingers in TanStack Query's retained `variables` (record 043
-      // no-go 8).
-      resetPassword.reset();
-      onReset();
+      try {
+        const result = await resetPassword.mutateAsync({ id: user.id, password: value.password });
+        if (!result) return;
+        resetPassword.evictPassword();
+        onReset();
+      } catch {
+        // isError is already set on the mutation; swallow so it doesn't
+        // also surface as an unhandled promise rejection.
+      }
     },
   });
 

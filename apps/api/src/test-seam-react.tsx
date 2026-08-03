@@ -37,7 +37,11 @@ export function renderRoute<TRouter extends AnyRouter>(
     userId?: string;
     role?: Principal["role"];
   } & TestSeamOptions,
-): { container: HTMLElement; db: ReturnType<typeof createTestSeam>["db"] } {
+): {
+  container: HTMLElement;
+  db: ReturnType<typeof createTestSeam>["db"];
+  queryClient: QueryClient;
+} {
   const { router, tenantId, mustChangePassword, initialLocation, userId, role, ...seamOptions } =
     options;
   if (initialLocation) window.history.pushState(null, "", initialLocation);
@@ -64,7 +68,7 @@ export function renderRoute<TRouter extends AnyRouter>(
     </QueryClientProvider>,
   );
 
-  return { container, db: seam.db };
+  return { container, db: seam.db, queryClient };
 }
 
 // Runs axe's WCAG 2.2 AA rule set against `container`. Disabled-rule list

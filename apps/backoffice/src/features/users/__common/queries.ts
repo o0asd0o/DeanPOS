@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { MutationKey, QueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
+
+// `reset()` only detaches the observer — the password-bearing variables stay
+// in MutationCache for its GC window (record 043 no-go 8). This removes the
+// entry outright.
+function evictMutation(queryClient: QueryClient, mutationKey: MutationKey) {
+  for (const mutation of queryClient.getMutationCache().findAll({ mutationKey })) {
+    queryClient.getMutationCache().remove(mutation);
+  }
+}
 
 export function useUsersQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/users" });
@@ -27,7 +37,10 @@ function useInvalidateUsers() {
 export function useCreateUserMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/users" });
   const invalidate = useInvalidateUsers();
-  return useMutation(orpc.user.create.mutationOptions({ onSuccess: invalidate }));
+  const queryClient = useQueryClient();
+  const mutation = useMutation(orpc.user.create.mutationOptions({ onSuccess: invalidate }));
+  const evictPassword = () => evictMutation(queryClient, orpc.user.create.mutationKey());
+  return { ...mutation, evictPassword };
 }
 
 export function useUpdateUserMutation() {
@@ -50,5 +63,8 @@ export function useReactivateUserMutation() {
 
 export function useResetUserPasswordMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/users" });
-  return useMutation(orpc.user.resetPassword.mutationOptions());
+  const queryClient = useQueryClient();
+  const mutation = useMutation(orpc.user.resetPassword.mutationOptions());
+  const evictPassword = () => evictMutation(queryClient, orpc.user.resetPassword.mutationKey());
+  return { ...mutation, evictPassword };
 }

@@ -44,11 +44,12 @@ export function UserEditor({
 
   const [storeIds, setStoreIds] = useState<Set<string>>(() => new Set(user?.storeIds ?? []));
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const createUser = useCreateUserMutation();
   const updateUser = useUpdateUserMutation();
   const saving = createUser.isPending || updateUser.isPending;
-  const failed = createUser.isError || updateUser.isError;
+  const failed = createUser.isError || updateUser.isError || saveFailed;
 
   const form = useForm({
     defaultValues: {
@@ -57,20 +58,33 @@ export function UserEditor({
       password: "",
     },
     onSubmit: async ({ value }) => {
-      const saved = user
-        ? await updateUser.mutateAsync({ id: user.id, role: value.role, storeIds: [...storeIds] })
-        : await createUser.mutateAsync({
-            email: value.email,
-            role: value.role,
-            password: value.password,
-            storeIds: [...storeIds],
-          });
-      if (!saved) return;
+      setSaveFailed(false);
+      try {
+        const saved = user
+          ? await updateUser.mutateAsync({
+              id: user.id,
+              role: value.role,
+              storeIds: [...storeIds],
+            })
+          : await createUser.mutateAsync({
+              email: value.email,
+              role: value.role,
+              password: value.password,
+              storeIds: [...storeIds],
+            });
+        if (!saved) {
+          // A refusal server-side (e.g. self-demotion) resolves `null`
+          // rather than rejecting — treated the same as a thrown error.
+          setSaveFailed(true);
+          return;
+        }
 
-      // Never lingers in TanStack Query's retained `variables` (record 043
-      // no-go 8) — same reset ResetPasswordDialog already does.
-      if (!user) createUser.reset();
-      onSaved();
+        if (!user) createUser.evictPassword();
+        onSaved();
+      } catch {
+        // isError is already set on the mutation; swallow so it doesn't
+        // also surface as an unhandled promise rejection.
+      }
     },
   });
 

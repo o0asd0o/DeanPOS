@@ -62,7 +62,7 @@ describe("the Users screen — as an admin", () => {
   });
 
   it("creates a User with a typed temporary password, lists it, and shows no delete anywhere", async () => {
-    const { container, db } = renderRoute({
+    const { container, db, queryClient } = renderRoute({
       router,
       tenantId,
       userId: adminId,
@@ -106,6 +106,14 @@ describe("the Users screen — as an admin", () => {
     expect(container.textContent).not.toMatch(/a temporary password/);
     expect(container.textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
     await expectNoAxeViolations(container);
+
+    // Nor retained in TanStack Query's MutationCache — `reset()` alone
+    // detaches the observer but leaves the entry there for its GC window.
+    const cachedVariables = queryClient
+      .getMutationCache()
+      .getAll()
+      .map((mutation) => JSON.stringify(mutation.state.variables));
+    expect(cachedVariables.some((entry) => entry.includes("a temporary password"))).toBe(false);
   });
 
   it("has no NAME column and never truncates the email (record 044)", async () => {
@@ -169,6 +177,7 @@ describe("the Users screen — as an admin", () => {
     expect(screen.queryByLabelText("Email")).toBeNull();
     // Reset password lives here, not a separate confirm-password field.
     expect(screen.getByRole("button", { name: "Reset password" })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Role" }));
 
     // Let the editor's own Stores checkbox list settle before continuing —
     // an in-flight request left behind by an unmounted editor can otherwise
@@ -191,6 +200,68 @@ describe("the Users screen — as an admin", () => {
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+  });
+
+  it("resets a User's password through the dialog and never retains it in the mutation cache", async () => {
+    const targetId = randomUUID();
+    const targetEmail = `reset-screen-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: targetId,
+        tenant_id: tenantId,
+        email: targetEmail,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+      })
+      .execute();
+    await ownerDb
+      .insertInto("UserRole")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: targetId,
+        role: "cashier",
+        effective_from: new Date(Date.now() - 60_000),
+      })
+      .execute();
+
+    const { db, queryClient } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/users",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+      await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+    };
+
+    await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
+    const row = screen.getByText(targetEmail).closest("tr")!;
+    fireEvent.click(within(row).getByRole("button", { name: `Edit ${targetEmail}` }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: `Edit ${targetEmail}` })).toBeTruthy(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("New temporary password"), {
+      target: { value: "a brand new password" },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Reset password" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const cachedVariables = queryClient
+      .getMutationCache()
+      .getAll()
+      .map((mutation) => JSON.stringify(mutation.state.variables));
+    expect(cachedVariables.some((entry) => entry.includes("a brand new password"))).toBe(false);
   });
 
   it("deactivates a User — stays listed, badged, with Reactivate its only action — then reactivates", async () => {
@@ -277,6 +348,34 @@ describe("the Users screen — as an admin", () => {
     expect(within(selfRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
     expect(within(selfRow).getByRole("button", { name: /^Edit/ })).toBeTruthy();
   });
+
+  it("self-demoting is refused server-side and shows an error, not a silent close", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/users",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getAllByText(/@user\.test/).length).toBeGreaterThan(0));
+    const selfCell = Array.from(document.querySelectorAll("td")).find((cell) =>
+      cell.textContent?.startsWith("users-screen-admin-"),
+    )!;
+    fireEvent.click(within(selfCell.closest("tr")!).getByRole("button", { name: /^Edit/ }));
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Role" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Manager" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("option", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toMatch(/Couldn.t save the user/);
+    // Still in the editor, not silently closed.
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+  });
 });
 
 describe("the Users screen — as a manager", () => {
@@ -287,11 +386,84 @@ describe("the Users screen — as a manager", () => {
     cleanup = undefined;
   });
 
+  it("sees itself and a coworker sharing its Store, both rows read-only: no actions column, no action buttons", async () => {
+    const managerId = randomUUID();
+    const coworkerId = randomUUID();
+    const managerEmail = `manager-screen-${randomUUID()}@user.test`;
+    const coworkerEmail = `coworker-screen-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values([
+        {
+          id: managerId,
+          tenant_id: tenantId,
+          email: managerEmail,
+          password_hash: await hashPassword("irrelevant"),
+          role: "manager",
+        },
+        {
+          id: coworkerId,
+          tenant_id: tenantId,
+          email: coworkerEmail,
+          password_hash: await hashPassword("irrelevant"),
+          role: "cashier",
+        },
+      ])
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values([
+          {
+            id: randomUUID(),
+            tenant_id: tenantId,
+            user_id: managerId,
+            store_id: storeId,
+            assigned: true,
+            effective_from: new Date(Date.now() - 60_000),
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantId,
+            user_id: coworkerId,
+            store_id: storeId,
+            assigned: true,
+            effective_from: new Date(Date.now() - 60_000),
+          },
+        ])
+        .execute(),
+    );
+
+    const { container, db } = renderRoute({
+      router,
+      tenantId,
+      userId: managerId,
+      role: "manager",
+      initialLocation: "/users",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb
+        .deleteFrom("UserStore")
+        .where("user_id", "in", [managerId, coworkerId])
+        .execute();
+      await ownerDb.deleteFrom("User").where("id", "in", [managerId, coworkerId]).execute();
+    };
+
+    await waitFor(() => expect(screen.getByText(managerEmail)).toBeTruthy());
+    expect(screen.getByText(coworkerEmail)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add user" })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /Actions/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Deactivate/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Reactivate/ })).toBeNull();
+
+    await expectNoAxeViolations(container);
+  });
+
   it("has no Add user button, no actions column at all, and shows the manager-only empty state", async () => {
-    // A manager with no Store assignment and no coworkers sharing a Store
-    // sees nobody — not even a self row, since this principal has no
-    // matching User row (record 044 §3: only a manager can ever reach this
-    // empty state — an admin's list always includes itself).
+    // No matching User row for this principal sees nobody at all — only a
+    // manager can reach this empty state (record 044 §3).
     const { container, db } = renderRoute({
       router,
       tenantId,

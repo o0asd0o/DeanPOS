@@ -34,11 +34,19 @@ export const handler: Handler<UpdateUserInput, UserOutput | null> = async ({ ctx
   // offer every role for every other User.
   if (callerId === input.id && input.role !== "admin") return null;
 
-  const effectiveFrom = new Date();
-
   const result = await withTenantScope(ctx.db, tenantId, async (scopedDb) => {
-    const existing = await findUserById(scopedDb, input.id);
+    // Locked first so two concurrent saves on the same User serialise
+    // (record 034's move, one level out from the throttle) — the second
+    // waits and sees the first's committed role and assignments.
+    const existing = await scopedDb
+      .selectFrom("User")
+      .selectAll()
+      .where("id", "=", input.id)
+      .forUpdate()
+      .executeTakeFirst();
     if (!existing) return null;
+
+    const effectiveFrom = new Date();
 
     if (existing.role !== input.role) {
       await updateUserRole(scopedDb, input.id, input.role);

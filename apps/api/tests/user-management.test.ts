@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
+import { getAssignedStoreIdsAsOf } from "backend/src/access/db-operations/queries/get-assigned-store-ids-as-of.query.ts";
 import { getRoleAsOf } from "backend/src/access/db-operations/queries/get-role-as-of.query.ts";
 import { hasAtLeastRole } from "backend/src/common/authorize.ts";
 import { hashPassword } from "backend/src/common/password.ts";
@@ -202,10 +203,9 @@ describe("user.create", () => {
       .where("tenant_id", "=", tenantA)
       .executeTakeFirstOrThrow();
 
-    // Tenant A cannot create a User assigned to Tenant B's Store: the
-    // composite (tenant, store) FK on UserStore rejects it, and the whole
-    // insert rolls back in the same transaction (record 045) — no User, no
-    // UserRole, no UserStore row survives.
+    // The composite (tenant, store) FK on UserStore rejects a User assigned
+    // to Tenant B's Store; the whole insert rolls back in the same
+    // transaction (record 045) — no User, no UserRole, no UserStore row.
     const email = `should-not-exist-cross-tenant-${randomUUID()}@user.test`;
     await expect(
       seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.create({
@@ -332,15 +332,9 @@ describe("user.update — role and Store assignment", () => {
       .where("user_id", "=", targetId)
       .execute();
 
-    // Force a downstream failure inside the same transaction: storeB
-    // belongs to Tenant B, so the composite (tenant, store) FK on
-    // UserStore rejects the Store-assignment write that runs after the
-    // role write. If `User.role` and the `UserRole` history row were
-    // written in separate transactions, the role write would already be
-    // committed and this failure would never touch it — the denormalised
-    // role would then read `manager` while the history still says
-    // `cashier` (record 045 §4 clause 3, the most likely silent failure
-    // on this screen).
+    // storeB (Tenant B) forces a composite-FK failure after the role write,
+    // proving both writes share one transaction rather than the role
+    // silently outrunning the history (record 045 §4 clause 3).
     await expect(
       seam.actors
         .asTenant(tenantA, { userId: adminA, role: "admin" })
@@ -413,6 +407,55 @@ describe("user.update — role and Store assignment", () => {
       .executeTakeFirstOrThrow();
     expect(stillAdmin.role).toBe("admin");
   });
+
+  it("two concurrent saves on the same User serialise: the winner's role and Store assignment both land intact (record 034, one level out)", async () => {
+    const targetId = randomUUID();
+    const targetEmail = `race-${randomUUID()}@user.test`;
+    await seedTenantUser(ownerDb, {
+      id: targetId,
+      tenantId: tenantA,
+      email: targetEmail,
+      passwordHash: await hashPassword("irrelevant"),
+      role: "cashier",
+      mustChangePassword: false,
+    });
+
+    // Fired together, not awaited one at a time — this is what exposes the
+    // race: both read the pre-save state before either has committed.
+    await Promise.all([
+      seam.actors
+        .asTenant(tenantA, { userId: adminA, role: "admin" })
+        .client.user.update({ id: targetId, role: "manager", storeIds: [storeA1] }),
+      seam.actors
+        .asTenant(tenantA, { userId: adminA, role: "admin" })
+        .client.user.update({ id: targetId, role: "admin", storeIds: [storeA2] }),
+    ]);
+
+    const finalUser = await ownerDb
+      .selectFrom("User")
+      .select("role")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+    const roleRows = await ownerDb
+      .selectFrom("UserRole")
+      .selectAll()
+      .where("user_id", "=", targetId)
+      .orderBy("effective_from", "desc")
+      .orderBy("created_at", "desc")
+      .execute();
+    expect(finalUser.role).toBe(roleRows[0]!.role);
+
+    const finalStoreIds = await withTenantScope(seam.db, tenantA, (db) =>
+      getAssignedStoreIdsAsOf(db, targetId, new Date()),
+    );
+    // Never a mixture of both saves' assignments — exactly one full set won.
+    expect([[storeA1], [storeA2]]).toContainEqual(finalStoreIds);
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+  }, 30_000);
 });
 
 describe("user.resetPassword", () => {
