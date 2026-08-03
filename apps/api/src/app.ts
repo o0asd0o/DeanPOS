@@ -83,8 +83,8 @@ export const createApp = ({
   const testSeamActor = principal || platformAdmin || device;
 
   // credentials: true is required for the session cookie to survive the
-  // cross-subdomain request (issue 03 round 2) — without it the browser
-  // discards Set-Cookie regardless of the cookie's own attributes.
+  // cross-subdomain request (issue 03) — without it the browser discards
+  // Set-Cookie regardless of the cookie's own attributes.
   app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins], credentials: true }));
 
   // No identity concept applies to a liveness check — always unauthenticated.

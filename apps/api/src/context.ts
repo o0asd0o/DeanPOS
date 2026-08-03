@@ -33,12 +33,8 @@ export const createContext = (
   return { db, clientIp, kind: "unauthenticated" };
 };
 
-/**
- * Production path (issue 03): builds Ctx per request from the session
- * cookie. A missing, unknown, revoked, or expired (idle or absolute)
- * session — or a deactivated User — all resolve to `unauthenticated`,
- * never a distinguishable error (mirrors sign-in's own refusal shape).
- */
+/** Production path (issue 03): a missing, unknown, revoked, expired, or
+ * deactivated-User session all resolve to `unauthenticated`, never a distinguishable error. */
 export const buildContextFromSession = async (
   db: DatabaseInstance,
   sessionId: string | null,
@@ -60,8 +56,8 @@ export const buildContextFromSession = async (
     if (!user || !user.active) return { db, clientIp, kind: "unauthenticated" };
 
     // The live gate authorises from UserRole, never the User.role
-    // convenience copy — absence is a refusal, not a default (issue 04,
-    // round 1 finding 1). `User.role` is not read here at all.
+    // convenience copy — absence is a refusal, not a default. `User.role`
+    // is not read here at all.
     const currentRole = await getRoleAsOf(scopedDb, user.id, new Date());
     if (!currentRole) return { db, clientIp, kind: "unauthenticated" };
 
@@ -81,11 +77,8 @@ export const buildContextFromSession = async (
   });
 };
 
-/**
- * Production path for the Device token (issue 09, record 056 Q6): mirrors
- * `buildContextFromSession`. A missing, unknown, malformed, or revoked
- * Device all resolve to `unauthenticated`, never a distinguishable error.
- */
+/** Production path for the Device token (issue 09, record 056 Q6): a missing,
+ * unknown, malformed, or revoked Device all resolve to `unauthenticated`. */
 export const buildContextFromDeviceToken = async (
   db: DatabaseInstance,
   token: string | null,

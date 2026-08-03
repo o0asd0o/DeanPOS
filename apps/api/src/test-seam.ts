@@ -78,9 +78,8 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
     });
 
   // A Device-token client against the base app — the real `Authorization`
-  // header path (issue 09), not the direct-principal shortcut below. Proves
-  // `buildContextFromDeviceToken` end to end: hash, pre-auth lookup,
-  // revocation, and the `last_seen_at` touch.
+  // header path (issue 09), proving `buildContextFromDeviceToken` end to
+  // end: hash, pre-auth lookup, revocation, and the `last_seen_at` touch.
   const withBearerToken = (token: string | null) =>
     createClient({
       url: `https://api.${appDomain}/rpc`,

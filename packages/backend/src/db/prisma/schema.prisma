@@ -101,7 +101,7 @@ model User {
 
 // Effective-dated history of the Role a User held (issue 04, PRD security
 // criterion 21); `User.role` stays a denormalised convenience, this is the
-// truth. `user`'s composite FK avoids an RLS bypass (round 1 finding 2).
+// truth. `user`'s composite FK avoids an RLS bypass.
 model UserRole {
   id            String   @id
   tenantId      String   @map("tenant_id")
@@ -117,10 +117,8 @@ model UserRole {
 }
 
 // Effective-dated history of which Stores a User may operate (issue 04).
-// Append-only like UserRole; un-assigning writes a closing row
-// (`assigned = false`) rather than deleting the prior one.
-// `user` and `store` are composite FKs on (tenantId, userId) / (tenantId,
-// storeId), for the same reason as UserRole.user above.
+// Append-only: un-assigning writes a closing row (`assigned = false`)
+// rather than deleting. `user`/`store` are composite FKs, as UserRole.user.
 model UserStore {
   id            String   @id
   tenantId      String   @map("tenant_id")
