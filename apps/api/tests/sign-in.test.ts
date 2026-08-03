@@ -129,13 +129,41 @@ describe("auth.signIn", () => {
     const ownerSees = await client.auth.signIn({ email, password });
     expect(ownerSees).toStrictEqual({ ok: true, mustChangePassword: false });
 
+    const otherTenantId = randomUUID();
+    const otherUserId = randomUUID();
     const otherEmail = `other-tenant-${randomUUID()}@sign-in.test`;
-    await expectWrongTenantRefusal({
-      path: "auth.signIn",
-      mode: "refusal",
-      ownerSees,
-      otherGets: () => client.auth.signIn({ email: otherEmail, password: "irrelevant" }),
+    await ownerDb
+      .insertInto("Tenant")
+      .values({ id: otherTenantId, name: "Other Sign-in Tenant" })
+      .execute();
+    await seedTenantUser(ownerDb, {
+      id: otherUserId,
+      tenantId: otherTenantId,
+      email: otherEmail,
+      passwordHash: await hashPassword(password),
+      mustChangePassword: false,
+      role: "admin",
     });
+
+    // Proves otherEmail is a real, reachable account in another Tenant
+    // before probing it — otherwise the probe below exercises an absent
+    // account, not the wrong-tenant case it claims to cover.
+    const otherOwnerSignIn = await client.auth.signIn({ email: otherEmail, password });
+    expect(otherOwnerSignIn).toStrictEqual({ ok: true, mustChangePassword: false });
+
+    try {
+      await expectWrongTenantRefusal({
+        path: "auth.signIn",
+        mode: "refusal",
+        ownerSees,
+        otherGets: () => client.auth.signIn({ email: otherEmail, password: "wrong password" }),
+      });
+    } finally {
+      await ownerDb.deleteFrom("Session").where("tenant_id", "=", otherTenantId).execute();
+      await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", otherTenantId).execute();
+      await ownerDb.deleteFrom("User").where("id", "=", otherUserId).execute();
+      await ownerDb.deleteFrom("Tenant").where("id", "=", otherTenantId).execute();
+    }
   });
 
   // Issue 04, round 2 finding 1: a roleless User is refused at sign-in
