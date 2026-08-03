@@ -514,8 +514,9 @@ describe("the Device token principal", () => {
           .executeTakeFirstOrThrow()
       ).last_seen_at.getTime();
 
-    // A canary on each row: A's heartbeat, called alone, must move only A's
-    // timestamp — B's is read straight after and must be untouched.
+    // A canary on each row, asserted in both directions: a heartbeat called
+    // alone must move its own tenant's timestamp and leave the other's exactly
+    // where it was.
     const beforeA = await lastSeen(exchangedAsA.deviceId);
     const beforeB = await lastSeen(exchangedAsB.deviceId);
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -523,7 +524,8 @@ describe("the Device token principal", () => {
     expect((await seam.actors.withBearerToken(exchangedAsA.token).terminal.heartbeat()).ok).toBe(
       true,
     );
-    expect(await lastSeen(exchangedAsA.deviceId)).toBeGreaterThan(beforeA);
+    const afterA = await lastSeen(exchangedAsA.deviceId);
+    expect(afterA).toBeGreaterThan(beforeA);
     expect(await lastSeen(exchangedAsB.deviceId)).toBe(beforeB);
 
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -531,6 +533,7 @@ describe("the Device token principal", () => {
       true,
     );
     expect(await lastSeen(exchangedAsB.deviceId)).toBeGreaterThan(beforeB);
+    expect(await lastSeen(exchangedAsA.deviceId)).toBe(afterA);
   });
 
   it("real Authorization header: enrol, then me/heartbeat over the bearer token, matched case-insensitively", async () => {
