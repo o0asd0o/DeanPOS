@@ -1,0 +1,107 @@
+import {
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "ui";
+
+import { ErrorState } from "@/components/ErrorState.tsx";
+import { TablePagination } from "@/components/TablePagination.tsx";
+import { useTableView } from "@/lib/table.ts";
+import { ACTION_TYPE_LABEL } from "./helpers.ts";
+import type { OverrideOutput } from "./helpers.ts";
+
+type SortKey = "when" | "store" | "action" | "approver";
+
+const SORT_VALUES: Record<SortKey, (row: OverrideOutput) => string | number> = {
+  when: (row) => row.approvedAt.getTime(),
+  store: (row) => row.storeName.toLowerCase(),
+  action: (row) => ACTION_TYPE_LABEL[row.actionType],
+  approver: (row) => row.approverName.toLowerCase(),
+};
+
+// The Override review list (issue 12, record 060 Q5): copies UserListCard's
+// shape exactly. No `Actions` column and no `ListToolbar` — nothing on an
+// append-only table is editable, and these rows have no status to filter.
+// Criterion 8's tenant/Store scoping is enforced in list-overrides.ts, not
+// here — this Card only sorts and pages whatever rows it is handed.
+export function OverrideListCard({
+  overrides,
+  isPending,
+  isError,
+  isFetching,
+  refetch,
+}: {
+  overrides: OverrideOutput[] | undefined;
+  isPending: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  refetch: () => void;
+}) {
+  const table = useTableView(overrides ?? [], SORT_VALUES, "when");
+
+  return (
+    <Card className="gap-4">
+      <CardContent className="flex flex-col gap-4">
+        {isPending ? (
+          <p role="status">Loading…</p>
+        ) : isError ? (
+          <ErrorState onRetry={refetch} isFetching={isFetching} />
+        ) : !overrides || overrides.length === 0 ? (
+          <p className="text-foreground">No overrides to show</p>
+        ) : (
+          <div className="overflow-x-auto py-1">
+            <Table aria-label="Overrides">
+              <TableHeader>
+                <TableRow>
+                  <TableHead sorted={table.sortedBy("when")} onSort={() => table.sortBy("when")}>
+                    When
+                  </TableHead>
+                  <TableHead sorted={table.sortedBy("store")} onSort={() => table.sortBy("store")}>
+                    Store
+                  </TableHead>
+                  <TableHead
+                    sorted={table.sortedBy("action")}
+                    onSort={() => table.sortBy("action")}
+                  >
+                    Action
+                  </TableHead>
+                  <TableHead
+                    sorted={table.sortedBy("approver")}
+                    onSort={() => table.sortBy("approver")}
+                  >
+                    Approved by
+                  </TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Device</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {table.rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.approvedAt.toLocaleString()}</TableCell>
+                    <TableCell>{row.storeName}</TableCell>
+                    <TableCell>{ACTION_TYPE_LABEL[row.actionType]}</TableCell>
+                    <TableCell>{row.approverName}</TableCell>
+                    <TableCell>{row.reason}</TableCell>
+                    <TableCell>{row.deviceName}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              page={table.page}
+              pageCount={table.pageCount}
+              onPageChange={table.setPage}
+              label="Overrides pages"
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
