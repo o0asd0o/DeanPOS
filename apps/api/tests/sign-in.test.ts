@@ -6,6 +6,7 @@ import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
@@ -123,10 +124,18 @@ describe("auth.signIn", () => {
     await ownerDb.deleteFrom("User").where("id", "=", deactivatedId).execute();
   });
 
-  it("wrong-tenant probe: sign-in never leaks whether an email belongs to another Tenant", async () => {
+  it("wrong-tenant probe [auth.signIn]: sign-in never leaks whether an email belongs to another Tenant", async () => {
+    const client = seam.actors.withCookie(null, seam.actors.adminOrigin);
+    const ownerSees = await client.auth.signIn({ email, password });
+    expect(ownerSees).toStrictEqual({ ok: true, mustChangePassword: false });
+
     const otherEmail = `other-tenant-${randomUUID()}@sign-in.test`;
-    const { result } = await seam.actors.signIn(otherEmail, "irrelevant");
-    expect(result).toStrictEqual({ ok: false });
+    await expectWrongTenantRefusal({
+      path: "auth.signIn",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () => client.auth.signIn({ email: otherEmail, password: "irrelevant" }),
+    });
   });
 
   // Issue 04, round 2 finding 1: a roleless User is refused at sign-in

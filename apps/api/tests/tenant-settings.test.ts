@@ -5,6 +5,7 @@ import { hashPassword } from "backend/src/common/password.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 // Issue 07: the five Tenant settings, admin-only, audited per changed
 // setting. Criterion 1 is asserted through platformAdmin.provisionTenant,
@@ -144,7 +145,7 @@ describe("settings.get", () => {
     expect(result).toBeNull();
   });
 
-  it("the wrong-tenant probe: settings.get has no addressable id, so RLS alone must confine a read to the caller's own Tenant — Tenant B changes its own settings first, then Tenant A's read is proven not to see them", async () => {
+  it("wrong-tenant probe [settings.get]: settings.get has no addressable id, so RLS alone must confine a read to the caller's own Tenant — Tenant B changes its own settings first, then Tenant A's read is proven not to see them", async () => {
     // Change B away from the shared defaults on all five fields, through
     // B's own application path, so the probe below cannot pass by
     // coincidence on any single field.
@@ -174,6 +175,15 @@ describe("settings.get", () => {
       vatRatePercent: 12,
       varianceToleranceCentavos: 0,
       cashMovementOverrideThresholdCentavos: 0,
+    });
+
+    await expectWrongTenantRefusal({
+      path: "settings.get",
+      mode: "confined",
+      ownerSees: changedAsB,
+      otherGets: () =>
+        seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.settings.get(),
+      otherOwn: asA,
     });
 
     // Restore B.
@@ -325,7 +335,7 @@ describe("settings.update", () => {
     expect(rows).toStrictEqual([]);
   });
 
-  it("the wrong-tenant probe: settings.update has no addressable id, so RLS alone must confine a write to the caller's own Tenant — Tenant B's own write succeeds first, then Tenant A's write is proven not to touch it", async () => {
+  it("wrong-tenant probe [settings.update]: settings.update has no addressable id, so RLS alone must confine a write to the caller's own Tenant — Tenant B's own write succeeds first, then Tenant A's write is proven not to touch it", async () => {
     // Establish success through Tenant B's own application path first, on
     // all five fields — a write that never happened cannot prove isolation.
     const beforeAsB = await seam.actors
@@ -367,6 +377,14 @@ describe("settings.update", () => {
       vatRatePercent: 8,
       varianceToleranceCentavos: 3,
       cashMovementOverrideThresholdCentavos: 5,
+    });
+
+    await expectWrongTenantRefusal({
+      path: "settings.update",
+      mode: "confined",
+      ownerSees: afterAsB,
+      otherGets: async () => asA,
+      otherOwn: asA,
     });
 
     // Restore both tenants.

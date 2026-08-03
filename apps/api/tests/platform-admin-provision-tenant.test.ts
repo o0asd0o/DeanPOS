@@ -144,16 +144,20 @@ describe("platformAdmin.provisionTenant", () => {
     expect(rows[0]?.action).toBe("provision_tenant");
   });
 
-  it("the wrong-tenant probe: a tenant-scoped principal is refused, never reaching provisioning", async () => {
-    await expectWrongTenantRefusal(
-      () =>
+  it("wrong-tenant probe [platformAdmin.provisionTenant]: a tenant-scoped principal is refused, never reaching provisioning", async () => {
+    const provisioned = await provisionAsPlatformAdmin({ tenantName: "Owner's Own Provision" });
+
+    await expectWrongTenantRefusal({
+      path: "platformAdmin.provisionTenant",
+      mode: "refusal",
+      ownerSees: provisioned,
+      otherGets: () =>
         seam.actors.asTenant(existingTenantId).client.platformAdmin.provisionTenant({
           tenantName: "Should Not Exist",
           adminEmail: "nope@example.test",
           adminPassword: "irrelevant-password",
         }),
-      (result) => result === null,
-    );
+    });
 
     const leaked = await ownerDb
       .selectFrom("Tenant")
@@ -164,15 +168,19 @@ describe("platformAdmin.provisionTenant", () => {
   });
 
   it("an unauthenticated caller is refused, never reaching provisioning", async () => {
-    await expectWrongTenantRefusal(
-      () =>
+    const provisioned = await provisionAsPlatformAdmin({ tenantName: "Owner's Own Provision 2" });
+
+    await expectWrongTenantRefusal({
+      path: "platformAdmin.provisionTenant",
+      mode: "refusal",
+      ownerSees: provisioned,
+      otherGets: () =>
         seam.actors.asUnauthenticated().client.platformAdmin.provisionTenant({
           tenantName: "Should Also Not Exist",
           adminEmail: "still-nope@example.test",
           adminPassword: "irrelevant-password",
         }),
-      (result) => result === null,
-    );
+    });
   });
 
   it("refuses a Ctx that somehow carries both a tenant and a platform-admin principal", async () => {
@@ -211,15 +219,19 @@ describe("platformAdmin.provisionTenant", () => {
       },
     });
 
-    await expectWrongTenantRefusal(
-      () =>
+    const provisioned = await provisionAsPlatformAdmin({ tenantName: "Owner's Own Provision 3" });
+
+    await expectWrongTenantRefusal({
+      path: "platformAdmin.provisionTenant",
+      mode: "refusal",
+      ownerSees: provisioned,
+      otherGets: () =>
         fromAdminOrigin.platformAdmin.provisionTenant({
           tenantName: "Should Not Exist From Admin Origin",
           adminEmail: "nope-admin-origin@example.test",
           adminPassword: "irrelevant-password",
         }),
-      (result) => result === null,
-    );
+    });
   });
 
   it("is isolated on arrival: an existing Tenant cannot read the new Tenant or its admin User", async () => {

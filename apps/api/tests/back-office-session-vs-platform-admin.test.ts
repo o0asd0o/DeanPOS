@@ -18,6 +18,7 @@ const tenantId = randomUUID();
 const userId = randomUUID();
 const email = `backoffice-vs-platform-${randomUUID()}@sign-in.test`;
 const password = "correct horse battery staple";
+const platformAdminId = randomUUID();
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Isolation Tenant" }).execute();
@@ -29,6 +30,10 @@ beforeAll(async () => {
     mustChangePassword: false,
     role: "admin",
   });
+  await ownerDb
+    .insertInto("PlatformAdmin")
+    .values({ id: platformAdminId, email: "session-vs-platform-admin@deanpos.test" })
+    .execute();
 });
 
 afterAll(async () => {
@@ -36,6 +41,7 @@ afterAll(async () => {
   await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", userId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("PlatformAdmin").where("id", "=", platformAdminId).execute();
   await ownerDb.destroy();
   await seam.db.destroy();
 });
@@ -44,15 +50,28 @@ describe("a real back-office session cannot reach platform-admin provisioning", 
   it("is refused, never reaching provisioning, even from the admin. origin the cookie is entitled to", async () => {
     const { client } = await seam.actors.signIn(email, password);
 
-    await expectWrongTenantRefusal(
-      () =>
+    // The platform admin's own path still works — a procedure refusing
+    // everyone would otherwise pass the refusal below for the wrong reason.
+    const provisioned = await seam.actors
+      .asPlatformAdmin(platformAdminId)
+      .client.platformAdmin.provisionTenant({
+        tenantName: "Platform Admin's Own Provision",
+        adminEmail: `owner-${randomUUID()}@new-restaurant.test`,
+        adminPassword: "temporary-password-1",
+      });
+    if (!provisioned) throw new Error("expected provisioning to succeed");
+
+    await expectWrongTenantRefusal({
+      path: "platformAdmin.provisionTenant",
+      mode: "refusal",
+      ownerSees: provisioned,
+      otherGets: () =>
         client.platformAdmin.provisionTenant({
           tenantName: "Should Not Exist Via Back-Office Session",
           adminEmail: "nope-via-session@example.test",
           adminPassword: "irrelevant-password",
         }),
-      (result) => result === null,
-    );
+    });
 
     const leaked = await ownerDb
       .selectFrom("Tenant")
@@ -60,5 +79,11 @@ describe("a real back-office session cannot reach platform-admin provisioning", 
       .where("name", "=", "Should Not Exist Via Back-Office Session")
       .execute();
     expect(leaked).toStrictEqual([]);
+
+    await ownerDb.deleteFrom("PlatformAuditLog").where("tenant_id", "=", provisioned.tenantId).execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("tenant_id", "=", provisioned.tenantId).execute();
+    await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", provisioned.tenantId).execute();
+    await ownerDb.deleteFrom("User").where("tenant_id", "=", provisioned.tenantId).execute();
+    await ownerDb.deleteFrom("Tenant").where("id", "=", provisioned.tenantId).execute();
   });
 });
