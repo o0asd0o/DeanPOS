@@ -99,14 +99,14 @@ export function Users() {
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Users</h1>
+          <h1 className="text-xl font-semibold">Employees</h1>
           <p className="text-sm text-muted-foreground">
             Who can sign in, what they may do, and where they work.
           </p>
         </div>
         {isAdmin && (
           <Button onClick={openCreate} className="tap-target">
-            Add user
+            Add employee
           </Button>
         )}
       </div>

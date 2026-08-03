@@ -80,7 +80,7 @@ export function UserEditor({
 
   return (
     <SheetForm
-      title={user ? `Edit ${user.email}` : "New user"}
+      title={user ? `Edit ${user.email}` : "New employee"}
       busy={saving}
       onSubmit={() => void form.handleSubmit()}
       footer={
@@ -98,7 +98,13 @@ export function UserEditor({
             )}
             <Button type="submit" aria-disabled={saving}>
               <CheckIcon />
-              {user ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create user"}
+              {user
+                ? saving
+                  ? "Saving…"
+                  : "Save changes"
+                : saving
+                  ? "Creating…"
+                  : "Create employee"}
             </Button>
           </div>
         </>
@@ -161,7 +167,7 @@ export function UserEditor({
       )}
       {failed && (
         <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
-          Couldn&rsquo;t save the user
+          Couldn&rsquo;t save the employee
         </div>
       )}
       {user && resettingPassword && (

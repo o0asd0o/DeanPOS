@@ -67,16 +67,16 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Users" })).toBeTruthy());
-    expect(screen.getByRole("button", { name: "Add user" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Employees" })).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Add employee" })).toBeTruthy();
     await expectNoAxeViolations(container);
 
-    fireEvent.click(screen.getByRole("button", { name: "Add user" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "New user" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add employee" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New employee" })).toBeTruthy());
     expect(document.activeElement).toBe(screen.getByLabelText("Email"));
 
     const newEmail = `new-hire-${randomUUID()}@user.test`;
@@ -93,9 +93,9 @@ describe("the Users screen — as an admin", () => {
     await waitFor(() => expect(screen.getByLabelText("Downtown")).toBeTruthy());
     fireEvent.click(screen.getByLabelText("Downtown"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create employee" }));
 
-    await waitFor(() => expect(screen.queryByRole("heading", { name: "New user" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "New employee" })).toBeNull());
     await waitFor(() => expect(screen.getByText(newEmail)).toBeTruthy());
 
     const row = screen.getByText(newEmail).closest("tr")!;
@@ -123,7 +123,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
@@ -163,7 +163,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
@@ -232,7 +232,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = async () => {
       await db.destroy();
@@ -299,7 +299,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
@@ -355,7 +355,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = async () => {
       await db.destroy();
@@ -374,7 +374,7 @@ describe("the Users screen — as an admin", () => {
     fireEvent.change(screen.getByLabelText("Search users"), { target: { value: targetEmail } });
     expect(screen.getAllByText(/@user\.test/).length).toBe(1);
     fireEvent.change(screen.getByLabelText("Search users"), { target: { value: "no-such-user" } });
-    expect(screen.getByText("No users match these filters")).toBeTruthy();
+    expect(screen.getByText("No employees match these filters")).toBeTruthy();
   });
 
   it("the caller's own row has no Deactivate action", async () => {
@@ -383,7 +383,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
@@ -403,7 +403,7 @@ describe("the Users screen — as an admin", () => {
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
@@ -420,7 +420,7 @@ describe("the Users screen — as an admin", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(screen.getByRole("alert").textContent).toMatch(/Couldn.t save the user/);
+    expect(screen.getByRole("alert").textContent).toMatch(/Couldn.t save the employee/);
     // Still in the editor, not silently closed.
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
   });
@@ -487,7 +487,7 @@ describe("the Users screen — as a manager", () => {
       tenantId,
       userId: managerId,
       role: "manager",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = async () => {
       await db.destroy();
@@ -500,7 +500,7 @@ describe("the Users screen — as a manager", () => {
 
     await waitFor(() => expect(screen.getByText(managerEmail)).toBeTruthy());
     expect(screen.getByText(coworkerEmail)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Add user" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add employee" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: /Actions/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Deactivate/ })).toBeNull();
@@ -517,14 +517,14 @@ describe("the Users screen — as a manager", () => {
       tenantId,
       userId: randomUUID(),
       role: "manager",
-      initialLocation: "/users",
+      initialLocation: "/employees",
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Users" })).toBeTruthy());
-    expect(screen.queryByRole("button", { name: "Add user" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Employees" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Add employee" })).toBeNull();
 
-    await waitFor(() => expect(screen.getByText("No users to show")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No employees to show")).toBeTruthy());
     expect(screen.queryByRole("columnheader", { name: /Actions/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Edit/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Deactivate/ })).toBeNull();

@@ -46,7 +46,7 @@ const OPERATIONS: NavItem[] = [
 const ADMINISTRATION: NavItem[] = [
   { label: "Stores", icon: StoreIcon, to: "/stores" },
   { label: "Devices", icon: MonitorSmartphoneIcon, to: "/devices" },
-  { label: "Users", icon: UsersIcon, to: "/users" },
+  { label: "Employees", icon: UsersIcon, to: "/employees" },
   { label: "Roster", icon: CalendarDaysIcon, to: "/roster" },
   { label: "Settings", icon: SettingsIcon, to: "/settings" },
   { label: "Quarantine", icon: ShieldAlertIcon, to: "/quarantine" },

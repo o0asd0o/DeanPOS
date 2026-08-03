@@ -138,10 +138,10 @@ export function UserListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !users || users.length === 0 ? (
-          <p className="text-foreground">No users to show</p>
+          <p className="text-foreground">No employees to show</p>
         ) : (
           <div className="overflow-x-auto py-1">
-            <Table aria-label="Users">
+            <Table aria-label="Employees">
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
@@ -222,7 +222,7 @@ export function UserListCard({
             </Table>
             {visible.length === 0 && (
               <p role="status" className="py-6 text-center text-muted-foreground">
-                No users match these filters
+                No employees match these filters
               </p>
             )}
           </div>
