@@ -57,20 +57,11 @@ export function Enrolment() {
     );
   }
 
-  if (hadStoredToken) {
-    if (!meQuery.data || meQuery.data.authenticated) return null;
-    return (
-      <div className="flex flex-1 items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <p role="alert" className="text-center text-sm">
-              This terminal has been revoked. An admin must enrol it again.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // A stored token that no longer authenticates was revoked. The notice sits
+  // above the form rather than replacing it: replacing it strands the terminal,
+  // since nothing but a successful enrol clears the token (record 056 Q3).
+  if (hadStoredToken && (!meQuery.data || meQuery.data.authenticated)) return null;
+  const revoked = hadStoredToken;
 
   const failed = enrol.isError || (enrol.data && !enrol.data.ok);
 
@@ -85,6 +76,11 @@ export function Enrolment() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {revoked && (
+              <p role="alert" className="rounded-md bg-status-warning-tint p-3 text-sm">
+                This terminal has been revoked. An admin must enrol it again.
+              </p>
+            )}
             <div className="flex flex-col gap-2">
               <label htmlFor="enrolment-code">Enrolment code</label>
               <Input

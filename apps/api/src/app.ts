@@ -19,8 +19,10 @@ import { allowedOrigins } from "./middlewares/cors.ts";
 import { isMustChangePasswordExempt } from "./middlewares/must-change-password.ts";
 import { createAuthRoutes } from "./routes/auth.ts";
 import {
+  deviceCancelCodeRoute,
   deviceGenerateCodeRoute,
   deviceListRoute,
+  devicePendingCodesRoute,
   deviceRenameRoute,
   deviceRevokeRoute,
   terminalEnrolRoute,
@@ -135,6 +137,8 @@ export const createApp = ({
       // Cookie/admin (issue 09, record 056 Q6) — never accepts a Device token.
       device: {
         list: deviceListRoute,
+        pendingCodes: devicePendingCodesRoute,
+        cancelCode: deviceCancelCodeRoute,
         generateCode: deviceGenerateCodeRoute,
         rename: deviceRenameRoute,
         revoke: deviceRevokeRoute,

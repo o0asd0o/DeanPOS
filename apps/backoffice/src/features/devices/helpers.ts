@@ -11,6 +11,18 @@ export type DeviceOutput = {
   revokedAt: Date | null;
 };
 
+// Mirrors `deviceGenerateCodeOutputSchema`'s success branch, and
+// `devicePendingCodeSchema` for one still waiting on its terminal.
+export type EnrolmentCode = {
+  secret: string;
+  name: string;
+  code: string;
+  storeId: string;
+  expiresAt: Date;
+};
+
+export type PendingCode = EnrolmentCode & { id: string };
+
 // Relative text, computed once at render — never an interval (record 056 Q5).
 export const relativeLastSeen = (lastSeenAt: Date, now: Date = new Date()): string => {
   const seconds = Math.max(0, Math.round((now.getTime() - lastSeenAt.getTime()) / 1000));

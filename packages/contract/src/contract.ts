@@ -180,6 +180,17 @@ export const deviceGenerateCodeOutputSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false) }),
 ]);
 
+// An enrolment code still waiting for its terminal — `admin`-only, and the
+// secret is readable so the back office can show the same code again.
+export const devicePendingCodeSchema = z.object({
+  id: z.string(),
+  secret: z.string(),
+  name: z.string(),
+  code: z.string(),
+  storeId: z.string(),
+  expiresAt: z.date(),
+});
+
 export const deviceRenameInputSchema = z.object({ id: z.string(), name: z.string().min(1) });
 export const deviceIdInputSchema = z.object({ id: z.string() });
 
@@ -325,6 +336,8 @@ export const contract = {
   // procedures use.
   device: {
     list: oc.input(z.void()).output(z.array(deviceOutputSchema)),
+    pendingCodes: oc.input(z.void()).output(z.array(devicePendingCodeSchema)),
+    cancelCode: oc.input(deviceIdInputSchema).output(z.object({ ok: z.boolean() })),
     generateCode: oc.input(deviceGenerateCodeInputSchema).output(deviceGenerateCodeOutputSchema),
     rename: oc.input(deviceRenameInputSchema).output(deviceOutputSchema.nullable()),
     revoke: oc.input(deviceIdInputSchema).output(deviceOutputSchema.nullable()),

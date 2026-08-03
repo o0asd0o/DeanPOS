@@ -93,12 +93,47 @@ describe("the Devices screen — as an admin", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Enrolment code" })).toBeTruthy(),
     );
-    expect(screen.getByText("Counter 2 · Downtown")).toBeTruthy();
-    expect(screen.getByText("Single-use. Enter it on the terminal.")).toBeTruthy();
-    expect(screen.getByText(/Expires in 10 minutes/)).toBeTruthy();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Counter 2 · Downtown")).toBeTruthy();
+    expect(within(dialog).getByText("Single-use. Enter it on the terminal.")).toBeTruthy();
+    expect(within(dialog).getByText(/Expires in 10 minutes/)).toBeTruthy();
 
+    // The enrolment outlives its dialog: closing it leaves the code listed,
+    // and the same code opens again from there.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // Axe runs with no modal open — a modal aria-hides the page behind it,
+    // which the `aria-hidden-focus` rule reads as a violation (record 008).
     await expectNoAxeViolations(container);
-  });
+
+    fireEvent.click(await screen.findByRole("button", { name: "View code" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Enrolment code" })).toBeTruthy(),
+    );
+
+    // The terminal redeems the code out of band; the dialog polls the list and
+    // closes itself once the Device carrying that code exists.
+    await withTenantScope(ownerDb, tenantId, (scoped) =>
+      scoped
+        .insertInto("Device")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          store_id: storeId,
+          name: "Counter 2",
+          code: "C2",
+          token_hash: `counter-2-${randomUUID()}`,
+        })
+        .execute(),
+    );
+
+    await waitFor(
+      () => expect(screen.queryByRole("heading", { name: "Enrolment code" })).toBeNull(),
+      { timeout: 10_000 },
+    );
+    // The poll runs on a 3s interval, so this test outlives the 5s default.
+  }, 25_000);
 
   it("lists an enrolled Device with its code, Store, and status, and revokes it", async () => {
     const deviceId = randomUUID();

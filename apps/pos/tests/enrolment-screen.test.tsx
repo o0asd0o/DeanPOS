@@ -146,7 +146,7 @@ describe("the enrolment screen", () => {
     await waitFor(() => expect(screen.queryByLabelText("Enrolment code")).toBeNull());
   });
 
-  it("a revoked terminal sees the blocked message, never the form, and storage is untouched", async () => {
+  it("a revoked terminal sees the message above a usable form, and storage is untouched", async () => {
     const deviceId = randomUUID();
     const token = randomBytes(32).toString("base64url");
     const tokenHash = createHash("sha256").update(Buffer.from(token, "utf8")).digest("hex");
@@ -183,7 +183,9 @@ describe("the enrolment screen", () => {
         screen.getByText("This terminal has been revoked. An admin must enrol it again."),
       ).toBeTruthy(),
     );
-    expect(screen.queryByLabelText("Enrolment code")).toBeNull();
+    // The form is the way back: a revoked terminal is re-enrolled with a new
+    // code, and the dead token stays put until that enrol succeeds.
+    expect(screen.getByLabelText("Enrolment code")).toBeTruthy();
     expect(readDeviceToken()).toBe(token);
   });
 });

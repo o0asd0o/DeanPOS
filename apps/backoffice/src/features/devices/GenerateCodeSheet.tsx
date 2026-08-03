@@ -1,33 +1,25 @@
-import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 import { useGenerateCodeMutation } from "./__common/queries.ts";
+import type { EnrolmentCode } from "./helpers.ts";
 
-type GeneratedResult = {
-  secret: string;
-  name: string;
-  code: string;
-  storeId: string;
-  expiresAt: Date;
-};
-
-// The enrolment-code panel (record 056 Q5): a detached sheet, not an inline
-// card — on success the sheet's own body is replaced by the result, never a
-// separate screen. Expiry is computed once at render, never ticking.
+// The enrolment form (record 056 Q5): a detached sheet, not an inline card.
+// On success the sheet hands the code to the dialog and closes.
 export function GenerateCodeSheet({
   stores,
   onClose,
+  onGenerated,
   onAnnounce,
 }: {
   stores: { id: string; name: string }[];
   onClose: () => void;
+  onGenerated: (result: EnrolmentCode) => void;
   onAnnounce: (message: string) => void;
 }) {
   const generateCode = useGenerateCodeMutation();
-  const [result, setResult] = useState<GeneratedResult | null>(null);
 
   const form = useForm({
     defaultValues: { storeId: stores[0]?.id ?? "", name: "", code: "" },
@@ -38,7 +30,7 @@ export function GenerateCodeSheet({
         code: value.code.trim().toUpperCase(),
       });
       if (!generated.ok) return;
-      setResult({
+      onGenerated({
         secret: generated.secret,
         name: generated.name,
         code: generated.code,
@@ -48,36 +40,6 @@ export function GenerateCodeSheet({
       onAnnounce("Code generated");
     },
   });
-
-  if (result) {
-    const storeName = stores.find((store) => store.id === result.storeId)?.name ?? "";
-    const grouped = `${result.secret.slice(0, 4)} — ${result.secret.slice(4)}`;
-    return (
-      <SheetForm
-        title="Enrolment code"
-        onSubmit={() => {}}
-        footer={
-          <Button type="button" onClick={onClose} className="ml-auto">
-            <CheckIcon />
-            Done
-          </Button>
-        }
-      >
-        <p className="text-2xl font-semibold tracking-widest">{grouped}</p>
-        <p className="text-foreground">
-          {result.name} · {storeName}
-        </p>
-        <p className="text-muted-foreground">Single-use. Enter it on the terminal.</p>
-        <p className="text-muted-foreground">
-          Expires in 10 minutes, at{" "}
-          <time dateTime={result.expiresAt.toISOString()}>
-            {result.expiresAt.toLocaleTimeString()}
-          </time>
-          .
-        </p>
-      </SheetForm>
-    );
-  }
 
   const saving = generateCode.isPending;
   const failed = generateCode.isError || (generateCode.data && !generateCode.data.ok);

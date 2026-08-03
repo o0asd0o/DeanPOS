@@ -23,9 +23,19 @@ function isRefusal(data: unknown): boolean {
   );
 }
 
+// Route guards `fetchQuery(auth.me)` before rendering, and at the library
+// default every query is stale on arrival — so each navigation blocked on a
+// fresh round trip. Mutations invalidate what they change, so this window
+// only ever delays a change made in another tab.
+const DEFAULT_STALE_TIME_MS = 30_000;
+
 export function createQueryClient(config?: QueryClientConfig): QueryClient {
   return new QueryClient({
     ...config,
+    defaultOptions: {
+      ...config?.defaultOptions,
+      queries: { staleTime: DEFAULT_STALE_TIME_MS, ...config?.defaultOptions?.queries },
+    },
     mutationCache: new MutationCache({
       onSuccess: (data, _variables, _context, mutation) => {
         if (isRefusal(data)) toast.error(mutation.meta?.error ?? DEFAULT_ERROR);

@@ -11,6 +11,9 @@ export const queryClient = createQueryClient();
 
 export const router = createRouter({
   routeTree,
+  // Hovering a nav link runs that route's guard early, so the `auth.me` fetch
+  // it blocks on is already in cache by the time the click lands.
+  defaultPreload: "intent",
   context: { queryClient, orpc },
   defaultErrorComponent: ({ reset }) => <ErrorState onRetry={reset} />,
   defaultNotFoundComponent: NotFoundState,

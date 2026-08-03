@@ -172,6 +172,54 @@ describe("device.generateCode", () => {
   });
 });
 
+describe("device.pendingCodes and device.cancelCode", () => {
+  it("lists a code awaiting its terminal, and cancelling it voids the code and frees its short code", async () => {
+    const generated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Counter 7", code: "P7" });
+    if (!generated.ok) throw new Error("setup: generateCode failed");
+
+    const pending = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.pendingCodes();
+    const mine = pending.find((code) => code.code === "P7");
+    expect(mine?.secret).toBe(generated.secret);
+
+    // Never the other Tenant's, and never a non-admin's.
+    const asOtherTenant = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.pendingCodes();
+    expect(asOtherTenant.some((code) => code.code === "P7")).toBe(false);
+    const asManager = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.pendingCodes();
+    expect(asManager).toEqual([]);
+
+    const refusedCancel = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.cancelCode({ id: mine!.id });
+    expect(refusedCancel.ok).toBe(false);
+
+    const cancelled = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.cancelCode({ id: mine!.id });
+    expect(cancelled.ok).toBe(true);
+
+    const afterCancel = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.pendingCodes();
+    expect(afterCancel.some((code) => code.code === "P7")).toBe(false);
+
+    const exchanged = await seam.client.terminal.enrol({ secret: generated.secret });
+    expect(exchanged.ok).toBe(false);
+
+    const reissued = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeA1, name: "Counter 7 again", code: "P7" });
+    expect(reissued.ok).toBe(true);
+  });
+});
+
 describe("terminal.enrol", () => {
   it("exchanges a valid code for a high-entropy token, stored hashed", async () => {
     const { exchanged } = await generateAndExchange(storeA1, "E1");
