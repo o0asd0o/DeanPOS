@@ -50,6 +50,14 @@ browser**, and the `happy-dom` cookie blind spot has already hidden exactly that
   `< /dev/null`. A run that hangs this way produces a large `trace.log` and no findings file, which
   reads exactly like a model failure and is not one.
 
+- **An implementer wrote into the main checkout, not only its worktree** (issue 05, 2026-08-03). It
+  left `packages/backend/src/db/prisma/schema.prisma` modified on `main` with the lane's own change.
+  Caught by the human, verified byte-identical to the lane commit, and discarded — nothing was lost.
+  The agent had itself reported that "`Bash` and the `Edit`/`Read`/`Write` tools intermittently read
+  from different filesystem views" in that worktree, which is the likely cause.
+  **Check `git status` on `main` after every agent returns.** A stray file there is one `git commit -a`
+  away from putting unreviewed lane work on the integration branch.
+
 ### Open for the human
 
 - **`DeanPOS_dev` holds 2 `User` rows with no `UserRole` row.** They are stale test residue and they
