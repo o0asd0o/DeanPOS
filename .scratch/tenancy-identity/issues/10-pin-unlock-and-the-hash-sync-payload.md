@@ -1,6 +1,6 @@
 # 10 — PIN unlock and the hash-sync payload
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -98,3 +98,67 @@ _**Deliberately not tested here:** offline PIN unlock in a real browser. The has
 verification logic is tested at the seam; exercising it with a real service worker and
 IndexedDB needs the browser seam, which is `offline-sync`'s. That area must cover it — the
 PRD names it so it is not lost. Throttling and lockout are issue 11._
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **538** tests, migration proven from an empty
+database and applied to `DeanPOS_dev`. **2 fix rounds — the cap** — plus one comment trim the
+orchestrator applied directly. Reviewed by a second model all three rounds.
+
+**Two records, both `Stakes: high`, and both changed what this issue is:**
+[057](../../decisions/057-pin-unlock-verifies-locally-with-pbkdf2.md) ·
+[058](../../decisions/058-pin-management-is-a-back-office-action.md).
+
+**The issue as written could not be built.** Criterion 2 required `node:crypto` scrypt; criterion 4
+required unlock to work with no network against locally synced hashes. **`node:crypto` does not
+exist in a browser and WebCrypto has no scrypt** — only PBKDF2. Record 057 ruled criterion 4 wins
+and criterion 2 gives, and both were amended. Record 028 is **not** overturned; its own final no-go
+reserved this exception in terms.
+
+**The security arithmetic, stated rather than assumed.** A 4–6 digit PIN is **1,110,000
+candidates** — one RTX 4090 exhausts them in ~75 s at PBKDF2-600k, ~156 s at tablet-viable scrypt,
+~21 min at OWASP scrypt, which needs 128 MiB per derivation and is unreachable in a browser anyway.
+**No KDF makes the roster safe.** What protects a PIN is the Device-token requirement and
+revocation. A WASM scrypt dependency buys roughly 2× and was refused on that basis.
+
+**Record 058 resolved the review's first blocking finding by deleting the thing rather than guarding
+it.** The governing rule binds PIN *authentication*, not PIN *management*: a back-office session is
+password-authenticated and strictly stronger than the PIN it writes, so demanding a Device token to
+change your own PIN protects nothing while making a forgotten PIN recoverable only at the terminal
+the cashier is locked out of — the support call this issue's first paragraph refuses. `currentPin`
+is gone entirely, so **no server procedure compares a PIN against a hash**, enforced by one grep
+assertion: nothing outside tests may import `verifyPin`.
+
+What the review caught, across three rounds:
+
+- **The RFC-vector test reimplemented PBKDF2 instead of calling production code**, so switching
+  `pin.ts` to SHA-512 would have left both the vectors and the hash/verify round-trip green. The
+  test proved the test.
+- **`verifyPin` accepted attacker-chosen salt and key lengths, derived to `expected.length`, and
+  early-returned on a length mismatch.** A one-byte stored key would admit a wrong PIN with
+  probability **1/256**. Separately, `i=4294967296` threw a `TypeError` rather than returning
+  `false`, so one malformed cached entry bricked unlock instead of rejecting one PIN.
+- **Every `pinSync` refusal fell back to the cached roster**, so a Device whose token was revoked
+  could still unlock. And no roster — fresh or cached — was checked against the enrolled Device's
+  identity, so a re-enrolment from Store A to Store B with an interrupted sync exposed Store A's
+  users on Store B's terminal.
+- **The `verifyPin` guard matched named imports only**, so `import * as pin` then `pin.verifyPin(…)`
+  walked through the one structural enforcement of record 058's rule.
+- **Criterion 1 had no production caller at all** — a user told to set a PIN had no way to, and an
+  admin had no reset action. Both surfaces were built in round 1.
+- **Three more `selectAll()` on `User`** beyond the one record 057 predicted, in sign-in and update
+  paths needing neither hash. Record 057's warning about `list-users.query.ts` was correct and the
+  implementer fixed it in the migration's own commit.
+- **The wrong-tenant probes were hollow for the ninth consecutive issue** — seeded through the owner
+  database, asserting only absence, so they would have passed against an empty table.
+
+**A test-suite fix rode along, out of scope but blocking.** Once this issue's tests pushed the suite
+past a threshold, the back-office screen tests failed on **every** full run while passing in
+isolation. The cause was not this diff: every workspace shares one PostgreSQL database and one CPU,
+`scryptSync` blocks for ~260 ms per sign-in, and testing-library's **1-second** default timeout
+expired while requests were still in flight. `vitest.setup.ts` now sets `asyncUtilTimeout: 15_000`.
+Two false starts getting there — a plain import broke every non-DOM package, and wrapping it in
+`try/catch` did not help because Vite resolves the specifier at transform time, before the `catch`
+can run. The specifier now lives in a variable behind `/* @vite-ignore */`.
+
+**Carried forward:** record 058 wrote four binding lines into issue 11 — throttling is on-device
+only, persisted across reload, **not a security boundary**, and a server-side attempt counter needs
+a superseding record.
