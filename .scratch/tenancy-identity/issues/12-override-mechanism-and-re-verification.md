@@ -7,8 +7,15 @@
 A manager standing at the counter enters their PIN on the cashier's terminal and authorises an
 action the cashier may not perform alone. The approval is recorded against that action, with a
 name and a reason, and it authorises **exactly one** action — an approval cannot be reused for
-a second void. It works offline, because a manager standing at the counter during an outage is
-exactly when Overrides are needed.
+a second void.
+
+**The PIN check works offline** — it runs against the locally synced hash with no network at
+all, because a manager standing at the counter during an outage is exactly when Overrides are
+needed. **Carrying that approval through the outage is `offline-sync`'s**
+([record 061](../../decisions/061-the-offline-override-is-carried-by-offline-sync-not-staged-here.md)):
+the approval rides inside the Outbox payload of the action it authorised and is inserted at
+replay. This issue builds no local staging — until `checkout` and `drawer-sessions` land there
+is no offline action to stage one against.
 
 The set of actions requiring an Override is fixed by ADR-0005: void a paid Order, refund
 (whole or line), manual line price override, and closing a DrawerSession with a Variance
@@ -61,7 +68,14 @@ can be spotted.
       are offered, and the server independently refuses to record an Override whose named
       approver was not `manager`-or-above **and** a member of that Store **at the stated time**.
       A `cashier` therefore cannot authorise, whether or not their PIN is correct.
-- [ ] Offline, the terminal verifies against the locally synced hash and records the Override.
+- [ ] Offline, the terminal verifies against the locally synced hash — the same code path as
+      online (criterion 4), so no path is offline-only. **Durably carrying the approval through
+      an outage is `offline-sync`'s**
+      ([record 061](../../decisions/061-the-offline-override-is-carried-by-offline-sync-not-staged-here.md)):
+      per that area's PRD an Override is not an Outbox entry kind, it travels inside the payload
+      of the action it authorised, and the server inserts the `Override` row at replay after
+      `verifyOverrideAsOf` passes. This issue ships no local staging and no second queue. With no
+      network, `Approve` fails visibly and records nothing — it never reports success.
 - [ ] The cashier sees a clear prompt when an action needs a manager — they know to call one
       rather than guess.
 - [ ] The re-verification procedure answers correctly against the effective-dated history:
@@ -113,3 +127,14 @@ _`checkout` and `drawer-sessions` each call `consumeOverride(trx, …)` **inside
 that performs the action** — never as a separate request — and each adds its own composite
 `(tenant_id, order_id)` / `(tenant_id, drawer_session_id)` foreign key to `OverrideConsumption`
 in the migration that creates its own table, which must therefore carry `@@unique([tenantId, id])`._
+
+_**Obligation carried forward to `offline-sync` (record 061):** the offline path for an Override
+is that area's, whole. The approval rides inside the Outbox payload of the action it authorised —
+it is not an entry kind and gets no queue of its own. **The terminal mints no `Override` id**; the
+server assigns it at replay insert, after `verifyOverrideAsOf`. `terminal.recordOverride` is the
+online-only path this issue ships, and reconciling it with that area's "the Outbox is the only
+write path" rule is `offline-sync`'s to decide and record._
+
+_**Obligation carried forward to `checkout` and `drawer-sessions` (record 061):** mounting
+`OverridePrompt` makes its online-only limitation reachable by a cashier. Either mount it after
+`offline-sync` ships, or state in your own issue that Overrides are online-only until then._
