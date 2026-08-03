@@ -1,18 +1,9 @@
-import { Hint } from "@/components/Hint.tsx";
 import { SheetForm } from "@/components/SheetForm.tsx";
+import { TemporaryPasswordField } from "./TemporaryPasswordField.tsx";
 import { useState } from "react";
 import { CheckIcon, KeyRoundIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import {
-  Button,
-  Input,
-  PasswordInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "ui";
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
 
 import {
   useCreateUserMutation,
@@ -156,26 +147,15 @@ export function UserEditor({
       {!user && (
         <form.Field name="password">
           {(field) => (
-            <div className="flex flex-col gap-2">
-              <label htmlFor="temporary-password">Temporary password</label>
-              <Hint
-                id="temporary-password-hint-1"
-                detail="Tell this person their password yourself. It is not shown again after you save, and they choose their own the first time they sign in."
-              >
-                At least 8 characters. Any characters, including spaces — there are no other rules.
-              </Hint>
-              <PasswordInput
-                id="temporary-password"
-                name={field.name}
-                autoComplete="new-password"
-                required
-                minLength={8}
-                aria-describedby="temporary-password-hint-1"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            </div>
+            <TemporaryPasswordField
+              id="temporary-password"
+              name={field.name}
+              label="Temporary password"
+              detail="Tell this person their password yourself. It is not shown again after you save, and they choose their own the first time they sign in."
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(next) => field.handleChange(next)}
+            />
           )}
         </form.Field>
       )}

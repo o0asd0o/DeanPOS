@@ -12,7 +12,7 @@ export function SheetForm({
   footer,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   onSubmit: () => void;
   busy?: boolean;
   footer: ReactNode;
@@ -36,7 +36,7 @@ export function SheetForm({
     >
       <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
         <SheetTitle asChild>
-          <h2 className="font-semibold">{title}</h2>
+          <h2 className="text-lg font-semibold">{title}</h2>
         </SheetTitle>
         <SheetClose asChild>
           <Button type="button" variant="ghost" size="icon-sm" aria-label="Close">

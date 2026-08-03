@@ -1,4 +1,6 @@
 import { useForm } from "@tanstack/react-form";
+
+import { TemporaryPasswordField } from "./TemporaryPasswordField.tsx";
 import {
   Button,
   Dialog,
@@ -8,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  PasswordInput,
 } from "ui";
 
 import { useResetUserPasswordMutation } from "./__common/queries.ts";
@@ -51,6 +52,7 @@ export function ResetPasswordDialog({
             if (resetPassword.isPending) return;
             void form.handleSubmit();
           }}
+          className="flex flex-col gap-6"
         >
           <DialogHeader>
             <DialogTitle>Reset password for {user.email}?</DialogTitle>
@@ -60,24 +62,14 @@ export function ResetPasswordDialog({
           </DialogHeader>
           <form.Field name="password">
             {(field) => (
-              <div className="flex flex-col gap-2">
-                <label htmlFor="new-temporary-password">New temporary password</label>
-                <p id="new-temporary-password-hint" className="text-foreground">
-                  At least 8 characters. Any characters, including spaces — there are no other
-                  rules.
-                </p>
-                <PasswordInput
-                  id="new-temporary-password"
-                  name={field.name}
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  aria-describedby="new-temporary-password-hint"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              </div>
+              <TemporaryPasswordField
+                id="new-temporary-password"
+                name={field.name}
+                label="New temporary password"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(next) => field.handleChange(next)}
+              />
             )}
           </form.Field>
           {resetPassword.isError && (
@@ -88,7 +80,7 @@ export function ResetPasswordDialog({
               Couldn&rsquo;t reset the password
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="mt-2 border-t pt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel
