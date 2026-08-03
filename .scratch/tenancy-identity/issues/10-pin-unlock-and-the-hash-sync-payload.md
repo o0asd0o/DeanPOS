@@ -15,13 +15,16 @@ store*; the PIN proves *which person*. **A PIN is a second factor to Device poss
 a credential on its own.** Any server path that accepts a PIN without a valid, unrevoked
 Device token is a defect.
 
-PIN hashing uses **`node:crypto` scrypt** with **its own parameters**, chosen knowing the hash
-sits on a tablet — configured separately from the password parameters issue 02 set.
+PIN hashing uses **PBKDF2-HMAC-SHA-256 via WebCrypto**, with **its own parameters in its own
+file** — see [record 057](../../decisions/057-pin-unlock-verifies-locally-with-pbkdf2.md). It is
+deliberately not the scrypt record 028 chose for passwords: scrypt cannot run in a browser, and
+criterion 4 requires the terminal to verify a PIN with no network at all.
 
-_Amended 2026-08-03: this paragraph named `Bun.password` argon2id, which
-[record 028](../../decisions/028-password-hashing-runs-on-both-runtimes.md) removed from the backend
-entirely — the tests run on Node, where `Bun` does not exist, and a grep test now keeps it out.
-Criterion 2 already read correctly; only this prose was stale._
+_Amended 2026-08-03, twice. This paragraph first named `Bun.password` argon2id, which
+[record 028](../../decisions/028-password-hashing-runs-on-both-runtimes.md) had already removed from
+the backend — the tests run on Node, where `Bun` does not exist. Correcting it to scrypt then
+surfaced the real problem: `node:crypto` does not exist in a browser either, and WebCrypto has no
+scrypt, so criteria 2 and 4 could not both hold. Record 057 resolved it._
 
 **The sync payload is this area's worst exposure and it is asserted on the payload itself**,
 not on the device's behaviour. ADR-0007 calls the PIN hashes at rest on a Device a deliberate,
@@ -40,12 +43,14 @@ or unlock is refused; an `admin` is exempt and may unlock any Device in their Te
 
 - [ ] A User sets their own PIN on first use, changes it later, and an `admin` resets it. The
       PIN is 4–6 digits.
-- [ ] PIN hashing uses the same primitive as passwords (`node:crypto` scrypt,
-      record 028) with **its own parameters in its own file**, chosen knowing
-      the hash sits on a tablet; the hash/verify round-trip is tested
-      **directly, not through the seam**. The password policy of record 032
-      does not apply to PINs — a PIN is a second factor to Device possession
-      and its guess budget is issue 11's, not its length.
+- [ ] PIN hashing uses **PBKDF2-HMAC-SHA-256 via WebCrypto** (record 057) with **its own
+      parameters in its own file**, chosen knowing the hash sits on a tablet and must be
+      verified by a browser with no network; the hash/verify round-trip **and RFC 7914 §11's
+      published vectors** are tested **directly, not through the seam**. It deliberately does
+      **not** share the password primitive of record 028 — `node:crypto` does not exist in a
+      browser and WebCrypto has no scrypt, so criterion 4 could not otherwise hold. The
+      password policy of record 032 does not apply to PINs — a PIN is a second factor to
+      Device possession and its guess budget is issue 11's, not its length.
 - [ ] Unlock succeeds with the right PIN and fails with the wrong one, and **fails outright
       without a valid, unrevoked Device token** — asserted as its own case.
 - [ ] Unlock works with no network, against the locally synced hashes.
