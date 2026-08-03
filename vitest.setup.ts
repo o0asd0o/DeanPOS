@@ -22,3 +22,17 @@ try {
 } catch {
   // No workspace-root .env (e.g. real environment variables already set).
 }
+
+// Every workspace shares one PostgreSQL database and one CPU, and a sign-in
+// blocks it for ~260ms in scrypt, so a screen test's request can outlast
+// testing-library's 1s default while nothing is actually wrong.
+// The specifier is held in a variable so Vite cannot resolve it at transform
+// time: packages with no DOM tests do not depend on it, and a static import
+// fails their whole suite before the catch can run.
+const domTestingLibrary = "@testing-library/dom";
+try {
+  const { configure } = await import(/* @vite-ignore */ domTestingLibrary);
+  configure({ asyncUtilTimeout: 15_000 });
+} catch {
+  // No DOM tests in this package.
+}
