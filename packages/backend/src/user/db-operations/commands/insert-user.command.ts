@@ -1,6 +1,9 @@
 import type { Role } from "../../../db/prisma/generated/types.ts";
 import type { DatabaseInstance } from "../../../db/client.ts";
 
+// The opening row of a User. Every caller (provisionTenant, user.create) also
+// writes the matching opening UserRole row in the same transaction — a User
+// must never exist without one (issue 04, round 1 finding 1).
 export const insertUser = (
   db: DatabaseInstance,
   values: { id: string; tenantId: string; email: string; passwordHash: string; role: Role },
@@ -15,4 +18,5 @@ export const insertUser = (
       role: values.role,
       must_change_password: true,
     })
-    .execute();
+    .returningAll()
+    .executeTakeFirstOrThrow();

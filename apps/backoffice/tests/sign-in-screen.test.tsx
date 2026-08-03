@@ -117,6 +117,7 @@ describe("the sign-in screen", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: password } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Signing in…" })).toBeTruthy());
     await waitFor(() => expect(screen.queryByRole("button", { name: "Signing in…" })).toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
 

@@ -7,18 +7,21 @@ export const inputSchema = z.void();
 
 type MeOutput =
   | { authenticated: false }
-  | { authenticated: true; mustChangePassword: boolean; role: Role };
+  | { authenticated: true; mustChangePassword: boolean; role: Role; userId?: string };
 
 // What the client asks instead of reading the (httpOnly, unreadable) cookie
 // itself — the `_shell` route's `beforeLoad` guard is built on this. `role`
 // is carried from issue 05 on: the Stores screen needs it to know whether
-// the caller is an `admin` (record 038 §6). A tenant session that somehow
-// carries no role reads as unauthenticated, the same as no session at all.
+// the caller is an `admin` (record 038 §6). `userId` is carried from issue
+// 06 on: the Users screen needs it to hide the caller's own Deactivate
+// action (record 044 §4 clause 2). A tenant session that somehow carries no
+// role reads as unauthenticated, the same as no session at all.
 export const handler: Handler<void, MeOutput> = async ({ ctx }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return { authenticated: false };
   return {
     authenticated: true,
     mustChangePassword: ctx.principal.mustChangePassword ?? false,
     role: ctx.principal.role,
+    userId: ctx.principal.userId,
   };
 };

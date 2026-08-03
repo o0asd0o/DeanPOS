@@ -24,6 +24,14 @@ import {
   storeReactivateRoute,
   storeUpdateRoute,
 } from "./routes/store.ts";
+import {
+  userCreateRoute,
+  userDeactivateRoute,
+  userListRoute,
+  userReactivateRoute,
+  userResetPasswordRoute,
+  userUpdateRoute,
+} from "./routes/user.ts";
 
 export type CreateAppOptions = {
   db: DatabaseInstance;
@@ -80,6 +88,14 @@ export const createApp = ({
         update: storeUpdateRoute,
         deactivate: storeDeactivateRoute,
         reactivate: storeReactivateRoute,
+      },
+      user: {
+        list: userListRoute,
+        create: userCreateRoute,
+        update: userUpdateRoute,
+        deactivate: userDeactivateRoute,
+        reactivate: userReactivateRoute,
+        resetPassword: userResetPasswordRoute,
       },
       platformAdmin: { provisionTenant: provisionTenantRoute },
       auth: authRoutes,

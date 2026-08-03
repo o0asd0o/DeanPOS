@@ -4,9 +4,7 @@ import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { cn } from "../lib/utils.ts";
 import { Input } from "./input.tsx";
 
-// The reveal button is `tabIndex={-1}`: tabbing out of a password field goes
-// to the submit button, and a keyboard user has no need to land on a control
-// whose whole purpose is to look at what they just typed.
+// The reveal button is keyboard-operable (SC 2.1.1, Level A) — record 043.
 function PasswordInput({
   className,
   ...props
@@ -19,7 +17,6 @@ function PasswordInput({
       <Input {...props} type={revealed ? "text" : "password"} className={cn("pr-10", className)} />
       <button
         type="button"
-        tabIndex={-1}
         aria-label={revealed ? "Hide password" : "Show password"}
         aria-pressed={revealed}
         onClick={() => setRevealed((current) => !current)}

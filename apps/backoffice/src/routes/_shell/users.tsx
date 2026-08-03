@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Placeholder } from "@/features/placeholder/Placeholder.tsx";
+import { Users } from "@/features/users/Users.tsx";
 
-// Thin: wires the route to the feature and nothing else (ADR-0009).
+// Thin: wires the route to the feature and nothing else (ADR-0009, record 044 §1).
 export const Route = createFileRoute("/_shell/users")({
-  component: () => <Placeholder title="Users" />,
+  component: Users,
 });

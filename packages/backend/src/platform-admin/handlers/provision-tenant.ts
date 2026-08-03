@@ -9,7 +9,7 @@ import { passwordSchema } from "../../auth/password-policy.ts";
 import { insertUserRole } from "../../access/db-operations/commands/insert-user-role.command.ts";
 import { insertPlatformAuditLog } from "../db-operations/commands/insert-platform-audit-log.command.ts";
 import { insertTenant } from "../db-operations/commands/insert-tenant.command.ts";
-import { insertUser } from "../db-operations/commands/insert-user.command.ts";
+import { insertUser } from "../../user/db-operations/commands/insert-user.command.ts";
 
 export const inputSchema = z.object({
   tenantName: z.string().min(1),

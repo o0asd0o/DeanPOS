@@ -1,0 +1,124 @@
+import { useRef, useState } from "react";
+
+import { DeactivateDialog } from "./DeactivateDialog.tsx";
+import {
+  useMeQuery,
+  useReactivateUserMutation,
+  useStoresQuery,
+  useUsersQuery,
+} from "./__common/queries.ts";
+import type { UserOutput } from "./helpers.ts";
+import { UserEditor } from "./UserEditor.tsx";
+import { UserListCard } from "./UserListCard.tsx";
+
+type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; user: UserOutput };
+
+// The User management screen (record 044 §1): one always-present live
+// region, the list `Card`, then the editor `Card` when open — the same
+// shape record 038 settled for Stores.
+export function Users() {
+  const usersQuery = useUsersQuery();
+  const storesQuery = useStoresQuery();
+  const meQuery = useMeQuery();
+  const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
+  const callerId = meQuery.data?.authenticated === true ? meQuery.data.userId : undefined;
+
+  // Two alternating regions, not one string (record 039 finding 4):
+  // identical consecutive messages would otherwise produce no DOM mutation
+  // on a single node and go unannounced.
+  const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
+    text: "",
+    slot: 0,
+  });
+  const announce = (text: string) =>
+    setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
+
+  const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
+  const [deactivateTarget, setDeactivateTarget] = useState<UserOutput | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+
+  const reactivateUser = useReactivateUserMutation();
+  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+  const [reactivateFailed, setReactivateFailed] = useState(false);
+
+  const openCreate = () => {
+    opener.current = document.activeElement as HTMLElement;
+    setEditor({ mode: "create" });
+  };
+  const openEdit = (user: UserOutput) => {
+    opener.current = document.activeElement as HTMLElement;
+    setEditor({ mode: "edit", user });
+  };
+  const closeEditor = () => {
+    setEditor({ mode: "closed" });
+    opener.current?.focus();
+  };
+  const handleSaved = () => {
+    announce(editor.mode === "edit" ? "Saved" : "User created");
+    closeEditor();
+  };
+
+  const handleReactivate = async (user: UserOutput) => {
+    if (reactivateUser.isPending) return;
+    setReactivateFailed(false);
+    setReactivatingId(user.id);
+    try {
+      const result = await reactivateUser.mutateAsync({ id: user.id });
+      if (!result) return;
+      announce(`${user.email} reactivated`);
+    } catch {
+      setReactivateFailed(true);
+    } finally {
+      setReactivatingId(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <p role="status" className="sr-only">
+        {announcement.slot === 0 ? announcement.text : ""}
+      </p>
+      <p role="status" className="sr-only">
+        {announcement.slot === 1 ? announcement.text : ""}
+      </p>
+      <UserListCard
+        users={usersQuery.data}
+        stores={storesQuery.data ?? []}
+        isPending={usersQuery.isPending}
+        isError={usersQuery.isError}
+        isFetching={usersQuery.isFetching}
+        refetch={() => usersQuery.refetch()}
+        isAdmin={isAdmin}
+        callerId={callerId}
+        editingId={editor.mode === "edit" ? editor.user.id : null}
+        reactivatingId={reactivatingId}
+        reactivateFailed={reactivateFailed}
+        onAdd={openCreate}
+        onEdit={openEdit}
+        onDeactivate={setDeactivateTarget}
+        onReactivate={handleReactivate}
+      />
+      {editor.mode !== "closed" && (
+        <UserEditor
+          key={editor.mode === "edit" ? `edit-${editor.user.id}` : "create"}
+          user={editor.mode === "edit" ? editor.user : null}
+          onSaved={handleSaved}
+          onCancel={closeEditor}
+          onAnnounce={announce}
+        />
+      )}
+      {deactivateTarget && (
+        <DeactivateDialog
+          user={deactivateTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeactivateTarget(null);
+          }}
+          onDeactivated={(email) => {
+            setDeactivateTarget(null);
+            announce(`${email} deactivated`);
+          }}
+        />
+      )}
+    </div>
+  );
+}

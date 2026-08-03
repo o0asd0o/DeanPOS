@@ -42,6 +42,43 @@ export const storeCreateInputSchema = storeFieldsInputSchema;
 export const storeUpdateInputSchema = storeFieldsInputSchema.extend({ id: z.string() });
 export const storeIdInputSchema = z.object({ id: z.string() });
 
+export const userOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  email: z.string(),
+  role: roleSchema,
+  active: z.boolean(),
+  createdAt: z.date(),
+  // Projected through the caller's own Store visibility, server-side
+  // (record 044 §2 clause 3) — never the User's whole assignment set.
+  storeIds: z.array(z.string()),
+});
+
+// Email is create-only and never editable (record 045 §1 clause 1; record
+// 031's global-uniqueness precondition on `user_login_lookup`).
+export const userCreateInputSchema = z.object({
+  email: z.string().email(),
+  role: roleSchema,
+  password: passwordSchema,
+  storeIds: z.array(z.string()),
+});
+
+// Role and the whole Store-assignment set move together — the only shape in
+// which "what changed" is unambiguous (record 045 §4). Never `active` or the
+// password — those are their own procedures.
+export const userUpdateInputSchema = z.object({
+  id: z.string(),
+  role: roleSchema,
+  storeIds: z.array(z.string()),
+});
+
+export const userIdInputSchema = z.object({ id: z.string() });
+
+export const userResetPasswordInputSchema = z.object({
+  id: z.string(),
+  password: passwordSchema,
+});
+
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
@@ -74,9 +111,19 @@ export const signOutOutputSchema = z.object({ ok: z.literal(true) });
 
 // What `_shell`'s `beforeLoad` guard reads (record 030). `role` is carried
 // from issue 05 on, for the Stores screen's admin check (record 038 §6).
+// `userId` is carried from issue 06 on, so the Users screen can tell its own
+// caller's row apart from every other User's (record 044 §4 clause 2) —
+// optional, since only a real session (never the test seam's bare-principal
+// shortcut) is guaranteed to carry one, and the shell's own guard depends on
+// `role` alone and must not start refusing a session that has no `userId`.
 export const meOutputSchema = z.discriminatedUnion("authenticated", [
   z.object({ authenticated: z.literal(false) }),
-  z.object({ authenticated: z.literal(true), mustChangePassword: z.boolean(), role: roleSchema }),
+  z.object({
+    authenticated: z.literal(true),
+    mustChangePassword: z.boolean(),
+    role: roleSchema,
+    userId: z.string().optional(),
+  }),
 ]);
 
 // The only place a procedure's shape is declared. PRD "Contract".
@@ -97,6 +144,19 @@ export const contract = {
     // accidentally flip active state (record 038 §4, record 040 §3).
     deactivate: oc.input(storeIdInputSchema).output(storeOutputSchema.nullable()),
     reactivate: oc.input(storeIdInputSchema).output(storeOutputSchema.nullable()),
+  },
+  // Back-office User management (issue 06). Never discloses a User the
+  // caller may not see — no count, no total (record 044 §2). Refused
+  // entirely for `cashier`. `deactivate`/`reactivate`/`resetPassword` are
+  // deliberately not part of `update` — a save can never flip active state
+  // or a credential (records 040 §3, 043).
+  user: {
+    list: oc.input(z.void()).output(z.array(userOutputSchema)),
+    create: oc.input(userCreateInputSchema).output(userOutputSchema.nullable()),
+    update: oc.input(userUpdateInputSchema).output(userOutputSchema.nullable()),
+    deactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
+    reactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
+    resetPassword: oc.input(userResetPasswordInputSchema).output(userOutputSchema.nullable()),
   },
   // Platform-admin only (issue 02) — `null` for any tenant-scoped or
   // unauthenticated caller, the same not-found shape store.get uses.
