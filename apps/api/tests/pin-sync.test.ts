@@ -209,7 +209,9 @@ describe("terminal.pinSync", () => {
       expect(user).not.toHaveProperty("email");
       expect(user).not.toHaveProperty("role");
       expect(user).not.toHaveProperty("passwordHash");
-      expect(Object.keys(user).sort()).toStrictEqual(["displayName", "pinHash", "userId"].sort());
+      expect(Object.keys(user).sort()).toStrictEqual(
+        ["displayName", "pinHash", "userId", "canApproveOverride"].sort(),
+      );
     }
   });
 

@@ -36,7 +36,11 @@ export const verifyOverrideAsOf = async (
     return { ok: false, reason: "time-out-of-bounds" };
   }
 
-  const user = await db.selectFrom("User").select(["id"]).where("id", "=", userId).executeTakeFirst();
+  const user = await db
+    .selectFrom("User")
+    .select(["id"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
   if (!user) return { ok: false, reason: "unknown-user" };
 
   // History read at min(asOf, now) — a future-stamped claim buys nothing,

@@ -133,7 +133,7 @@ export function OverridePrompt({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(next) : close())}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manager approval required</DialogTitle>
         </DialogHeader>
