@@ -180,7 +180,7 @@ A short single-line message carries **no terminal full stop**; prose of two or m
 | Empty state                  | `No stores yet` then `A store is one outlet — its own sales, its own devices, and its own table labels. Use Add store above to create the first one.` |
 | Loading                      | `Loading…`                                                                                                                |
 | Confirm dialog title         | `Deactivate {name}?`                                                                                                      |
-| Confirm dialog body          | `Past sales stay attributed to this store and nothing is deleted. It stops being offered for new work, and you can reactivate it later.` |
+| Confirm dialog body          | `This store stops being offered for new work, its past sales stay attributed to it, and Reactivate brings it back` — **amended by [041](041-the-deactivation-dialog-body-copy.md)**; the string first authored here contained "deleted", which tripped this record's own invariant and check below |
 | Confirm dialog buttons       | `Cancel` · `Deactivate`                                                                                                   |
 | Failure copy                 | `Couldn't update the store`                                                                                               |
 | Live region                  | `{name} deactivated` · `{name} reactivated`                                                                               |
