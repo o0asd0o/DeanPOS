@@ -176,7 +176,7 @@ describe("pin-throttle", () => {
     writePinRoster({
       storeId: "throttle-store",
       syncedAt: new Date().toISOString(),
-      users: [{ userId, displayName: "Ana Reyes", pinHash }],
+      users: [{ userId, displayName: "Ana Reyes", pinHash, canApproveOverride: false }],
     });
 
     // terminal.pinSync transport-fails against this database — the screen

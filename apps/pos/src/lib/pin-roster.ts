@@ -3,14 +3,29 @@
 // so deactivating/reactivating a User just works on next sync.
 const ROSTER_KEY = "deanpos.pin.roster";
 
-export type PinRosterUser = { userId: string; displayName: string; pinHash: string | null };
+export type PinRosterUser = {
+  userId: string;
+  displayName: string;
+  pinHash: string | null;
+  canApproveOverride: boolean;
+};
 export type PinRoster = { storeId: string; syncedAt: string; users: PinRosterUser[] };
 
+// A cached roster written before `canApproveOverride` existed reads
+// `undefined` for it — `?? false`, fail closed, so a terminal on a
+// pre-upgrade cache offers nobody until it syncs once (record 060 Q1).
 export const readPinRoster = (): PinRoster | null => {
   const raw = localStorage.getItem(ROSTER_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as PinRoster;
+    const parsed = JSON.parse(raw) as PinRoster;
+    return {
+      ...parsed,
+      users: parsed.users.map((user) => ({
+        ...user,
+        canApproveOverride: user.canApproveOverride ?? false,
+      })),
+    };
   } catch {
     return null;
   }

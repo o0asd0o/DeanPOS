@@ -1,9 +1,10 @@
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
+import { PinPad, usePinLockTick } from "@/components/PinPad.tsx";
 import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
 import {
@@ -14,18 +15,9 @@ import {
 } from "@/lib/pin-throttle.ts";
 import { usePinRoster } from "./__common/queries.ts";
 
-const KEYPAD_DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-
 // No real userId is ever "" — used to read only the Device half of the lock
 // (record 059 Q1's two counters) without a User selected.
 const DEVICE_ONLY_KEY = "";
-
-function formatClock(remainingMs: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
 
 // The unlock screen (issue 10, record 057 Q4). Verified locally against the
 // last synced roster (usePinRoster) — there is no online unlock path.
@@ -40,7 +32,6 @@ export function Unlock() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [srStatus, setSrStatus] = useState("");
-  const [, forceTick] = useState(0);
   const pinInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser = roster?.users.find((user) => user.userId === selectedId) ?? null;
@@ -52,14 +43,7 @@ export function Unlock() {
     : deviceLockedUntil;
   const isDeviceLock = deviceLockedUntil !== null;
   const isLocked = lockedUntil !== null;
-
-  // The whole lift mechanism: one interval, keyed on the lock instant,
-  // running only while locked, cleared on unmount and on lift.
-  useEffect(() => {
-    if (lockedUntil === null) return;
-    const id = setInterval(() => forceTick((tick) => tick + 1), 1000);
-    return () => clearInterval(id);
-  }, [lockedUntil]);
+  usePinLockTick(lockedUntil);
 
   // Announces exactly on engage and on real (time-based) lift — switching to
   // a different, unlocked User clears the strip without a false "lifted".
@@ -83,8 +67,7 @@ export function Unlock() {
   }, [isLocked, isDeviceLock, selectedUser?.displayName, lockedUntil]);
 
   const setPinDigits = (next: string) => {
-    if (isLocked) return;
-    setPin(next.replace(/\D/g, "").slice(0, 6));
+    setPin(next);
     setSrStatus("");
   };
 
@@ -156,21 +139,22 @@ export function Unlock() {
               </div>
 
               <form onSubmit={handleUnlock} className="flex flex-col gap-4">
-                <p role="status" className="sr-only">
-                  {srStatus}
-                </p>
-
-                <Input
-                  ref={pinInputRef}
-                  type="password"
-                  inputMode="none"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="PIN"
-                  readOnly={isLocked}
-                  className="text-center text-2xl tracking-widest"
-                  value={pin}
-                  onChange={(event) => setPinDigits(event.target.value)}
+                <PinPad
+                  inputRef={pinInputRef}
+                  pin={pin}
+                  onPinChange={setPinDigits}
+                  lockedUntil={lockedUntil}
+                  lockMessage={
+                    isDeviceLock
+                      ? "Too many attempts — locked for"
+                      : `Too many attempts — ${selectedUser?.displayName} locked for`
+                  }
+                  srStatus={srStatus}
+                  trailing={
+                    <Button type="submit" aria-disabled={!canUnlock || pending}>
+                      {pending ? "Unlocking…" : "Unlock"}
+                    </Button>
+                  }
                 />
 
                 {selectedUser && selectedUser.pinHash === null && (
@@ -180,51 +164,6 @@ export function Unlock() {
                   </p>
                 )}
                 {error && !isLocked && <p role="alert">{error}</p>}
-
-                <div className="grid grid-cols-3 gap-2">
-                  {KEYPAD_DIGITS.map((digit) => (
-                    <Button
-                      key={digit}
-                      type="button"
-                      variant="outline"
-                      aria-disabled={isLocked}
-                      onClick={() => setPinDigits(pin + digit)}
-                    >
-                      {digit}
-                    </Button>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label="Backspace"
-                    aria-disabled={pin.length === 0 || isLocked}
-                    onClick={() => {
-                      if (pin.length === 0 || isLocked) return;
-                      setPinDigits(pin.slice(0, -1));
-                    }}
-                  >
-                    <span aria-hidden="true">⌫</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-disabled={isLocked}
-                    onClick={() => setPinDigits(pin + "0")}
-                  >
-                    0
-                  </Button>
-                  <Button type="submit" aria-disabled={!canUnlock || pending}>
-                    {pending ? "Unlocking…" : "Unlock"}
-                  </Button>
-                </div>
-
-                {isLocked && lockedUntil !== null && (
-                  <p className="w-full rounded-xl border border-dashed border-destructive/60 px-4 py-3 text-center text-sm text-destructive">
-                    {isDeviceLock
-                      ? `Too many attempts — locked for ${formatClock(lockedUntil - Date.now())}`
-                      : `Too many attempts — ${selectedUser?.displayName} locked for ${formatClock(lockedUntil - Date.now())}`}
-                  </p>
-                )}
               </form>
             </>
           )}
