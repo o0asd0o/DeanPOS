@@ -38,6 +38,9 @@ model Tenant {
   paymentMethods               PaymentMethod[]
   paymentMethodAvailabilities  PaymentMethodAvailability[]
   paymentMethodAudits          PaymentMethodAudit[]
+  devices                      Device[]
+  enrolmentCodes               EnrolmentCode[]
+  deviceAudits                 DeviceAudit[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -58,6 +61,8 @@ model Store {
   userStores        UserStore[]
   paymentMethodAvailabilities PaymentMethodAvailability[]
   paymentMethodAudits         PaymentMethodAudit[]
+  devices                     Device[]
+  enrolmentCodes              EnrolmentCode[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -88,6 +93,7 @@ model User {
   userStores           UserStore[]
   tenantSettingsAudits TenantSettingsAudit[]
   paymentMethodAudits  PaymentMethodAudit[]
+  deviceAudits         DeviceAudit[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -250,6 +256,73 @@ model PaymentMethodAudit {
   actor         User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
   paymentMethod PaymentMethod @relation("PaymentMethodAuditMethod", fields: [tenantId, paymentMethodId], references: [tenantId, id])
   store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@index([tenantId])
+}
+
+// A single-use, Store-bound code an admin types (issue 09, record 056 Q4).
+// `code` is reservation-only here — the hard uniqueness guarantee is
+// `Device`'s own full unique index, which bites at exchange.
+model EnrolmentCode {
+  id          String    @id
+  tenantId    String    @map("tenant_id")
+  storeId     String    @map("store_id")
+  name        String
+  code        String
+  expiresAt   DateTime  @map("expires_at")
+  consumedAt  DateTime? @map("consumed_at")
+  deviceId    String?   @map("device_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  store       Store     @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  device      Device?   @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  deviceAudits DeviceAudit[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+// The Device principal (issue 09, ADR-0007/0008, record 056 Q2/Q4). `code`
+// is never reissued after revocation — no `WHERE` on its unique index.
+// `store_id`/`tenant_id`/`code`/`tokenHash`/`enrolledAt` are immutable after
+// insert by a column-level grant, not by application code (record 056 Q6).
+model Device {
+  id          String    @id
+  tenantId    String    @map("tenant_id")
+  storeId     String    @map("store_id")
+  name        String
+  code        String
+  tokenHash   String    @map("token_hash")
+  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  revokedAt   DateTime? @map("revoked_at")
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  store          Store           @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  enrolmentCodes EnrolmentCode[]
+  deviceAudits   DeviceAudit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, storeId, code])
+  @@index([tenantId])
+}
+
+// Append-only (record 056 Q1, copying 20260803010000_tenant_settings's RLS
+// block verbatim). Exactly one of `deviceId`/`enrolmentCodeId` is set — the
+// enrolment exchange itself writes no row, its actor is a terminal, not a User.
+model DeviceAudit {
+  id              String   @id
+  tenantId        String   @map("tenant_id")
+  actorUserId     String   @map("actor_user_id")
+  deviceId        String?  @map("device_id")
+  enrolmentCodeId String?  @map("enrolment_code_id")
+  field           String
+  oldValue        String?  @map("old_value")
+  newValue        String   @map("new_value")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  actor         User           @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+  device        Device?        @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  enrolmentCode EnrolmentCode? @relation(fields: [tenantId, enrolmentCodeId], references: [tenantId, id])
 
   @@index([tenantId])
 }
