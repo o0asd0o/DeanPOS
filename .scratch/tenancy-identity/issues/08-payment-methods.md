@@ -38,8 +38,10 @@ migration.
       one.
 - [ ] A `recorded` method can be created from a preset or from a typed name, renamed, and
       deactivated; deactivating it leaves any record that referenced it readable.
-- [ ] Per-Store availability is set per method and enforced server-side: a caller at a Store
-      where a method is unavailable cannot name it.
+- [ ] Per-Store availability is set per method by an `admin` and stored as one positive join row
+      per `(method, Store)` pair; `cash` holds no rows and is available everywhere. The write is
+      refused server-side for a non-`admin` and for a `cash` id, and a wrong-tenant probe covers
+      it. **The read-side refusal is `checkout`'s — see `## Comments`.**
 - [ ] No code anywhere branches on a method's name; `kind` is the only branch. Grep proves it.
 - [ ] The configuration screen states plainly that a non-cash method records an amount and
       charges nothing.
@@ -85,3 +87,24 @@ generation, or settlement is a declared non-goal of the product._
 
 _Shares `schema.prisma` and the provisioning handler with issue 02 and shares the settings
 screen with issue 07 — do not run this in parallel with either._
+
+_**Obligation carried forward to `checkout`:** criterion 4's second half — "a caller at a Store
+where a method is unavailable cannot name it" — has no refusal site in this issue. Nothing here
+accepts a payment method against a sale, so the enforcement moves to `checkout`, which owns the
+Payment. Decided by [record 055](../../decisions/055-availability-enforcement-belongs-to-checkout.md)._
+
+_The server truth `checkout` enforces against is the join built here, queried directly.
+**`checkout` must not read `paymentMethod.list`** — it is `admin`-only, tenant-wide, and
+unfiltered by Store. The predicate, and the `cash` disjunct is not optional:_
+
+> _A method `M` may be named on a sale at Store `S` **iff** `M.active` is true **and**
+> (`M.kind = 'cash'` **or** a `PaymentMethodAvailability` row exists with
+> `payment_method_id = M.id` and `store_id = S`), all under the caller's tenant scope._
+
+_`cash` holds no availability rows by design (record 054), so a plain `INNER JOIN` on
+availability refuses cash at every Store and configures a till that cannot sell — the hazard the
+partial unique index exists to prevent, arriving through the back door._
+
+_`paymentMethod.list` being `admin`-only starves no one today (`apps/pos` has no sale flow); it
+becomes a gap the day `checkout` ships, and record 054 §"Smaller calls" 1 pre-prices that
+reversal._
