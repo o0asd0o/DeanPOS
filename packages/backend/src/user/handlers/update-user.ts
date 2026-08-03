@@ -43,7 +43,7 @@ export const handler: Handler<UpdateUserInput, UserOutput | null> = async ({ ctx
     // waits and sees the first's committed role and assignments.
     const existing = await scopedDb
       .selectFrom("User")
-      .selectAll()
+      .select(["id", "first_name", "last_name", "role"])
       .where("id", "=", input.id)
       .forUpdate()
       .executeTakeFirst();
