@@ -91,7 +91,7 @@ export function UserListCard({
           <div
             role="group"
             aria-label="Filter by status"
-            className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1"
+            className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1.5"
           >
             {STATUS_FILTERS.map((filter) => (
               <button
@@ -100,7 +100,7 @@ export function UserListCard({
                 aria-pressed={status === filter.value}
                 onClick={() => setStatus(filter.value)}
                 className={cn(
-                  "tap-target rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                  "tap-target rounded-full px-4 py-2.5 text-sm font-medium transition-colors",
                   status === filter.value
                     ? "bg-card text-foreground shadow-sm"
                     : "text-foreground/60 hover:text-foreground",

@@ -10,12 +10,14 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border bg-card shadow-xs hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // A modifier, not a variant: the same shapes in the destructive palette,
+      // so a negative action keeps its rank (solid confirm, outline row action).
+      danger: { true: "", false: "" },
       size: {
         default: "h-11 px-5 py-2 has-[>svg]:px-3",
         xs: "h-7 gap-1 rounded-full px-3 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
@@ -27,9 +29,28 @@ const buttonVariants = cva(
         "icon-lg": "size-12",
       },
     },
+    compoundVariants: [
+      {
+        variant: "default",
+        danger: true,
+        class: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+      },
+      {
+        variant: "outline",
+        danger: true,
+        class:
+          "border-destructive/25 bg-status-danger-tint text-status-danger-tone hover:bg-destructive/15 hover:text-status-danger-tone",
+      },
+      {
+        variant: "ghost",
+        danger: true,
+        class: "text-status-danger-tone hover:bg-status-danger-tint hover:text-status-danger-tone",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
+      danger: false,
     },
   },
 );
@@ -38,6 +59,7 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  danger = false,
   asChild = false,
   ...props
 }: React.ComponentProps<"button"> &
@@ -51,7 +73,8 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-danger={danger || undefined}
+      className={cn(buttonVariants({ variant, size, danger, className }))}
       {...props}
     />
   );
