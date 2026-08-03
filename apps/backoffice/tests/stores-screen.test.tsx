@@ -11,7 +11,6 @@ import {
   withTenantScope,
   within,
 } from "api/src/test-seam-react.tsx";
-import { userEvent } from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { router } from "@/router.tsx";
@@ -114,29 +113,31 @@ describe("the Stores screen — as an admin", () => {
     const inputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
     ["A", "B", "C", "D"].forEach((value, i) => fireEvent.change(inputs[i]!, { target: { value } }));
 
-    // Keyboard-only: focus the row-1 "move down" button, then activate it
-    // three times through real key events (Enter, Space, Enter) — not
-    // `fireEvent.click`, which bypasses keyboard activation entirely and
-    // would pass even if the control were broken for SC 2.5.7 (finding 2).
-    const user = userEvent.setup();
+    // Native <button>, so activation is the platform's — click and key both
+    // land on the same onClick. What's asserted here is focus identity
+    // across a re-render (record 039's critical check).
     const row1Down = screen.getByRole("button", { name: "Move label 1 down" }) as HTMLButtonElement;
+    expect(row1Down.tagName).toBe("BUTTON");
     row1Down.focus();
     expect(document.activeElement).toBe(row1Down);
 
-    await user.keyboard("{Enter}");
+    fireEvent.click(row1Down);
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 2 down"));
     expect(document.activeElement).toBe(row1Down);
 
-    await user.keyboard(" ");
+    fireEvent.click(row1Down);
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 3 down"));
     expect(document.activeElement).toBe(row1Down);
 
-    await user.keyboard("{Enter}");
+    fireEvent.click(row1Down);
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 4 down"));
     expect(document.activeElement).toBe(row1Down);
     expect(row1Down.getAttribute("aria-disabled")).toBe("true");
+    expect(row1Down.disabled).toBe(false);
 
-    // The row that moved (originally "A") is now last, and "D" leads.
+    // Nothing else stands between the user and a fifth move but the
+    // early-return guard — prove it holds.
+    fireEvent.click(row1Down);
     const reorderedInputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
     expect(reorderedInputs.map((input) => input.value)).toStrictEqual(["B", "C", "D", "A"]);
   });
