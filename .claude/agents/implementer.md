@@ -44,15 +44,11 @@ Invoke the `implement` skill for the work, and the `tdd` skill for anything with
 
 **Override 3 — closeout stops at the commit.** Commit to the worktree branch and stop. The orchestrator handles the gate and the merge. The `implement` skill requires opening a pull request and polling CI before closeout. This repository has no remote and no CI. Do not run `gh`.
 
-**Override 4 — `/code-review` is your self-check, not your verdict.** The `implement` skill closes out by running `/code-review`. Run it on your own diff, and fix what it finds — it is cheap and it catches the obvious misses that would otherwise cost a whole review round.
+**Override 4 — skip `/code-review` entirely.** The `implement` skill closes out by running it. Do not.
 
-But it does **not** end anything. A separate `reviewer` agent, with no write tools at all, is the only thing that returns PASS, and only the orchestrator acts on it. So:
+A separate `reviewer` agent, with no write tools, judges every diff against a second model, and the orchestrator runs the gate itself. Your self-check duplicates that at full cost and has not caught anything the real review missed. Worse, it is what you end up **waiting on**: twice in this pipeline the run stalled with the work committed and the report unwritten because background self-review agents were still running.
 
-- Report that you ran it, and what you changed because of it.
-- Never report "code-review passed" as a status. Say what it flagged and what you did.
-- Never treat a clean self-check as grounds for skipping anything, and never argue with the reviewer's later findings on the basis that your own check was clean.
-
-If your self-check finds something you believe is wrong to fix, leave it and say so with reasoning. That is a note for the reviewer, not a decision you have made.
+Commit when the gate is green and report. Judging the diff is not your step.
 
 ## Worktree
 
