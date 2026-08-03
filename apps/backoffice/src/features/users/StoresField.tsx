@@ -29,15 +29,22 @@ export function StoresField({
         <Hint>Add a store first, then you can assign this person to it</Hint>
       ) : (
         stores.map((store) => (
-          <div key={store.id} className="flex items-center gap-2">
+          // The whole card is the hit area; the input stays real so the label
+          // association, keyboard behaviour and `getByLabelText` all hold.
+          <label
+            key={store.id}
+            htmlFor={`store-${store.id}`}
+            className="flex cursor-pointer items-center gap-3 rounded-xl border bg-card p-3 text-sm transition-colors has-[:checked]:border-ring has-[:checked]:bg-accent has-[:focus-visible]:border-ring"
+          >
             <input
               type="checkbox"
               id={`store-${store.id}`}
+              className="size-4 accent-primary"
               checked={selectedIds.has(store.id)}
               onChange={() => toggle(store.id)}
             />
-            <label htmlFor={`store-${store.id}`}>{store.name}</label>
-          </div>
+            {store.name}
+          </label>
         ))
       )}
     </fieldset>
