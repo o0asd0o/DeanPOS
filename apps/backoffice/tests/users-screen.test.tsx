@@ -350,6 +350,8 @@ describe("the Users screen — as an admin", () => {
         id: targetId,
         tenant_id: tenantId,
         email: targetEmail,
+        first_name: "Juana",
+        last_name: "dela Cruz",
         password_hash: await hashPassword("irrelevant"),
         role: "cashier",
         active: false,
@@ -370,16 +372,21 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
 
-    // Deactivated User drops out under `Active`, comes back under `Status: All`.
-    fireEvent.click(screen.getByRole("button", { name: "Status: Active" }));
+    // Deactivated User drops out under `Active`, comes back under `All`.
+    fireEvent.click(screen.getByRole("button", { name: "Show active" }));
     expect(screen.queryByText(targetEmail)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Status: All" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
     expect(screen.getByText(targetEmail)).toBeTruthy();
 
     // Search narrows to the one email, then to nobody.
-    fireEvent.change(screen.getByLabelText("Search users"), { target: { value: targetEmail } });
+    fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: targetEmail } });
     expect(screen.getAllByText(/@user\.test/).length).toBe(1);
-    fireEvent.change(screen.getByLabelText("Search users"), { target: { value: "no-such-user" } });
+    // The field asks for a person, so a name finds them too, not just an email.
+    fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: "juana" } });
+    expect(screen.getAllByText(/@user\.test/).length).toBe(1);
+    fireEvent.change(screen.getByLabelText("Search employees"), {
+      target: { value: "no-such-user" },
+    });
     expect(screen.getByText("No employees match these filters")).toBeTruthy();
   });
 

@@ -16,12 +16,24 @@ import {
 import { ErrorState } from "@/components/ErrorState.tsx";
 import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
+import { TablePagination } from "@/components/TablePagination.tsx";
+import type { SortState } from "@/lib/table.ts";
+import { nextSort, PAGE_SIZE, sortRows } from "@/lib/table.ts";
 import type { UserOutput } from "./helpers.ts";
 
 const ROLE_LABEL: Record<UserOutput["role"], string> = {
   cashier: "Cashier",
   manager: "Manager",
   admin: "Admin",
+};
+
+type SortKey = "name" | "email" | "role" | "status";
+
+const SORT_VALUES: Record<SortKey, (user: UserOutput) => string | number> = {
+  name: (user) => `${user.firstName} ${user.lastName}`.trim().toLowerCase(),
+  email: (user) => user.email.toLowerCase(),
+  role: (user) => ROLE_LABEL[user.role],
+  status: (user) => (user.active ? 0 : 1),
 };
 
 function storeNamesFor(storeIds: string[], stores: { id: string; name: string }[]): string {
@@ -66,13 +78,30 @@ export function UserListCard({
 }) {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "name", direction: "asc" });
+  const [page, setPage] = useState(1);
 
   const term = query.trim().toLowerCase();
   const visible = (users ?? []).filter(
     (user) =>
       (status === "all" || (status === "active") === user.active) &&
-      (term === "" || user.email.toLowerCase().includes(term)),
+      // Name as well as email: the field asks for a person, and the list now
+      // carries one.
+      (term === "" ||
+        user.email.toLowerCase().includes(term) ||
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term)),
   );
+
+  const sorted = sortRows(visible, SORT_VALUES[sort.key], sort.direction);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  // Clamped rather than reset: a filter that shortens the list must not strand
+  // the reader on a page that no longer exists.
+  const current = Math.min(page, pageCount);
+  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const sortBy = (key: SortKey) => {
+    setSort(nextSort(sort, key));
+    setPage(1);
+  };
 
   return (
     <Card className="gap-4">
@@ -82,7 +111,8 @@ export function UserListCard({
           onStatusChange={setStatus}
           query={query}
           onQueryChange={setQuery}
-          searchLabel="Search users"
+          searchLabel="Search employees"
+          searchExample="Juana dela Cruz"
         />
         {reactivateFailed && (
           <div
@@ -103,11 +133,31 @@ export function UserListCard({
             <Table aria-label="Employees">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead
+                    sorted={sort.key === "name" ? sort.direction : undefined}
+                    onSort={() => sortBy("name")}
+                  >
+                    Name
+                  </TableHead>
+                  <TableHead
+                    sorted={sort.key === "email" ? sort.direction : undefined}
+                    onSort={() => sortBy("email")}
+                  >
+                    Email
+                  </TableHead>
+                  <TableHead
+                    sorted={sort.key === "role" ? sort.direction : undefined}
+                    onSort={() => sortBy("role")}
+                  >
+                    Role
+                  </TableHead>
                   <TableHead>Stores</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead
+                    sorted={sort.key === "status" ? sort.direction : undefined}
+                    onSort={() => sortBy("status")}
+                  >
+                    Status
+                  </TableHead>
                   {isAdmin && (
                     <TableHead className="w-0 text-right">
                       <span className="sr-only">Actions</span>
@@ -116,7 +166,7 @@ export function UserListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visible.map((user) => (
+                {rows.map((user) => (
                   <TableRow
                     key={user.id}
                     data-state={user.id === editingId ? "selected" : undefined}
@@ -187,6 +237,12 @@ export function UserListCard({
                 No employees match these filters
               </p>
             )}
+            <TablePagination
+              page={current}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              label="Employees pages"
+            />
           </div>
         )}
       </CardContent>

@@ -20,7 +20,10 @@ export function Stores() {
   // Two alternating regions, not one string (finding 4): identical
   // consecutive messages ("Label removed", "Label removed") would otherwise
   // produce no DOM mutation on a single node and go unannounced.
-  const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
+  const [announcement, setAnnouncement] = useState<{
+    text: string;
+    slot: 0 | 1;
+  }>({
     text: "",
     slot: 0,
   });

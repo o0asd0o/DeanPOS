@@ -231,4 +231,59 @@ describe("the Stores screen — as an admin", () => {
       expect(active[0]).not.toBe(firstRegion);
     });
   });
+
+  it("sorts by a column header and pages the list ten rows at a time", async () => {
+    const seeded = Array.from({ length: 12 }, (_, index) => ({
+      id: randomUUID(),
+      tenant_id: tenantId,
+      name: `Paged ${String(index + 1).padStart(2, "0")}`,
+    }));
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db.insertInto("Store").values(seeded).execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/stores",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb
+        .deleteFrom("Store")
+        .where(
+          "id",
+          "in",
+          seeded.map((store) => store.id),
+        )
+        .execute();
+    };
+
+    const names = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector("td")?.textContent ?? "");
+
+    // Narrowed to this test's own twelve, so earlier tests' Stores cannot
+    // shift the order under it.
+    await waitFor(() => expect(names()).toContain("Paged 01"));
+    fireEvent.change(screen.getByLabelText("Search stores"), { target: { value: "Paged" } });
+
+    // Ten of the twelve, ascending by name — the rest are a page away.
+    expect(names()).toHaveLength(10);
+    expect(names()[0]).toBe("Paged 01");
+    expect(names()).not.toContain("Paged 11");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(names()).toContain("Paged 11"));
+    expect(names()).toHaveLength(2);
+
+    // Sorting returns to page one, now descending.
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+    await waitFor(() => expect(names()[0]).toBe("Paged 12"));
+    expect(names()).toHaveLength(10);
+  });
 });

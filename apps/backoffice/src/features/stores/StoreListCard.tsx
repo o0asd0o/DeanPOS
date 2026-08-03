@@ -16,7 +16,19 @@ import {
 import { ErrorState } from "@/components/ErrorState.tsx";
 import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
+import { TablePagination } from "@/components/TablePagination.tsx";
+import type { SortState } from "@/lib/table.ts";
+import { nextSort, PAGE_SIZE, sortRows } from "@/lib/table.ts";
 import type { StoreOutput } from "./helpers.ts";
+
+type SortKey = "name" | "businessDayStart" | "tableLabels" | "status";
+
+const SORT_VALUES: Record<SortKey, (store: StoreOutput) => string | number> = {
+  name: (store) => store.name.toLowerCase(),
+  businessDayStart: (store) => store.businessDayStart,
+  tableLabels: (store) => store.tableLabels.length,
+  status: (store) => (store.active ? 0 : 1),
+};
 
 // The list (record 038 §§2–3, 6), in the Users list's shape: the card holds
 // the toolbar and the table only, the title and `Add store` sit in the page
@@ -52,12 +64,26 @@ export function StoreListCard({
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
 
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: "name", direction: "asc" });
+  const [page, setPage] = useState(1);
+
   const term = query.trim().toLowerCase();
   const visible = (stores ?? []).filter(
     (store) =>
       (status === "all" || (status === "active") === store.active) &&
       (term === "" || store.name.toLowerCase().includes(term)),
   );
+
+  const sorted = sortRows(visible, SORT_VALUES[sort.key], sort.direction);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  // Clamped rather than reset: a filter that shortens the list must not strand
+  // the reader on a page that no longer exists.
+  const current = Math.min(page, pageCount);
+  const rows = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const sortBy = (key: SortKey) => {
+    setSort(nextSort(sort, key));
+    setPage(1);
+  };
 
   return (
     <Card className="gap-4">
@@ -68,6 +94,7 @@ export function StoreListCard({
           query={query}
           onQueryChange={setQuery}
           searchLabel="Search stores"
+          searchExample="Downtown"
         />
         {reactivateFailed && (
           <div
@@ -96,10 +123,30 @@ export function StoreListCard({
             <Table aria-label="Stores">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Business-day start</TableHead>
-                  <TableHead>Table labels</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead
+                    sorted={sort.key === "name" ? sort.direction : undefined}
+                    onSort={() => sortBy("name")}
+                  >
+                    Name
+                  </TableHead>
+                  <TableHead
+                    sorted={sort.key === "businessDayStart" ? sort.direction : undefined}
+                    onSort={() => sortBy("businessDayStart")}
+                  >
+                    Business-day start
+                  </TableHead>
+                  <TableHead
+                    sorted={sort.key === "tableLabels" ? sort.direction : undefined}
+                    onSort={() => sortBy("tableLabels")}
+                  >
+                    Table labels
+                  </TableHead>
+                  <TableHead
+                    sorted={sort.key === "status" ? sort.direction : undefined}
+                    onSort={() => sortBy("status")}
+                  >
+                    Status
+                  </TableHead>
                   {isAdmin && (
                     <TableHead className="w-0 text-right">
                       <span className="sr-only">Actions</span>
@@ -108,7 +155,7 @@ export function StoreListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visible.map((store) => (
+                {rows.map((store) => (
                   <TableRow
                     key={store.id}
                     data-state={store.id === editingId ? "selected" : undefined}
@@ -176,6 +223,12 @@ export function StoreListCard({
                 No stores match these filters
               </p>
             )}
+            <TablePagination
+              page={current}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              label="Stores pages"
+            />
           </div>
         )}
       </CardContent>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 
 import { cn } from "../lib/utils.ts";
 
@@ -64,24 +64,41 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
 function TableHead({
   className,
   sortable = false,
+  sorted,
+  onSort,
   children,
   ...props
-}: React.ComponentProps<"th"> & { sortable?: boolean }) {
+}: React.ComponentProps<"th"> & {
+  sortable?: boolean;
+  sorted?: "asc" | "desc";
+  onSort?: () => void;
+}) {
+  // `onSort` implies sortable: a column that can be sorted is one the caller
+  // gave a handler to.
+  const isSortable = sortable || onSort !== undefined;
+  const SortIcon = sorted === "asc" ? ChevronUp : sorted === "desc" ? ChevronDown : ChevronsUpDown;
+
   return (
     <th
       data-slot="table-head"
-      data-sortable={sortable}
+      data-sortable={isSortable}
+      aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
       className={cn(
-        "h-11 px-4 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "h-11 px-4 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
     >
-      {sortable ? (
-        <span className="inline-flex items-center gap-1">
+      {isSortable ? (
+        <button
+          type="button"
+          onClick={onSort}
+          className="tap-target inline-flex items-center gap-1 transition-colors hover:text-foreground data-[sorted=true]:text-foreground"
+          data-sorted={sorted !== undefined}
+        >
           {children}
-          <ChevronsUpDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
-        </span>
+          <SortIcon aria-hidden="true" className="size-3.5" />
+        </button>
       ) : (
         children
       )}
