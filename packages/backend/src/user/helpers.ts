@@ -6,6 +6,8 @@ type UserOutput = {
   id: string;
   tenantId: string;
   email: string;
+  firstName: string;
+  lastName: string;
   role: User["role"];
   active: boolean;
   createdAt: Date;
@@ -18,6 +20,8 @@ export const toUserOutput = (user: Selectable<User>, storeIds: string[]): UserOu
   id: user.id,
   tenantId: user.tenant_id,
   email: user.email,
+  firstName: user.first_name,
+  lastName: user.last_name,
   role: user.role,
   active: user.active,
   createdAt: user.createdAt,

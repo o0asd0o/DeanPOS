@@ -50,6 +50,8 @@ export const userOutputSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
   email: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
   role: roleSchema,
   active: z.boolean(),
   createdAt: z.date(),
@@ -62,6 +64,8 @@ export const userOutputSchema = z.object({
 // 031's global-uniqueness precondition on `user_login_lookup`).
 export const userCreateInputSchema = z.object({
   email: z.string().email(),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   role: roleSchema,
   password: temporaryPasswordSchema,
   storeIds: z.array(z.string()),
@@ -72,6 +76,8 @@ export const userCreateInputSchema = z.object({
 // password — those are their own procedures.
 export const userUpdateInputSchema = z.object({
   id: z.string(),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   role: roleSchema,
   storeIds: z.array(z.string()),
 });

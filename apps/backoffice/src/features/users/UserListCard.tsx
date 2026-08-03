@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { Search, PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
+import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
-  cn,
-  Input,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +14,8 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import { ListToolbar } from "@/components/ListToolbar.tsx";
 import type { UserOutput } from "./helpers.ts";
 
 const ROLE_LABEL: Record<UserOutput["role"], string> = {
@@ -23,16 +23,6 @@ const ROLE_LABEL: Record<UserOutput["role"], string> = {
   manager: "Manager",
   admin: "Admin",
 };
-
-// Every label carries the `Status:` prefix: a bare `Deactivated` pill would
-// shadow a row's `Deactivate <email>` action for anything matching by name.
-const STATUS_FILTERS = [
-  { value: "all", label: "Status: All" },
-  { value: "active", label: "Status: Active" },
-  { value: "deactivated", label: "Status: Deactivated" },
-] as const;
-
-type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];
 
 function storeNamesFor(storeIds: string[], stores: { id: string; name: string }[]): string {
   const assigned = new Set(storeIds);
@@ -87,44 +77,13 @@ export function UserListCard({
   return (
     <Card className="gap-4">
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div
-            role="group"
-            aria-label="Filter by status"
-            className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1.5"
-          >
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                aria-pressed={status === filter.value}
-                onClick={() => setStatus(filter.value)}
-                className={cn(
-                  "tap-target rounded-full px-4 py-2.5 text-sm font-medium transition-colors",
-                  status === filter.value
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-foreground/60 hover:text-foreground",
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-          <div className="relative w-full sm:w-72">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              type="search"
-              aria-label="Search users"
-              placeholder="Search users"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="rounded-full pr-10"
-            />
-          </div>
-        </div>
+        <ListToolbar
+          status={status}
+          onStatusChange={setStatus}
+          query={query}
+          onQueryChange={setQuery}
+          searchLabel="Search users"
+        />
         {reactivateFailed && (
           <div
             role="alert"
@@ -144,6 +103,7 @@ export function UserListCard({
             <Table aria-label="Employees">
               <TableHeader>
                 <TableRow>
+                  <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Stores</TableHead>
@@ -161,6 +121,7 @@ export function UserListCard({
                     key={user.id}
                     data-state={user.id === editingId ? "selected" : undefined}
                   >
+                    <TableCell>{`${user.firstName} ${user.lastName}`.trim() || "—"}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{ROLE_LABEL[user.role]}</TableCell>
                     <TableCell>{storeNamesFor(user.storeIds, stores)}</TableCell>
@@ -189,6 +150,7 @@ export function UserListCard({
                               {user.id !== callerId && (
                                 <Button
                                   variant="outline"
+                                  danger
                                   size="sm"
                                   className="tap-target"
                                   aria-label={`Deactivate ${user.email}`}

@@ -5,6 +5,8 @@ export type UserOutput = {
   id: string;
   tenantId: string;
   email: string;
+  firstName: string;
+  lastName: string;
   role: "cashier" | "manager" | "admin";
   active: boolean;
   createdAt: Date;

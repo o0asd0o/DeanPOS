@@ -62,6 +62,8 @@ model User {
   id                 String      @id
   tenantId           String      @map("tenant_id")
   email              String      @unique
+  firstName          String      @default("") @map("first_name")
+  lastName           String      @default("") @map("last_name")
   passwordHash       String      @map("password_hash")
   mustChangePassword Boolean     @default(true) @map("must_change_password")
   role               Role

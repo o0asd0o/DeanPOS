@@ -80,6 +80,8 @@ describe("the Users screen — as an admin", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Email"));
 
     const newEmail = `new-hire-${randomUUID()}@user.test`;
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Reyes" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: newEmail } });
 
     const passwordField = screen.getByLabelText("Temporary password") as HTMLInputElement;
@@ -97,6 +99,9 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.queryByRole("heading", { name: "New employee" })).toBeNull());
     await waitFor(() => expect(screen.getByText(newEmail)).toBeTruthy());
+    // Record 053 amends 044's "no Name column".
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeTruthy();
+    expect(screen.getByText("Ana Reyes")).toBeTruthy();
 
     const row = screen.getByText(newEmail).closest("tr")!;
     expect(within(row).getByText("Cashier")).toBeTruthy();
@@ -117,7 +122,7 @@ describe("the Users screen — as an admin", () => {
     expect(cachedVariables.some((entry) => entry.includes("a temporary password"))).toBe(false);
   });
 
-  it("has no NAME column and never truncates the email (record 044)", async () => {
+  it("has no PIN column and never truncates the email (record 044)", async () => {
     const { db } = renderRoute({
       router,
       tenantId,
@@ -128,7 +133,6 @@ describe("the Users screen — as an admin", () => {
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
-    expect(screen.queryByText("Name")).toBeNull();
     expect(screen.queryByText("PIN")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Reset PIN/ })).toBeNull();
   });
@@ -188,6 +192,8 @@ describe("the Users screen — as an admin", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
     await waitFor(() => expect(screen.getByRole("option", { name: "Manager" })).toBeTruthy());
     fireEvent.click(screen.getByRole("option", { name: "Manager" }));
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Reyes" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
@@ -417,6 +423,8 @@ describe("the Users screen — as an admin", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
     await waitFor(() => expect(screen.getByRole("option", { name: "Manager" })).toBeTruthy());
     fireEvent.click(screen.getByRole("option", { name: "Manager" }));
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Reyes" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());

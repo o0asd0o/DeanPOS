@@ -113,6 +113,8 @@ describe("user.create", () => {
     const created = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email: `new-hire-${randomUUID()}@user.test`,
         role: "cashier",
         password: "a temporary password",
@@ -143,6 +145,8 @@ describe("user.create", () => {
     const created = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email: `no-store-${randomUUID()}@user.test`,
         role: "admin",
         password: "a temporary password",
@@ -159,6 +163,8 @@ describe("user.create", () => {
     const asManager = await seam.actors
       .asTenant(tenantA, { userId: managerA, role: "manager" })
       .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email: `should-not-exist-${randomUUID()}@user.test`,
         role: "cashier",
         password: "a temporary password",
@@ -167,6 +173,8 @@ describe("user.create", () => {
     const asCashier = await seam.actors
       .asTenant(tenantA, { userId: cashierA, role: "cashier" })
       .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email: `should-not-exist-2-${randomUUID()}@user.test`,
         role: "cashier",
         password: "a temporary password",
@@ -184,6 +192,8 @@ describe("user.create", () => {
     const createdAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email: `b-store-scoped-${randomUUID()}@user.test`,
         role: "cashier",
         password: "a temporary password",
@@ -209,6 +219,8 @@ describe("user.create", () => {
     const email = `should-not-exist-cross-tenant-${randomUUID()}@user.test`;
     await expect(
       seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.create({
+        firstName: "Test",
+        lastName: "Person",
         email,
         role: "cashier",
         password: "a temporary password",
@@ -271,7 +283,13 @@ describe("user.update — role and Store assignment", () => {
     const beforePromotion = new Date();
     const updated = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.user.update({ id: targetId, role: "manager", storeIds: [storeA2] });
+      .client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: targetId,
+        role: "manager",
+        storeIds: [storeA2],
+      });
 
     expect(updated?.role).toBe("manager");
     expect(updated?.storeIds).toStrictEqual([storeA2]);
@@ -336,9 +354,13 @@ describe("user.update — role and Store assignment", () => {
     // proving both writes share one transaction rather than the role
     // silently outrunning the history (record 045 §4 clause 3).
     await expect(
-      seam.actors
-        .asTenant(tenantA, { userId: adminA, role: "admin" })
-        .client.user.update({ id: targetId, role: "manager", storeIds: [storeB] }),
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: targetId,
+        role: "manager",
+        storeIds: [storeB],
+      }),
     ).rejects.toThrow();
 
     const roleAfter = await ownerDb
@@ -362,7 +384,13 @@ describe("user.update — role and Store assignment", () => {
   it("an admin cannot demote themselves; the Select still offers every role for other Users", async () => {
     const result = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.user.update({ id: adminA, role: "manager", storeIds: [] });
+      .client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: adminA,
+        role: "manager",
+        storeIds: [],
+      });
 
     expect(result).toBeNull();
 
@@ -377,10 +405,22 @@ describe("user.update — role and Store assignment", () => {
   it("a manager and a cashier are refused, server-side", async () => {
     const asManager = await seam.actors
       .asTenant(tenantA, { userId: managerA, role: "manager" })
-      .client.user.update({ id: cashierA, role: "manager", storeIds: [] });
+      .client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: cashierA,
+        role: "manager",
+        storeIds: [],
+      });
     const asCashier = await seam.actors
       .asTenant(tenantA, { userId: cashierA, role: "cashier" })
-      .client.user.update({ id: cashierA, role: "admin", storeIds: [] });
+      .client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: cashierA,
+        role: "admin",
+        storeIds: [],
+      });
 
     expect(asManager).toBeNull();
     expect(asCashier).toBeNull();
@@ -389,14 +429,24 @@ describe("user.update — role and Store assignment", () => {
   it("the wrong-tenant probe: Tenant A cannot change Tenant B's User; B's row is untouched", async () => {
     const beforeAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
-      .client.user.update({ id: adminB, role: "admin", storeIds: [] });
+      .client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: adminB,
+        role: "admin",
+        storeIds: [],
+      });
     expect(beforeAsB?.id).toBe(adminB);
 
     await expectWrongTenantRefusal(
       () =>
-        seam.actors
-          .asTenant(tenantA, { userId: adminA, role: "admin" })
-          .client.user.update({ id: adminB, role: "cashier", storeIds: [] }),
+        seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.update({
+          firstName: "Test",
+          lastName: "Person",
+          id: adminB,
+          role: "cashier",
+          storeIds: [],
+        }),
       (result) => result === null,
     );
 
@@ -423,12 +473,20 @@ describe("user.update — role and Store assignment", () => {
     // Fired together, not awaited one at a time — this is what exposes the
     // race: both read the pre-save state before either has committed.
     await Promise.all([
-      seam.actors
-        .asTenant(tenantA, { userId: adminA, role: "admin" })
-        .client.user.update({ id: targetId, role: "manager", storeIds: [storeA1] }),
-      seam.actors
-        .asTenant(tenantA, { userId: adminA, role: "admin" })
-        .client.user.update({ id: targetId, role: "admin", storeIds: [storeA2] }),
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: targetId,
+        role: "manager",
+        storeIds: [storeA1],
+      }),
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.update({
+        firstName: "Test",
+        lastName: "Person",
+        id: targetId,
+        role: "admin",
+        storeIds: [storeA2],
+      }),
     ]);
 
     const finalUser = await ownerDb

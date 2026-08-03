@@ -91,7 +91,8 @@ const pairings: [string, string, number, string][] = [
   ["status-success-tone", "status-success-tint", 3.0, "1.4.11"],
   ["status-warning-tone", "status-warning-tint", 3.0, "1.4.11"],
   ["status-info-tone", "status-info-tint", 3.0, "1.4.11"],
-  ["status-danger-tone", "status-danger-tint", 3.0, "1.4.11"],
+  // Text, not a hairline: `Button` `variant="outline" danger` sets tone on tint.
+  ["status-danger-tone", "status-danger-tint", 4.5, "1.4.3"],
   ["status-success-tone", "background", 3.0, "1.4.11"],
   ["status-warning-tone", "background", 3.0, "1.4.11"],
   ["status-info-tone", "background", 3.0, "1.4.11"],

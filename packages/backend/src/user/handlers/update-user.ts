@@ -9,11 +9,14 @@ import { findUserById } from "../../auth/db-operations/queries/find-user-by-id.q
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
+import { updateUserName } from "../db-operations/commands/update-user-name.command.ts";
 import { updateUserRole } from "../db-operations/commands/update-user-role.command.ts";
 import { toUserOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({
   id: z.string(),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   role: z.enum(["cashier", "manager", "admin"]),
   storeIds: z.array(z.string()),
 });
@@ -47,6 +50,13 @@ export const handler: Handler<UpdateUserInput, UserOutput | null> = async ({ ctx
     if (!existing) return null;
 
     const effectiveFrom = new Date();
+
+    if (existing.first_name !== input.firstName || existing.last_name !== input.lastName) {
+      await updateUserName(scopedDb, input.id, {
+        firstName: input.firstName,
+        lastName: input.lastName,
+      });
+    }
 
     if (existing.role !== input.role) {
       await updateUserRole(scopedDb, input.id, input.role);

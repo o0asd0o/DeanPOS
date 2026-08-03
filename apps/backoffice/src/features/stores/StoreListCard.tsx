@@ -1,12 +1,10 @@
+import { useState } from "react";
 import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
-  CardAction,
   CardContent,
-  CardHeader,
-  CardTitle,
   Table,
   TableBody,
   TableCell,
@@ -16,11 +14,14 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import { ListToolbar } from "@/components/ListToolbar.tsx";
 import type { StoreOutput } from "./helpers.ts";
 
-// The list (record 038 §§2–3, 6). A deactivated Store stays inline, at full
-// contrast, badged, with `Reactivate` as its only row action — never hidden,
-// filtered or dimmed.
+// The list (record 038 §§2–3, 6), in the Users list's shape: the card holds
+// the toolbar and the table only, the title and `Add store` sit in the page
+// header above it. A deactivated Store stays inline, at full contrast,
+// badged, with `Reactivate` as its only row action — never hidden or dimmed.
 export function StoreListCard({
   stores,
   isPending,
@@ -31,7 +32,6 @@ export function StoreListCard({
   editingId,
   reactivatingId,
   reactivateFailed,
-  onAdd,
   onEdit,
   onDeactivate,
   onReactivate,
@@ -45,30 +45,34 @@ export function StoreListCard({
   editingId: string | null;
   reactivatingId: string | null;
   reactivateFailed: boolean;
-  onAdd: () => void;
   onEdit: (store: StoreOutput) => void;
   onDeactivate: (store: StoreOutput) => void;
   onReactivate: (store: StoreOutput) => void;
 }) {
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [query, setQuery] = useState("");
+
+  const term = query.trim().toLowerCase();
+  const visible = (stores ?? []).filter(
+    (store) =>
+      (status === "all" || (status === "active") === store.active) &&
+      (term === "" || store.name.toLowerCase().includes(term)),
+  );
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={1}>
-          Stores
-        </CardTitle>
-        {isAdmin && (
-          <CardAction>
-            <Button onClick={onAdd} className="tap-target">
-              Add store
-            </Button>
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardContent>
+    <Card className="gap-4">
+      <CardContent className="flex flex-col gap-4">
+        <ListToolbar
+          status={status}
+          onStatusChange={setStatus}
+          query={query}
+          onQueryChange={setQuery}
+          searchLabel="Search stores"
+        />
         {reactivateFailed && (
           <div
             role="alert"
-            className="mb-2 rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+            className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
           >
             Couldn&rsquo;t update the store
           </div>
@@ -77,7 +81,17 @@ export function StoreListCard({
           <p role="status">Loading…</p>
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
-        ) : stores && stores.length > 0 ? (
+        ) : !stores || stores.length === 0 ? (
+          <>
+            <p className="text-foreground">No stores yet</p>
+            {isAdmin && (
+              <p className="text-foreground">
+                A store is one outlet — its own sales, its own devices, and its own table labels.
+                Use Add store above to create the first one.
+              </p>
+            )}
+          </>
+        ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Stores">
               <TableHeader>
@@ -94,7 +108,7 @@ export function StoreListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stores.map((store) => (
+                {visible.map((store) => (
                   <TableRow
                     key={store.id}
                     data-state={store.id === editingId ? "selected" : undefined}
@@ -126,6 +140,7 @@ export function StoreListCard({
                               </Button>
                               <Button
                                 variant="outline"
+                                danger
                                 size="sm"
                                 className="tap-target"
                                 aria-label={`Deactivate ${store.name}`}
@@ -156,17 +171,12 @@ export function StoreListCard({
                 ))}
               </TableBody>
             </Table>
-          </div>
-        ) : (
-          <>
-            <p className="text-foreground">No stores yet</p>
-            {isAdmin && (
-              <p className="text-foreground">
-                A store is one outlet — its own sales, its own devices, and its own table labels.
-                Use Add store above to create the first one.
+            {visible.length === 0 && (
+              <p role="status" className="py-6 text-center text-muted-foreground">
+                No stores match these filters
               </p>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>

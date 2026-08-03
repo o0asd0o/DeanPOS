@@ -15,7 +15,7 @@ export function Hint({
   id?: string;
 }) {
   return (
-    <p id={id} className="text-sm text-muted-foreground">
+    <p id={id} className="text-xs leading-relaxed text-muted-foreground">
       {children}
       {detail && (
         <>

@@ -59,7 +59,7 @@ export function DeactivateDialog({
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button aria-disabled={deactivateUser.isPending} onClick={handleDeactivate}>
+          <Button danger aria-disabled={deactivateUser.isPending} onClick={handleDeactivate}>
             {deactivateUser.isPending ? "Deactivating…" : "Deactivate"}
           </Button>
         </DialogFooter>

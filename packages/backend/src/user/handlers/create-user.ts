@@ -14,6 +14,8 @@ import { toUserOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({
   email: z.string().email(),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
   role: z.enum(["cashier", "manager", "admin"]),
   password: passwordSchema,
   storeIds: z.array(z.string()),
@@ -39,6 +41,8 @@ export const handler: Handler<CreateUserInput, UserOutput | null> = async ({ ctx
       id: userId,
       tenantId,
       email: input.email,
+      firstName: input.firstName,
+      lastName: input.lastName,
       passwordHash,
       role: input.role,
     });

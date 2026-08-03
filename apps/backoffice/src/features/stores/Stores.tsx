@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Sheet, SheetContent } from "ui";
+import { Button, Sheet, SheetContent } from "ui";
 
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import { useMeQuery, useReactivateStoreMutation, useStoresQuery } from "./__common/queries.ts";
@@ -81,6 +81,19 @@ export function Stores() {
       <p role="status" className="sr-only">
         {announcement.slot === 1 ? announcement.text : ""}
       </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Stores</h1>
+          <p className="text-sm text-muted-foreground">
+            Each outlet, when its business day starts, and the tables it seats.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button onClick={openCreate} className="tap-target">
+            Add store
+          </Button>
+        )}
+      </div>
       <StoreListCard
         stores={storesQuery.data}
         isPending={storesQuery.isPending}
@@ -91,7 +104,6 @@ export function Stores() {
         editingId={editor.mode === "edit" ? editor.store.id : null}
         reactivatingId={reactivatingId}
         reactivateFailed={reactivateFailed}
-        onAdd={openCreate}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}

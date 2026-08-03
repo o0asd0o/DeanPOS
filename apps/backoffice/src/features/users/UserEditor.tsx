@@ -43,6 +43,8 @@ export function UserEditor({
 
   const form = useForm({
     defaultValues: {
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
       email: "",
       role: (user?.role ?? "cashier") as Role,
       password: "",
@@ -53,11 +55,15 @@ export function UserEditor({
         const saved = user
           ? await updateUser.mutateAsync({
               id: user.id,
+              firstName: value.firstName,
+              lastName: value.lastName,
               role: value.role,
               storeIds: [...storeIds],
             })
           : await createUser.mutateAsync({
               email: value.email,
+              firstName: value.firstName,
+              lastName: value.lastName,
               role: value.role,
               password: value.password,
               storeIds: [...storeIds],
@@ -110,6 +116,38 @@ export function UserEditor({
         </>
       }
     >
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <form.Field name="firstName">
+          {(field) => (
+            <div className="flex flex-1 flex-col gap-2">
+              <label htmlFor="user-first-name">First name</label>
+              <Input
+                id="user-first-name"
+                name={field.name}
+                required
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            </div>
+          )}
+        </form.Field>
+        <form.Field name="lastName">
+          {(field) => (
+            <div className="flex flex-1 flex-col gap-2">
+              <label htmlFor="user-last-name">Last name</label>
+              <Input
+                id="user-last-name"
+                name={field.name}
+                required
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            </div>
+          )}
+        </form.Field>
+      </div>
       {!user && (
         <form.Field name="email">
           {(field) => (
