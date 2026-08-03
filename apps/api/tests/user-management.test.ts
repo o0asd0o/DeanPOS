@@ -185,7 +185,7 @@ describe("user.create", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot create a User in Tenant B's Store, and B's own create still succeeds", async () => {
+  it("wrong-tenant probe [user.create]: Tenant A cannot create a User in Tenant B's Store, and B's own create still succeeds", async () => {
     // B's own create, assigned to B's own proven Store, succeeds through the
     // application path — a procedure that refuses everyone would otherwise
     // pass the refusal below for the wrong reason.
@@ -201,6 +201,18 @@ describe("user.create", () => {
       });
     expect(createdAsB?.tenantId).toBe(tenantB);
     expect(createdAsB?.storeIds).toStrictEqual([storeB]);
+
+    const createdAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.user.create({
+        firstName: "Test",
+        lastName: "Person",
+        email: `a-own-scoped-${randomUUID()}@user.test`,
+        role: "cashier",
+        password: "a temporary password",
+        storeIds: [storeA1],
+      });
+    expect(createdAsA?.tenantId).toBe(tenantA);
 
     const userRoleCountBefore = await ownerDb
       .selectFrom("UserRole")
@@ -248,9 +260,23 @@ describe("user.create", () => {
     expect(userRoleCountAfter.count).toBe(userRoleCountBefore.count);
     expect(userStoreCountAfter.count).toBe(userStoreCountBefore.count);
 
-    await ownerDb.deleteFrom("UserStore").where("user_id", "=", createdAsB!.id).execute();
-    await ownerDb.deleteFrom("UserRole").where("user_id", "=", createdAsB!.id).execute();
-    await ownerDb.deleteFrom("User").where("id", "=", createdAsB!.id).execute();
+    await expectWrongTenantRefusal({
+      path: "user.create",
+      mode: "confined",
+      ownerSees: createdAsB,
+      otherGets: async () => createdAsA,
+      otherOwn: createdAsA,
+    });
+
+    await ownerDb
+      .deleteFrom("UserStore")
+      .where("user_id", "in", [createdAsB!.id, createdAsA!.id])
+      .execute();
+    await ownerDb
+      .deleteFrom("UserRole")
+      .where("user_id", "in", [createdAsB!.id, createdAsA!.id])
+      .execute();
+    await ownerDb.deleteFrom("User").where("id", "in", [createdAsB!.id, createdAsA!.id]).execute();
   });
 });
 
@@ -426,7 +452,7 @@ describe("user.update — role and Store assignment", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot change Tenant B's User; B's row is untouched", async () => {
+  it("wrong-tenant probe [user.update]: Tenant A cannot change Tenant B's User; B's row is untouched", async () => {
     const beforeAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.update({
@@ -438,8 +464,11 @@ describe("user.update — role and Store assignment", () => {
       });
     expect(beforeAsB?.id).toBe(adminB);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "user.update",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () =>
         seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.user.update({
           firstName: "Test",
           lastName: "Person",
@@ -447,8 +476,7 @@ describe("user.update — role and Store assignment", () => {
           role: "cashier",
           storeIds: [],
         }),
-      (result) => result === null,
-    );
+    });
 
     const stillAdmin = await ownerDb
       .selectFrom("User")
@@ -576,7 +604,7 @@ describe("user.resetPassword", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot reset Tenant B's User password; B's own reset still succeeds", async () => {
+  it("wrong-tenant probe [user.resetPassword]: Tenant A cannot reset Tenant B's User password; B's own reset still succeeds", async () => {
     const targetId = randomUUID();
     const targetEmail = `b-reset-target-${randomUUID()}@user.test`;
     await seedTenantUser(ownerDb, {
@@ -602,13 +630,15 @@ describe("user.resetPassword", () => {
       .where("id", "=", targetId)
       .executeTakeFirstOrThrow();
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "user.resetPassword",
+      mode: "refusal",
+      ownerSees: resetAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.user.resetPassword({ id: targetId, password: "hijacked from a" }),
-      (result) => result === null,
-    );
+    });
 
     // Not merely `null` — B's just-reset hash is provably untouched by A's
     // attempt.
@@ -704,12 +734,12 @@ describe("user.deactivate and user.reactivate", () => {
     expect(stillActive.active).toBe(true);
   });
 
-  it("the wrong-tenant probe: Tenant A cannot deactivate or reactivate Tenant B's User; B's own path succeeds both ways", async () => {
+  it("wrong-tenant probe [user.deactivate]: Tenant A cannot deactivate Tenant B's User; B's own path still succeeds", async () => {
     const targetId = randomUUID();
     await seedTenantUser(ownerDb, {
       id: targetId,
       tenantId: tenantB,
-      email: `b-target-${randomUUID()}@user.test`,
+      email: `b-target-deactivate-${randomUUID()}@user.test`,
       passwordHash: await hashPassword("irrelevant"),
       role: "cashier",
       mustChangePassword: false,
@@ -723,16 +753,45 @@ describe("user.deactivate and user.reactivate", () => {
       .client.user.deactivate({ id: targetId });
     expect(deactivatedAsB?.active).toBe(false);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "user.deactivate",
+      mode: "refusal",
+      ownerSees: deactivatedAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.user.deactivate({ id: targetId }),
-      (result) => result === null,
-    );
+    });
 
-    // B's own reactivate succeeds through the application path too, before
-    // it is probed.
+    const stillDeactivated = await ownerDb
+      .selectFrom("User")
+      .select("active")
+      .where("id", "=", targetId)
+      .executeTakeFirstOrThrow();
+    expect(stillDeactivated.active).toBe(false);
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
+  });
+
+  it("wrong-tenant probe [user.reactivate]: Tenant A cannot reactivate Tenant B's User; B's own path still succeeds", async () => {
+    const targetId = randomUUID();
+    await seedTenantUser(ownerDb, {
+      id: targetId,
+      tenantId: tenantB,
+      email: `b-target-reactivate-${randomUUID()}@user.test`,
+      passwordHash: await hashPassword("irrelevant"),
+      role: "cashier",
+      mustChangePassword: false,
+    });
+
+    // B's own deactivate/reactivate succeeds through the application path
+    // before it is probed (finding 7) — a procedure that refuses everyone
+    // would otherwise pass the refusal below for the wrong reason.
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.user.deactivate({ id: targetId });
     const reactivatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.reactivate({ id: targetId });
@@ -745,13 +804,15 @@ describe("user.deactivate and user.reactivate", () => {
       .client.user.deactivate({ id: targetId });
     expect(deactivatedAgainAsB?.active).toBe(false);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "user.reactivate",
+      mode: "refusal",
+      ownerSees: reactivatedAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.user.reactivate({ id: targetId }),
-      (result) => result === null,
-    );
+    });
 
     const stillDeactivated = await ownerDb
       .selectFrom("User")
@@ -847,15 +908,26 @@ describe("user.list", () => {
     expect(list).toStrictEqual([]);
   });
 
-  it("the wrong-tenant probe: Tenant B's User is never visible in Tenant A's list", async () => {
-    const asA = await seam.actors
+  it("wrong-tenant probe [user.list]: Tenant B's User is never visible in Tenant A's list", async () => {
+    const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.user.list();
-    expect(asA.map((user) => user.id)).not.toContain(adminB);
+    expect(listAsA.map((user) => user.id)).not.toContain(adminB);
+    const ownAsA = listAsA.find((user) => user.id === adminA);
+    expect(ownAsA).toBeTruthy();
 
-    const asB = await seam.actors
+    const listAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.user.list();
-    expect(asB.map((user) => user.id)).toContain(adminB);
+    const ownAsB = listAsB.find((user) => user.id === adminB);
+    expect(ownAsB).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "user.list",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
   });
 });

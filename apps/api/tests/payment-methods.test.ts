@@ -145,16 +145,27 @@ describe("paymentMethod.list", () => {
     expect(list).toStrictEqual([]);
   });
 
-  it("the wrong-tenant probe: Tenant B's method is readable as Tenant B, never in Tenant A's list", async () => {
-    const asB = await seam.actors
+  it("wrong-tenant probe [paymentMethod.list]: Tenant B's method is readable as Tenant B, never in Tenant A's list", async () => {
+    const listAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.paymentMethod.list();
-    expect(asB.map((method) => method.id)).toContain(methodB);
+    expect(listAsB.map((method) => method.id)).toContain(methodB);
+    const ownAsB = listAsB.find((method) => method.id === methodB);
 
-    const asA = await seam.actors
+    const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.paymentMethod.list();
-    expect(asA.map((method) => method.id)).not.toContain(methodB);
+    expect(listAsA.map((method) => method.id)).not.toContain(methodB);
+    const ownAsA = listAsA.find((method) => method.id === cashA);
+    expect(ownAsA).toBeTruthy();
+
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.list",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
   });
 });
 
@@ -205,11 +216,16 @@ describe("paymentMethod.create", () => {
     expect(asCashier).toBeNull();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot create a method available at Tenant B's Store, and B's own create still succeeds", async () => {
+  it("wrong-tenant probe [paymentMethod.create]: Tenant A cannot create a method available at Tenant B's Store, and B's own create still succeeds", async () => {
     const createdAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.paymentMethod.create({ name: "B Cross-Tenant Probe", storeIds: [storeB] });
     expect(createdAsB?.storeIds).toStrictEqual([storeB]);
+
+    const createdAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({ name: "A Own Create Probe", storeIds: [storeA1] });
+    expect(createdAsA?.storeIds).toStrictEqual([storeA1]);
 
     const availabilityCountBefore = await ownerDb
       .selectFrom("PaymentMethodAvailability")
@@ -241,15 +257,26 @@ describe("paymentMethod.create", () => {
       .executeTakeFirstOrThrow();
     expect(availabilityCountAfter.count).toBe(availabilityCountBefore.count);
 
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.create",
+      mode: "confined",
+      ownerSees: createdAsB,
+      otherGets: async () => createdAsA,
+      otherOwn: createdAsA,
+    });
+
     await ownerDb
       .deleteFrom("PaymentMethodAudit")
-      .where("payment_method_id", "=", createdAsB!.id)
+      .where("payment_method_id", "in", [createdAsB!.id, createdAsA!.id])
       .execute();
     await ownerDb
       .deleteFrom("PaymentMethodAvailability")
-      .where("payment_method_id", "=", createdAsB!.id)
+      .where("payment_method_id", "in", [createdAsB!.id, createdAsA!.id])
       .execute();
-    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", createdAsB!.id).execute();
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("id", "in", [createdAsB!.id, createdAsA!.id])
+      .execute();
   });
 });
 
@@ -325,19 +352,21 @@ describe("paymentMethod.update", () => {
     await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
   });
 
-  it("the wrong-tenant probe: Tenant A addressing Tenant B's method id is refused, B's row is untouched", async () => {
+  it("wrong-tenant probe [paymentMethod.update]: Tenant A addressing Tenant B's method id is refused, B's row is untouched", async () => {
     const beforeAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
       .client.paymentMethod.update({ id: methodB, name: "B's GCash", storeIds: [] });
     expect(beforeAsB?.name).toBe("B's GCash");
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.update",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.paymentMethod.update({ id: methodB, name: "Hijacked From A", storeIds: [] }),
-      (result) => result === null,
-    );
+    });
 
     const stillAsB = await ownerDb
       .selectFrom("PaymentMethod")
@@ -414,14 +443,23 @@ describe("paymentMethod.deactivate and paymentMethod.reactivate", () => {
     await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
   });
 
-  it("the wrong-tenant probe: Tenant A cannot deactivate Tenant B's method; B's row stays active", async () => {
-    await expectWrongTenantRefusal(
-      () =>
+  it("wrong-tenant probe [paymentMethod.deactivate]: Tenant A cannot deactivate Tenant B's method; B's row stays active", async () => {
+    // Prove B's own read actually reaches the row before trusting A's
+    // refusal to mean anything (finding 7).
+    const ownAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.update({ id: methodB, name: "B's GCash", storeIds: [] });
+    expect(ownAsB?.id).toBe(methodB);
+
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.deactivate",
+      mode: "refusal",
+      ownerSees: ownAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.paymentMethod.deactivate({ id: methodB }),
-      (result) => result === null,
-    );
+    });
 
     const stillActive = await ownerDb
       .selectFrom("PaymentMethod")
@@ -431,19 +469,29 @@ describe("paymentMethod.deactivate and paymentMethod.reactivate", () => {
     expect(stillActive.active).toBe(true);
   });
 
-  it("the wrong-tenant probe: Tenant A cannot reactivate Tenant B's method; B's own reactivate still succeeds", async () => {
+  it("wrong-tenant probe [paymentMethod.reactivate]: Tenant A cannot reactivate Tenant B's method; B's own reactivate still succeeds", async () => {
     const deactivatedAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
       .client.paymentMethod.deactivate({ id: methodB });
     expect(deactivatedAsB?.active).toBe(false);
+    const reactivatedFirstAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.reactivate({ id: methodB });
+    expect(reactivatedFirstAsB?.active).toBe(true);
+    const deactivatedAgainAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.deactivate({ id: methodB });
+    expect(deactivatedAgainAsB?.active).toBe(false);
 
-    await expectWrongTenantRefusal(
-      () =>
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.reactivate",
+      mode: "refusal",
+      ownerSees: reactivatedFirstAsB,
+      otherGets: () =>
         seam.actors
           .asTenant(tenantA, { userId: adminA, role: "admin" })
           .client.paymentMethod.reactivate({ id: methodB }),
-      (result) => result === null,
-    );
+    });
 
     const stillInactive = await ownerDb
       .selectFrom("PaymentMethod")
