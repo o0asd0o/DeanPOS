@@ -20,15 +20,16 @@ function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Po
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
-function SheetOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+// A plain element, not `SheetPrimitive.Overlay`: Radix renders its overlay
+// only for a modal dialog, and the editor sheets are non-modal on purpose
+// (record 049). `pointer-events-none` keeps the page behind it clickable.
+function SheetOverlay({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <SheetPrimitive.Overlay
+    <div
       data-slot="sheet-overlay"
+      aria-hidden="true"
       className={cn(
-        "pointer-events-none fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "pointer-events-none fixed inset-0 z-50 animate-in bg-black/40 backdrop-blur-sm fade-in-0",
         className,
       )}
       {...props}
