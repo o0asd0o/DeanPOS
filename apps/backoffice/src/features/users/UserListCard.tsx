@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
 import {
   Badge,
   Button,
@@ -149,7 +149,7 @@ export function UserListCard({
                   <TableHead>Stores</TableHead>
                   <TableHead>Status</TableHead>
                   {isAdmin && (
-                    <TableHead>
+                    <TableHead className="w-0 text-right">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   )}
@@ -172,28 +172,28 @@ export function UserListCard({
                       )}
                     </TableCell>
                     {isAdmin && (
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
                           {user.active && (
                             <>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 className="tap-target"
                                 aria-label={`Edit ${user.email}`}
                                 onClick={() => onEdit(user)}
                               >
-                                Edit
+                                <PencilIcon />
                               </Button>
                               {user.id !== callerId && (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
                                   className="tap-target"
                                   aria-label={`Deactivate ${user.email}`}
                                   onClick={() => onDeactivate(user)}
                                 >
-                                  Deactivate
+                                  <PowerOffIcon />
                                 </Button>
                               )}
                             </>
@@ -201,13 +201,13 @@ export function UserListCard({
                           {!user.active && (
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               className="tap-target"
                               aria-label={`Reactivate ${user.email}`}
                               aria-disabled={reactivatingId === user.id}
                               onClick={() => onReactivate(user)}
                             >
-                              {reactivatingId === user.id ? "Reactivating…" : "Reactivate"}
+                              <RotateCcwIcon />
                             </Button>
                           )}
                         </div>

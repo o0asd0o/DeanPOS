@@ -1,3 +1,4 @@
+import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
 import {
   Badge,
   Button,
@@ -86,7 +87,7 @@ export function StoreListCard({
                   <TableHead>Table labels</TableHead>
                   <TableHead>Status</TableHead>
                   {isAdmin && (
-                    <TableHead>
+                    <TableHead className="w-0 text-right">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   )}
@@ -109,40 +110,40 @@ export function StoreListCard({
                       )}
                     </TableCell>
                     {isAdmin && (
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
                           {store.active && (
                             <>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 className="tap-target"
                                 aria-label={`Edit ${store.name}`}
                                 onClick={() => onEdit(store)}
                               >
-                                Edit
+                                <PencilIcon />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 className="tap-target"
                                 aria-label={`Deactivate ${store.name}`}
                                 onClick={() => onDeactivate(store)}
                               >
-                                Deactivate
+                                <PowerOffIcon />
                               </Button>
                             </>
                           )}
                           {!store.active && (
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               className="tap-target"
                               aria-label={`Reactivate ${store.name}`}
                               aria-disabled={reactivatingId === store.id}
                               onClick={() => onReactivate(store)}
                             >
-                              {reactivatingId === store.id ? "Reactivating…" : "Reactivate"}
+                              <RotateCcwIcon />
                             </Button>
                           )}
                         </div>
