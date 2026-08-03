@@ -29,5 +29,9 @@ export default defineConfig({
   },
   test: {
     setupFiles: [fileURLToPath(new URL("./vitest.setup.ts", import.meta.url))],
+    // Every workspace shares one CPU and one database, and the crypto is real:
+    // scrypt at ~260ms per sign-in, PBKDF2 at 600,000 iterations per PIN
+    // (records 028, 057). Vitest's 5s default expires on work that is only slow.
+    testTimeout: 30_000,
   },
 });
