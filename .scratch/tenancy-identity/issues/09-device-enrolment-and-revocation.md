@@ -1,6 +1,6 @@
 # 09 — Device enrolment, the Device principal, and revocation
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -96,3 +96,56 @@ lifecycle, one ticket._
 _The service worker, IndexedDB, the Outbox, and the actual on-device sync transport are
 `offline-sync`'s. This issue stores the token durably on the terminal by the simplest means
 the shell already supports; it does not build the sync layer._
+
+**Closed 2026-08-03.** Merged to `main`; gate green at **497** tests, migration proven from an empty
+database and applied to `DeanPOS_dev`. **2 fix rounds — the cap** — plus one assertion the
+orchestrator applied directly, reviewed by a second model all three rounds.
+
+**One record:** [056](../../decisions/056-the-device-principal-its-token-and-its-two-screens.md),
+`Stakes: high`, six decisions. The two worth knowing: the token is a 256-bit random value hashed
+with **plain SHA-256 and compared by indexed equality — no scrypt, no salt, no `timingSafeEqual`**,
+because scrypt measures 258.9 ms here and this hash is checked on *every* Device request rather than
+once per sign-in; and the fourth `Ctx` arm is named **`device`, not `principal`**, so all twenty-one
+existing `ctx.principal.role` checks stay correct unedited and the compiler rejects a mix-up.
+
+**Two things record 056 refused and routed onward, both still open:**
+
+- **Generalising the three audit tables.** `DeviceAudit` is the third after `TenantSettingsAudit`
+  (046) and `PaymentMethodAudit` (054), which is the exact trigger record 054 named for
+  generalising. Doing it now is a **non-additive migration against tables holding live data**, so it
+  is the human's call, not the decider's.
+- **A Content-Security-Policy for the POS origin.** The token lives in `localStorage`, readable by
+  any injected script, and it carries a Store's full authority. A CSP is the mitigation that
+  argument depends on, and it belongs to `hardening`/`release-ops`.
+
+What the review caught, across three rounds:
+
+- **A revoke committing mid-request still let that request through.** The revoked check ran during
+  the token lookup and `last_seen_at` was touched in a *separate* transaction, so a revoke landing
+  between the two left the request holding a valid Device principal. Criterion 10 says revocation is
+  immediate. The touch is now `UPDATE … WHERE revoked_at IS NULL RETURNING *`, and zero rows refuses.
+- **The plaintext Device token sat in the POS `MutationCache`** — the same defect issue 06 shipped
+  with temporary passwords, and record 056 permits the plaintext in exactly one place.
+- The Devices route did not refuse non-admins; a revoked terminal was shown the enrolment form
+  instead of a blocked screen; a cross-tenant `storeId` tripped a foreign key and surfaced an
+  uncaught server error rather than a refusal.
+- **Three tests proved less than they claimed.** The concurrency test passed with the
+  `consumed_at IS NULL` guard removed, because the unique index masked it. The revoke-race test
+  never reached the branch it was written for — it split lookup and touch by hand, so the request
+  refused during its own fresh lookup. And the barrier rested on a **20 ms sleep** with waiter
+  detection counting matching queries globally, so an unrelated concurrent test could satisfy it.
+- **Wrong-tenant probes were missing on four procedures**, `rename`'s check read through the owner
+  database (which bypasses tenant authorisation entirely), and `heartbeat`'s isolation was asserted
+  in only one direction. This class of defect has now appeared in **eight** issues of this PRD.
+
+**Known fragility, not fixed here.** Several screen tests — `devices-screen`, `users-screen`,
+`sign-in-screen`, and `password-policy` — fail intermittently when a full run starts with a cold
+Vite transform cache, because their `waitFor` calls time out rather than because anything is broken.
+Observed twice consecutively straight after a `vp check --fix`, then clean on six subsequent runs.
+It is pre-existing and repo-wide, not issue 09's, but CI starts cold every time.
+
+**Merge note:** `main` was not checked out at merge time — the main checkout was on
+`issue-14-payment-method-payment-details`. `main` was fast-forwarded by ref
+(`git fetch . 09-device-enrolment:main`) so the human's working branch was never touched, and the
+migration was applied to `DeanPOS_dev` from the lane, since the root checkout's branch did not carry
+it.
