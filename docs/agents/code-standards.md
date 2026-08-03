@@ -2,7 +2,7 @@
 
 **Who reads this:** `implementer` and `fixer` before editing, and `reviewer` when judging its Standards axis. Nobody else — `explorer`, `qa`, and `decider` never write product code, so this is not loaded into their context.
 
-Nine rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rules 6–7 govern what it looks like, rule 8 governs how it is imported, rule 9 governs how a form ends.
+Eleven rules. The reviewer's Standards axis reads this file, so a breach is a finding, not a preference. Rules 1–3 govern what you write, rule 4 governs where it goes, rule 5 governs what you say about it, rules 6–7 govern what it looks like, rule 8 governs how it is imported, rule 9 governs how a form ends, rule 10 governs how a mutation reports itself, rule 11 governs how a new procedure proves it refuses another Tenant.
 
 ## 1. One change, one problem
 
@@ -265,6 +265,46 @@ useMutation(
   is the ambient confirmation, not the explanation.
 - **`<Toaster />` is mounted once per app** in `main.tsx`, and by the test seam,
   so a screen test can assert the sentence a user would read.
+
+## 11. Every contract procedure carries a wrong-tenant probe, tagged and routed through the helper
+
+`apps/api/tests/wrong-tenant-probe-coverage.test.ts` walks `packages/contract/src/contract.ts`
+at run time and fails the build the day a procedure ships with no wrong-tenant probe. A probe
+is linked to the procedure it covers by a bracketed tag in its own test name — the dotted
+contract path exactly as written in `contract.ts`:
+
+```ts
+it("wrong-tenant probe [store.update]: Tenant A addressing Tenant B's Store id is refused, B's row is untouched", async () => {
+  ...
+});
+```
+
+- DO tag every wrong-tenant probe this way, one tag per procedure, checked in both
+  directions — an untagged procedure fails the guard, and a tag naming no real path fails it too.
+- DO route the assertion through `expectWrongTenantRefusal` (`apps/api/src/wrong-tenant-probe.ts`)
+  rather than a hand-rolled `expect(...).toBeNull()` or `.rejects.toThrow()` — the guard checks
+  the probe calls both the procedure and the helper, and rejects `it.skip`/`it.todo` on a tagged
+  probe.
+- DO pass `ownerSees` as a value read back through the owning Tenant's **own procedure call** —
+  never a row fetched with `ownerDb`. The helper cannot verify this part; it can only check the
+  value isn't empty. A probe that seeds `ownerSees` from the owner connection satisfies the guard
+  while proving nothing about reachability.
+- DO pick the right `mode`: `"refusal"` for a procedure that must refuse the wrong Tenant outright
+  (`null`, `[]`, `{ok:false}`, `{authenticated:false}`, or a non-leaking `NOT_FOUND`); `"confined"`
+  for one with no addressable id, where the other Tenant legitimately gets its own data instead
+  (`list`, `settings.get`); `"shared"` only for a procedure that is genuinely tenant-neutral, with
+  a written `why` of real length — never as a way to route around a hard case.
+- DON'T add an exclusion. There is no exclusions list and none may be created — a tenant-neutral
+  procedure takes `mode: "shared"` and a reason, because that assertion fails the day the
+  procedure gains a tenant dimension, where an exclusion would not.
+- DON'T supply your own idea of what counts as a refusal. `expectWrongTenantRefusal` takes no
+  caller predicate; the refusal shapes are fixed and owned by the helper.
+
+**What the guard cannot see, and review must catch instead.** The helper receives a value — it
+cannot tell whether `ownerSees` came from a real procedure call or a hand-built object literal,
+and it cannot tell a whole-payload probe from one that only checked a single field of five. A
+tagged probe that is dishonest on either point reads as covered when it is not; treat a
+probe under review with the same suspicion the code around it gets.
 
 ## When this file and the existing code disagree
 
