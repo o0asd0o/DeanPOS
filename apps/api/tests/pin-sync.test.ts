@@ -150,7 +150,7 @@ beforeAll(async () => {
     .execute();
   await ownerDb
     .updateTable("User")
-    .set({ pin_hash: pinHashCashierB })
+    .set({ pin_hash: pinHashCashierB, first_name: "Beatriz", last_name: "Santos" })
     .where("id", "=", cashierB)
     .execute();
   // adminA and cashierElsewhere have no PIN set yet — pinHash must be null.

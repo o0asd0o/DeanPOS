@@ -1,7 +1,7 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 
 // Explicit column list, never selectAll — this feeds session context and
-// the User editor's save response; neither needs `password_hash`/`pin_hash`.
+// the User editor's save response; neither needs a credential hash.
 export const findUserById = (db: DatabaseInstance, id: string) =>
   db
     .selectFrom("User")
