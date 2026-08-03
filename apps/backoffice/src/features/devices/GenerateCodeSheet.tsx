@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
 
@@ -57,6 +58,7 @@ export function GenerateCodeSheet({
         onSubmit={() => {}}
         footer={
           <Button type="button" onClick={onClose} className="ml-auto">
+            <CheckIcon />
             Done
           </Button>
         }
@@ -88,9 +90,11 @@ export function GenerateCodeSheet({
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
+            <XIcon />
             Cancel
           </Button>
           <Button type="submit" aria-disabled={saving}>
+            <CheckIcon />
             {saving ? "Generating…" : "Generate code"}
           </Button>
         </>

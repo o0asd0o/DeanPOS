@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "ui";
 
-import { writeDeviceToken } from "@/lib/device-token.ts";
+import { readDeviceToken } from "@/lib/device-token.ts";
 import { useEnrolMutation, useTerminalMeQuery } from "./__common/queries.ts";
 
 // Stripped of whitespace/dashes, upper-cased, and I/L→1, O→0 per Crockford's
@@ -21,6 +21,9 @@ export function Enrolment() {
   const enrol = useEnrolMutation();
   const [code, setCode] = useState("");
   const [result, setResult] = useState<{ name: string; storeName: string } | null>(null);
+  // Captured once: a fresh enrol overwrites this same key, and that success
+  // is handled by `result` below — this only ever gates the initial load.
+  const [hadStoredToken] = useState(() => readDeviceToken() !== null);
 
   useEffect(() => {
     if (meQuery.data?.authenticated) void navigate({ to: "/" });
@@ -31,13 +34,6 @@ export function Enrolment() {
     if (enrol.isPending) return;
     const outcome = await enrol.mutateAsync({ secret: normalizeCode(code) });
     if (!outcome.ok) return;
-    writeDeviceToken(outcome.token, {
-      deviceId: outcome.deviceId,
-      name: outcome.name,
-      code: outcome.code,
-      storeId: outcome.storeId,
-      storeName: outcome.storeName,
-    });
     setResult({ name: outcome.name, storeName: outcome.storeName });
   };
 
@@ -55,6 +51,21 @@ export function Enrolment() {
             <Button className="w-full" onClick={() => void navigate({ to: "/" })}>
               Continue
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (hadStoredToken) {
+    if (!meQuery.data || meQuery.data.authenticated) return null;
+    return (
+      <div className="flex flex-1 items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <p role="alert" className="text-center text-sm">
+              This terminal has been revoked. An admin must enrol it again.
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,6 @@
 // The only file in the repository that names these localStorage keys
 // (record 056 Q3) — `rg -n 'localStorage' apps/pos` must return only this
-// file. The token is stored bare, no JSON wrapper; the identity carries no
-// secret so a dump of it is harmless.
+// file.
 const TOKEN_KEY = "deanpos.device.token";
 const IDENTITY_KEY = "deanpos.device.identity";
 
