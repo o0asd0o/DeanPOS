@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
-import { PinPad, usePinLockTick } from "@/components/PinPad.tsx";
+import { PinPad } from "@/components/PinPad.tsx";
+import { usePinLockTick } from "@/lib/pin-lock-tick.ts";
 import { readPinRoster } from "@/lib/pin-roster.ts";
 import {
   pinLockUntil,
@@ -31,10 +32,9 @@ const REASON_SUGGESTIONS = [
 // (record 059 Q1) before an approver is chosen.
 const DEVICE_ONLY_KEY = "";
 
-// The manager-approval prompt (issue 12, record 060 Q5). A controlled
-// Dialog with no trigger, mounted by checkout/drawer-sessions later. The
-// PIN is verified on the terminal against the locally synced hash — the
-// server never sees it; it verifies the *approver* (verifyOverrideAsOf).
+// The manager-approval prompt (issue 12, record 060 Q5) — a controlled
+// Dialog with no trigger, mounted by checkout/drawer-sessions later. PIN
+// verifies on the terminal; the server verifies the approver only.
 export function OverridePrompt({
   open,
   onOpenChange,
@@ -63,9 +63,32 @@ export function OverridePrompt({
   const approver = approvers.find((user) => user.userId === approverId) ?? null;
 
   const throttleState = readPinThrottle();
+  const deviceLockedUntil = pinLockUntil(throttleState, DEVICE_ONLY_KEY);
+  const isDeviceLock = deviceLockedUntil !== null;
   const lockedUntil = pinLockUntil(throttleState, approver ? approver.userId : DEVICE_ONLY_KEY);
   const isLocked = lockedUntil !== null;
   usePinLockTick(lockedUntil);
+
+  // Announces exactly on engage and on real (time-based) lift, verbatim
+  // from Unlock.tsx (M4) so the two surfaces cannot drift.
+  const wasLockedRef = useRef(false);
+  const lastLockInstantRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (isLocked && !wasLockedRef.current) {
+      setSrStatus(
+        isDeviceLock
+          ? "Too many attempts. This till is locked for 2 minutes"
+          : `Too many attempts. ${approver?.displayName} is locked for 2 minutes. Another user can still unlock this till`,
+      );
+    } else if (!isLocked && wasLockedRef.current) {
+      const instant = lastLockInstantRef.current;
+      setSrStatus(
+        instant !== null && Date.now() >= instant ? "The lock has lifted. Try your PIN again" : "",
+      );
+    }
+    wasLockedRef.current = isLocked;
+    if (isLocked) lastLockInstantRef.current = lockedUntil;
+  }, [isLocked, isDeviceLock, approver?.displayName, lockedUntil]);
 
   const reset = () => {
     setApproverId(null);
@@ -76,12 +99,17 @@ export function OverridePrompt({
     setSrStatus("");
   };
 
+  // Refuses every close path while a recording is in flight (M6) — Cancel,
+  // Escape, outside click and the header X all route through here — so a
+  // delayed success cannot call onApproved after the cashier tried to leave.
   const close = () => {
+    if (pending) return;
     reset();
     onOpenChange(false);
   };
 
   const handleSelectApprover = (userId: string) => {
+    if (isDeviceLock) return;
     setApproverId(userId);
     setPin("");
     setError(null);
@@ -109,8 +137,6 @@ export function OverridePrompt({
       return;
     }
 
-    recordPinSuccess(approver.userId);
-
     const result = await recordOverride
       .mutateAsync({
         approverUserId: approver.userId,
@@ -119,13 +145,23 @@ export function OverridePrompt({
         note: note.trim() === "" ? undefined : note.trim(),
         approvedAt: new Date(),
       })
-      .catch(() => ({ ok: false as const }));
+      .catch(() => "unreachable" as const);
     setPending(false);
 
+    // Two distinguishable failures (record 061): a rejected fetch never
+    // reached the server, a refusal did. Neither clears the form or calls
+    // onApproved, and the PIN lock clears only once recording succeeds.
+    if (result === "unreachable") {
+      setError(
+        "The till couldn't reach the server. The approval was not recorded — try again in a moment",
+      );
+      return;
+    }
     if (!result.ok) {
       setError("Couldn't record the approval");
       return;
     }
+    recordPinSuccess(approver.userId);
     reset();
     onOpenChange(false);
     onApproved(result.overrideId);
@@ -185,6 +221,7 @@ export function OverridePrompt({
                     type="button"
                     variant="outline"
                     aria-pressed={user.userId === approverId}
+                    aria-disabled={isDeviceLock}
                     onClick={() => handleSelectApprover(user.userId)}
                   >
                     {user.displayName}
@@ -219,8 +256,8 @@ export function OverridePrompt({
           )}
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={close}>
+        <DialogFooter className="mt-2 grid grid-cols-2 gap-2 border-t pt-4">
+          <Button type="button" variant="outline" aria-disabled={pending} onClick={close}>
             Cancel
           </Button>
           <Button type="button" aria-disabled={!canApprove || pending} onClick={handleApprove}>

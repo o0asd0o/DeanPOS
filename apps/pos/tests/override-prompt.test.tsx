@@ -26,6 +26,18 @@ import type { RouterContext } from "@/lib/router-context.ts";
 // trigger.
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 
+// Criterion 11's two exact sizes — jsdom never reflows, so this only drives
+// `window.innerWidth`/`innerHeight` for the axe and structural checks.
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: width });
+  Object.defineProperty(window, "innerHeight", {
+    writable: true,
+    configurable: true,
+    value: height,
+  });
+  window.dispatchEvent(new Event("resize"));
+}
+
 const tenantId = randomUUID();
 const storeId = randomUUID();
 const cashierId = randomUUID();
@@ -64,7 +76,7 @@ function buildTestRouter(onApproved: (overrideId: string) => void) {
   });
 }
 
-const DEVICE_CODES = ["GT", "GU", "GV", "GW", "GX"];
+const DEVICE_CODES = ["GT", "GU", "GV", "GW", "GX", "GY", "GZ"];
 let deviceCodeCounter = 0;
 
 async function seedDeviceAndRoster(approversCanApprove = true) {
@@ -299,4 +311,83 @@ describe("the Override prompt", () => {
     expect(row?.approver_user_id).toBe(managerId);
     expect(row?.reason).toBe("Rung up in error");
   });
+
+  // Record 061: a Device that can no longer authenticate must not silently
+  // succeed. Reason carries a unique marker so a row left behind by an
+  // earlier test in this file cannot mask a false pass.
+  it("a device that can't authenticate at Approve time records nothing and never calls onApproved", async () => {
+    await seedDeviceAndRoster();
+    const reason = `Rung up in error ${randomUUID()}`;
+    let approvedId: string | null = null;
+    const { db } = renderRoute({
+      router: buildTestRouter((overrideId) => {
+        approvedId = overrideId;
+      }),
+      initialLocation: "/",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ben Cruz" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Ben Cruz" }));
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: reason } });
+    for (const digit of "482913") fireEvent.click(screen.getByRole("button", { name: digit }));
+
+    clearDeviceToken();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    // The request completes — an unauthenticated Device is a clean refusal
+    // from the handler, not a dropped connection — so this exercises the
+    // `result.ok === false` branch's message, unchanged since record 060.
+    await waitFor(() => expect(screen.getByText("Couldn't record the approval")).toBeTruthy());
+    expect(approvedId).toBeNull();
+    expect(screen.getByText("Manager approval required")).toBeTruthy();
+    expect((screen.getByLabelText("Reason (required)") as HTMLInputElement).value).toBe(reason);
+
+    const overrides = await withTenantScope(ownerDb, tenantId, (db) =>
+      db.selectFrom("Override").selectAll().where("reason", "=", reason).execute(),
+    );
+    expect(overrides).toHaveLength(0);
+  });
+
+  it.each([
+    [1280, 800],
+    [390, 844],
+  ])(
+    "a Device lock announces itself, disables the approver picker, and is WCAG 2.2 AA at %ipx",
+    async (width, height) => {
+      setViewport(width, height);
+      await seedDeviceAndRoster();
+      const { container, db } = renderRoute({
+        router: buildTestRouter(() => {}),
+        initialLocation: "/",
+      });
+      cleanup = () => db.destroy();
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Ben Cruz" })).toBeTruthy());
+      fireEvent.click(screen.getByRole("button", { name: "Ben Cruz" }));
+
+      // Seeds a Device-level lock directly (record 059's two counters) —
+      // the same shortcut Unlock's own suite takes rather than 10 real
+      // failed attempts across two approvers.
+      localStorage.setItem(
+        "deanpos.pin.throttle",
+        JSON.stringify({
+          device: { failures: 10, lockedUntil: Date.now() + 120_000, lastAttemptAt: Date.now() },
+          users: {},
+        }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "4" }));
+
+      await waitFor(() =>
+        expect(
+          screen.getByText("Too many attempts. This till is locked for 2 minutes"),
+        ).toBeTruthy(),
+      );
+      expect(screen.getByRole("button", { name: "Ben Cruz" }).getAttribute("aria-disabled")).toBe(
+        "true",
+      );
+
+      await expectNoAxeViolations(container);
+    },
+  );
 });
