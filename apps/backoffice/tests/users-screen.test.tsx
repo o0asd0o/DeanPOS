@@ -247,15 +247,20 @@ describe("the Users screen — as an admin", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
-    await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+    // Named, because the editor is itself a dialog since record 049.
+    const resetDialog = await waitFor(() =>
+      screen.getByRole("dialog", { name: `Reset password for ${targetEmail}?` }),
+    );
     fireEvent.change(screen.getByLabelText("New temporary password"), {
       target: { value: "a brand new password" },
     });
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Reset password" }),
-    );
+    fireEvent.click(within(resetDialog).getByRole("button", { name: "Reset password" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: `Reset password for ${targetEmail}?` }),
+      ).toBeNull(),
+    );
 
     const cachedVariables = queryClient
       .getMutationCache()

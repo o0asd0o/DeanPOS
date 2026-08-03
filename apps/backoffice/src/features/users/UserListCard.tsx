@@ -177,37 +177,40 @@ export function UserListCard({
                           {user.active && (
                             <>
                               <Button
-                                variant="ghost"
-                                size="icon"
+                                variant="outline"
+                                size="sm"
                                 className="tap-target"
                                 aria-label={`Edit ${user.email}`}
                                 onClick={() => onEdit(user)}
                               >
                                 <PencilIcon />
+                                Edit
                               </Button>
                               {user.id !== callerId && (
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
+                                  variant="outline"
+                                  size="sm"
                                   className="tap-target"
                                   aria-label={`Deactivate ${user.email}`}
                                   onClick={() => onDeactivate(user)}
                                 >
                                   <PowerOffIcon />
+                                  Deactivate
                                 </Button>
                               )}
                             </>
                           )}
                           {!user.active && (
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="outline"
+                              size="sm"
                               className="tap-target"
                               aria-label={`Reactivate ${user.email}`}
                               aria-disabled={reactivatingId === user.id}
                               onClick={() => onReactivate(user)}
                             >
                               <RotateCcwIcon />
+                              Reactivate
                             </Button>
                           )}
                         </div>

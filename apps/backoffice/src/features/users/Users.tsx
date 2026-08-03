@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button } from "ui";
+import { Button, Sheet, SheetContent } from "ui";
 
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import {
@@ -122,15 +122,31 @@ export function Users() {
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}
       />
-      {editor.mode !== "closed" && !isPending && !isError && (
-        <UserEditor
-          key={editor.mode === "edit" ? `edit-${editor.user.id}` : "create"}
-          user={editor.mode === "edit" ? editor.user : null}
-          onSaved={handleSaved}
-          onCancel={closeEditor}
-          onAnnounce={announce}
-        />
-      )}
+      {/* Not modal: the list behind stays clickable, so one row's editor can be
+          swapped straight for another's (record 039 finding 1). */}
+      <Sheet
+        modal={false}
+        open={editor.mode !== "closed" && !isPending && !isError}
+        onOpenChange={(open) => {
+          if (!open) closeEditor();
+        }}
+      >
+        <SheetContent
+          side="right"
+          withOverlay={false}
+          className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
+        >
+          {editor.mode !== "closed" && !isPending && !isError && (
+            <UserEditor
+              key={editor.mode === "edit" ? `edit-${editor.user.id}` : "create"}
+              user={editor.mode === "edit" ? editor.user : null}
+              onSaved={handleSaved}
+              onCancel={closeEditor}
+              onAnnounce={announce}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
       {deactivateTarget && (
         <DeactivateDialog
           user={deactivateTarget}

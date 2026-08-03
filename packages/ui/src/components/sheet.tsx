@@ -41,14 +41,17 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  withOverlay = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
+  /** A non-modal Sheet leaves the page behind it usable, so it gets no scrim. */
+  withOverlay?: boolean;
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      {withOverlay && <SheetOverlay />}
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(

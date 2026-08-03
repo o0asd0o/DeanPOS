@@ -6,6 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  SheetTitle,
   Input,
   PasswordInput,
   Select,
@@ -91,9 +92,11 @@ export function UserEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          {user ? `Edit ${user.email}` : "New user"}
-        </CardTitle>
+        <SheetTitle asChild>
+          <CardTitle role="heading" aria-level={2}>
+            {user ? `Edit ${user.email}` : "New user"}
+          </CardTitle>
+        </SheetTitle>
       </CardHeader>
       <CardContent>
         <form

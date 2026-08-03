@@ -94,6 +94,14 @@
   }
 }
 
+/* A Sheet that floats: it is inset from every edge, so the card inside it is
+   the visible panel and the page shows around it. The height is the one part
+   Tailwind cannot express without an arbitrary value. */
+@utility detached-panel {
+  max-block-size: calc(100dvh - var(--spacing) * 8);
+  overflow-y: auto;
+}
+
 /* Thumb only — no track fill, no track border. Both properties inherit, so one
    application covers every scroller under it. Record 023. */
 @utility scrollbar-slim {

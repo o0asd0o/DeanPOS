@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Sheet, SheetContent } from "ui";
 
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import { useMeQuery, useReactivateStoreMutation, useStoresQuery } from "./__common/queries.ts";
@@ -91,15 +92,31 @@ export function Stores() {
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}
       />
-      {editor.mode !== "closed" && (
-        <StoreEditor
-          key={editor.mode === "edit" ? `edit-${editor.store.id}` : "create"}
-          store={editor.mode === "edit" ? editor.store : null}
-          onSaved={handleSaved}
-          onCancel={closeEditor}
-          onAnnounce={announce}
-        />
-      )}
+      {/* Not modal: the list behind stays clickable, so one row's editor can be
+          swapped straight for another's (record 039 finding 1). */}
+      <Sheet
+        modal={false}
+        open={editor.mode !== "closed"}
+        onOpenChange={(open) => {
+          if (!open) closeEditor();
+        }}
+      >
+        <SheetContent
+          side="right"
+          withOverlay={false}
+          className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
+        >
+          {editor.mode !== "closed" && (
+            <StoreEditor
+              key={editor.mode === "edit" ? `edit-${editor.store.id}` : "create"}
+              store={editor.mode === "edit" ? editor.store : null}
+              onSaved={handleSaved}
+              onCancel={closeEditor}
+              onAnnounce={announce}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
       {deactivateTarget && (
         <DeactivateDialog
           store={deactivateTarget}

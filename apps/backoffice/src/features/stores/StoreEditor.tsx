@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, SheetTitle } from "ui";
 
 import { useCreateStoreMutation, useUpdateStoreMutation } from "./__common/queries.ts";
 import type { StoreOutput } from "./helpers.ts";
@@ -54,9 +54,11 @@ export function StoreEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          {store ? `Edit ${store.name}` : "New store"}
-        </CardTitle>
+        <SheetTitle asChild>
+          <CardTitle role="heading" aria-level={2}>
+            {store ? `Edit ${store.name}` : "New store"}
+          </CardTitle>
+        </SheetTitle>
       </CardHeader>
       <CardContent>
         <form

@@ -115,35 +115,38 @@ export function StoreListCard({
                           {store.active && (
                             <>
                               <Button
-                                variant="ghost"
-                                size="icon"
+                                variant="outline"
+                                size="sm"
                                 className="tap-target"
                                 aria-label={`Edit ${store.name}`}
                                 onClick={() => onEdit(store)}
                               >
                                 <PencilIcon />
+                                Edit
                               </Button>
                               <Button
-                                variant="ghost"
-                                size="icon"
+                                variant="outline"
+                                size="sm"
                                 className="tap-target"
                                 aria-label={`Deactivate ${store.name}`}
                                 onClick={() => onDeactivate(store)}
                               >
                                 <PowerOffIcon />
+                                Deactivate
                               </Button>
                             </>
                           )}
                           {!store.active && (
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant="outline"
+                              size="sm"
                               className="tap-target"
                               aria-label={`Reactivate ${store.name}`}
                               aria-disabled={reactivatingId === store.id}
                               onClick={() => onReactivate(store)}
                             >
                               <RotateCcwIcon />
+                              Reactivate
                             </Button>
                           )}
                         </div>
