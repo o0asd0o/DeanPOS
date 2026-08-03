@@ -11,6 +11,8 @@ PHONE = "backoffice · phone 390x844"
 # `Summary` is also the back-office landing page; there is no separate Dashboard.
 # `Drawer sessions` is a shift you open and close, not a report you read, so it
 # heads Operations. Grouping decided by .scratch/decisions/022.
+# `Settings` is NOT here — admin-only, it opens as a dialog from the account
+# menu (record 046 §4), so the sidebar carries no entry for it.
 NAV = [
     ("Reports", 0),
     ("Summary", 1),
@@ -28,29 +30,61 @@ NAV = [
     ("Discounts", 1),
     ("Availability", 1),
     ("Administration", 0),
+    ("Stores", 1),
     ("Devices", 1),
-    ("Users", 1),
+    ("Employees", 1),
     ("Roster", 1),
-    ("Settings", 1),
     ("Quarantine", 1),
 ]
 
 
-def shell(active, title, crumb=""):
+def shell(active, title="", crumb=""):
+    """Sidebar + the content column's own header row (record 048).
+
+    The wordmark sits at the sidebar's top and there is no tenant switcher.
+    The account menu is the avatar at the header's right — the only path to
+    Sign out, and the only path to Settings. Screens drawn before record 048
+    pass a `title` and get it where the greeting sits; the screens that carry
+    their own page header pass none.
+    """
     e = [
         box(0, 0, 240, Y, "", D),
         txt(16, 34, "DeanPOS", 15, "l", "bold"),
-        box(12, 48, 216, 36, "▾  Aling Nena's", W, align="l", size=12),
     ]
     for i, (n, depth) in enumerate(NAV):
         x = 12 + depth * 14
-        e.append(box(x, 100 + i * 34, 228 - x, 28, n, S if n == active else D,
-                     align="l", size=11 if depth else 12))
+        e.append(box(x, 64 + i * 34, 228 - x, 28, ("▫  " + n) if depth else n,
+                     S if n == active else D, align="l", size=11 if depth else 12))
     e += [
-        box(12, Y - 60, 216, 40, "Jomel · admin  ·  Sign out", W, align="l", size=11),
-        box(240, 0, X - 240, 64, "", M),
-        txt(264, 40, title, 17, "l", "bold"),
-        txt(X - 24, 40, crumb, 12, "r"),
+        txt(264, 50, title or "Hi Jomel", 15, "l", "bold"),
+        box(X / 2 - 144, 18, 288, 44, "Search…                          ⌘K", W, align="l", size=12),
+        box(X - 24 - 96, 18, 44, 44, "bell", W, size=11),
+        box(X - 24 - 44, 18, 44, 44, "JO", M, size=12),
+        ln(264, 80, X - 24, 80),
+        txt(X - 24, 74, crumb, 12, "r"),
+    ]
+    return e
+
+
+def list_card(y, h, search_label, search_example, header, body_rows, colw, sorted_col=""):
+    """The list screen's one Card: toolbar, table, pagination — records 038/044.
+
+    Every back-office list is this shape. The page header above it carries the
+    title and the single primary action; nothing else lives outside the Card.
+    """
+    e = [
+        box(264, y, X - 288, h, "", W),
+        txt(280, y + 30, "Status", 11),
+        box(280, y + 38, 330, 46, "(  All  ) ( Active ) ( Deactivated )", M, size=12),
+        txt(X - 40 - 288, y + 30, search_label, 11),
+        box(X - 40 - 288, y + 38, 288, 46, "e.g. " + search_example + "                    ⌕",
+            W, align="l", size=11),
+    ]
+    e += table(280, y + 106, X - 320, header, body_rows, rh=44, colw=colw)
+    e += [
+        box(280, y + h - 62, X - 320, 46,
+            "Rows per page  ▾ 10        ‹  Page 1 of 3  ›        " + sorted_col,
+            D, align="l", size=11),
     ]
     return e
 
@@ -188,25 +222,141 @@ def build():
         "Revoke needs a confirmation and is the response to a stolen tablet.",
     ]))
 
-    # ------------------------------------------------------------------- users
-    e = shell("Users", "Users", "")
-    e += [box(X - 24 - 160, 88, 160, 40, "+ Add user", S, size=12)]
-    e += table(264, 144, X - 288, ["NAME", "EMAIL", "ROLE", "STORES", "PIN", "STATUS", ""],
-               [["Ana Reyes", "ana@…", "cashier", "Malabon", "set", "active", "edit  deactivate"],
-                ["Boy Santos", "boy@…", "manager", "Malabon, Cubao", "set", "active", "edit  deactivate"],
-                ["Cris Dela Cruz", "cris@…", "cashier", "Cubao", "not set", "active", "edit  deactivate"],
-                ["Dina Lim", "dina@…", "cashier", "Malabon", "set", "deactivated", "reactivate"]],
-               colw=[240, 240, 160, 260, 120, 180, 152])
+    # --------------------------------------------------------------- employees
+    e = shell("Employees")
     e += [
-        box(264, 330, 640, 190, "Edit user\n\nRole  ▾ cashier\nStores  [✓] Malabon   [ ] Cubao\n\n"
-                                "[ Reset password (temporary) ]   [ Reset PIN ]", W, align="l", size=13),
-        box(928, 330, 480, 190, "Deactivating is immediate:\nsessions revoked, PIN removed from devices\n"
-                                "on next sync — and every past Order and\nOverride stays attributed to them.",
+        txt(264, 132, "Employees", 20, "l", "bold"),
+        txt(264, 156, "Who can sign in, what they may do, and where they work.", 12),
+        box(X - 24 - 180, 112, 180, 48, "+ Add employee", S, size=13),
+    ]
+    e += list_card(184, 480, "Search employees", "Juana dela Cruz",
+                   ["NAME ▲", "EMAIL", "ROLE", "STORES", "STATUS", ""],
+                   [["Ana Reyes", "ana@nena.test", "Cashier", "Malabon", "[Active]",
+                     "✎ Edit    ⏻ Deactivate"],
+                    ["Boy Santos", "boy@nena.test", "Manager", "Malabon, Cubao", "[Active]",
+                     "✎ Edit    ⏻ Deactivate"],
+                    ["Cris Dela Cruz", "cris@nena.test", "Cashier", "None", "[Active]",
+                     "✎ Edit    ⏻ Deactivate"],
+                    ["Dina Lim", "dina@nena.test", "Cashier", "Malabon", "[Deactivated]",
+                     "↺ Reactivate"],
+                    ["Jomel Ortega  (you)", "jomel@nena.test", "Admin", "Malabon, Cubao",
+                     "[Active]", "✎ Edit"]],
+                   colw=[220, 240, 120, 210, 120, 12], sorted_col="sorted by Name")
+    e += [
+        box(264, 700, 700, 130, "Sorting is on NAME, EMAIL, ROLE and STATUS — not on STORES.\n"
+                                "The status pills default to All: a deactivated person is listed\n"
+                                "inline and badged, never hidden and never dimmed.",
+            D, dash=1, align="l", size=12),
+        box(988, 700, 428, 130, "A manager sees this list without the action\n"
+                                "column at all. The row for the person signed in\n"
+                                "has no Deactivate — you cannot lock yourself out.",
             D, dash=1, align="l", size=12),
     ]
-    out.append(screen("backoffice/users-1440.svg", X, Y, "Back-office · Users", DESK, e, notes=[
+    out.append(screen("backoffice/employees-1440.svg", X, Y, "Back-office · Employees", DESK, e, notes=[
+        "THE LIST-SCREEN PATTERN every later back-office list follows: page header (title, one "
+        "sentence, one primary action), then a single Card holding toolbar, table and pagination.",
         "Role answers what kind of action; Store assignment answers where.",
         "Nothing is deleted — deactivation preserves the audit trail.",
+        "Add employee opens the editor as a right-hand sheet, not a route. There is no /employees/new.",
+        "Every mutation on this screen raises a toast: green on success, red on failure or refusal.",
+    ]))
+
+    # --------------------------------------------------------- employee editor
+    e = shell("Employees")
+    e += [box(240, 0, X - 240, Y, "", D, dash=1)]
+    sx, sw = X - 16 - 512, 512
+    e += [
+        box(sx, 16, sw, Y - 32, "", W, r=16),
+        txt(sx + 16, 44, "New employee", 15, "l", "bold"),
+        txt(sx + sw - 16, 44, "✕", 15, "r"),
+        ln(sx, 62, sx + sw, 62),
+        txt(sx + 16, 96, "First name", 11),
+        box(sx + 16, 106, 232, 44, "Juana", W, align="l", size=12),
+        txt(sx + 264, 96, "Last name", 11),
+        box(sx + 264, 106, 232, 44, "dela Cruz", W, align="l", size=12),
+        txt(sx + 16, 186, "Email", 11),
+        box(sx + 16, 196, sw - 32, 44, "juana@nena.test", W, align="l", size=12),
+        txt(sx + 16, 276, "Temporary password            [ Generate ]", 11),
+        box(sx + 16, 286, sw - 32, 44, "K7QM2P                                        ◉ show",
+            W, align="l", size=12),
+        box(sx + 16, 336, sw - 32, 34, "They are asked to choose their own at first sign-in.",
+            D, dash=1, align="l", size=11),
+        txt(sx + 16, 406, "Role", 11),
+        box(sx + 16, 416, sw - 32, 44, "▾  Cashier", W, align="l", size=12),
+        txt(sx + 16, 496, "Stores", 11),
+        box(sx + 16, 506, sw - 32, 96, "[✓] Malabon\n[ ] Cubao", W, align="l", size=12),
+        ln(sx, Y - 92, sx + sw, Y - 92),
+        box(sx + 16, Y - 78, 150, 46, "✕  Cancel", W, size=12),
+        box(sx + sw - 16 - 190, Y - 78, 190, 46, "✓  Create employee", S, size=12),
+        box(264, 300, 380, 150, "The page behind stays visible and\n"
+                                "clickable — the sheet is not modal, so\n"
+                                "one row's editor can be swapped straight\n"
+                                "for another's.", D, dash=1, align="l", size=12),
+    ]
+    out.append(screen("backoffice/employee-editor-1440.svg", X, Y,
+                      "Back-office · Employee editor (sheet)", DESK, e, notes=[
+        "THE EDITOR PATTERN for every later back-office record: a detached right-hand sheet with a "
+        "fixed header, one scrolling body, and a fixed action row — Cancel left, the commit right.",
+        "One form, one submit. Deactivate, reactivate and password reset are their own actions, "
+        "never a field in here.",
+        "Editing an existing employee replaces Temporary password with a Reset password action in "
+        "the footer, and the email becomes read-only.",
+        "The same sheet, same footer, is the Store editor — only the fields differ.",
+    ]))
+
+    # ------------------------------------------------------------------ stores
+    e = shell("Stores")
+    e += [
+        txt(264, 132, "Stores", 20, "l", "bold"),
+        txt(264, 156, "Each outlet, when its business day starts, and the tables it seats.", 12),
+        box(X - 24 - 180, 112, 180, 48, "+ Add store", S, size=13),
+    ]
+    e += list_card(184, 400, "Search stores", "Downtown",
+                   ["NAME ▲", "BUSINESS-DAY START", "TABLE LABELS", "STATUS", ""],
+                   [["Cubao", "06:00", "8", "[Active]", "✎ Edit    ⏻ Deactivate"],
+                    ["Malabon", "05:00", "12", "[Active]", "✎ Edit    ⏻ Deactivate"],
+                    ["Closing Soon", "06:00", "None", "[Deactivated]", "↺ Reactivate"]],
+                   colw=[300, 280, 200, 150, 12], sorted_col="sorted by Name")
+    e += [
+        box(264, 620, 700, 130, "EMPTY STATE — what a new tenant sees\n\n"
+                                "No stores yet. A store is one outlet — its own sales, its own\n"
+                                "devices, and its own table labels. Use Add store above.",
+            W, align="l", size=12),
+        box(988, 620, 428, 130, "Same Card, same toolbar, same pagination as\n"
+                                "Employees. Only the columns differ — that is\n"
+                                "the point of the pattern.", D, dash=1, align="l", size=12),
+    ]
+    out.append(screen("backoffice/stores-1440.svg", X, Y, "Back-office · Stores", DESK, e, notes=[
+        "The Employees list's shape, with this record's columns. Table labels shows the COUNT, "
+        "or None — the labels themselves are edited in the sheet.",
+        "A deactivated Store stays inline, at full contrast, badged, with Reactivate as its only "
+        "row action.",
+        "Business-day start is per Store: it decides which day a late-night sale belongs to.",
+    ]))
+
+    # ------------------------------------------------------- deactivate dialog
+    e = shell("Employees")
+    e += [box(240, 0, X - 240, Y, "", D, dash=1)]
+    dw, dh = 560, 260
+    dx, dy = 240 + (X - 240 - dw) / 2, (Y - dh) / 2
+    e += [
+        box(dx, dy, dw, dh, "", W, r=12),
+        txt(dx + 24, dy + 44, "Deactivate juana@nena.test?", 15, "l", "bold"),
+        txt(dx + dw - 24, dy + 44, "✕", 14, "r"),
+        box(dx + 24, dy + 64, dw - 48, 76, "This person is signed out now and cannot use the\n"
+                                           "terminal or the back office, their past sales stay\n"
+                                           "attributed to them, and Reactivate restores their access",
+            W, align="l", size=12),
+        box(dx + dw - 24 - 300, dy + dh - 76, 140, 48, "Cancel", W, size=13),
+        box(dx + dw - 24 - 150, dy + dh - 76, 150, 48, "Deactivate", S, size=13),
+    ]
+    out.append(screen("backoffice/deactivate-dialog-1440.svg", X, Y,
+                      "Back-office · Deactivate confirmation", DESK, e, notes=[
+        "ONE confirmation shape for both records — Stores says the store stops being offered for "
+        "new work; Employees says the person is signed out now.",
+        "Deactivate is the destructive control and reads as such. Cancel sits left of it.",
+        "Reactivation is NOT confirmed. Only this direction is.",
+        "The dialog animates out before it unmounts; it is not ripped from the DOM on close.",
     ]))
 
     # --------------------------------------------------------- drawer sessions
@@ -597,51 +747,94 @@ def build():
         "A manual price override is NOT a Discount and stays a separate, manager-gated thing.",
     ]))
 
-    # -------------------------------------------------------- settings · sales
-    e = shell("Settings", "Settings — sales", "Aling Nena's")
+    # --------------------------------------------------------- payment methods
+    # Not built yet (issue 08). Drawn in the built list pattern rather than as
+    # a section of the settings dialog, which holds one row per Tenant only.
+    e = shell("")
     e += [
-        box(264, 100, 560, 260, "VAT\n\n"
-                                "□  This business is VAT-registered        ← OFF by default\n"
-                                "   Rate  [ 12 ] %\n\n"
-                                "A price is always what the customer pays.\n"
-                                "VAT is never ADDED — where enabled it is backed out\n"
-                                "of the recorded total for receipts and reports.\n\n"
-                                "Turning this on affects sales from now on. Last month\n"
-                                "stays as last month was sold.", W, align="l", size=12),
-        box(848, 100, 560, 260, "Most carinderias sit below the ₱3,000,000\nregistration threshold and are not\n"
-                                "VAT-registered.\n\n"
-                                "Shipping VAT ON by default would hand those\n"
-                                "tenants figures that are confidently wrong and\n"
-                                "a receipt implying a registration they do not\n"
-                                "hold.\n\n"
-                                "So: off, until an owner says otherwise.",
-            D, dash=1, align="l", size=12),
-        txt(264, 410, "Payment methods", 14, "l", "bold"),
-        box(X - 24 - 190, 388, 190, 36, "+ Add method", S, size=12),
+        txt(264, 132, "Payment methods", 20, "l", "bold"),
+        txt(264, 156, "What a cashier can record a sale against, and where.", 12),
+        box(X - 24 - 180, 112, 180, 48, "+ Add method", S, size=13),
     ]
-    e += table(264, 424, X - 288, ["METHOD", "KIND", "MALABON", "CUBAO", "STATUS", ""],
-               [["Cash", "cash", "[ ON ]", "[ ON ]", "always on", "— cannot be renamed or removed"],
-                ["GCash", "recorded", "[ ON ]", "[ ON ]", "live", "rename  deactivate"],
-                ["Maya", "recorded", "[ ON ]", "[ OFF ]", "live", "rename  deactivate"],
-                ["Card", "recorded", "[ OFF ]", "[ ON ]", "live", "rename  deactivate"],
-                ["Bank transfer", "recorded", "[ OFF ]", "[ OFF ]", "deactivated", "reactivate"]],
-               rh=32, colw=[240, 160, 140, 140, 180, 12])
+    e += list_card(184, 440, "Search methods", "GCash",
+                   ["METHOD ▲", "KIND", "MALABON", "CUBAO", "STATUS", ""],
+                   [["Cash", "cash", "[ ON ]", "[ ON ]", "[Active]", "always on"],
+                    ["GCash", "recorded", "[ ON ]", "[ ON ]", "[Active]",
+                     "✎ Edit    ⏻ Deactivate"],
+                    ["Maya", "recorded", "[ ON ]", "[ OFF ]", "[Active]",
+                     "✎ Edit    ⏻ Deactivate"],
+                    ["Bank transfer", "recorded", "[ OFF ]", "[ OFF ]", "[Deactivated]",
+                     "↺ Reactivate"]],
+                   colw=[220, 160, 140, 140, 150, 12], sorted_col="sorted by Method")
     e += [
-        box(264, 632, 700, 140, "A new tenant starts with CASH ONLY.\n\n"
-                                "Only cash reaches the drawer. Every other method RECORDS AN AMOUNT\n"
-                                "and authorises nothing — no gateway, no QR, no settlement.\n"
-                                "The name is captured on the sale, so renaming one never rewrites history.",
-            W, align="l", size=12),
-        box(988, 632, 420, 140, "Code branches on KIND, never on a name.\n\n"
+        box(264, 660, 700, 170, "A new tenant starts with CASH ONLY.\n\n"
+                                "Only cash reaches the drawer. Every other method RECORDS AN\n"
+                                "AMOUNT and authorises nothing — no gateway, no QR, no\n"
+                                "settlement. The name is captured on the sale, so renaming one\n"
+                                "never rewrites history.", W, align="l", size=12),
+        box(988, 660, 428, 170, "Code branches on KIND, never on a name.\n\n"
                                 "That is what keeps expected cash correct\n"
                                 "when a tenant adds a method nobody\n"
-                                "anticipated.", D, dash=1, align="l", size=12),
+                                "anticipated.\n\n"
+                                "Cash is seeded at tenant creation and is\n"
+                                "undeletable — a database constraint.",
+            D, dash=1, align="l", size=12),
     ]
-    out.append(screen("backoffice/settings-sales-1440.svg", X, Y, "Back-office · Sales settings", DESK, e, notes=[
-        "VAT, payment methods, and the Variance tolerance are Tenant settings; admin only, and audited.",
+    out.append(screen("backoffice/payment-methods-1440.svg", X, Y,
+                      "Back-office · Payment methods", DESK, e, notes=[
+        "NOT BUILT YET (issue 08). Drawn in the Employees/Stores list pattern, which is the "
+        "built basis — a screen, not a section of the settings dialog.",
+        "Cash cannot be renamed, deactivated or removed; its row carries no actions.",
+        "The per-Store columns are the availability switch: a method can be live in one outlet "
+        "and not another.",
+        "Its nav entry is Administration's, beside Stores and Employees — decided when it is built.",
+    ]))
+
+    # ------------------------------------------------- settings · sales dialog
+    e = shell("Summary")
+    e += [
+        box(240, 0, X - 240, Y, "", D, dash=1),
+        box(X - 24 - 210, 74, 210, 130, "Account menu\n\nJomel Ortega\njomel@nena.test\nadmin\n"
+                                        "───────────────\n⚙  Settings      ← admin only\n"
+                                        "⇥  Sign out", W, align="l", size=11),
+    ]
+    dw, dh = 672, 700
+    dx, dy = 240 + (X - 240 - dw) / 2, (Y - dh) / 2
+    e += [
+        box(dx, dy, dw, dh, "", W, r=12),
+        txt(dx + 24, dy + 44, "Sales settings", 16, "l", "bold"),
+        txt(dx + 24, dy + 68, "VAT, timezone, and the drawer-session thresholds this business runs on.", 11),
+        txt(dx + dw - 24, dy + 44, "✕", 14, "r"),
+        txt(dx + 24, dy + 116, "Timezone", 11),
+        box(dx + 24, dy + 126, dw - 48, 44, "▾  Asia/Manila", W, align="l", size=12),
+        txt(dx + 24, dy + 206, "VAT", 13, "l", "bold"),
+        box(dx + 24, dy + 218, dw - 48, 44, "□  This business is VAT-registered     ← OFF by default",
+            W, align="l", size=12),
+        txt(dx + 24, dy + 288, "Rate (%)", 11),
+        box(dx + 24, dy + 298, dw - 48, 44, "12", W, align="l", size=12),
+        box(dx + 24, dy + 352, dw - 48, 76, "A price is always what the customer pays. VAT is never\n"
+                                            "ADDED — where enabled it is backed out of the recorded\n"
+                                            "total. Turning it on affects sales from now on.",
+            D, dash=1, align="l", size=11),
+        txt(dx + 24, dy + 468, "Drawer sessions", 13, "l", "bold"),
+        txt(dx + 24, dy + 500, "Variance tolerance (₱)", 11),
+        box(dx + 24, dy + 510, (dw - 64) / 2, 44, "50.00", W, align="l", size=12),
+        txt(dx + 40 + (dw - 64) / 2, dy + 500, "Cash-movement Override threshold (₱)", 11),
+        box(dx + 40 + (dw - 64) / 2, dy + 510, (dw - 64) / 2, 44, "500.00", W, align="l", size=12),
+        box(dx + 24, dy + 570, dw - 48, 44, "Couldn't save settings", W, dash=1, align="l", size=11),
+        ln(dx, dy + dh - 78, dx + dw, dy + dh - 78),
+        box(dx + dw - 24 - 180, dy + dh - 64, 180, 48, "Save changes", S, size=13),
+    ]
+    out.append(screen("backoffice/settings-dialog-1440.svg", X, Y,
+                      "Back-office · Sales settings (dialog)", DESK, e, notes=[
+        "A DIALOG, NOT A SCREEN. There is exactly one settings row per Tenant and nothing to list, "
+        "so there is no /settings route and no sidebar entry — it opens from the account menu.",
+        "Admin only. Hiding the menu item is presentation; the handler's own refusal is the "
+        "enforcement.",
+        "Five tenant settings, one form, one Save. The read starts when the dialog opens.",
+        "Payment methods are NOT here — they are their own screen when they are built.",
         "A setting governs sales from now on. The value in force is captured on each sale.",
-        "Cash is seeded at tenant creation and is undeletable — enforced by a database constraint.",
-        "The Discount list is not here; it is back-office CRUD alongside the catalog.",
+        "Saving toasts the outcome; the inline sentence stays for the refusal case.",
     ]))
 
     # ------------------------------------------------------------------ roster

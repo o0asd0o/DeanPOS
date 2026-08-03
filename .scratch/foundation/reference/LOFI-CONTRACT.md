@@ -106,8 +106,12 @@ as one is the way the blind count gets defeated.
 ```
 tenancy-identity  design/lofi/backoffice/login-1440.svg
                   design/lofi/backoffice/devices-1440.svg
-                  design/lofi/backoffice/users-1440.svg
-                  design/lofi/backoffice/settings-sales-1440.svg
+                  design/lofi/backoffice/stores-1440.svg
+                  design/lofi/backoffice/employees-1440.svg
+                  design/lofi/backoffice/employee-editor-1440.svg
+                  design/lofi/backoffice/deactivate-dialog-1440.svg
+                  design/lofi/backoffice/settings-dialog-1440.svg
+                  design/lofi/backoffice/payment-methods-1440.svg
 catalog           design/lofi/backoffice/catalog-list-1440.svg
                   design/lofi/backoffice/menuitem-editor-1440.svg
                   design/lofi/backoffice/addons-1440.svg
@@ -125,8 +129,29 @@ workforce         design/lofi/backoffice/roster-1440.svg
                   design/lofi/backoffice/roster-mine-390.svg
 ```
 
-The back-office shell — sidebar, tenant switcher, top bar — is drawn on every back-office
-mock. It is built once in `foundation` and every later screen inherits it.
+The back-office shell — sidebar wordmark, three nav groups, and the content column's own
+header row (greeting, centred search, notifications, account menu) — is drawn on every
+back-office mock. It is built once in `foundation` and every later screen inherits it.
+There is no tenant switcher and no page-title bar: a screen's title is its own `h1`.
+
+**Stores, Employees and Sales settings are built. Their mocks are the BASIS, not a
+proposal.** Where a mock drawn earlier disagrees with these four, these four win, and the
+older drawing is the thing that is out of date:
+
+- `employees-1440` / `stores-1440` — the list-screen pattern. Page header (title, one
+  sentence, one primary action), then a single Card holding toolbar, table and pagination.
+- `employee-editor-1440` — the editor pattern. A detached right-hand sheet, not a route:
+  fixed header, one scrolling body, fixed action row with Cancel left and the commit right.
+- `deactivate-dialog-1440` — the confirmation pattern for a destructive, reversible action.
+- `settings-dialog-1440` — a dialog rather than a screen, for a record with exactly one row.
+
+A new back-office screen starts from whichever of these it resembles and only departs where
+its own record says to. **A departure is flagged in the build report.**
+
+Two mocks were replaced rather than edited, and records 038–046 still cite the old names:
+`users-1440.svg` is now `employees-1440.svg` (plus the editor and dialog components), and
+`settings-sales-1440.svg` is now `settings-dialog-1440.svg` for the tenant settings and
+`payment-methods-1440.svg` for the method list issue 08 will build.
 
 **`Reports` is a nav group, not a leaf.** Its nine children are the sales reports, and
 `Summary` is also the back-office landing page — there is no separate dashboard route.

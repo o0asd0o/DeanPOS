@@ -50,10 +50,19 @@ migration.
 
 ## Visual reference
 
-- Image · whole-screen · 1440: `design/lofi/backoffice/settings-sales-1440.svg`
+- Image · whole-screen · 1440: `design/lofi/backoffice/payment-methods-1440.svg`
+- Image · whole-screen · 1440: `design/lofi/backoffice/employees-1440.svg`
+- Image · component: editor sheet · 1440: `design/lofi/backoffice/employee-editor-1440.svg`
+- Image · component: confirmation · 1440: `design/lofi/backoffice/deactivate-dialog-1440.svg`
 
-**Scope of the reference: the payment-method list and its editor only.** The tenant-level
-settings on the same mock are issue 07.
+**A screen, not a section of the settings dialog.** The tenant-level settings issue 07 built
+live in a dialog off the account menu, which holds one row per Tenant and nothing to list;
+a list of methods is its own screen. `payment-methods-1440` supersedes the payment-method
+half of the old `settings-sales-1440` drawing.
+
+**The other three references are the built basis, not this screen's content**: the list
+pattern, the editor sheet, and the deactivate confirmation are already shipped for Stores
+and Employees, and this screen follows them. Departures go in the build report.
 
 ## Depends on
 
