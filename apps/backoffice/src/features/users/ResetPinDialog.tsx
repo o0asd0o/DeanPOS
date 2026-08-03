@@ -32,6 +32,7 @@ export function ResetPinDialog({
     try {
       const result = await resetPin.mutateAsync({ id: user.id });
       if (!result.ok) return;
+      resetPin.reset();
       onReset();
     } catch {
       // isError is already set on the mutation; swallow so it doesn't also
@@ -56,7 +57,7 @@ export function ResetPinDialog({
             Couldn&rsquo;t reset the PIN
           </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="mt-2 border-t pt-4">
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>

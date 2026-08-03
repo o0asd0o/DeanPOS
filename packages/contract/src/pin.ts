@@ -11,6 +11,10 @@ export const PIN_HASH_PARAMS = {
 const PIN_PATTERN = /^\d{4,6}$/;
 const STORED_PATTERN = /^\$pbkdf2-sha256\$i=(\d+)\$([^$]+)\$([^$]+)$/;
 
+// A ceiling on a stored hash's iteration count, well above
+// PIN_HASH_PARAMS.iterations so raising that constant needs no migration.
+const MAX_VERIFY_ITERATIONS = 10_000_000;
+
 const textEncoder = new TextEncoder();
 
 function toUnpaddedBase64(bytes: Uint8Array): string {
@@ -79,7 +83,9 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
 
   const [, iterationsStr, saltB64, hashB64] = match;
   const iterations = Number(iterationsStr);
-  if (!Number.isSafeInteger(iterations) || iterations <= 0) return false;
+  if (!Number.isSafeInteger(iterations) || iterations <= 0 || iterations > MAX_VERIFY_ITERATIONS) {
+    return false;
+  }
 
   let salt: Uint8Array;
   let expected: Uint8Array;
@@ -94,7 +100,14 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   // from `stored` — an attacker-chosen key length must not shrink the
   // comparison or change how long verification takes.
   const keyLength = PIN_HASH_PARAMS.keyLength;
-  const actual = await deriveBits(pin, salt, iterations, keyLength);
+  let actual: Uint8Array;
+  try {
+    actual = await deriveBits(pin, salt, iterations, keyLength);
+  } catch {
+    // A malformed roster entry (e.g. a corrupt salt length WebCrypto
+    // rejects) must reject this one PIN, not throw and brick unlock.
+    return false;
+  }
 
   // A length mismatch accumulates into the result rather than returning
   // early — the loop below always walks the full fixed length, so a

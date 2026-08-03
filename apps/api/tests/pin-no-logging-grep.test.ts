@@ -39,8 +39,9 @@ const ALLOWED_PIN_HASH_FILES = [
   "apps/pos/src/features/unlock",
 ];
 
-// Every `console.<method>(` or `process.(stdout|stderr).write(` call site.
-const SINK_OPEN = /(?:console\.\w+|process\.(?:stdout|stderr)\.write)\s*\(/g;
+// Every `console.<method>(`, `process.(stdout|stderr).write(`, or project
+// logger (`logger.<method>(`) call site.
+const SINK_OPEN = /(?:console\.\w+|process\.(?:stdout|stderr)\.write|logger\.\w+)\s*\(/g;
 
 // From a sink's opening paren, walks forward tracking paren depth (skipping
 // string/template literals) to the full, possibly multi-line argument text
@@ -89,6 +90,13 @@ function importsVerifyPin(contents: string): boolean {
     );
     if (specifiers.includes("verifyPin")) return true;
   }
+  // A namespace import (`import * as pin from "..."`) used as
+  // `pin.verifyPin(...)` names no `verifyPin` specifier for the check
+  // above to catch.
+  for (const match of contents.matchAll(/import\s*\*\s*as\s+(\w+)\s*from/g)) {
+    const alias = match[1]!;
+    if (new RegExp(`\\b${alias}\\.verifyPin\\b`).test(contents)) return true;
+  }
   return false;
 }
 
@@ -119,5 +127,31 @@ describe("no PIN or PIN hash logging", () => {
       .filter((file) => !/\.test\.tsx?$/.test(file))
       .filter((file) => importsVerifyPin(readFileSync(file, "utf8")));
     expect(offenders).toStrictEqual([]);
+  });
+});
+
+// Proves the scanner itself catches a namespace-import verifyPin call and a
+// logger-based PIN log, not only that the repo is currently clean.
+describe("scanner regressions", () => {
+  it("catches verifyPin reached through a namespace import, not just a named one", () => {
+    const contents = [
+      'import * as pinModule from "contract/src/pin.ts";',
+      "",
+      "async function unlock(candidate: string, stored: string) {",
+      "  return pinModule.verifyPin(candidate, stored);",
+      "}",
+    ].join("\n");
+    expect(importsVerifyPin(contents)).toBe(true);
+  });
+
+  it("catches a PIN logged via the project logger, not just console/process", () => {
+    expect(loggingCallArgTexts("logger.info({ pin });").some((text) => /pin/i.test(text))).toBe(
+      true,
+    );
+  });
+
+  it("catches a PIN logged via the project logger across multiple lines", () => {
+    const contents = ["logger.info(", "  { pin },", ");"].join("\n");
+    expect(loggingCallArgTexts(contents).some((text) => /pin/i.test(text))).toBe(true);
   });
 });

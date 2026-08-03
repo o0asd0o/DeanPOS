@@ -22,8 +22,8 @@ afterEach(cleanup);
 
 export { cleanup, fireEvent, render, screen, waitFor, within };
 
-// Fixture operations for a UI-app test file (finding 12, ADR-0009): a UI
-// app's test suite goes through `api`'s seam, never `backend` directly.
+// Fixture operations for a UI-app test file (ADR-0009): a UI app's test
+// suite goes through `api`'s seam, never `backend` directly.
 export { createDb, hashPassword, withTenantScope };
 
 // The render half of the one test seam (server half: ./test-seam.ts).

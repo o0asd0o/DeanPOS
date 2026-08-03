@@ -17,9 +17,9 @@ export const pingOutputSchema = z.object({
 // three role strings are declared as a schema.
 export const roleSchema = z.enum(["cashier", "manager", "admin"]);
 
-// `HH:mm`, 24-hour, 00:00-23:59 (record 040 §2; finding 6: enforced here,
-// not just accepted as any non-empty string, and backed by a DB check
-// constraint since the schema alone is not the authority).
+// `HH:mm`, 24-hour, 00:00-23:59 (record 040 §2): enforced here, not just
+// accepted as any non-empty string, and backed by a DB check constraint
+// since the schema alone is not the authority.
 const businessDayStartSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Must be HH:mm, 00:00-23:59");

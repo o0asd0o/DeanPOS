@@ -66,6 +66,17 @@ describe("hashPin / verifyPin round trip", () => {
     expect(await verifyPin("1234", "$pbkdf2-sha256$i=1000$not!!valid$not!!valid")).toBe(false);
   });
 
+  it("rejects a stored iteration count above the supported cap, and one WebCrypto refuses, rather than throwing", async () => {
+    const saltB64 = Buffer.from("0123456789abcdef", "utf8").toString("base64").replace(/=+$/, "");
+    const hashB64 = Buffer.from(new Uint8Array(32)).toString("base64").replace(/=+$/, "");
+    expect(await verifyPin("1234", `$pbkdf2-sha256$i=4294967296$${saltB64}$${hashB64}`)).toBe(
+      false,
+    );
+    expect(await verifyPin("1234", `$pbkdf2-sha256$i=999999999999$${saltB64}$${hashB64}`)).toBe(
+      false,
+    );
+  });
+
   it("a stored key shorter than 32 bytes never admits a PIN", async () => {
     const stored = await hashPin("482913");
     const parts = stored.split("$");
