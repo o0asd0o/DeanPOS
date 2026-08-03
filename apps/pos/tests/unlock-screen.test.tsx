@@ -11,7 +11,7 @@ import {
   withTenantScope,
 } from "api/src/test-seam-react.tsx";
 import { hashPin } from "contract/src/pin.ts";
-import { afterAll, afterEach, describe, expect, it } from "vite-plus/test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { readPinRoster } from "@/lib/pin-roster.ts";
 import { router } from "@/router.tsx";
@@ -24,6 +24,18 @@ const tenantId = randomUUID();
 const storeId = randomUUID();
 const cashierId = randomUUID();
 const noPinUserId = randomUUID();
+
+// Criterion 11's two exact sizes — jsdom never reflows, so this only drives
+// `window.innerWidth`/`innerHeight` for the axe and structural checks.
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: width });
+  Object.defineProperty(window, "innerHeight", {
+    writable: true,
+    configurable: true,
+    value: height,
+  });
+  window.dispatchEvent(new Event("resize"));
+}
 
 let deviceCodeCounter = 0;
 
@@ -70,13 +82,7 @@ afterAll(async () => {
 describe("the unlock screen", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
-  afterEach(async () => {
-    localStorage.clear();
-    await cleanup?.();
-    cleanup = undefined;
-  });
-
-  it("shows the picker, the masked PIN field, and unlocks with the right PIN", async () => {
+  beforeAll(async () => {
     const passwordHash = await passwordHashPromise;
     const pinHash = await hashPin("482913");
     await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Unlock Tenant" }).execute();
@@ -153,30 +159,45 @@ describe("the unlock screen", () => {
         ])
         .execute(),
     );
-
-    await seedDeviceAndRoster();
-
-    const { container, db } = renderRoute({ router, initialLocation: "/" });
-    cleanup = () => db.destroy();
-
-    await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
-    expect(screen.getByText("Ben Cruz")).toBeTruthy();
-
-    await expectNoAxeViolations(container);
-
-    fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
-    expect(screen.getByRole("button", { name: "Ana Reyes" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-
-    for (const digit of "482913") {
-      fireEvent.click(screen.getByRole("button", { name: digit }));
-    }
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
-
-    await waitFor(() => expect(screen.getByText("Lock")).toBeTruthy(), { timeout: 3000 });
-    await expectNoAxeViolations(container);
   });
+
+  afterEach(async () => {
+    localStorage.clear();
+    await cleanup?.();
+    cleanup = undefined;
+  });
+
+  it.each([
+    [1280, 800],
+    [390, 844],
+  ])(
+    "shows the picker, the masked PIN field, and unlocks with the right PIN, WCAG 2.2 AA at %ipx",
+    async (width, height) => {
+      setViewport(width, height);
+      await seedDeviceAndRoster();
+
+      const { container, db } = renderRoute({ router, initialLocation: "/" });
+      cleanup = () => db.destroy();
+
+      await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
+      expect(screen.getByText("Ben Cruz")).toBeTruthy();
+
+      await expectNoAxeViolations(container);
+
+      fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
+      expect(screen.getByRole("button", { name: "Ana Reyes" }).getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+
+      for (const digit of "482913") {
+        fireEvent.click(screen.getByRole("button", { name: digit }));
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+      await waitFor(() => expect(screen.getByText("Lock")).toBeTruthy(), { timeout: 3000 });
+      await expectNoAxeViolations(container);
+    },
+  );
 
   it("a wrong PIN shows one alert, clears the digits, and keeps the User selected", async () => {
     await seedDeviceAndRoster();
