@@ -1,6 +1,6 @@
 # 06 — User management
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -72,3 +72,47 @@ Also inherited: `User.email` is **globally** unique, and record 031 found that i
 precondition of `user_login_lookup` being a one-row read — per-tenant uniqueness would make the
 same policy text match one row per sharing tenant, an actual cross-tenant read. Do not change
 one without the other; they move together in a single record.
+
+**Closed 2026-08-03.** Merged to `main`; gate green at **371** tests. 2 fix rounds, both review
+rounds by a second model. No new migration, no new dependency.
+
+**Three records are this screen's contract:**
+[043](../../decisions/043-the-temporary-password-is-typed-not-generated.md) ·
+[044](../../decisions/044-the-users-list.md) ·
+[045](../../decisions/045-the-user-editor.md).
+
+**The decider refused two columns the mock draws.** `NAME` has no field behind it anywhere in the
+schema, and `PIN` belongs to issue 10 — a header over `—` is the empty reserved box record 009
+forbids. Consequence: **the email renders in full and is never truncated**, because the mock only
+truncates it where `NAME` was carrying identity. The mock draws the fully-populated future.
+
+**The temporary password is typed by the admin, not generated.** A generated secret has to be
+*handed back*, and every handback is the risk — on screen it is shoulder-surfable and survives a
+screenshot, and SC 4.1.3 would force the confirmation to announce it aloud in a back office; the
+clipboard cannot be read out and fails silently on http. Recorded as a knowing deviation from
+SP 800-63B-4 §3.1.1.1, bounded by `mustChangePassword`.
+
+What the review caught, worth knowing because these recur:
+
+- **Concurrent saves were not serialised.** `effectiveFrom` was captured before the transaction and
+  the target `User` was read without `FOR UPDATE`, so two admins could both read the old role,
+  commit in opposite order, and leave `User.role` disagreeing with the newest `UserRole` — or lose
+  one admin's Store assignments entirely. Fixed with record 034's move one level out: lock first,
+  timestamp after the lock.
+- **`mutation.reset()` does not evict.** It detaches the observer but leaves the password-bearing
+  variables in `MutationCache` for the default five-minute GC window. Now removed explicitly, and
+  the test reads the cache rather than trusting that `reset()` was called.
+- **A server refusal resolving to `null` was a silent no-op.** An admin demoting themselves clicked
+  Save and saw neither a change nor an error.
+- **Three `mutateAsync` rejections escaped unhandled**, days after one of those was cleared off
+  `main`.
+- **The wrong-tenant probes were invalid again — the fourth time in this PRD.** `create` never
+  attempted a wrong-tenant creation, `resetPassword` asserted only `null` (also the authorised
+  answer), `deactivate` was never probed at all. **A procedure that refuses everyone passed all of
+  them.**
+- **And the manager read-only test was vacuous** — it rendered a principal with no matching rows, so
+  "no row-action buttons" passed because there were no rows. Fifth variant of the same shape.
+
+**The recurring lesson for this area, now unmissable:** a negative assertion proves nothing unless
+something positive establishes the row was there and reachable first — through the *other tenant's
+own application path*, never the owner DB, which bypasses tenant authorisation entirely.
