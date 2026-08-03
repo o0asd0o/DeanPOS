@@ -46,14 +46,18 @@ export function UserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button className="h-auto gap-3 py-1 pr-4 pl-1" aria-label="Account">
+          <Button
+            variant="ghost"
+            className="h-auto gap-3 bg-card py-1 pr-4 pl-1"
+            aria-label="Account"
+          >
             {/* Initials until a User carries a photo — record 048. */}
-            <span className="flex size-9 items-center justify-center rounded-full bg-card text-sm font-medium text-foreground">
+            <span className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
               {initialsFromEmail(email)}
             </span>
             <span className="hidden text-left leading-tight sm:block">
               <span className="block font-medium">{displayNameFromEmail(email)}</span>
-              <span className="block text-xs text-primary-foreground/70">{email ?? role}</span>
+              <span className="block text-xs text-muted-foreground">{email ?? role}</span>
             </span>
           </Button>
         </DropdownMenuTrigger>
