@@ -4,10 +4,7 @@ import { TENANT_TIMEZONES } from "schemas/src/timezones.ts";
 import type { TenantTimezone } from "schemas/src/timezones.ts";
 import {
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+  DialogFooter,
   Input,
   Select,
   SelectContent,
@@ -15,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "ui";
+
+import { Hint } from "@/components/Hint.tsx";
 
 export type TenantSettingsOutput = {
   timezone: TenantTimezone;
@@ -49,7 +48,6 @@ export function SettingsForm({
   moneyError,
   onMoneyError,
   onSave,
-  announcement,
 }: {
   settings: TenantSettingsOutput;
   saving: boolean;
@@ -57,7 +55,6 @@ export function SettingsForm({
   moneyError: string | null;
   onMoneyError: (message: string | null) => void;
   onSave: (values: TenantSettingsOutput) => Promise<void>;
-  announcement: string;
 }) {
   const form = useForm({
     defaultValues: {
@@ -95,152 +92,132 @@ export function SettingsForm({
   });
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
-      <h1 className="text-lg font-bold">Settings — sales</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Sales settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (saving) return;
-              void form.handleSubmit();
-            }}
-            aria-busy={saving}
-            className="flex flex-col gap-6"
-          >
-            <form.Field name="timezone">
-              {(field) => (
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="tenant-timezone">Timezone</label>
-                  <Select
-                    value={field.state.value}
-                    onValueChange={(value) => field.handleChange(value as TenantTimezone)}
-                  >
-                    <SelectTrigger id="tenant-timezone" autoFocus>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TENANT_TIMEZONES.map((timezone) => (
-                        <SelectItem key={timezone} value={timezone}>
-                          {timezone}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </form.Field>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (saving) return;
+        void form.handleSubmit();
+      }}
+      aria-busy={saving}
+      className="flex flex-col gap-6"
+    >
+      <form.Field name="timezone">
+        {(field) => (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="tenant-timezone">Timezone</label>
+            <Select
+              value={field.state.value}
+              onValueChange={(value) => field.handleChange(value as TenantTimezone)}
+            >
+              <SelectTrigger id="tenant-timezone" autoFocus>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TENANT_TIMEZONES.map((timezone) => (
+                  <SelectItem key={timezone} value={timezone}>
+                    {timezone}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </form.Field>
 
-            <fieldset className="flex flex-col gap-2">
-              <legend className="font-bold">VAT</legend>
-              <form.Field name="vatEnabled">
-                {(field) => (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="vat-enabled"
-                      checked={field.state.value}
-                      aria-describedby="vat-explanation"
-                      onChange={(event) => field.handleChange(event.target.checked)}
-                    />
-                    <label htmlFor="vat-enabled">This business is VAT-registered</label>
-                  </div>
-                )}
-              </form.Field>
-              <form.Field name="vatRatePercent">
-                {(field) => (
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="vat-rate-percent">Rate (%)</label>
-                    <Input
-                      id="vat-rate-percent"
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      step={1}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(Number(event.target.value))}
-                    />
-                  </div>
-                )}
-              </form.Field>
-              <div id="vat-explanation">
-                <p className="text-foreground">
-                  A price is always what the customer pays. VAT is never added — where enabled it is
-                  backed out of the recorded total for receipts and reports.
-                </p>
-                <p className="text-foreground">
-                  Turning this on affects sales from now on. Last month stays as last month was
-                  sold.
-                </p>
-              </div>
-            </fieldset>
-
-            <div className="flex flex-col gap-2">
-              <h2 className="font-bold">Drawer sessions</h2>
-              <form.Field name="varianceTolerance">
-                {(field) => (
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="variance-tolerance">Variance tolerance (₱)</label>
-                    <Input
-                      id="variance-tolerance"
-                      inputMode="decimal"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                    />
-                  </div>
-                )}
-              </form.Field>
-              <form.Field name="cashMovementOverrideThreshold">
-                {(field) => (
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="cash-movement-override-threshold">
-                      Cash-movement Override threshold (₱)
-                    </label>
-                    <Input
-                      id="cash-movement-override-threshold"
-                      inputMode="decimal"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                    />
-                  </div>
-                )}
-              </form.Field>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="font-semibold">VAT</legend>
+        <form.Field name="vatEnabled">
+          {(field) => (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="vat-enabled"
+                checked={field.state.value}
+                aria-describedby="vat-explanation"
+                onChange={(event) => field.handleChange(event.target.checked)}
+              />
+              <label htmlFor="vat-enabled">This business is VAT-registered</label>
             </div>
+          )}
+        </form.Field>
+        <form.Field name="vatRatePercent">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="vat-rate-percent">Rate (%)</label>
+              <Input
+                id="vat-rate-percent"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(Number(event.target.value))}
+              />
+            </div>
+          )}
+        </form.Field>
+        <Hint
+          id="vat-explanation"
+          detail="Turning this on affects sales from now on. Last month stays as last month was sold."
+        >
+          A price is always what the customer pays. VAT is never added — where enabled it is backed
+          out of the recorded total for receipts and reports.
+        </Hint>
+      </fieldset>
 
-            <Button type="submit" aria-disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-
-            {moneyError && (
-              <div
-                role="alert"
-                className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-              >
-                {moneyError}
+      <div className="flex flex-col gap-3">
+        <h3 className="font-semibold">Drawer sessions</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <form.Field name="varianceTolerance">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="variance-tolerance">Variance tolerance (₱)</label>
+                <Input
+                  id="variance-tolerance"
+                  inputMode="decimal"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
               </div>
             )}
-            {failed && !moneyError && (
-              <div
-                role="alert"
-                className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-              >
-                Couldn&rsquo;t save settings
+          </form.Field>
+          <form.Field name="cashMovementOverrideThreshold">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="cash-movement-override-threshold">
+                  Cash-movement Override threshold (₱)
+                </label>
+                <Input
+                  id="cash-movement-override-threshold"
+                  inputMode="decimal"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
               </div>
             )}
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+          </form.Field>
+        </div>
+      </div>
+
+      {moneyError && (
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+          {moneyError}
+        </div>
+      )}
+      {failed && !moneyError && (
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
+          Couldn&rsquo;t save settings
+        </div>
+      )}
+
+      <DialogFooter className="border-t pt-4">
+        <Button type="submit" aria-disabled={saving}>
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

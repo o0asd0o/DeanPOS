@@ -33,3 +33,6 @@ __pycache__/
 
 # pipeline lane worktrees
 .worktrees/
+
+# TanStack Router scratch dir, regenerated on every dev run
+.tanstack/

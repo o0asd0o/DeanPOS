@@ -16,10 +16,12 @@ import type { UserOutput } from "./helpers.ts";
 // the Stores screen's. Reactivation is not confirmed; only this is.
 export function DeactivateDialog({
   user,
+  open,
   onOpenChange,
   onDeactivated,
 }: {
   user: UserOutput;
+  open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeactivated: (email: string) => void;
 }) {
@@ -38,7 +40,7 @@ export function DeactivateDialog({
   };
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Deactivate {user.email}?</DialogTitle>

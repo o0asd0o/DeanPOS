@@ -65,12 +65,15 @@ describe("the back-office header", () => {
     expect(within(menu).getByText("Nothing yet.")).toBeTruthy();
   });
 
-  it("offers Settings from the account menu", async () => {
+  it("opens Settings as a dialog from the account menu, not a page", async () => {
     const { db } = renderRoute({ router, tenantId, email: seededEmail });
     cleanup = () => db.destroy();
 
     const menu = await openMenu("Account");
     const settings = within(menu).getByRole("menuitem", { name: "Settings" });
-    expect(settings.getAttribute("href")).toBe("/settings");
+    expect(settings.getAttribute("href")).toBeNull();
+
+    fireEvent.click(settings);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
   });
 });

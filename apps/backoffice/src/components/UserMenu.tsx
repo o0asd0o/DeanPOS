@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { LogOutIcon, SettingsIcon } from "lucide-react";
 import {
   Button,
@@ -19,6 +19,8 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 
+import { SettingsDialog } from "@/features/settings/SettingsDialog.tsx";
+
 import { displayNameFromEmail, initialsFromEmail } from "./helpers.ts";
 
 // The one reachable path to auth.signOut. The confirm dialog is controlled
@@ -29,6 +31,7 @@ export function UserMenu() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const me = useQuery(orpc.auth.me.queryOptions());
   const signOut = useMutation(orpc.auth.signOut.mutationOptions());
@@ -64,18 +67,21 @@ export function UserMenu() {
             <span className="text-xs font-normal text-muted-foreground capitalize">{role}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link to="/settings">
+          {/* Admin-only (record 046 §4). Hiding it is presentation; the
+              handler's own refusal is the enforcement. */}
+          {role === "admin" && (
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
               <SettingsIcon />
               Settings
-            </Link>
-          </DropdownMenuItem>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setConfirmingSignOut(true)}>
             <LogOutIcon />
             Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <Dialog open={confirmingSignOut} onOpenChange={setConfirmingSignOut}>
         <DialogContent>
           <DialogHeader>

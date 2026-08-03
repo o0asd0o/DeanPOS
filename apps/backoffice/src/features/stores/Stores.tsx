@@ -36,6 +36,10 @@ export function Stores() {
   if (editor.mode !== "closed") lastOpenEditor.current = editor;
   const shownEditor = editor.mode === "closed" ? lastOpenEditor.current : editor;
   const [deactivateTarget, setDeactivateTarget] = useState<StoreOutput | null>(null);
+  // Held so the dialog still has content while it animates out.
+  const lastDeactivateTarget = useRef<StoreOutput | null>(null);
+  if (deactivateTarget) lastDeactivateTarget.current = deactivateTarget;
+  const shownDeactivateTarget = deactivateTarget ?? lastDeactivateTarget.current;
   const opener = useRef<HTMLElement | null>(null);
 
   const reactivateStore = useReactivateStoreMutation();
@@ -136,9 +140,10 @@ export function Stores() {
           )}
         </SheetContent>
       </Sheet>
-      {deactivateTarget && (
+      {shownDeactivateTarget && (
         <DeactivateDialog
-          store={deactivateTarget}
+          store={shownDeactivateTarget}
+          open={deactivateTarget !== null}
           onOpenChange={(open) => {
             if (!open) setDeactivateTarget(null);
           }}

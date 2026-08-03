@@ -8,14 +8,15 @@ import {
   renderRoute,
   screen,
   waitFor,
+  within,
 } from "api/src/test-seam-react.tsx";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { router } from "@/router.tsx";
 
-// The Sales settings screen (issue 07, record 046) — no lofi mock beyond
+// The Sales settings dialog (issue 07, record 046) — no lofi mock beyond
 // the tenant-level fields; the payment-method list on the same mock is
-// issue 08.
+// issue 08. It opens from the account menu; there is no /settings route.
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 
 const tenantId = randomUUID();
@@ -57,6 +58,20 @@ beforeAll(async () => {
     .execute();
 });
 
+// Radix opens a menu on pointerdown, which happy-dom's `click` does not imply
+// (record 042).
+const openAccountMenu = async () => {
+  const trigger = await waitFor(() => screen.getByRole("button", { name: "Account" }));
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  return waitFor(() => screen.getByRole("menu"));
+};
+
+const openSettings = async () => {
+  const menu = await openAccountMenu();
+  fireEvent.click(within(menu).getByRole("menuitem", { name: "Settings" }));
+  return waitFor(() => screen.getByRole("dialog"));
+};
+
 afterAll(async () => {
   await ownerDb.deleteFrom("TenantSettingsAudit").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
@@ -64,7 +79,7 @@ afterAll(async () => {
   await ownerDb.destroy();
 });
 
-describe("the Settings screen — as an admin", () => {
+describe("the Settings dialog — as an admin", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
@@ -73,21 +88,27 @@ describe("the Settings screen — as an admin", () => {
   });
 
   it("shows the defaults, changes VAT and the timezone, and saves", async () => {
-    const { container, db } = renderRoute({
+    const { db } = renderRoute({
       router,
       tenantId,
       userId: adminId,
       role: "admin",
-      initialLocation: "/settings",
+      initialLocation: "/stores",
     });
     cleanup = () => db.destroy();
 
+    // Nothing is read until the dialog is visible.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    expect(screen.queryByLabelText("Variance tolerance (₱)")).toBeNull();
+
+    await openSettings();
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Sales settings" })).toBeTruthy(),
+      expect(screen.getByLabelText("Variance tolerance (₱)")).toHaveProperty("value", "0.00"),
     );
-    expect(screen.getByLabelText("Variance tolerance (₱)")).toHaveProperty("value", "0.00");
     expect(screen.getByLabelText("This business is VAT-registered")).toBeTruthy();
-    await expectNoAxeViolations(container);
+    // The dialog itself, not the whole tree: Radix `aria-hidden`s the page
+    // behind a modal while its focus trap — not `inert` — keeps focus in.
+    await expectNoAxeViolations(screen.getByRole("dialog"));
 
     fireEvent.click(screen.getByLabelText("This business is VAT-registered"));
     fireEvent.change(screen.getByLabelText("Rate (%)"), { target: { value: "15" } });
@@ -114,7 +135,7 @@ describe("the Settings screen — as an admin", () => {
     expect(rows.length).toBeGreaterThanOrEqual(3);
     expect(rows.every((row) => row.actor_user_id === adminId)).toBe(true);
 
-    await expectNoAxeViolations(container);
+    await expectNoAxeViolations(screen.getByRole("dialog"));
   });
 
   it("a resolved refusal (Tenant gone between load and submit) shows an error, not a silent success", async () => {
@@ -140,7 +161,7 @@ describe("the Settings screen — as an admin", () => {
       tenantId: refusalTenantId,
       userId: refusalAdminId,
       role: "admin",
-      initialLocation: "/settings",
+      initialLocation: "/stores",
     });
     cleanup = async () => {
       await db.destroy();
@@ -148,9 +169,8 @@ describe("the Settings screen — as an admin", () => {
       await ownerDb.deleteFrom("Tenant").where("id", "=", refusalTenantId).execute();
     };
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Sales settings" })).toBeTruthy(),
-    );
+    await openSettings();
+    await waitFor(() => expect(screen.getByLabelText("Rate (%)")).toHaveProperty("value", "12"));
 
     // The Tenant row vanishes between load and submit (e.g. deprovisioned
     // mid-session) — the update resolves `null` rather than rejecting.
@@ -167,7 +187,7 @@ describe("the Settings screen — as an admin", () => {
   });
 });
 
-describe("the Settings screen — non-admin", () => {
+describe("the Settings dialog — non-admin", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
@@ -175,34 +195,7 @@ describe("the Settings screen — non-admin", () => {
     cleanup = undefined;
   });
 
-  it("a manager navigating directly to /settings is refused, server-side", async () => {
-    const { db } = renderRoute({
-      router,
-      tenantId,
-      userId: managerId,
-      role: "manager",
-      initialLocation: "/settings",
-    });
-    cleanup = () => db.destroy();
-
-    await waitFor(() => expect(screen.getByText("That page doesn’t exist.")).toBeTruthy());
-    expect(screen.queryByRole("heading", { name: "Sales settings" })).toBeNull();
-  });
-
-  it("a cashier navigating directly to /settings is refused, server-side", async () => {
-    const { db } = renderRoute({
-      router,
-      tenantId,
-      userId: cashierId,
-      role: "cashier",
-      initialLocation: "/settings",
-    });
-    cleanup = () => db.destroy();
-
-    await waitFor(() => expect(screen.getByText("That page doesn’t exist.")).toBeTruthy());
-  });
-
-  it("has no Settings entry in the nav for a manager", async () => {
+  it("offers a manager no way in — no account-menu entry, no nav entry", async () => {
     const { db } = renderRoute({
       router,
       tenantId,
@@ -213,19 +206,23 @@ describe("the Settings screen — non-admin", () => {
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
-    await waitFor(() => expect(screen.queryByText("Settings")).toBeNull());
+    const menu = await openAccountMenu();
+    expect(within(menu).queryByRole("menuitem", { name: "Settings" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
   });
 
-  it("has a Settings entry in the nav for an admin", async () => {
+  it("offers a cashier no way in either", async () => {
     const { db } = renderRoute({
       router,
       tenantId,
-      userId: adminId,
-      role: "admin",
+      userId: cashierId,
+      role: "cashier",
       initialLocation: "/stores",
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    const menu = await openAccountMenu();
+    expect(within(menu).queryByRole("menuitem", { name: "Settings" })).toBeNull();
   });
 });

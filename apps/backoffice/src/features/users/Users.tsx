@@ -51,6 +51,10 @@ export function Users() {
   if (editor.mode !== "closed") lastOpenEditor.current = editor;
   const shownEditor = editor.mode === "closed" ? lastOpenEditor.current : editor;
   const [deactivateTarget, setDeactivateTarget] = useState<UserOutput | null>(null);
+  // Held so the dialog still has content while it animates out.
+  const lastDeactivateTarget = useRef<UserOutput | null>(null);
+  if (deactivateTarget) lastDeactivateTarget.current = deactivateTarget;
+  const shownDeactivateTarget = deactivateTarget ?? lastDeactivateTarget.current;
   const opener = useRef<HTMLElement | null>(null);
 
   const reactivateUser = useReactivateUserMutation();
@@ -151,9 +155,10 @@ export function Users() {
           )}
         </SheetContent>
       </Sheet>
-      {deactivateTarget && (
+      {shownDeactivateTarget && (
         <DeactivateDialog
-          user={deactivateTarget}
+          user={shownDeactivateTarget}
+          open={deactivateTarget !== null}
           onOpenChange={(open) => {
             if (!open) setDeactivateTarget(null);
           }}

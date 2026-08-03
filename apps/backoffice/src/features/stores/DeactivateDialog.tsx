@@ -16,10 +16,12 @@ import type { StoreOutput } from "./helpers.ts";
 // `SignOutButton`'s `Dialog`. Reactivation is not confirmed; only this is.
 export function DeactivateDialog({
   store,
+  open,
   onOpenChange,
   onDeactivated,
 }: {
   store: StoreOutput;
+  open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeactivated: (name: string) => void;
 }) {
@@ -33,7 +35,7 @@ export function DeactivateDialog({
   };
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Deactivate {store.name}?</DialogTitle>
