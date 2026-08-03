@@ -8,8 +8,9 @@ import { insertCashPaymentMethod } from "../../src/payment-method/db-operations/
 
 // Issue 08: the till can never be configured into a state where nothing can
 // be sold — a second `kind: cash` method is refused by the database, proven
-// with a barrier so the second insert genuinely starts before the first
-// commits, not merely by firing two promises and hoping they overlap.
+// by holding the first insert open, uncommitted, until the second is
+// confirmed queued behind it, not by racing two promises and hoping they
+// overlap.
 const ownerDb: DatabaseInstance = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const appDb: DatabaseInstance = createDb({ databaseUrl: process.env.APP_DATABASE_URI! });
 
@@ -45,32 +46,38 @@ const waitForBlockedBackends = async (expected: number) => {
   );
 };
 
+// Settled into a plain value immediately, in the same tick the promise is
+// created — a rejection can otherwise crash the run as unhandled before this
+// test ever reaches `Promise.all`.
+const toSettled = <T>(promise: Promise<T>) =>
+  promise.then(
+    (value) => ({ status: "fulfilled" as const, value }),
+    (reason) => ({ status: "rejected" as const, reason }),
+  );
+
 describe("PaymentMethod_one_cash_per_tenant", () => {
-  it("refuses a second `cash` insert that starts while the first is still uncommitted", async () => {
+  it("refuses a second `cash` insert issued while the first is still uncommitted", async () => {
     let releaseFirst!: () => void;
     const firstReleased = new Promise<void>((resolve) => {
       releaseFirst = resolve;
     });
+    let signalInserted!: () => void;
+    const firstInserted = new Promise<void>((resolve) => {
+      signalInserted = resolve;
+    });
 
-    // Settled into a plain value immediately, in the same tick the promise is
-    // created — Postgres can reject `second` before this test ever reaches
-    // `Promise.allSettled`, and an unhandled rejection in that window crashes
-    // the run rather than failing the assertion.
-    const toSettled = <T>(promise: Promise<T>) =>
-      promise.then(
-        (value) => ({ status: "fulfilled" as const, value }),
-        (reason) => ({ status: "rejected" as const, reason }),
-      );
-
-    // Held open past its INSERT: the second attempt below must queue behind
-    // this row's uncommitted index entry, not race it.
+    // Held open past its INSERT: the second attempt below is only issued
+    // once this row's uncommitted index entry is confirmed to exist, so it
+    // is guaranteed to queue behind it rather than race it.
     const first = toSettled(
       withTenantScope(appDb, tenantId, async (db) => {
         await insertCashPaymentMethod(db, { id: randomUUID(), tenantId });
+        signalInserted();
         await firstReleased;
       }),
     );
 
+    await firstInserted;
     const second = toSettled(
       withTenantScope(appDb, tenantId, (db) =>
         insertCashPaymentMethod(db, { id: randomUUID(), tenantId }),
