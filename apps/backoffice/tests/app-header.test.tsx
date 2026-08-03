@@ -39,16 +39,22 @@ describe("the back-office header", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
 
-    // The account control carries the signed-in email and a name derived from
-    // it, since a User has no name column yet (record 048).
+    // The control itself is initials only; the email and the name derived from
+    // it live one click away, in the menu (record 048).
     const account = screen.getByRole("button", { name: "Account" });
-    expect(account.textContent).toContain(seededEmail);
-    expect(account.textContent).toContain("Header Probe");
+    expect(account.textContent).toBe("HP");
+    expect(account.textContent).not.toContain(seededEmail);
 
     expect(container.querySelectorAll("header")).toHaveLength(1);
     expect(container.querySelector("header")?.closest('[data-slot="sidebar"]')).toBeTruthy();
 
+    // Scanned closed: an open Radix menu hides the rest of the page from
+    // assistive tech, which the audit reads as a violation of its own.
     await expectNoAxeViolations(container);
+
+    const menu = await openMenu("Account");
+    expect(menu.textContent).toContain(seededEmail);
+    expect(menu.textContent).toContain("Header Probe");
   });
 
   it("states that there are no notifications rather than implying one is loading", async () => {

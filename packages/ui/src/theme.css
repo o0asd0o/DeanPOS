@@ -33,6 +33,9 @@
   --color-muted-foreground: #5b5b57;
   --color-accent: #e4e4df;
   --color-accent-foreground: #1e1e1e;
+  /* The lightest hover there is: for controls that already sit on `card` and
+     only need a hint that they are live — the header's search and menus. */
+  --color-hover: #fafaf9;
   --color-destructive: #c0264f;
   --color-destructive-foreground: #ffffff;
   /* Hairline, at 1.13:1 — a knowing deviation from WCAG 1.4.11, taken by the

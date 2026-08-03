@@ -46,23 +46,23 @@ export function UserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
+          {/* Initials until a User carries a photo — record 048. The name and
+              email they stand for are one click away, inside the menu. */}
           <Button
             variant="ghost"
-            className="h-auto gap-3 bg-card py-1 pr-4 pl-1"
+            className="size-10 rounded-full bg-muted p-0 text-sm font-medium text-muted-foreground hover:bg-hover"
             aria-label="Account"
           >
-            {/* Initials until a User carries a photo — record 048. */}
-            <span className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-              {initialsFromEmail(email)}
-            </span>
-            <span className="hidden text-left leading-tight sm:block">
-              <span className="block font-medium">{displayNameFromEmail(email)}</span>
-              <span className="block text-xs text-muted-foreground">{email ?? role}</span>
-            </span>
+            {initialsFromEmail(email)}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{role ?? "Account"}</DropdownMenuLabel>
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="font-medium">{displayNameFromEmail(email)}</span>
+            <span className="text-xs font-normal text-muted-foreground">{email}</span>
+            {/* The role stays in the menu — record 048 put it here. */}
+            <span className="text-xs font-normal text-muted-foreground capitalize">{role}</span>
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link to="/settings">

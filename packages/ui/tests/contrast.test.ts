@@ -47,7 +47,7 @@ const pairings: [string, string, number, string][] = [
   ["muted-foreground", "background", 4.5, "1.4.3"],
   ["muted-foreground", "muted", 4.5, "1.4.3"],
   ["muted-foreground", "card", 4.5, "1.4.3"],
-  // TableHeader is `[&_tr]:bg-muted`, TableHead is `text-foreground` — shipped
+  // TableHeader is `[&_tr]:bg-muted`, TableHead is `text-muted-foreground` — shipped
   // and unasserted until record 038 (the Store list, `packages/ui`'s first
   // consumer of `Table`) named the gap.
   ["foreground", "muted", 4.5, "1.4.3"],
@@ -73,6 +73,10 @@ const pairings: [string, string, number, string][] = [
   ["ring", "muted", 3.0, "1.4.11"],
   ["ring", "accent", 3.0, "1.4.11"],
   ["popover-foreground", "popover", 4.5, "1.4.3"],
+  // The header's controls carry text and a focus ring while hovered.
+  ["foreground", "hover", 4.5, "1.4.3"],
+  ["muted-foreground", "hover", 4.5, "1.4.3"],
+  ["ring", "hover", 3.0, "1.4.11"],
   ["sidebar-foreground", "sidebar", 4.5, "1.4.3"],
   ["sidebar-primary-foreground", "sidebar-primary", 4.5, "1.4.3"],
   ["sidebar-accent-foreground", "sidebar-accent", 4.5, "1.4.3"],

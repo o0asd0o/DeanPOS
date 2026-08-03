@@ -14,7 +14,7 @@ export function NotificationsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-10 bg-card" aria-label="Notifications">
+        <Button variant="ghost" size="icon" className="size-10 bg-card hover:bg-hover" aria-label="Notifications">
           <BellIcon />
         </Button>
       </DropdownMenuTrigger>
