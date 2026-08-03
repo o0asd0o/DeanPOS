@@ -17,6 +17,7 @@ const tenantB = randomUUID();
 const adminA = randomUUID();
 const managerA = randomUUID();
 const cashierA = randomUUID();
+const adminB = randomUUID();
 const storeA1 = randomUUID();
 const storeA2 = randomUUID();
 const cashA = randomUUID();
@@ -57,6 +58,13 @@ beforeAll(async () => {
         email: `pm-cashier-${randomUUID()}@pm.test`,
         password_hash: passwordHash,
         role: "cashier",
+      },
+      {
+        id: adminB,
+        tenant_id: tenantB,
+        email: `pm-admin-b-${randomUUID()}@pm.test`,
+        password_hash: passwordHash,
+        role: "admin",
       },
     ])
     .execute();
@@ -195,6 +203,53 @@ describe("paymentMethod.create", () => {
 
     expect(asManager).toBeNull();
     expect(asCashier).toBeNull();
+  });
+
+  it("the wrong-tenant probe: Tenant A cannot create a method available at Tenant B's Store, and B's own create still succeeds", async () => {
+    const createdAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.create({ name: "B Cross-Tenant Probe", storeIds: [storeB] });
+    expect(createdAsB?.storeIds).toStrictEqual([storeB]);
+
+    const availabilityCountBefore = await ownerDb
+      .selectFrom("PaymentMethodAvailability")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
+
+    // The composite (tenant, store) FK on PaymentMethodAvailability rejects a
+    // method offered at Tenant B's Store; the whole insert rolls back in the
+    // same transaction — no method, no audit, no availability row.
+    await expect(
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.paymentMethod.create({
+        name: "Should Not Exist Cross-Tenant",
+        storeIds: [storeB],
+      }),
+    ).rejects.toThrow();
+
+    const orphanedMethod = await ownerDb
+      .selectFrom("PaymentMethod")
+      .select("id")
+      .where("name", "=", "Should Not Exist Cross-Tenant")
+      .executeTakeFirst();
+    expect(orphanedMethod).toBeUndefined();
+
+    const availabilityCountAfter = await ownerDb
+      .selectFrom("PaymentMethodAvailability")
+      .select((eb) => eb.fn.countAll<string>().as("count"))
+      .where("tenant_id", "=", tenantA)
+      .executeTakeFirstOrThrow();
+    expect(availabilityCountAfter.count).toBe(availabilityCountBefore.count);
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", createdAsB!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodAvailability")
+      .where("payment_method_id", "=", createdAsB!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", createdAsB!.id).execute();
   });
 });
 
@@ -375,6 +430,33 @@ describe("paymentMethod.deactivate and paymentMethod.reactivate", () => {
       .executeTakeFirstOrThrow();
     expect(stillActive.active).toBe(true);
   });
+
+  it("the wrong-tenant probe: Tenant A cannot reactivate Tenant B's method; B's own reactivate still succeeds", async () => {
+    const deactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.deactivate({ id: methodB });
+    expect(deactivatedAsB?.active).toBe(false);
+
+    await expectWrongTenantRefusal(
+      () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.paymentMethod.reactivate({ id: methodB }),
+      (result) => result === null,
+    );
+
+    const stillInactive = await ownerDb
+      .selectFrom("PaymentMethod")
+      .select("active")
+      .where("id", "=", methodB)
+      .executeTakeFirstOrThrow();
+    expect(stillInactive.active).toBe(false);
+
+    const reactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.reactivate({ id: methodB });
+    expect(reactivatedAsB?.active).toBe(true);
+  });
 });
 
 describe("per-Store availability", () => {
@@ -417,5 +499,46 @@ describe("per-Store availability", () => {
       .where("payment_method_id", "=", cashA)
       .execute();
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("PaymentMethodAudit isolation", () => {
+  it("the wrong-tenant probe: an actor reads their own Tenant's audit rows, never another Tenant's", async () => {
+    const createdAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.create({ name: "Audit Isolation B", storeIds: [] });
+
+    const ownerAuditsForB = await ownerDb
+      .selectFrom("PaymentMethodAudit")
+      .selectAll()
+      .where("payment_method_id", "=", createdAsB!.id)
+      .execute();
+    expect(ownerAuditsForB.length).toBeGreaterThan(0);
+
+    // Row-level security, not merely an empty result: the owner connection
+    // proves the rows exist, so a scoped-as-A read of zero means hidden.
+    const asAScoped = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("PaymentMethodAudit")
+        .selectAll()
+        .where("payment_method_id", "=", createdAsB!.id)
+        .execute(),
+    );
+    expect(asAScoped).toHaveLength(0);
+
+    const asBScoped = await withTenantScope(seam.db, tenantB, (db) =>
+      db
+        .selectFrom("PaymentMethodAudit")
+        .selectAll()
+        .where("payment_method_id", "=", createdAsB!.id)
+        .execute(),
+    );
+    expect(asBScoped).toHaveLength(ownerAuditsForB.length);
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", createdAsB!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", createdAsB!.id).execute();
   });
 });
