@@ -38,6 +38,8 @@ export function renderRoute<TRouter extends AnyRouter>(
     initialLocation?: string;
     userId?: string;
     role?: Principal["role"];
+    /** Replaces the in-process request path with a rejecting fetch, to prove a dropped connection rather than a clean refusal. */
+    fetch?: typeof fetch;
   } & TestSeamOptions,
 ): {
   container: HTMLElement;
@@ -52,6 +54,7 @@ export function renderRoute<TRouter extends AnyRouter>(
     initialLocation,
     userId,
     role,
+    fetch: fetchOverride,
     ...seamOptions
   } = options;
   if (initialLocation) window.history.pushState(null, "", initialLocation);
@@ -72,6 +75,7 @@ export function renderRoute<TRouter extends AnyRouter>(
       // set this key, so this is a no-op there.
       const deviceToken = localStorage.getItem("deanpos.device.token");
       if (deviceToken) request.headers.set("Authorization", `Bearer ${deviceToken}`);
+      if (fetchOverride) return fetchOverride(request, init);
       return actor.app.request(request, init);
     },
   });

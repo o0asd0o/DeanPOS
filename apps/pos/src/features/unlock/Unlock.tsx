@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
@@ -7,7 +7,7 @@ import { verifyPin } from "contract/src/pin.ts";
 import { PinPad } from "@/components/PinPad.tsx";
 import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
-import { usePinLockTick } from "@/lib/pin-lock-tick.ts";
+import { usePinLockAnnouncement, usePinLockTick } from "@/lib/pin-lock-tick.ts";
 import {
   pinLockUntil,
   readPinThrottle,
@@ -32,7 +32,6 @@ export function Unlock() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [srStatus, setSrStatus] = useState("");
   const pinInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser = roster?.users.find((user) => user.userId === selectedId) ?? null;
@@ -45,27 +44,12 @@ export function Unlock() {
   const isDeviceLock = deviceLockedUntil !== null;
   const isLocked = lockedUntil !== null;
   usePinLockTick(lockedUntil);
-
-  // Announces exactly on engage and on real (time-based) lift — switching to
-  // a different, unlocked User clears the strip without a false "lifted".
-  const wasLockedRef = useRef(false);
-  const lastLockInstantRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (isLocked && !wasLockedRef.current) {
-      setSrStatus(
-        isDeviceLock
-          ? "Too many attempts. This till is locked for 2 minutes"
-          : `Too many attempts. ${selectedUser?.displayName} is locked for 2 minutes. Another user can still unlock this till`,
-      );
-    } else if (!isLocked && wasLockedRef.current) {
-      const instant = lastLockInstantRef.current;
-      setSrStatus(
-        instant !== null && Date.now() >= instant ? "The lock has lifted. Try your PIN again" : "",
-      );
-    }
-    wasLockedRef.current = isLocked;
-    if (isLocked) lastLockInstantRef.current = lockedUntil;
-  }, [isLocked, isDeviceLock, selectedUser?.displayName, lockedUntil]);
+  const [srStatus, setSrStatus] = usePinLockAnnouncement(
+    isLocked,
+    isDeviceLock,
+    lockedUntil,
+    selectedUser?.displayName,
+  );
 
   const setPinDigits = (next: string) => {
     setPin(next);

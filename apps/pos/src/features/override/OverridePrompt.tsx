@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
 import { PinPad } from "@/components/PinPad.tsx";
-import { usePinLockTick } from "@/lib/pin-lock-tick.ts";
+import { usePinLockAnnouncement, usePinLockTick } from "@/lib/pin-lock-tick.ts";
 import { readPinRoster } from "@/lib/pin-roster.ts";
 import {
   pinLockUntil,
@@ -57,7 +57,6 @@ export function OverridePrompt({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [srStatus, setSrStatus] = useState("");
 
   const recordOverride = useRecordOverrideMutation();
   const approver = approvers.find((user) => user.userId === approverId) ?? null;
@@ -68,27 +67,12 @@ export function OverridePrompt({
   const lockedUntil = pinLockUntil(throttleState, approver ? approver.userId : DEVICE_ONLY_KEY);
   const isLocked = lockedUntil !== null;
   usePinLockTick(lockedUntil);
-
-  // Announces exactly on engage and on real (time-based) lift, verbatim
-  // from Unlock.tsx (M4) so the two surfaces cannot drift.
-  const wasLockedRef = useRef(false);
-  const lastLockInstantRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (isLocked && !wasLockedRef.current) {
-      setSrStatus(
-        isDeviceLock
-          ? "Too many attempts. This till is locked for 2 minutes"
-          : `Too many attempts. ${approver?.displayName} is locked for 2 minutes. Another user can still unlock this till`,
-      );
-    } else if (!isLocked && wasLockedRef.current) {
-      const instant = lastLockInstantRef.current;
-      setSrStatus(
-        instant !== null && Date.now() >= instant ? "The lock has lifted. Try your PIN again" : "",
-      );
-    }
-    wasLockedRef.current = isLocked;
-    if (isLocked) lastLockInstantRef.current = lockedUntil;
-  }, [isLocked, isDeviceLock, approver?.displayName, lockedUntil]);
+  const [srStatus, setSrStatus] = usePinLockAnnouncement(
+    isLocked,
+    isDeviceLock,
+    lockedUntil,
+    approver?.displayName,
+  );
 
   const reset = () => {
     setApproverId(null);
@@ -99,9 +83,9 @@ export function OverridePrompt({
     setSrStatus("");
   };
 
-  // Refuses every close path while a recording is in flight (M6) — Cancel,
-  // Escape, outside click and the header X all route through here — so a
-  // delayed success cannot call onApproved after the cashier tried to leave.
+  // Refuses every close path while a recording is in flight — Cancel, Escape,
+  // outside click and the header X all route through here — so a delayed
+  // success cannot call onApproved after the cashier tried to leave.
   const close = () => {
     if (pending) return;
     reset();

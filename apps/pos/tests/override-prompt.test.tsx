@@ -76,7 +76,7 @@ function buildTestRouter(onApproved: (overrideId: string) => void) {
   });
 }
 
-const DEVICE_CODES = ["GT", "GU", "GV", "GW", "GX", "GY", "GZ"];
+const DEVICE_CODES = ["GT", "GU", "GV", "GW", "GX", "GY", "GZ", "HA"];
 let deviceCodeCounter = 0;
 
 async function seedDeviceAndRoster(approversCanApprove = true) {
@@ -353,7 +353,7 @@ describe("the Override prompt", () => {
     [1280, 800],
     [390, 844],
   ])(
-    "a Device lock announces itself, disables the approver picker, and is WCAG 2.2 AA at %ipx",
+    "the tenth Device failure announces the lock immediately and disables the approver picker, WCAG 2.2 AA at %ipx",
     async (width, height) => {
       setViewport(width, height);
       await seedDeviceAndRoster();
@@ -365,18 +365,21 @@ describe("the Override prompt", () => {
 
       await waitFor(() => expect(screen.getByRole("button", { name: "Ben Cruz" })).toBeTruthy());
       fireEvent.click(screen.getByRole("button", { name: "Ben Cruz" }));
+      fireEvent.change(screen.getByLabelText("Reason (required)"), {
+        target: { value: "Rung up in error" },
+      });
 
-      // Seeds a Device-level lock directly (record 059's two counters) —
-      // the same shortcut Unlock's own suite takes rather than 10 real
-      // failed attempts across two approvers.
+      // Nine prior Device failures (record 059's two counters) — the tenth,
+      // submitted below, is the one that must trip and announce the lock.
       localStorage.setItem(
         "deanpos.pin.throttle",
         JSON.stringify({
-          device: { failures: 10, lockedUntil: Date.now() + 120_000, lastAttemptAt: Date.now() },
+          device: { failures: 9, lockedUntil: null, lastAttemptAt: Date.now() },
           users: {},
         }),
       );
-      fireEvent.click(screen.getByRole("button", { name: "4" }));
+      for (const digit of "000000") fireEvent.click(screen.getByRole("button", { name: digit }));
+      fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
       await waitFor(() =>
         expect(
@@ -390,4 +393,44 @@ describe("the Override prompt", () => {
       await expectNoAxeViolations(container);
     },
   );
+
+  // Record 061: an in-process refusal (`{ ok: false }`) and a dropped
+  // connection are different failures with different copy. `renderRoute`'s
+  // `fetch` override forces a real rejection so this exercises the
+  // `unreachable` branch, not the refusal branch above.
+  it("a dropped connection at Approve time shows the transport alert, keeps the dialog and form, and records nothing", async () => {
+    await seedDeviceAndRoster();
+    const reason = `Rung up in error ${randomUUID()}`;
+    let approvedId: string | null = null;
+    const { db } = renderRoute({
+      router: buildTestRouter((overrideId) => {
+        approvedId = overrideId;
+      }),
+      initialLocation: "/",
+      fetch: () => Promise.reject(new Error("network failure")),
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ben Cruz" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Ben Cruz" }));
+    fireEvent.change(screen.getByLabelText("Reason (required)"), { target: { value: reason } });
+    for (const digit of "482913") fireEvent.click(screen.getByRole("button", { name: digit }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "The till couldn't reach the server. The approval was not recorded — try again in a moment",
+        ),
+      ).toBeTruthy(),
+    );
+    expect(approvedId).toBeNull();
+    expect(screen.getByText("Manager approval required")).toBeTruthy();
+    expect((screen.getByLabelText("Reason (required)") as HTMLInputElement).value).toBe(reason);
+
+    const overrides = await withTenantScope(ownerDb, tenantId, (db) =>
+      db.selectFrom("Override").selectAll().where("reason", "=", reason).execute(),
+    );
+    expect(overrides).toHaveLength(0);
+  });
 });
