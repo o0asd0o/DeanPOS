@@ -98,8 +98,14 @@
    the visible panel and the page shows around it. The height is the one part
    Tailwind cannot express without an arbitrary value. */
 @utility detached-panel {
-  max-block-size: calc(100dvh - var(--spacing) * 8);
   overflow-y: auto;
+
+  /* The panel is the card inside, so it takes the sheet's whole height and
+     scrolls within it. Scoped to the card: the close control is a sibling. */
+  & > [data-slot="card"] {
+    block-size: 100%;
+    overflow-y: auto;
+  }
 }
 
 /* Thumb only — no track fill, no track border. Both properties inherit, so one

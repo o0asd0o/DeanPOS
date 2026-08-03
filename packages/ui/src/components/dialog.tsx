@@ -53,7 +53,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="tap-target absolute top-4 right-4 flex size-8 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none"
+            className="tap-target absolute top-4 right-4 grid size-8 place-items-center rounded-full border p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none"
           >
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
@@ -74,7 +74,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
-      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+      className={cn("flex flex-wrap items-center justify-center gap-2", className)}
       {...props}
     />
   );
