@@ -1,6 +1,6 @@
 # 07 — Tenant settings
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -84,3 +84,44 @@ assertion was over-specified against what issue 01 actually needed (not-enumerab
 not-cross-readable). `packages/backend/tests/db/with-tenant-scope.test.ts` is amended, not
 deleted — it now proves exactly-one-own-row, cross-tenant invisibility, zero rows unscoped, no
 `DELETE` grant, and that `UPDATE` cannot move a row to another tenant. The suite is green._
+
+**Closed 2026-08-03.** Merged to `main`; gate green at **424** tests, migration proven from an empty
+database. 2 fix rounds, both review rounds by a second model.
+
+**Two records, both decided by the human directly:**
+[046](../../decisions/046-how-tenant-settings-are-stored-and-audited.md) (storage and audit shape) ·
+[047](../../decisions/047-a-tenant-may-read-and-update-its-own-row.md) (the `Tenant` policy).
+
+**ADR-0005 and ADR-0010 settled more than expected** — integer centavos with floats prohibited in
+every layer, and `vatEnabled`/`vatRatePercent` already named with their defaults. The open part was
+the rate's *type* (integer percent), where the five settings live (columns on `Tenant`), the audit
+table's shape, and what non-admins see (nothing).
+
+**The collision worth remembering:** columns on `Tenant` required the app role to read its own
+`Tenant` row, and issue 01's locked test asserted `Tenant` was unreachable from *any* tenant-scoped
+connection — zero rows, not even your own. Resolved by narrowing the assertion to own-row-only.
+Record 029 had already breached "no policy on `Tenant`" with the identical predicate for `INSERT`,
+so the `SELECT`/`UPDATE` pair is consistent rather than novel, and enumeration stays impossible:
+you can only ever see the tenant you are already scoped to, whose id you already had. **The amended
+test is stronger than what it replaced** — it now also proves another tenant's row invisible when
+addressed directly by id, an unscoped connection reading zero, and `UPDATE` unable to move a row
+across tenants.
+
+What the review caught:
+
+- **The audit trail could record a false `old_value`.** The pre-diff read did not lock the `Tenant`
+  row, so two admins moving the rate `12`→`13` and `12`→`14` would have written audits `12→13` and
+  `12→14` — **the real `13→14` transition appearing nowhere.** An audit trail that is quietly wrong
+  is worse than one that is missing, and this is a financial control. Same defect as issue 06's, same
+  remedy as record 034's.
+- **`centavos / 100` put money through a binary float**, which ADR-0005 prohibits in every layer.
+- **The concurrency test I accepted in round 1 was unreliable in both directions** — no barrier, so
+  unlocked code passed when scheduled serially; independently sorted columns, so correct code flaked
+  when `14` won the lock. It now blocks on a real lock and asserts paired rows.
+- **The wrong-tenant probes checked two of five settings** on read and one of five on write. A
+  per-column regression on the VAT rate or either threshold would have passed.
+
+**Merge note:** `main` moved three times under this lane. The final rebase conflicted on `Nav.tsx` —
+`main` had extracted `NAV_GROUPS` into `helpers.ts` so the header's search could reach screens by
+name, while this lane hid `Settings` from non-admins. **Both intents were kept**: main's structure,
+with the filter applied in `Nav`. `contract.ts` was a pure additive-import collision.
