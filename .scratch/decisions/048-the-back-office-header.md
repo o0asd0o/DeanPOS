@@ -15,9 +15,9 @@ reference draws on every screen
 (`.scratch/foundation/reference/inspo/orders2-with-table.webp`), which is where
 appearance is decided (ADR-0013).
 
-- **Search** is a `role="search"` form with a labelled `type="search"` input.
-  It is **not wired to anything** — there is no search endpoint. It submits
-  nothing rather than pretending to.
+- **Search was removed on 2026-08-03**, by the human. It shipped inert — no
+  endpoint existed — and an affordance that does nothing is worse than none.
+  The Users list keeps its own scoped search field.
 - **Notifications** opens a menu that says "Nothing yet." There is no
   notification source; an empty state is honest where a spinner would not be.
 - **Account** opens a menu holding the current role, a link to `/settings`, and

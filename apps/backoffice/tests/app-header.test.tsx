@@ -33,15 +33,11 @@ describe("the back-office header", () => {
     cleanup = undefined;
   });
 
-  it("carries a search field, notifications and the account menu, and adds no second banner", async () => {
+  it("carries notifications and the account menu, and adds no second banner", async () => {
     const { container, db } = renderRoute({ router, tenantId, email: seededEmail });
     cleanup = () => db.destroy();
 
-    const search = (await waitFor(() => screen.getByLabelText("Search"))) as HTMLInputElement;
-    expect(search.type).toBe("search");
-    expect(container.querySelector('[role="search"]')).toBeTruthy();
-
-    expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
 
     // The account control carries the signed-in email and a name derived from
     // it, since a User has no name column yet (record 048).
