@@ -1,5 +1,8 @@
 import { createDb } from "../packages/backend/src/db/client.ts";
-import { handler, inputSchema } from "../packages/backend/src/platform-admin/handlers/provision-tenant.ts";
+import {
+  handler,
+  inputSchema,
+} from "../packages/backend/src/platform-admin/handlers/provision-tenant.ts";
 
 // Local convenience: provisions a Tenant and its first admin User through the
 // same handler the platform-admin route calls, with no HTTP and no session.
