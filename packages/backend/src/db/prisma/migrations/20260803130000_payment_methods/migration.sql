@@ -35,6 +35,25 @@ ALTER TABLE "PaymentMethod" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "payment_method_tenant_isolation" ON "PaymentMethod"
   USING ("tenant_id" = current_setting('app.tenant_id', true));
 
+-- `cash` cannot be renamed, deactivated, or have its kind changed (issue 08
+-- acceptance criterion 2) — enforced here, not only by the handlers.
+CREATE FUNCTION payment_method_cash_is_immutable() RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD."kind" = 'cash' AND (
+    NEW."name" IS DISTINCT FROM OLD."name"
+    OR NEW."active" IS DISTINCT FROM OLD."active"
+    OR NEW."kind" IS DISTINCT FROM OLD."kind"
+  ) THEN
+    RAISE EXCEPTION 'cash payment method cannot be renamed, deactivated, or reclassified';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER payment_method_cash_is_immutable
+  BEFORE UPDATE ON "PaymentMethod"
+  FOR EACH ROW EXECUTE FUNCTION payment_method_cash_is_immutable();
+
 -- CreateTable
 CREATE TABLE "PaymentMethodAvailability" (
     "id" TEXT NOT NULL,
@@ -76,7 +95,7 @@ CREATE TABLE "PaymentMethodAudit" (
     "store_id" TEXT,
     "field" TEXT NOT NULL,
     "old_value" TEXT,
-    "new_value" TEXT,
+    "new_value" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PaymentMethodAudit_pkey" PRIMARY KEY ("id")

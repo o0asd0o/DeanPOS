@@ -198,10 +198,9 @@ enum PaymentMethodKind {
   recorded
 }
 
-// Deactivated, never deleted (issue 08). `kind` is the only field anything
-// may branch on — never `name`. The partial unique index that keeps exactly
-// one `cash` row per Tenant lives in this model's migration; Prisma cannot
-// express a partial index in schema.prisma (record 054).
+// Deactivated, never deleted (issue 08); `kind` is the only field anything
+// may branch on, never `name`. The one-`cash`-per-Tenant partial index lives
+// in this model's migration — Prisma cannot express it here (record 054).
 model PaymentMethod {
   id        String            @id
   tenantId  String            @map("tenant_id")
@@ -234,10 +233,9 @@ model PaymentMethodAvailability {
   @@index([tenantId])
 }
 
-// Append-only (record 054 Q1), copying TenantSettingsAudit's structure.
-// `storeId` nullable is the discriminator: NULL is a change to the method
-// itself, non-null is availability at that Store. Three CHECKs and three
-// composite FKs live in this model's migration, not here.
+// Append-only (record 054 Q1). `storeId` null is a change to the method
+// itself, non-null is availability at that Store; CHECKs and composite FKs
+// live in this model's migration, not here.
 model PaymentMethodAudit {
   id              String   @id
   tenantId        String   @map("tenant_id")
@@ -246,7 +244,7 @@ model PaymentMethodAudit {
   storeId         String?  @map("store_id")
   field           String
   oldValue        String?  @map("old_value")
-  newValue        String?  @map("new_value")
+  newValue        String   @map("new_value")
   createdAt       DateTime @default(now()) @map("created_at")
   tenant        Tenant        @relation(fields: [tenantId], references: [id])
   actor         User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])

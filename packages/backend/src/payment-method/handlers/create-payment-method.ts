@@ -18,10 +18,8 @@ export const inputSchema = z.object({
 type CreatePaymentMethodInput = z.infer<typeof inputSchema>;
 type PaymentMethodOutput = ReturnType<typeof toPaymentMethodOutput>;
 
-// `admin` only (issue 08 acceptance criteria). Writes one `created` audit row
-// plus one `available` row per Store checked, all sharing one transaction and
-// one `created_at` (record 054 Q1) — creating a method available at three
-// Stores writes four rows.
+// `admin` only (issue 08). Writes one `created` audit row plus one
+// `available` row per Store checked, sharing one transaction (record 054 Q1).
 export const handler: Handler<CreatePaymentMethodInput, PaymentMethodOutput | null> = async ({
   ctx,
   input,

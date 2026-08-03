@@ -22,10 +22,8 @@ export const inputSchema = z.object({
 type UpdatePaymentMethodInput = z.infer<typeof inputSchema>;
 type PaymentMethodOutput = ReturnType<typeof toPaymentMethodOutput>;
 
-// `admin` only. Never touches `active` (record 040 §3). `cash` has no
-// editor — it cannot be renamed and its availability cannot be changed
-// (issue 08 acceptance criteria), so a `cash` id is refused here too, not
-// only hidden client-side.
+// `admin` only; never touches `active` (record 040 §3). `cash` cannot be
+// renamed or have its availability changed (issue 08), refused here too.
 export const handler: Handler<UpdatePaymentMethodInput, PaymentMethodOutput | null> = async ({
   ctx,
   input,

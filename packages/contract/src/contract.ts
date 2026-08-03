@@ -216,10 +216,8 @@ export const contract = {
     reactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     resetPassword: oc.input(userResetPasswordInputSchema).output(userOutputSchema.nullable()),
   },
-  // Payment methods (issue 08, record 054). `admin`-only, and the route
-  // itself refuses (record 054 §"Smaller calls" 1) — `null` for any
-  // non-admin or unauthenticated caller, the same not-found shape store.get
-  // uses.
+  // Payment methods (issue 08, record 054). `admin`-only; `null` for any
+  // non-admin or unauthenticated caller, same shape as store.get.
   paymentMethod: {
     list: oc.input(z.void()).output(z.array(paymentMethodOutputSchema)),
     create: oc.input(paymentMethodCreateInputSchema).output(paymentMethodOutputSchema.nullable()),
