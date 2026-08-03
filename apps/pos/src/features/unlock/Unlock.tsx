@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
@@ -22,6 +22,7 @@ export function Unlock() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
   const selectedUser = roster?.users.find((user) => user.userId === selectedId) ?? null;
   const setPinDigits = (next: string) => setPin(next.replace(/\D/g, "").slice(0, 6));
@@ -30,6 +31,7 @@ export function Unlock() {
     setSelectedId(userId);
     setPin("");
     setError(null);
+    pinInputRef.current?.focus();
   };
 
   const canUnlock = selectedUser !== null && selectedUser.pinHash !== null && pin.length >= 4;
@@ -87,6 +89,7 @@ export function Unlock() {
 
               <form onSubmit={handleUnlock} className="flex flex-col gap-4">
                 <Input
+                  ref={pinInputRef}
                   type="password"
                   inputMode="none"
                   autoComplete="off"
@@ -120,7 +123,11 @@ export function Unlock() {
                     type="button"
                     variant="outline"
                     aria-label="Backspace"
-                    onClick={() => setPinDigits(pin.slice(0, -1))}
+                    aria-disabled={pin.length === 0}
+                    onClick={() => {
+                      if (pin.length === 0) return;
+                      setPinDigits(pin.slice(0, -1));
+                    }}
                   >
                     <span aria-hidden="true">⌫</span>
                   </Button>

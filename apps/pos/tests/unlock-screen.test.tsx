@@ -207,9 +207,16 @@ describe("the unlock screen", () => {
 
     await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
     fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("PIN"));
+    expect(screen.getByRole("button", { name: "Backspace" }).getAttribute("aria-disabled")).toBe(
+      "true",
+    );
     for (const digit of "000000") {
       fireEvent.click(screen.getByRole("button", { name: digit }));
     }
+    expect(screen.getByRole("button", { name: "Backspace" }).getAttribute("aria-disabled")).toBe(
+      "false",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
 
     await waitFor(() => expect(screen.getByText("That PIN is not correct")).toBeTruthy(), {
