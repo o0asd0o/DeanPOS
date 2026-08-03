@@ -86,6 +86,7 @@ export {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "./components/dropdown-menu.tsx";
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./components/tooltip.tsx";
 export { Input } from "./components/input.tsx";
 export { PasswordInput } from "./components/password-input.tsx";
 export { cn } from "./lib/utils.ts";

@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint.tsx";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
 import { Button, Input } from "ui";
@@ -54,10 +55,9 @@ export function TableLabelsField({
   return (
     <fieldset className="flex flex-col gap-2">
       <legend>Table labels</legend>
-      <p className="text-foreground">
-        Leave this empty if you do not seat customers at numbered tables. The terminal then shows no
-        table control at all.
-      </p>
+      <Hint detail="Leave this empty if you do not seat customers at numbered tables. The terminal then shows no table control at all.">
+        Optional — for numbered tables only.
+      </Hint>
       {rows.map((row, index) => {
         const n = index + 1;
         return (

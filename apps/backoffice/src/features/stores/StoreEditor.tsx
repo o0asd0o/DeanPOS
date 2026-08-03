@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint.tsx";
 import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
@@ -102,18 +103,17 @@ export function StoreEditor({
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
                 />
-                <p id="business-day-start-hint" className="text-foreground">
+                <Hint
+                  id="business-day-start-hint"
+                  detail="Changing this affects reports from now on. Sales already recorded keep the day they were recorded under."
+                >
                   Sales made before this time count towards the previous business day.
-                </p>
-                <p className="text-foreground">
-                  Changing this affects reports from now on. Sales already recorded keep the day
-                  they were recorded under.
-                </p>
+                </Hint>
               </div>
             )}
           </form.Field>
           <TableLabelsField rows={labelRows} onChange={setLabelRows} onAnnounce={onAnnounce} />
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
               <XIcon />
               Cancel

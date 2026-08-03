@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint.tsx";
 import { useState } from "react";
 import { CheckIcon, KeyRoundIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
@@ -154,21 +155,20 @@ export function UserEditor({
               {(field) => (
                 <div className="flex flex-col gap-2">
                   <label htmlFor="temporary-password">Temporary password</label>
-                  <p id="temporary-password-hint-1" className="text-foreground">
+                  <Hint
+                    id="temporary-password-hint-1"
+                    detail="Tell this person their password yourself. It is not shown again after you save, and they choose their own the first time they sign in."
+                  >
                     At least 8 characters. Any characters, including spaces — there are no other
                     rules.
-                  </p>
-                  <p id="temporary-password-hint-2" className="text-foreground">
-                    Tell this person their password yourself. It is not shown again after you save,
-                    and they choose their own the first time they sign in.
-                  </p>
+                  </Hint>
                   <PasswordInput
                     id="temporary-password"
                     name={field.name}
                     autoComplete="new-password"
                     required
                     minLength={8}
-                    aria-describedby="temporary-password-hint-1 temporary-password-hint-2"
+                    aria-describedby="temporary-password-hint-1"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
@@ -177,7 +177,7 @@ export function UserEditor({
               )}
             </form.Field>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
               <XIcon />
               Cancel

@@ -227,6 +227,8 @@ re-learn where the safe exit is on each screen:
 </div>
 ```
 
+- **The row is separated from the fields** — `mt-2 border-t pt-4`. A commit
+  button flush against the last input reads as part of it.
 - **Cancel sits left, alone.** The commit sits at the far right, last in the DOM
   and last in the tab order.
 - **Buttons size to their content.** A button inside a `flex-col` form stretches

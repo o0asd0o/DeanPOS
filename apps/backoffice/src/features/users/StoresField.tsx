@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint.tsx";
 type Store = { id: string; name: string };
 
 // Native checkboxes in a `<fieldset>`, unstyled (record 045 §1 clause 3,
@@ -21,12 +22,11 @@ export function StoresField({
   return (
     <fieldset className="flex flex-col gap-2">
       <legend>Stores</legend>
-      <p className="text-foreground">
-        Unchecking a store closes that assignment. It stays on the record, so past sales at that
-        store remain attributed to this person.
-      </p>
+      <Hint detail="Unchecking a store closes that assignment. It stays on the record, so past sales at that store remain attributed to this person.">
+        Unchecking closes an assignment.
+      </Hint>
       {stores.length === 0 ? (
-        <p className="text-foreground">Add a store first, then you can assign this person to it</p>
+        <Hint>Add a store first, then you can assign this person to it</Hint>
       ) : (
         stores.map((store) => (
           <div key={store.id} className="flex items-center gap-2">
