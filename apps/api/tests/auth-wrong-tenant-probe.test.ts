@@ -6,6 +6,7 @@ import { createDb } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 // Issue 03 acceptance criterion 8: acting as Tenant A never touches Tenant
 // B's rows. Each probe below seeds its own fresh Tenant A/B pair, because a
@@ -99,18 +100,20 @@ describe("wrong-tenant probes on auth.*", () => {
     await cleanupPair(pair);
   });
 
-  it("auth.me: Tenant A's session reports Tenant A's own state, never Tenant B's", async () => {
+  it("wrong-tenant probe [auth.me]: Tenant A's session reports Tenant A's own state, never Tenant B's", async () => {
     const pair = await seedPair({ mustChangePassword: true });
     // B changes its own password first, which also clears must_change_password —
     // giving A and B genuinely different, currently-true state to distinguish.
     const bSignIn = await seam.actors.signIn(pair.emailB, password);
     expect(bSignIn.result.ok).toBe(true);
     await bSignIn.client.auth.setPassword({ newPassword: "b's own new password" });
+    const ownerSees = await bSignIn.client.auth.me();
 
     const aSignIn = await seam.actors.signIn(pair.emailA, password);
     expect(aSignIn.result.ok).toBe(true);
 
-    await expect(aSignIn.client.auth.me()).resolves.toStrictEqual({
+    const otherSees = await aSignIn.client.auth.me();
+    expect(otherSees).toStrictEqual({
       authenticated: true,
       mustChangePassword: true,
       role: "admin",
@@ -118,10 +121,18 @@ describe("wrong-tenant probes on auth.*", () => {
       email: pair.emailA,
     });
 
+    await expectWrongTenantRefusal({
+      path: "auth.me",
+      mode: "confined",
+      ownerSees,
+      otherGets: async () => otherSees,
+      otherOwn: otherSees,
+    });
+
     await cleanupPair(pair);
   });
 
-  it("auth.setPassword as Tenant A's session never touches Tenant B's User row", async () => {
+  it("wrong-tenant probe [auth.setPassword]: auth.setPassword as Tenant A's session never touches Tenant B's User row", async () => {
     const pair = await seedPair({ mustChangePassword: true });
 
     const before = await ownerDb
@@ -133,8 +144,8 @@ describe("wrong-tenant probes on auth.*", () => {
     const { result, client } = await seam.actors.signIn(pair.emailA, password);
     expect(result.ok).toBe(true);
 
-    const setResult = await client.auth.setPassword({ newPassword: "a's new password" });
-    expect(setResult).toStrictEqual({ ok: true });
+    const ownerSees = await client.auth.setPassword({ newPassword: "a's new password" });
+    expect(ownerSees).toStrictEqual({ ok: true });
 
     const rowA = await ownerDb
       .selectFrom("User")
@@ -153,10 +164,22 @@ describe("wrong-tenant probes on auth.*", () => {
     expect(rowA.password_hash).not.toBe(before.password_hash);
     expect(rowB.password_hash).toBe(before.password_hash);
 
+    const bSignIn = await seam.actors.signIn(pair.emailB, password);
+    expect(bSignIn.result.ok).toBe(true);
+    const otherSees = await bSignIn.client.auth.setPassword({ newPassword: "b's own new password" });
+
+    await expectWrongTenantRefusal({
+      path: "auth.setPassword",
+      mode: "shared",
+      ownerSees,
+      otherGets: async () => otherSees,
+      why: "setPassword's { ok: true } carries no tenant data by design; isolation is proven above by the per-row password hash comparison.",
+    });
+
     await cleanupPair(pair);
   });
 
-  it("auth.signOut as Tenant A's session never revokes Tenant B's Session row", async () => {
+  it("wrong-tenant probe [auth.signOut]: auth.signOut as Tenant A's session never revokes Tenant B's Session row", async () => {
     const pair = await seedPair();
 
     const sessionB = await seam.actors.signIn(pair.emailB, password);
@@ -164,7 +187,7 @@ describe("wrong-tenant probes on auth.*", () => {
     const sessionA = await seam.actors.signIn(pair.emailA, password);
     expect(sessionA.result.ok).toBe(true);
 
-    await sessionA.client.auth.signOut();
+    const ownerSees = await sessionA.client.auth.signOut();
 
     const rowA = await ownerDb
       .selectFrom("Session")
@@ -178,6 +201,36 @@ describe("wrong-tenant probes on auth.*", () => {
       .executeTakeFirstOrThrow();
     expect(rowA.revoked_at).not.toBeNull();
     expect(rowB.revoked_at).toBeNull();
+
+    const otherSees = await sessionB.client.auth.signOut();
+
+    await expectWrongTenantRefusal({
+      path: "auth.signOut",
+      mode: "shared",
+      ownerSees,
+      otherGets: async () => otherSees,
+      why: "signOut's { ok: true } carries no tenant data by design; isolation is proven above by the per-row revoked_at comparison.",
+    });
+
+    await cleanupPair(pair);
+  });
+});
+
+describe("wrong-tenant probe on ping", () => {
+  it("wrong-tenant probe [ping]: ping is genuinely tenant-neutral — no Tenant column, no predicate, same row for everyone", async () => {
+    const pair = await seedPair();
+    const asA = await seam.actors.signIn(pair.emailA, password);
+    const asB = await seam.actors.signIn(pair.emailB, password);
+
+    const ownerSees = await asB.client.ping();
+
+    await expectWrongTenantRefusal({
+      path: "ping",
+      mode: "shared",
+      ownerSees,
+      otherGets: () => asA.client.ping(),
+      why: "getPing selects from Ping with no tenant predicate and the spine migration grants it no tenant_id column — the only genuinely tenant-neutral procedure.",
+    });
 
     await cleanupPair(pair);
   });

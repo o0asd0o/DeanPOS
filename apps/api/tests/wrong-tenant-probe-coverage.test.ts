@@ -66,6 +66,14 @@ function extractProbes(contents: string, file: string): Probe[] {
         else if (char === quote) quote = null;
         continue;
       }
+      // A `//` line comment can carry an apostrophe (e.g. "B's own path")
+      // that would otherwise be mistaken for an opening quote — skip to
+      // the newline instead of tracking depth through it.
+      if (char === "/" && contents[i + 1] === "/") {
+        const nextNewline = contents.indexOf("\n", i);
+        i = nextNewline === -1 ? contents.length : nextNewline;
+        continue;
+      }
       if (char === '"' || char === "'" || char === "`") quote = char;
       else if (char === "(") depth++;
       else if (char === ")") {
@@ -169,6 +177,18 @@ describe("scanner regressions", () => {
       "  await client.store.update(",
       "    { id },",
       "  );",
+      "  await expectWrongTenantRefusal({});",
+      "});",
+    ].join("\n");
+    const [probe] = extractProbes(contents, "fake.test.ts");
+    expect(probe!.body.includes("expectWrongTenantRefusal")).toBe(true);
+  });
+
+  it("an apostrophe inside a // comment doesn't corrupt the block extraction", () => {
+    const contents = [
+      'it("wrong-tenant probe [store.update]: has a comment", async () => {',
+      "  // B's own path succeeds first",
+      "  await client.store.update({ id });",
       "  await expectWrongTenantRefusal({});",
       "});",
     ].join("\n");
