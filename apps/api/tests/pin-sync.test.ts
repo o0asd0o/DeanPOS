@@ -10,6 +10,8 @@ import { createTestSeam } from "../src/test-seam.ts";
 
 // Issue 10: terminal.pinSync, the hash-sync payload. The payload assertions
 // are on the payload itself (record 057 Q3), not on device behaviour.
+// Refusal is `null` — the same not-found shape store.get uses (record 057
+// Q3, amended for M2).
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 
@@ -21,6 +23,7 @@ const cashierA = randomUUID(); // assigned to storeA1
 const cashierElsewhere = randomUUID(); // assigned to storeA2 only
 const deactivatedA = randomUUID(); // assigned to storeA1, but inactive
 const adminB = randomUUID();
+const cashierB = randomUUID(); // assigned to storeB, has a PIN hash
 const storeA1 = randomUUID();
 const storeA2 = randomUUID();
 const storeB = randomUUID();
@@ -63,6 +66,7 @@ beforeAll(async () => {
   const passwordHash = await hashPassword("irrelevant");
   const pinHashCashier = await hashPin("135790");
   const pinHashManager = await hashPin("246813");
+  const pinHashCashierB = await hashPin("864209");
 
   await seedTenantUser(ownerDb, {
     id: adminA,
@@ -107,6 +111,13 @@ beforeAll(async () => {
     passwordHash,
     role: "admin",
   });
+  await seedTenantUser(ownerDb, {
+    id: cashierB,
+    tenantId: tenantB,
+    email: `pin-cashier-b-${randomUUID()}@pin.test`,
+    passwordHash,
+    role: "cashier",
+  });
 
   await withTenantScope(seam.db, tenantA, (db) =>
     db
@@ -125,6 +136,7 @@ beforeAll(async () => {
   await assignStore(tenantA, cashierA, storeA1);
   await assignStore(tenantA, cashierElsewhere, storeA2);
   await assignStore(tenantA, deactivatedA, storeA1);
+  await assignStore(tenantB, cashierB, storeB);
 
   await ownerDb
     .updateTable("User")
@@ -135,6 +147,11 @@ beforeAll(async () => {
     .updateTable("User")
     .set({ pin_hash: pinHashManager })
     .where("id", "=", managerA)
+    .execute();
+  await ownerDb
+    .updateTable("User")
+    .set({ pin_hash: pinHashCashierB })
+    .where("id", "=", cashierB)
     .execute();
   // adminA and cashierElsewhere have no PIN set yet — pinHash must be null.
 });
@@ -155,12 +172,20 @@ afterAll(async () => {
 });
 
 describe("terminal.pinSync", () => {
+  it("returns exactly the root keys storeId, syncedAt, users — no ok field", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS0", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result).not.toBeNull();
+    expect(Object.keys(result!).sort()).toStrictEqual(["storeId", "syncedAt", "users"].sort());
+  });
+
   it("contains exactly that Store's active Users: admin plus assigned cashiers/managers, no other Store, no deactivated User", async () => {
     const device = await enrolDeviceAt(storeA1, "PS1", adminA, tenantA);
     const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect(result).not.toBeNull();
+    if (!result) return;
     expect(result.storeId).toBe(storeA1);
 
     const userIds = result.users.map((u) => u.userId).sort();
@@ -173,8 +198,8 @@ describe("terminal.pinSync", () => {
     const device = await enrolDeviceAt(storeA1, "PS2", adminA, tenantA);
     const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect(result).not.toBeNull();
+    if (!result) return;
 
     const cashierRow = result.users.find((u) => u.userId === cashierA);
     const adminRow = result.users.find((u) => u.userId === adminA);
@@ -193,8 +218,8 @@ describe("terminal.pinSync", () => {
     const device = await enrolDeviceAt(storeA2, "PS3", adminA, tenantA);
     const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect(result).not.toBeNull();
+    if (!result) return;
     expect(result.users.map((u) => u.userId)).toContain(adminA);
   });
 
@@ -220,17 +245,15 @@ describe("terminal.pinSync", () => {
     const client = seam.actors.withBearerToken(device.token);
 
     const before = await client.terminal.pinSync();
-    expect(before.ok && before.users.some((u) => u.userId === toggledId)).toBe(true);
+    expect(before?.users.some((u) => u.userId === toggledId)).toBe(true);
 
     await ownerDb.updateTable("User").set({ active: false }).where("id", "=", toggledId).execute();
     const whileInactive = await client.terminal.pinSync();
-    expect(whileInactive.ok && whileInactive.users.some((u) => u.userId === toggledId)).toBe(false);
+    expect(whileInactive?.users.some((u) => u.userId === toggledId)).toBe(false);
 
     await ownerDb.updateTable("User").set({ active: true }).where("id", "=", toggledId).execute();
     const afterReactivate = await client.terminal.pinSync();
-    expect(afterReactivate.ok && afterReactivate.users.some((u) => u.userId === toggledId)).toBe(
-      true,
-    );
+    expect(afterReactivate?.users.some((u) => u.userId === toggledId)).toBe(true);
 
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", toggledId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", toggledId).execute();
@@ -239,33 +262,46 @@ describe("terminal.pinSync", () => {
 
   it("refuses with no Device token, an unrecognised token, and a revoked Device's token", async () => {
     const noToken = await seam.actors.withBearerToken(null).terminal.pinSync();
-    expect(noToken.ok).toBe(false);
+    expect(noToken).toBeNull();
 
     const badToken = await seam.actors.withBearerToken("not-a-real-token").terminal.pinSync();
-    expect(badToken.ok).toBe(false);
+    expect(badToken).toBeNull();
 
     const device = await enrolDeviceAt(storeA1, "PS5", adminA, tenantA);
     await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.device.revoke({ id: device.deviceId });
     const revoked = await seam.actors.withBearerToken(device.token).terminal.pinSync();
-    expect(revoked.ok).toBe(false);
+    expect(revoked).toBeNull();
   });
 
   it("a User's own tenant session (not a Device token) is refused — a PIN is never accepted without a valid, unrevoked Device token", async () => {
     const asSession = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.terminal.pinSync();
-    expect(asSession.ok).toBe(false);
+    expect(asSession).toBeNull();
   });
 
-  it("wrong-tenant probe: a Device enrolled at Tenant A never sees Tenant B's Users, even though B has an active admin", async () => {
-    const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
-    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+  it("wrong-tenant probe: Tenant B's own Device receives its cashier's row; Tenant A's Device receives none of it", async () => {
+    const deviceB = await enrolDeviceAt(storeB, "PSB1", adminB, tenantB);
+    const resultB = await seam.actors.withBearerToken(deviceB.token).terminal.pinSync();
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.users.map((u) => u.userId)).not.toContain(adminB);
-    expect(result.storeId).not.toBe(storeB);
+    expect(resultB).not.toBeNull();
+    if (!resultB) return;
+    expect(resultB.storeId).toBe(storeB);
+    const cashierBRow = resultB.users.find((u) => u.userId === cashierB);
+    expect(cashierBRow?.displayName).toBeTruthy();
+    expect(cashierBRow?.pinHash).toMatch(/^\$pbkdf2-sha256\$/);
+
+    const deviceA = await enrolDeviceAt(storeA1, "PSA1", adminA, tenantA);
+    const resultA = await seam.actors.withBearerToken(deviceA.token).terminal.pinSync();
+
+    expect(resultA).not.toBeNull();
+    if (!resultA) return;
+    expect(resultA.storeId).not.toBe(storeB);
+    expect(resultA.users.map((u) => u.userId)).not.toContain(cashierB);
+    expect(resultA.users.map((u) => u.userId)).not.toContain(adminB);
+    expect(resultA.users.map((u) => u.pinHash)).not.toContain(cashierBRow!.pinHash);
+    expect(resultA.users.map((u) => u.displayName)).not.toContain(cashierBRow!.displayName);
   });
 });

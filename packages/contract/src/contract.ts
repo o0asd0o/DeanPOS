@@ -251,15 +251,15 @@ export const pinRosterUserSchema = z.object({
   pinHash: z.string().nullable(),
 });
 
-export const terminalPinSyncOutputSchema = z.discriminatedUnion("ok", [
-  z.object({
-    ok: z.literal(true),
+// Refusal is `null`, the same not-found shape store.get uses — the root
+// key set of a successful payload is exactly these three (record 057 Q3).
+export const terminalPinSyncOutputSchema = z
+  .object({
     storeId: z.string(),
     syncedAt: z.string(),
     users: z.array(pinRosterUserSchema),
-  }),
-  z.object({ ok: z.literal(false) }),
-]);
+  })
+  .nullable();
 
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
