@@ -150,3 +150,11 @@ Stores and Users dialogs — matching the built basis was the instruction.
 **`main` went red after the fast-forward** with `relation "PaymentMethodAudit" does not exist`: the
 migration had not reached `DeanPOS_dev`. Applied it — purely additive, verified statement by
 statement first — and `cash` seeded for all **189** existing Tenants, one each.
+
+**Followed up by [issue 14](14-payment-method-payment-details.md)** (added 2026-08-03, this issue
+stays closed). A method as built here is a name and a `kind`, so a GCash sale is recorded as GCash
+and the customer is never told **where to send the money**. Issue 14 adds an optional payment-detail
+set — account name, account number, and an uploaded QR image — at a Tenant default with per-Store
+override, resolved whole-row. It stores an image and still generates no payload, so this issue's
+non-goal is carried forward unreversed. Decided by
+[record 057](../../decisions/057-payment-method-payment-details-storage-shape-and-upload.md).
