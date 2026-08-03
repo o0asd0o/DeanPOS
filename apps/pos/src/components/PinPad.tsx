@@ -1,5 +1,4 @@
 import type { ReactNode, RefObject } from "react";
-import { useEffect, useState } from "react";
 import { Button, Input } from "ui";
 
 const KEYPAD_DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -11,25 +10,9 @@ export function formatClock(remainingMs: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// The whole lift mechanism: one interval, keyed on the lock instant, running
-// only while locked, cleared on unmount and on lift. Lives in the caller
-// (which computes `lockedUntil` fresh from readPinThrottle() every render),
-// not in PinPad itself — PinPad is presentational, and only the caller's own
-// re-render can pick up a lock that has just expired.
-export function usePinLockTick(lockedUntil: number | null): void {
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (lockedUntil === null) return;
-    const id = setInterval(() => forceTick((tick) => tick + 1), 1000);
-    return () => clearInterval(id);
-  }, [lockedUntil]);
-}
-
 // Extracted verbatim from Unlock.tsx (record 060 Q5): the masked input, the
-// twelve-cell keypad and the lock strip, shared by the unlock screen and the
-// Override prompt so the two surfaces cannot drift. `trailing` is the
-// twelfth cell — Unlock fills it with its submit button; the Override
-// prompt leaves it empty, since its Approve lives in the dialog's footer.
+// twelve-cell keypad and lock strip, shared with the Override prompt.
+// `trailing` is the twelfth cell — Unlock's submit button, or empty.
 export function PinPad({
   pin,
   onPinChange,

@@ -4,9 +4,10 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
-import { PinPad, usePinLockTick } from "@/components/PinPad.tsx";
+import { PinPad } from "@/components/PinPad.tsx";
 import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
+import { usePinLockTick } from "@/lib/pin-lock-tick.ts";
 import {
   pinLockUntil,
   readPinThrottle,
