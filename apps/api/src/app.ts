@@ -28,6 +28,7 @@ import {
   terminalEnrolRoute,
   terminalHeartbeatRoute,
   terminalMeRoute,
+  terminalPinSyncRoute,
 } from "./routes/device.ts";
 import { healthRoute } from "./routes/health.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
@@ -54,6 +55,8 @@ import {
   userListRoute,
   userReactivateRoute,
   userResetPasswordRoute,
+  userResetPinRoute,
+  userSetPinRoute,
   userUpdateRoute,
 } from "./routes/user.ts";
 
@@ -123,6 +126,8 @@ export const createApp = ({
         deactivate: userDeactivateRoute,
         reactivate: userReactivateRoute,
         resetPassword: userResetPasswordRoute,
+        setPin: userSetPinRoute,
+        resetPin: userResetPinRoute,
       },
       paymentMethod: {
         list: paymentMethodListRoute,
@@ -148,6 +153,7 @@ export const createApp = ({
         enrol: terminalEnrolRoute,
         me: terminalMeRoute,
         heartbeat: terminalHeartbeatRoute,
+        pinSync: terminalPinSyncRoute,
       },
     });
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });

@@ -84,6 +84,9 @@ model User {
   lastName           String      @default("") @map("last_name")
   passwordHash       String      @map("password_hash")
   mustChangePassword Boolean     @default(true) @map("must_change_password")
+  // The PIN's hash, PBKDF2-HMAC-SHA-256 (issue 10, record 057). Nullable —
+  // no PIN until the User's first use; never selected wholesale (list-users.query.ts).
+  pinHash            String?     @map("pin_hash")
   role               Role
   active             Boolean     @default(true)
   createdAt          DateTime    @default(now())

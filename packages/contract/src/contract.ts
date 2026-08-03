@@ -90,6 +90,25 @@ export const userResetPasswordInputSchema = z.object({
   password: temporaryPasswordSchema,
 });
 
+// A PIN is a second factor to Device possession, never a credential on its
+// own (issue 10) — 4-6 digits, never parsed to a number, no policy from
+// record 032. Never returned in any output.
+export const pinSchema = z.string().regex(/^\d{4,6}$/, "4 to 6 digits");
+
+// Self-service (issue 10, record 057 Q2/Q6): `currentPin` is required only
+// to change an existing PIN, absent for the first-use case. No response
+// ever carries the hash back to the caller.
+export const userSetPinInputSchema = z.object({
+  pin: pinSchema,
+  currentPin: pinSchema.optional(),
+});
+export const userSetPinOutputSchema = z.object({ ok: z.boolean() });
+
+// Admin-only (issue 10, record 057 "smaller calls" 4): clears the hash to
+// NULL rather than minting a temporary PIN — the User sets their own on
+// next use. `{ ok: true }` only, never a PIN.
+export const userResetPinOutputSchema = z.object({ ok: z.boolean() });
+
 // Issue 07, record 046 §2: these five columns, integer centavos (ADR-0005),
 // integer VAT percent (record 046 §1). A setting governs sales made from now
 // on — nothing here reads a current value to interpret a past one.
@@ -226,6 +245,25 @@ export const terminalMeOutputSchema = z.discriminatedUnion("authenticated", [
 
 export const terminalHeartbeatOutputSchema = z.object({ ok: z.boolean() });
 
+// The hash-sync payload (issue 10, record 057 Q3). No input at all — a
+// wrong-Store request has no field to ask with, so the refusal is
+// structural. No email, no role, no passwordHash, ever.
+export const pinRosterUserSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  pinHash: z.string().nullable(),
+});
+
+export const terminalPinSyncOutputSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    storeId: z.string(),
+    syncedAt: z.string(),
+    users: z.array(pinRosterUserSchema),
+  }),
+  z.object({ ok: z.literal(false) }),
+]);
+
 export const provisionTenantInputSchema = z.object({
   tenantName: z.string().min(1),
   adminEmail: z.string().email(),
@@ -297,6 +335,10 @@ export const contract = {
     deactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     reactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),
     resetPassword: oc.input(userResetPasswordInputSchema).output(userOutputSchema.nullable()),
+    // PIN set/change (self) and reset (admin) — issue 10. Never the same
+    // procedure as the password ones; the hash never rides an output.
+    setPin: oc.input(userSetPinInputSchema).output(userSetPinOutputSchema),
+    resetPin: oc.input(userIdInputSchema).output(userResetPinOutputSchema),
   },
   // Payment methods (issue 08, record 054). `admin`-only; `null` for any
   // non-admin or unauthenticated caller, same shape as store.get.
@@ -349,5 +391,8 @@ export const contract = {
     enrol: oc.input(terminalEnrolInputSchema).output(terminalEnrolOutputSchema),
     me: oc.input(z.void()).output(terminalMeOutputSchema),
     heartbeat: oc.input(z.void()).output(terminalHeartbeatOutputSchema),
+    // The hash-sync payload (issue 10, record 057 Q3). Pulled, never
+    // pushed; no input, so a wrong-Store request has no field to ask with.
+    pinSync: oc.input(z.void()).output(terminalPinSyncOutputSchema),
   },
 };

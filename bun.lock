@@ -118,6 +118,7 @@
       "name": "backend",
       "version": "0.0.0",
       "dependencies": {
+        "contract": "workspace:*",
         "kysely": "^0.28.2",
         "pg": "8.22.0",
         "schemas": "workspace:*",

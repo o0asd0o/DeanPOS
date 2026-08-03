@@ -7,6 +7,7 @@ import { handler as heartbeatHandler } from "backend/src/device/handlers/heartbe
 import { handler as listDevicesHandler } from "backend/src/device/handlers/list-devices.ts";
 import { handler as listPendingCodesHandler } from "backend/src/device/handlers/list-pending-codes.ts";
 import { handler as meHandler } from "backend/src/device/handlers/me.ts";
+import { handler as pinSyncHandler } from "backend/src/device/handlers/pin-sync.ts";
 import { handler as renameDeviceHandler } from "backend/src/device/handlers/rename-device.ts";
 import { handler as revokeDeviceHandler } from "backend/src/device/handlers/revoke-device.ts";
 import { contract } from "contract/src/index.ts";
@@ -41,4 +42,7 @@ export const terminalMeRoute = os.terminal.me.handler(({ context }) =>
 );
 export const terminalHeartbeatRoute = os.terminal.heartbeat.handler(({ context }) =>
   heartbeatHandler({ ctx: context, input: undefined }),
+);
+export const terminalPinSyncRoute = os.terminal.pinSync.handler(({ context }) =>
+  pinSyncHandler({ ctx: context, input: undefined }),
 );
