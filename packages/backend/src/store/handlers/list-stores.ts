@@ -7,10 +7,8 @@ import { toStoreOutput } from "../helpers.ts";
 
 type StoreOutput = ReturnType<typeof toStoreOutput>;
 
-// Refused entirely for `cashier` (empty array, never an error — record
-// 038 §6 forbids disclosing anything about a Store the caller may not see).
-// A `manager` sees only their assigned Stores; `admin` is exempt from Store
-// membership by construction (same rule as store.get's canAccessStore).
+// Empty array, never an error, for `cashier`/an unassigned `manager`
+// (record 038 §6).
 export const handler: Handler<void, StoreOutput[]> = async ({ ctx }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.userId || !ctx.principal.role) return [];
   const { tenantId, userId, role } = ctx.principal;

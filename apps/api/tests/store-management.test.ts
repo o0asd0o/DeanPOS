@@ -236,12 +236,18 @@ describe("store.update", () => {
   });
 
   it("the wrong-tenant probe: Tenant A addressing Tenant B's Store id is refused, B's row is untouched", async () => {
-    const beforeAsB = await ownerDb
-      .selectFrom("Store")
-      .select("name")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(beforeAsB.name).toBe("B's Store");
+    // Establish success through Tenant B's own application path first
+    // (finding 7) — seeding through the owner DB proves nothing about
+    // authorisation, since it bypasses it entirely.
+    const beforeAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.update({
+        id: storeB,
+        name: "B's Store",
+        businessDayStart: "00:00",
+        tableLabels: [],
+      });
+    expect(beforeAsB?.name).toBe("B's Store");
 
     await expectWrongTenantRefusal(
       () =>
@@ -254,12 +260,33 @@ describe("store.update", () => {
       (result) => result === null,
     );
 
-    const afterAsB = await ownerDb
-      .selectFrom("Store")
-      .select("name")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(afterAsB.name).toBe("B's Store");
+    const afterAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.get({ id: storeB });
+    expect(afterAsB?.name).toBe("B's Store");
+  });
+
+  it("the wrong-tenant probe: Tenant A cannot create a Store visible to Tenant B, and Tenant B's own create still succeeds", async () => {
+    const createdAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.create({
+        name: "B's Second Store",
+        businessDayStart: "00:00",
+        tableLabels: [],
+      });
+    expect(createdAsB?.tenantId).toBe(tenantB);
+
+    const listAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.store.list();
+    expect(listAsA.map((store) => store.id)).not.toContain(createdAsB!.id);
+
+    const listAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.list();
+    expect(listAsB.map((store) => store.id)).toContain(createdAsB!.id);
+
+    await ownerDb.deleteFrom("Store").where("id", "=", createdAsB!.id).execute();
   });
 });
 
@@ -323,12 +350,16 @@ describe("store.deactivate and store.reactivate", () => {
   });
 
   it("the wrong-tenant probe: Tenant A cannot deactivate Tenant B's Store; B's row stays active and readable in B", async () => {
-    const asB = await ownerDb
-      .selectFrom("Store")
-      .select("active")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(asB.active).toBe(true);
+    // Prove Tenant B's own deactivate/reactivate path actually works before
+    // trusting a refusal from A to mean anything (finding 7).
+    const deactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.deactivate({ id: storeB });
+    expect(deactivatedAsB?.active).toBe(false);
+    const reactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.reactivate({ id: storeB });
+    expect(reactivatedAsB?.active).toBe(true);
 
     await expectWrongTenantRefusal(
       () =>
@@ -338,22 +369,17 @@ describe("store.deactivate and store.reactivate", () => {
       (result) => result === null,
     );
 
-    const stillAsB = await ownerDb
-      .selectFrom("Store")
-      .select("active")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(stillAsB.active).toBe(true);
+    const stillAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.get({ id: storeB });
+    expect(stillAsB?.active).toBe(true);
   });
 
   it("the wrong-tenant probe: Tenant A cannot reactivate Tenant B's Store; B's row stays deactivated and readable in B", async () => {
-    await ownerDb.updateTable("Store").set({ active: false }).where("id", "=", storeB).execute();
-    const asB = await ownerDb
-      .selectFrom("Store")
-      .select("active")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(asB.active).toBe(false);
+    const deactivatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.deactivate({ id: storeB });
+    expect(deactivatedAsB?.active).toBe(false);
 
     await expectWrongTenantRefusal(
       () =>
@@ -363,14 +389,15 @@ describe("store.deactivate and store.reactivate", () => {
       (result) => result === null,
     );
 
-    const stillAsB = await ownerDb
-      .selectFrom("Store")
-      .select("active")
-      .where("id", "=", storeB)
-      .executeTakeFirstOrThrow();
-    expect(stillAsB.active).toBe(false);
+    const stillAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.get({ id: storeB });
+    expect(stillAsB?.active).toBe(false);
 
-    await ownerDb.updateTable("Store").set({ active: true }).where("id", "=", storeB).execute();
+    const restoredAsB = await seam.actors
+      .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
+      .client.store.reactivate({ id: storeB });
+    expect(restoredAsB?.active).toBe(true);
   });
 });
 

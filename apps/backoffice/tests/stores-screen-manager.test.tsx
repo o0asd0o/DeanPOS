@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 
-import { createDb, withTenantScope } from "backend/src/db/client.ts";
-import { hashPassword } from "backend/src/common/password.ts";
-import { expectNoAxeViolations, renderRoute, screen, waitFor } from "api/src/test-seam-react.tsx";
+import {
+  createDb,
+  expectNoAxeViolations,
+  hashPassword,
+  renderRoute,
+  screen,
+  waitFor,
+  withTenantScope,
+} from "api/src/test-seam-react.tsx";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { router } from "@/router.tsx";

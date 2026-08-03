@@ -38,8 +38,8 @@ export function DeactivateDialog({
         <DialogHeader>
           <DialogTitle>Deactivate {store.name}?</DialogTitle>
           <DialogDescription>
-            Past sales stay attributed to this store and nothing is deleted. It stops being offered
-            for new work, and you can reactivate it later.
+            This store stops being offered for new work, its past sales stay attributed to it, and
+            Reactivate brings it back
           </DialogDescription>
         </DialogHeader>
         {deactivateStore.isError && (

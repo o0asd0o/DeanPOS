@@ -12,12 +12,18 @@ export const pingOutputSchema = z.object({
 // three role strings are declared as a schema.
 export const roleSchema = z.enum(["cashier", "manager", "admin"]);
 
+// `HH:mm`, 24-hour, 00:00-23:59 (record 040 §2; finding 6: enforced here,
+// not just accepted as any non-empty string, and backed by a DB check
+// constraint since the schema alone is not the authority).
+const businessDayStartSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Must be HH:mm, 00:00-23:59");
+
 export const storeOutputSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
   name: z.string(),
-  // `HH:mm`, 24-hour (record 040 §2).
-  businessDayStart: z.string(),
+  businessDayStart: businessDayStartSchema,
   // Ordered; duplicates permitted (issue 05, ADR-0011).
   tableLabels: z.array(z.string()),
   active: z.boolean(),
@@ -28,7 +34,7 @@ export const storeOutputSchema = z.object({
 // business-day start and the whole label array together (record 040 §3).
 export const storeFieldsInputSchema = z.object({
   name: z.string().min(1),
-  businessDayStart: z.string().min(1),
+  businessDayStart: businessDayStartSchema,
   tableLabels: z.array(z.string()),
 });
 
@@ -66,10 +72,8 @@ export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
 export const signOutOutputSchema = z.object({ ok: z.literal(true) });
 
-// What `_shell`'s `beforeLoad` guard reads (record 030) — never the raw
-// cookie, which is httpOnly and unreadable from the client on purpose.
-// `role` is carried from issue 05 on: the Stores screen needs it to know
-// whether the caller is an `admin` (record 038 §6).
+// What `_shell`'s `beforeLoad` guard reads (record 030). `role` is carried
+// from issue 05 on, for the Stores screen's admin check (record 038 §6).
 export const meOutputSchema = z.discriminatedUnion("authenticated", [
   z.object({ authenticated: z.literal(false) }),
   z.object({ authenticated: z.literal(true), mustChangePassword: z.boolean(), role: roleSchema }),

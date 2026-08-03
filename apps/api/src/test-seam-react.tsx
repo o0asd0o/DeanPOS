@@ -2,7 +2,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
+import { hashPassword } from "backend/src/common/password.ts";
 import type { Principal } from "backend/src/common/ctx.ts";
+import { createDb, withTenantScope } from "backend/src/db/client.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AnyRouter } from "@tanstack/react-router";
 import { RouterProvider } from "@tanstack/react-router";
@@ -19,6 +21,10 @@ import { createTestSeam, type TestSeamOptions } from "./test-seam.ts";
 afterEach(cleanup);
 
 export { fireEvent, screen, waitFor, within };
+
+// Fixture operations for a UI-app test file (finding 12, ADR-0009): a UI
+// app's test suite goes through `api`'s seam, never `backend` directly.
+export { createDb, hashPassword, withTenantScope };
 
 // The render half of the one test seam (server half: ./test-seam.ts).
 // Public surface: .scratch/decisions/008. `tenantId` (issue 03) is the

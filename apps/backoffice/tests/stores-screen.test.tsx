@@ -1,15 +1,17 @@
 import { randomUUID } from "node:crypto";
 
-import { createDb, withTenantScope } from "backend/src/db/client.ts";
-import { hashPassword } from "backend/src/common/password.ts";
 import {
+  createDb,
   expectNoAxeViolations,
   fireEvent,
+  hashPassword,
   renderRoute,
   screen,
   waitFor,
+  withTenantScope,
   within,
 } from "api/src/test-seam-react.tsx";
+import { userEvent } from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { router } from "@/router.tsx";
@@ -113,21 +115,23 @@ describe("the Stores screen — as an admin", () => {
     ["A", "B", "C", "D"].forEach((value, i) => fireEvent.change(inputs[i]!, { target: { value } }));
 
     // Keyboard-only: focus the row-1 "move down" button, then activate it
-    // three times, exactly the check record 039 names as the one that
-    // matters most on this screen.
+    // three times through real key events (Enter, Space, Enter) — not
+    // `fireEvent.click`, which bypasses keyboard activation entirely and
+    // would pass even if the control were broken for SC 2.5.7 (finding 2).
+    const user = userEvent.setup();
     const row1Down = screen.getByRole("button", { name: "Move label 1 down" }) as HTMLButtonElement;
     row1Down.focus();
     expect(document.activeElement).toBe(row1Down);
 
-    fireEvent.click(row1Down);
+    await user.keyboard("{Enter}");
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 2 down"));
     expect(document.activeElement).toBe(row1Down);
 
-    fireEvent.click(row1Down);
+    await user.keyboard(" ");
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 3 down"));
     expect(document.activeElement).toBe(row1Down);
 
-    fireEvent.click(row1Down);
+    await user.keyboard("{Enter}");
     await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 4 down"));
     expect(document.activeElement).toBe(row1Down);
     expect(row1Down.getAttribute("aria-disabled")).toBe("true");
@@ -161,6 +165,14 @@ describe("the Stores screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
     expect(screen.getByText("Deactivate Closing Soon?")).toBeTruthy();
+    // Record 041's copy, asserted with the dialog open — the word "delete"
+    // must never appear (038's invariant).
+    expect(
+      screen.getByText(
+        "This store stops being offered for new work, its past sales stay attributed to it, and Reactivate brings it back",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("dialog").textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Deactivate" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -183,5 +195,39 @@ describe("the Stores screen — as an admin", () => {
     });
 
     await ownerDb.deleteFrom("Store").where("id", "=", localStoreId).execute();
+  });
+
+  it("announces two consecutive identical events, not just the first (finding 4)", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/stores",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Add store" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+
+    // Two removals in a row produce the identical message "Label removed"
+    // — each must still land in the live region as a fresh DOM mutation.
+    fireEvent.click(screen.getByRole("button", { name: "Remove label 2" }));
+    const regions = () => screen.getAllByRole("status").filter((el) => el.textContent);
+    await waitFor(() =>
+      expect(regions().map((el) => el.textContent)).toStrictEqual(["Label removed"]),
+    );
+    const firstRegion = regions()[0]!;
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove label 1" }));
+    await waitFor(() => {
+      const active = regions();
+      expect(active.map((el) => el.textContent)).toStrictEqual(["Label removed"]);
+      expect(active[0]).not.toBe(firstRegion);
+    });
   });
 });

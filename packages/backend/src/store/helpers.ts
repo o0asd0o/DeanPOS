@@ -12,10 +12,8 @@ type StoreOutput = {
   createdAt: Date;
 };
 
-// "tenant_id" / "business_day_start" / "table_labels" (schema.prisma @map)
-// are the physical columns; the contract's response shape stays camelCase
-// (issue 01, findings on the tenant_id rename). Every Store handler routes
-// its row through this one mapper.
+// Physical `@map`ped columns to the contract's camelCase shape (issue 01,
+// findings on the tenant_id rename). Every Store handler routes through this.
 export const toStoreOutput = (store: Selectable<Store>): StoreOutput => ({
   id: store.id,
   tenantId: store.tenant_id,

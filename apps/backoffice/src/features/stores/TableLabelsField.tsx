@@ -4,12 +4,8 @@ import { Button, Input } from "ui";
 
 export type LabelRow = { id: string; value: string };
 
-// The reorder control (record 039). Rows are keyed by `row.id`, never by
-// index — with an index key React mutates the row in place on a move, so
-// focus stays on the *position* instead of the item and the button the user
-// just pressed reads as having done nothing (039 clause 1). Keying by a
-// stable id is what makes focus follow the moving row "for free": the same
-// DOM button node moves with its row.
+// The reorder control (record 039). Rows are keyed by `row.id`, not index,
+// so the same DOM button moves with its row and focus follows it (039 §1).
 export function TableLabelsField({
   rows,
   onChange,

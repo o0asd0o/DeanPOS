@@ -16,13 +16,23 @@ export function Stores() {
   const meQuery = useMeQuery();
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
 
-  const [announcement, setAnnouncement] = useState("");
+  // Two alternating regions, not one string (finding 4): identical
+  // consecutive messages ("Label removed", "Label removed") would otherwise
+  // produce no DOM mutation on a single node and go unannounced.
+  const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
+    text: "",
+    slot: 0,
+  });
+  const announce = (text: string) =>
+    setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
+
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const [deactivateTarget, setDeactivateTarget] = useState<StoreOutput | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
   const reactivateStore = useReactivateStoreMutation();
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+  const [reactivateFailed, setReactivateFailed] = useState(false);
 
   const openCreate = () => {
     opener.current = document.activeElement as HTMLElement;
@@ -37,23 +47,34 @@ export function Stores() {
     opener.current?.focus();
   };
   const handleSaved = () => {
-    setAnnouncement(editor.mode === "edit" ? "Saved" : "Store created");
+    announce(editor.mode === "edit" ? "Saved" : "Store created");
     closeEditor();
   };
 
   const handleReactivate = async (store: StoreOutput) => {
     if (reactivateStore.isPending) return;
+    setReactivateFailed(false);
     setReactivatingId(store.id);
-    const result = await reactivateStore.mutateAsync({ id: store.id });
-    setReactivatingId(null);
-    if (!result) return;
-    setAnnouncement(`${store.name} reactivated`);
+    try {
+      const result = await reactivateStore.mutateAsync({ id: store.id });
+      if (!result) return;
+      announce(`${store.name} reactivated`);
+    } catch {
+      // Record 038's inline failure surface (Failure copy: "Couldn't update
+      // the store"), the same one `DeactivateDialog` renders.
+      setReactivateFailed(true);
+    } finally {
+      setReactivatingId(null);
+    }
   };
 
   return (
     <div className="flex flex-col gap-4 p-4">
       <p role="status" className="sr-only">
-        {announcement}
+        {announcement.slot === 0 ? announcement.text : ""}
+      </p>
+      <p role="status" className="sr-only">
+        {announcement.slot === 1 ? announcement.text : ""}
       </p>
       <StoreListCard
         stores={storesQuery.data}
@@ -64,6 +85,7 @@ export function Stores() {
         isAdmin={isAdmin}
         editingId={editor.mode === "edit" ? editor.store.id : null}
         reactivatingId={reactivatingId}
+        reactivateFailed={reactivateFailed}
         onAdd={openCreate}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
@@ -71,10 +93,11 @@ export function Stores() {
       />
       {editor.mode !== "closed" && (
         <StoreEditor
+          key={editor.mode === "edit" ? `edit-${editor.store.id}` : "create"}
           store={editor.mode === "edit" ? editor.store : null}
           onSaved={handleSaved}
           onCancel={closeEditor}
-          onAnnounce={setAnnouncement}
+          onAnnounce={announce}
         />
       )}
       {deactivateTarget && (
@@ -85,7 +108,7 @@ export function Stores() {
           }}
           onDeactivated={(name) => {
             setDeactivateTarget(null);
-            setAnnouncement(`${name} deactivated`);
+            announce(`${name} deactivated`);
           }}
         />
       )}

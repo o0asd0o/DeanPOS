@@ -29,6 +29,7 @@ export function StoreListCard({
   isAdmin,
   editingId,
   reactivatingId,
+  reactivateFailed,
   onAdd,
   onEdit,
   onDeactivate,
@@ -42,6 +43,7 @@ export function StoreListCard({
   isAdmin: boolean;
   editingId: string | null;
   reactivatingId: string | null;
+  reactivateFailed: boolean;
   onAdd: () => void;
   onEdit: (store: StoreOutput) => void;
   onDeactivate: (store: StoreOutput) => void;
@@ -62,6 +64,14 @@ export function StoreListCard({
         )}
       </CardHeader>
       <CardContent>
+        {reactivateFailed && (
+          <div
+            role="alert"
+            className="mb-2 rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+          >
+            Couldn&rsquo;t update the store
+          </div>
+        )}
         {isPending ? (
           <p role="status">Loading…</p>
         ) : isError ? (
@@ -146,10 +156,12 @@ export function StoreListCard({
         ) : (
           <>
             <p className="text-foreground">No stores yet</p>
-            <p className="text-foreground">
-              A store is one outlet — its own sales, its own devices, and its own table labels. Use
-              Add store above to create the first one.
-            </p>
+            {isAdmin && (
+              <p className="text-foreground">
+                A store is one outlet — its own sales, its own devices, and its own table labels.
+                Use Add store above to create the first one.
+              </p>
+            )}
           </>
         )}
       </CardContent>
