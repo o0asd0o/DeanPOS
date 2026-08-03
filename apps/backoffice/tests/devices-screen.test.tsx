@@ -166,7 +166,7 @@ describe("the Devices screen — as a manager", () => {
     cleanup = undefined;
   });
 
-  it("the route refuses: the list reads empty and there is no Enrol a device button", async () => {
+  it("the route refuses: a manager navigating directly is redirected away, never shown the screen", async () => {
     const managerId = randomUUID();
     const passwordHash = await hashPassword("irrelevant");
     await ownerDb
@@ -192,8 +192,7 @@ describe("the Devices screen — as a manager", () => {
       await ownerDb.deleteFrom("User").where("id", "=", managerId).execute();
     };
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Devices" })).toBeTruthy());
-    expect(screen.queryByRole("button", { name: "Enrol a device" })).toBeNull();
-    await waitFor(() => expect(screen.getByText("No devices yet")).toBeTruthy());
+    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    expect(screen.queryByRole("heading", { name: "Devices" })).toBeNull();
   });
 });

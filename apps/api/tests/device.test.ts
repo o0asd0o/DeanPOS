@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { createDb, withTenantScope } from "backend/src/db/client.ts";
+import { createDb, sql, withTenantScope } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { consumeEnrolmentCode } from "backend/src/device/db-operations/commands/consume-enrolment-code.command.ts";
+import { touchDevice } from "backend/src/device/db-operations/commands/touch-device.command.ts";
+import { findDeviceByTokenHash } from "backend/src/device/db-operations/queries/find-device-by-token-hash.query.ts";
 import { hashDeviceToken } from "backend/src/device/token.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -140,6 +143,18 @@ describe("device.generateCode", () => {
     expect(asCashier.ok).toBe(false);
   });
 
+  it("Tenant A submitting Tenant B's storeId is refused; B may use that same storeId", async () => {
+    const asA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "Cross Tenant", code: "XT" });
+    expect(asA.ok).toBe(false);
+
+    const asB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "Cross Tenant", code: "XT" });
+    expect(asB.ok).toBe(true);
+  });
+
   it("refuses a code already reserved or in use at that Store", async () => {
     const first = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
@@ -199,6 +214,33 @@ describe("terminal.enrol", () => {
     expect(second.ok).toBe(false);
   });
 
+  it("the wrong-tenant probe: exchanging under Tenant A's session still enrols the Device into the code's own Tenant, B", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Enrol Target", code: "BE" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+
+    // The caller's own session is Tenant A — enrol takes no tenant input,
+    // so nothing here should let A's context leak into the resulting row.
+    const exchanged = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.terminal.enrol({ secret: generatedAsB.secret });
+    expect(exchanged.ok).toBe(true);
+    if (!exchanged.ok) return;
+
+    const row = await ownerDb
+      .selectFrom("Device")
+      .select("tenant_id")
+      .where("id", "=", exchanged.deviceId)
+      .executeTakeFirstOrThrow();
+    expect(row.tenant_id).toBe(tenantB);
+
+    const asA = await withTenantScope(seam.db, tenantA, (db) =>
+      db.selectFrom("Device").select("id").where("id", "=", exchanged.deviceId).execute(),
+    );
+    expect(asA).toHaveLength(0);
+  });
+
   it("an unrecognised secret fails with the same shape as expired or consumed", async () => {
     const result = await seam.client.terminal.enrol({ secret: "ZZZZZZZZ" });
     expect(result.ok).toBe(false);
@@ -247,6 +289,106 @@ describe("terminal.enrol", () => {
       .execute();
     expect(devices).toHaveLength(1);
   });
+
+  // Targets consumeEnrolmentCode directly with two FK-valid Device ids, so
+  // nothing but its own guard can save it — the Device unique index above
+  // cannot. Holds the row lock until both attempts are provably waiting.
+  it("consumeEnrolmentCode itself lets only one of two genuinely concurrent callers through", async () => {
+    const enrolmentCodeId = randomUUID();
+    const deviceId1 = randomUUID();
+    const deviceId2 = randomUUID();
+
+    await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .insertInto("Device")
+        .values([
+          {
+            id: deviceId1,
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: "Lock A",
+            code: "KA",
+            token_hash: `lock-hash-${deviceId1}`,
+          },
+          {
+            id: deviceId2,
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: "Lock B",
+            code: "KB",
+            token_hash: `lock-hash-${deviceId2}`,
+          },
+        ])
+        .execute(),
+    );
+    await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .insertInto("EnrolmentCode")
+        .values({
+          id: enrolmentCodeId,
+          tenant_id: tenantA,
+          store_id: storeA1,
+          name: "Lock Race",
+          code: "KR",
+          secret: "RACEBARS",
+          expires_at: new Date(Date.now() + 10 * 60 * 1000),
+        })
+        .execute(),
+    );
+
+    let releaseLock!: () => void;
+    const lockReleased = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+
+    const holder = withTenantScope(seam.db, tenantA, async (trx) => {
+      await trx
+        .selectFrom("EnrolmentCode")
+        .selectAll()
+        .where("id", "=", enrolmentCodeId)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      await lockReleased;
+    });
+    // The holder's own SELECT ... FOR UPDATE is the first statement in a
+    // fresh transaction — nothing else can contend for it yet, so it
+    // acquires immediately. This beat only lets that happen before racing it.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const attempt1 = withTenantScope(seam.db, tenantA, (db) =>
+      consumeEnrolmentCode(db, enrolmentCodeId, deviceId1),
+    );
+    const attempt2 = withTenantScope(seam.db, tenantA, (db) =>
+      consumeEnrolmentCode(db, enrolmentCodeId, deviceId2),
+    );
+
+    // Postgres queues same-row waiters behind each other — only the first
+    // ever shows as waiting on the tuple itself in pg_locks. Both show up
+    // in pg_stat_activity's wait_event_type instead.
+    const deadline = Date.now() + 2000;
+    let blocked = 0;
+    try {
+      while (Date.now() < deadline) {
+        const result = await sql<{ count: string }>`
+          select count(*)::text as count
+          from pg_stat_activity
+          where wait_event_type = 'Lock'
+            and query ilike 'update "EnrolmentCode" set "consumed_at"%'
+        `.execute(ownerDb);
+        blocked = Number(result.rows[0]?.count ?? "0");
+        if (blocked >= 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    } finally {
+      releaseLock();
+    }
+    expect(blocked).toBeGreaterThanOrEqual(2);
+
+    await holder;
+    const [result1, result2] = await Promise.all([attempt1, attempt2]);
+
+    expect([result1, result2].filter(Boolean)).toHaveLength(1);
+  });
 });
 
 describe("Device short code is not reissued after revocation", () => {
@@ -262,6 +404,44 @@ describe("Device short code is not reissued after revocation", () => {
       .asTenant(tenantA, { userId: adminA, role: "admin" })
       .client.device.generateCode({ storeId: storeA1, name: "Reissue Attempt", code: "RV" });
     expect(reserved.ok).toBe(false);
+  });
+
+  it("an exchange that actually reaches the Device index is refused: the code stays taken at that Store after revocation", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "RX");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+
+    // Seeded directly, bypassing generateCode's own isCodeReserved check,
+    // so this exchange actually reaches the Device(tenant, store, code)
+    // unique index instead of stopping earlier.
+    await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .insertInto("EnrolmentCode")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantA,
+          store_id: storeA1,
+          name: "Reissue Attempt",
+          code: "RX",
+          secret: "RXNSTGKM",
+          expires_at: new Date(Date.now() + 10 * 60 * 1000),
+        })
+        .execute(),
+    );
+
+    const reissued = await seam.client.terminal.enrol({ secret: "RXNSTGKM" });
+    expect(reissued.ok).toBe(false);
+  });
+
+  it("the same short code exchanges successfully at two different Stores — the index is no-WHERE but per-Store", async () => {
+    const first = await generateAndExchange(storeA1, "SS");
+    const second = await generateAndExchange(storeA2, "SS");
+
+    expect(first.exchanged.ok).toBe(true);
+    expect(second.exchanged.ok).toBe(true);
   });
 });
 
@@ -284,6 +464,30 @@ describe("the Device token principal", () => {
     if (!me.authenticated) return;
     expect(me.storeId).toBe(storeA1);
     expect(me.storeName).toBe("A Store 1");
+  });
+
+  it("the wrong-tenant probe: A's and B's Device tokens each resolve me/heartbeat to their own Tenant's Store only", async () => {
+    const { exchanged: exchangedAsA } = await generateAndExchange(storeA1, "TA");
+    if (!exchangedAsA.ok) throw new Error("setup failed");
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Token", code: "TB" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    const meAsA = await seam.actors.withBearerToken(exchangedAsA.token).terminal.me();
+    const meAsB = await seam.actors.withBearerToken(exchangedAsB.token).terminal.me();
+
+    expect(meAsA.authenticated && meAsA.storeId).toBe(storeA1);
+    expect(meAsB.authenticated && meAsB.storeId).toBe(storeB);
+
+    expect((await seam.actors.withBearerToken(exchangedAsA.token).terminal.heartbeat()).ok).toBe(
+      true,
+    );
+    expect((await seam.actors.withBearerToken(exchangedAsB.token).terminal.heartbeat()).ok).toBe(
+      true,
+    );
   });
 
   it("real Authorization header: enrol, then me/heartbeat over the bearer token, matched case-insensitively", async () => {
@@ -312,10 +516,8 @@ describe("the Device token principal", () => {
     const { exchanged } = await generateAndExchange(storeA1, "T4");
     if (!exchanged.ok) throw new Error("setup failed");
 
-    // The exact request a cookie-carrying client with no Origin header would
-    // have 403'd on (see the sibling "no Origin" cookie test elsewhere) —
-    // this one carries Authorization instead and is never routed through
-    // that gate at all (app.ts: the gate runs only inside `if (sessionId)`).
+    // withBearerToken never routes through the Origin gate (app.ts: it runs
+    // only inside `if (sessionId)`), unlike the sibling cookie test.
     const me = await seam.actors.withBearerToken(exchanged.token).terminal.me();
     expect(me.authenticated).toBe(true);
   });
@@ -334,6 +536,29 @@ describe("the Device token principal", () => {
     // Asserted on more than one procedure (issue 09 acceptance criteria).
     expect((await client.terminal.me()).authenticated).toBe(false);
     expect((await client.terminal.heartbeat()).ok).toBe(false);
+  });
+
+  it("a revoke that commits between the token lookup and the touch update still refuses the request", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "TR");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    const tokenHash = hashDeviceToken(exchanged.token);
+    const lookedUp = await findDeviceByTokenHash(seam.db, tokenHash);
+    if (!lookedUp) throw new Error("setup: lookup failed");
+    expect(lookedUp.revoked_at).toBeNull();
+
+    // The revoke commits after the lookup above but before the touch below.
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.revoke({ id: exchanged.deviceId });
+
+    const touched = await withTenantScope(seam.db, tenantA, (db) =>
+      touchDevice(db, exchanged.deviceId),
+    );
+    expect(touched).toBeUndefined();
+
+    const client = seam.actors.withBearerToken(exchanged.token);
+    expect((await client.terminal.me()).authenticated).toBe(false);
   });
 
   it("last-seen updates on activity", async () => {
@@ -470,11 +695,16 @@ describe("device.rename", () => {
       (result) => result === null,
     );
 
-    const stillAsB = await ownerDb
-      .selectFrom("Device")
-      .select("name")
-      .where("id", "=", exchangedAsB.deviceId)
-      .executeTakeFirstOrThrow();
+    // Through Tenant B's own scoped connection, not the owner bypass — this
+    // is what proves RLS itself refused A's write, not just that no row
+    // happened to match.
+    const stillAsB = await withTenantScope(seam.db, tenantB, (db) =>
+      db
+        .selectFrom("Device")
+        .select("name")
+        .where("id", "=", exchangedAsB.deviceId)
+        .executeTakeFirstOrThrow(),
+    );
     expect(stillAsB.name).toBe("B Rename Target");
   });
 });
@@ -565,5 +795,57 @@ describe("DeviceAudit isolation", () => {
       db.selectFrom("DeviceAudit").selectAll().where("tenant_id", "=", tenantB).execute(),
     );
     expect(asBScoped.length).toBe(ownerAuditsForB.length);
+  });
+});
+
+describe("Device and EnrolmentCode RLS isolation", () => {
+  it("the wrong-tenant probe: Tenant B's Device rows are hidden from Tenant A's app-role connection, not merely absent", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "RLS Device B", code: "RD" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    const ownerDevicesForB = await ownerDb
+      .selectFrom("Device")
+      .selectAll()
+      .where("tenant_id", "=", tenantB)
+      .execute();
+    expect(ownerDevicesForB.length).toBeGreaterThan(0);
+
+    const asAScoped = await withTenantScope(seam.db, tenantA, (db) =>
+      db.selectFrom("Device").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asAScoped).toHaveLength(0);
+
+    const asBScoped = await withTenantScope(seam.db, tenantB, (db) =>
+      db.selectFrom("Device").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asBScoped.length).toBe(ownerDevicesForB.length);
+  });
+
+  it("the wrong-tenant probe: Tenant B's EnrolmentCode rows are hidden from Tenant A's app-role connection, not merely absent", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "RLS Code B", code: "RC2" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+
+    const ownerCodesForB = await ownerDb
+      .selectFrom("EnrolmentCode")
+      .selectAll()
+      .where("tenant_id", "=", tenantB)
+      .execute();
+    expect(ownerCodesForB.length).toBeGreaterThan(0);
+
+    const asAScoped = await withTenantScope(seam.db, tenantA, (db) =>
+      db.selectFrom("EnrolmentCode").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asAScoped).toHaveLength(0);
+
+    const asBScoped = await withTenantScope(seam.db, tenantB, (db) =>
+      db.selectFrom("EnrolmentCode").selectAll().where("tenant_id", "=", tenantB).execute(),
+    );
+    expect(asBScoped.length).toBe(ownerCodesForB.length);
   });
 });

@@ -12,6 +12,7 @@ import {
 } from "api/src/test-seam-react.tsx";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
+import { readDeviceToken, writeDeviceToken } from "@/lib/device-token.ts";
 import { router } from "@/router.tsx";
 
 // The POS enrolment screen (issue 09, record 056 Q5) — no lofi mock beyond
@@ -103,7 +104,7 @@ describe("the enrolment screen", () => {
 
     await waitFor(() => expect(screen.getByText("This terminal is enrolled")).toBeTruthy());
     expect(screen.getByText("Counter 2 · Malabon")).toBeTruthy();
-    expect(localStorage.getItem("deanpos.device.token")).not.toBeNull();
+    expect(readDeviceToken()).not.toBeNull();
 
     await expectNoAxeViolations(container);
   });
@@ -128,7 +129,13 @@ describe("the enrolment screen", () => {
         })
         .execute(),
     );
-    localStorage.setItem("deanpos.device.token", token);
+    writeDeviceToken(token, {
+      deviceId,
+      name: "Counter 3",
+      code: "C3",
+      storeId,
+      storeName: "Malabon",
+    });
 
     const { db } = renderRoute({ router, initialLocation: "/enrol" });
     cleanup = async () => {
@@ -137,5 +144,46 @@ describe("the enrolment screen", () => {
     };
 
     await waitFor(() => expect(screen.queryByLabelText("Enrolment code")).toBeNull());
+  });
+
+  it("a revoked terminal sees the blocked message, never the form, and storage is untouched", async () => {
+    const deviceId = randomUUID();
+    const token = randomBytes(32).toString("base64url");
+    const tokenHash = createHash("sha256").update(Buffer.from(token, "utf8")).digest("hex");
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Device")
+        .values({
+          id: deviceId,
+          tenant_id: tenantId,
+          store_id: storeId,
+          name: "Counter 4",
+          code: "C4",
+          token_hash: tokenHash,
+          revoked_at: new Date(),
+        })
+        .execute(),
+    );
+    writeDeviceToken(token, {
+      deviceId,
+      name: "Counter 4",
+      code: "C4",
+      storeId,
+      storeName: "Malabon",
+    });
+
+    const { db } = renderRoute({ router, initialLocation: "/enrol" });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("Device").where("id", "=", deviceId).execute();
+    };
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("This terminal has been revoked. An admin must enrol it again."),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByLabelText("Enrolment code")).toBeNull();
+    expect(readDeviceToken()).toBe(token);
   });
 });
