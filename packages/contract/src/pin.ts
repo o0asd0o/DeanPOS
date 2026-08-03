@@ -1,8 +1,6 @@
 // PIN hashing (issue 10, record 057). PBKDF2-HMAC-SHA-256 via
-// `globalThis.crypto.subtle` — the one KDF the browser, the API server, and
-// the test runner can all compute. No `node:` import, ever: this file is
-// the only place both the browser and the server can reach, and it must
-// stay importable from a browser (record 057 Q1, "what must not be built").
+// `globalThis.crypto.subtle`, the one KDF browser, server and test runner
+// share. No `node:` import — this file must stay importable from a browser.
 export const PIN_HASH_PARAMS = {
   iterations: 600_000,
   hash: "SHA-256",
@@ -34,8 +32,10 @@ function fromUnpaddedBase64(value: string): Uint8Array {
 // module runs on regardless (record 057 Q1).
 type Pbkdf2Algorithm = { name: "PBKDF2"; salt: Uint8Array; iterations: number; hash: "SHA-256" };
 
-// The one derivation call, shared by hash and verify (RFC 7914 §11's shape).
-async function deriveBits(
+// The one derivation call, shared by hash and verify, and exported so the
+// RFC 7914 §11 vectors exercise this exact function rather than a
+// reimplementation (record 057 Q2, M3).
+export async function deriveBits(
   pin: string,
   salt: Uint8Array,
   iterations: number,
@@ -71,24 +71,35 @@ export async function hashPin(pin: string): Promise<string> {
 }
 
 // Verification always uses the iteration count parsed from `stored`, never
-// PIN_HASH_PARAMS.iterations — so raising the constant later needs no
-// migration (028's rule, inherited by 057). Anything not `pbkdf2-sha256`
-// returns false, the branch point for a future algorithm.
+// PIN_HASH_PARAMS.iterations, so raising the constant later needs no
+// migration (028's rule, inherited by 057).
 export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   const match = STORED_PATTERN.exec(stored);
   if (!match) return false;
 
   const [, iterationsStr, saltB64, hashB64] = match;
   const iterations = Number(iterationsStr);
-  const salt = fromUnpaddedBase64(saltB64!);
-  const expected = fromUnpaddedBase64(hashB64!);
+  if (!Number.isSafeInteger(iterations) || iterations <= 0) return false;
 
-  const actual = await deriveBits(pin, salt, iterations, expected.length);
-  if (actual.length !== expected.length) return false;
+  let salt: Uint8Array;
+  let expected: Uint8Array;
+  try {
+    salt = fromUnpaddedBase64(saltB64!);
+    expected = fromUnpaddedBase64(hashB64!);
+  } catch {
+    return false;
+  }
 
-  // Constant-time compare over the two byte arrays — `timingSafeEqual` is
-  // `node:crypto` and unreachable in a browser (record 057 Q1).
-  let diff = 0;
-  for (let i = 0; i < actual.length; i++) diff |= actual[i]! ^ expected[i]!;
+  // The derived length is always the fixed 32 bytes, never a length read
+  // from `stored` (M4) — an attacker-chosen key length must not shrink the
+  // comparison or change how long verification takes.
+  const keyLength = PIN_HASH_PARAMS.keyLength;
+  const actual = await deriveBits(pin, salt, iterations, keyLength);
+
+  // A length mismatch accumulates into the result rather than returning
+  // early — the loop below always walks the full fixed length, so a
+  // one-byte `expected` never admits a wrong PIN by luck (M4).
+  let diff = expected.length === keyLength ? 0 : 1;
+  for (let i = 0; i < keyLength; i++) diff |= (actual[i] ?? 0) ^ (expected[i] ?? 0);
   return diff === 0;
 }
