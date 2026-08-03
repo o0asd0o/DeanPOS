@@ -23,7 +23,7 @@ export function TemporaryPasswordField({
   label: string;
   detail?: string;
 }) {
-  const guidance = `At least 8 characters. Any characters, including spaces — there are no other rules.${
+  const guidance = `At least 6 characters. Any characters, including spaces — there are no other rules. This one is temporary: they choose their own the first time they sign in.${
     detail ? ` ${detail}` : ""
   }`;
 
@@ -48,7 +48,7 @@ export function TemporaryPasswordField({
         name={name}
         autoComplete="new-password"
         required
-        minLength={8}
+        minLength={6}
         aria-describedby={`${id}-hint`}
         value={value}
         onBlur={onBlur}

@@ -85,7 +85,8 @@ describe("the Users screen — as an admin", () => {
     const passwordField = screen.getByLabelText("Temporary password") as HTMLInputElement;
     expect(passwordField.type).toBe("password");
     expect(passwordField.getAttribute("autocomplete")).toBe("new-password");
-    expect(passwordField.getAttribute("minlength")).toBe("8");
+    // Record 052: a temporary password's floor is 6, not the 8 a User picks.
+    expect(passwordField.getAttribute("minlength")).toBe("6");
     expect(passwordField.getAttribute("maxlength")).toBeNull();
     fireEvent.change(passwordField, { target: { value: "a temporary password" } });
 

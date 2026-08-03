@@ -1,5 +1,9 @@
 import { oc } from "@orpc/contract";
-import { passwordSchema, signInPasswordSchema } from "schemas/src/password.ts";
+import {
+  passwordSchema,
+  signInPasswordSchema,
+  temporaryPasswordSchema,
+} from "schemas/src/password.ts";
 import { z } from "zod";
 
 export const pingOutputSchema = z.object({
@@ -59,7 +63,7 @@ export const userOutputSchema = z.object({
 export const userCreateInputSchema = z.object({
   email: z.string().email(),
   role: roleSchema,
-  password: passwordSchema,
+  password: temporaryPasswordSchema,
   storeIds: z.array(z.string()),
 });
 
@@ -76,7 +80,7 @@ export const userIdInputSchema = z.object({ id: z.string() });
 
 export const userResetPasswordInputSchema = z.object({
   id: z.string(),
-  password: passwordSchema,
+  password: temporaryPasswordSchema,
 });
 
 export const provisionTenantInputSchema = z.object({
