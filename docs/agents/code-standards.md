@@ -295,8 +295,11 @@ it("wrong-tenant probe [store.update]: Tenant A addressing Tenant B's Store id i
   legitimately gets its own data instead (`list`, `settings.get`); `"effect"` for a write whose own
   result is trivial and identical for every caller but whose side effect must never cross Tenants
   (`auth.setPassword`, `auth.signOut`, `terminal.heartbeat`) — requires `otherBefore` (the other
-  Tenant's own data before the write) and `otherAfter` (a thunk that re-reads it afterward); the
-  helper compares the two itself, plus a written `why`; `"shared"` only for a procedure that is
+  Tenant's own data before the write) and `otherAfter` (a thunk that re-reads it afterward). **The
+  helper compares the two values, but it cannot verify that `otherAfter` actually re-read anything
+  — `{ otherBefore: true, otherAfter: async () => true }` satisfies it while proving nothing.** Like
+  `ownerSees`, that part is on you and on review. Plus a written `why`; `"shared"` only for a
+  procedure that is
   genuinely tenant-neutral — no write, no per-Tenant data at all — which today is `ping` alone,
   with a written `why` of real length.
   Never reach for `"shared"` to route around a hard case.
