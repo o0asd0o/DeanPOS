@@ -1,6 +1,6 @@
 # 13 — The wrong-tenant probe coverage guard
 
-**Status:** needs-information
+**Status:** done
 
 ## What to build
 
@@ -59,6 +59,26 @@ observation that the probe helper outlives this PRD and eight later areas will c
 the last issue in the area; it runs after everything else has merged._
 
 ---
+
+## Closed 2026-08-04 — merged on the human's decision, option 1
+
+**Escalated after the round cap, and the human chose option 1: merge as-is.** The two surviving
+findings are adversarial bypasses that need a hostile author who already holds commit rights; the
+guard catches the accident it was built for and its limits are written into rule 11 rather than
+glossed. The record of the escalation is kept below, unedited, because the limits it names are the
+thing a later area needs to read.
+
+Gate green at **626** tests across three consecutive `--no-cache` runs. One defect was found and
+fixed while merging: **the async-timeout fix committed with this issue was dead code.** The root
+setup file imported `@testing-library/dom` dynamically inside a `try`/`catch`, and only `api`
+declares that package — so in `backoffice` and `pos` the import threw, the catch swallowed it, and
+`waitFor` kept its 1s default. It moves to `test-seam-react.tsx`, which every DOM test already
+imports and which resolves the same instance it renders with; being a static import, `vp check`
+proves the resolution instead of a catch block hiding its absence.
+
+---
+
+### The escalation, as recorded
 
 ## ESCALATED 2026-08-04 — round cap exhausted, NOT merged
 
