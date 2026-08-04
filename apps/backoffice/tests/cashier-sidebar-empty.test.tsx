@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { renderRoute, screen, waitFor, within } from "api/src/test-seam-react.tsx";
+import { renderRoute, waitFor, within } from "api/src/test-seam-react.tsx";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { NAV_GROUPS } from "@/components/helpers.ts";
@@ -37,8 +37,5 @@ describe("a cashier's sidebar", () => {
         expect(nav.queryByText(item.label)).toBeNull();
       }
     }
-
-    // The shell itself still renders — an empty sidebar, not a missing one.
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 });

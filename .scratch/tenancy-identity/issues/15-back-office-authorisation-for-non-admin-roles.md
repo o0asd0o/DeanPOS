@@ -1,6 +1,6 @@
 # 15 — Back-office authorisation for non-admin roles
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -234,3 +234,47 @@ them their own Shifts and session summaries, and record 063 missed it before Ame
 _Sequencing: independent of issue 13 (test-only, different files). **Conflicts with the unmerged
 `issue-14-payment-method-payment-details` branch** at `apps/backoffice/src/routes/_shell/payment-methods.tsx`
 — a one-line `staticData` addition, trivial either way, but land one before starting the other._
+
+---
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **699** tests from an empty database. 1 fix
+round of the 2 available, plus one assertion the orchestrator deleted directly. Reviewed both rounds
+by a second model — Codex was rate-limited, so the judgement ran on Opus 5 — final verdict **PASS on
+both axes**. No migration, and no handler guard removed anywhere, as the issue required.
+
+**Amendment, 2026-08-04 — this issue contradicted itself and the contradiction is resolved here.**
+§3 requires `/account` to show the caller's assigned Stores and forbids a new procedure, while the
+acceptance bullet says *"the one contract change is `firstName` and `lastName` on `meOutputSchema`;
+there is no other."* Both cannot hold: `list-stores.ts:15` and `list-users.ts:19` both refuse below
+`manager`, so `auth.me` is the only surface a cashier can reach. **`meOutputSchema` therefore carries
+a third field, `stores: { id, name }[]`** — scoped to `ctx.principal.userId` and never an id from
+input, resolved through `getAssignedStoreIdsAsOf` rather than raw `UserStore` rows, inside
+`withTenantScope`, and returning before any query when the principal is not a tenant one. The
+implementer flagged it rather than taking it silently; per the pipeline's own rules it should have
+stopped and escalated instead, and that process point is recorded for the human.
+
+What the review caught — **the implementation was clean and the proof was hollow**, which is the
+reverse of this PRD's usual failure:
+
+- **Criterion 7's default-refusal test never involved the router.** It fabricated `{ staticData: {} }`
+  and a context whose `fetchQuery` returned a literal, then called `beforeLoad` directly — a
+  restatement of `if (!minRole) throw notFound()`. Registering a real undeclared route under `_shell/`
+  would have failed nothing. It now mutates a live route's `staticData`, renders through the real
+  router, and re-renders after restoring to prove the restore happened.
+- **Every "this role reaches this screen" assertion was negative-only**, and `waitFor` runs its
+  callback synchronously on entry — so each one passed at t=0, before `beforeLoad`'s `auth.me` had
+  resolved. Breaking `hasAtLeastRole` to return `false` for everything left them all green. They now
+  wait on content inside `<main>`, which mounts only after the guard has run.
+- **The wrong-tenant probe was unexercised in the dimension this issue added.** `auth.me` began
+  reading `Store` rows, and the probe was updated only to expect `stores: []` — neither Tenant in
+  `seedPair` had a Store, and `me.ts` returns early when the caller has no assignments, so the read
+  never ran. Both Tenants now have one, and each side asserts its own.
+- **Criterion 2 had no test at all**; the empty-group guard and the nav role filter were both
+  uncovered.
+- The sidebar/route equality held in one direction only — a nav entry with no route failed, a route
+  with no entry did not.
+- `auth.me` listed every Store in the Tenant and filtered in memory, on a procedure `_shell` fetches
+  on every navigation.
+
+**Six comments over rule 5's three-line ceiling**, one of them a seven-line two-paragraph block in
+`_shell.tsx` — the file re-argued record 063 inline rather than pointing at it.
