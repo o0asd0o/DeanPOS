@@ -201,7 +201,7 @@ describe("the Devices screen — as a manager", () => {
     cleanup = undefined;
   });
 
-  it("the route refuses: a manager navigating directly is redirected away, never shown the screen", async () => {
+  it("the route refuses: a manager navigating directly gets NotFoundState, never the screen", async () => {
     const managerId = randomUUID();
     const passwordHash = await hashPassword("irrelevant");
     await ownerDb
@@ -227,7 +227,10 @@ describe("the Devices screen — as a manager", () => {
       await ownerDb.deleteFrom("User").where("id", "=", managerId).execute();
     };
 
-    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    // `_shell`'s own guard refuses, `notFound()` never a redirect (issue 15,
+    // record 063 §1) — the URL stays put, the destination never renders.
+    await waitFor(() => expect(screen.getByText("That page doesn’t exist.")).toBeTruthy());
+    expect(window.location.pathname).toBe("/devices");
     expect(screen.queryByRole("heading", { name: "Devices" })).toBeNull();
   });
 });

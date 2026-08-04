@@ -212,16 +212,17 @@ describe("the Settings dialog — non-admin", () => {
   });
 
   it("offers a cashier no way in either", async () => {
+    // `/stores` is `manager`-and-above (issue 15) and 404s a cashier before
+    // the shell renders at all — `/` is the one screen this role reaches.
     const { db } = renderRoute({
       router,
       tenantId,
       userId: cashierId,
       role: "cashier",
-      initialLocation: "/stores",
+      initialLocation: "/",
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
     const menu = await openAccountMenu();
     expect(within(menu).queryByRole("menuitem", { name: "Settings" })).toBeNull();
   });

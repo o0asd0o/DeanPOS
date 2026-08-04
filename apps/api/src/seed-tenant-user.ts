@@ -16,6 +16,8 @@ export const seedTenantUser = async (
     role: Role;
     active?: boolean;
     mustChangePassword?: boolean;
+    firstName?: string;
+    lastName?: string;
   },
 ) => {
   await ownerDb
@@ -28,6 +30,8 @@ export const seedTenantUser = async (
       role: values.role,
       active: values.active ?? true,
       must_change_password: values.mustChangePassword ?? true,
+      ...(values.firstName !== undefined ? { first_name: values.firstName } : {}),
+      ...(values.lastName !== undefined ? { last_name: values.lastName } : {}),
     })
     .execute();
   await ownerDb

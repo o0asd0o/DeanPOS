@@ -4,5 +4,6 @@ import { Placeholder } from "@/features/placeholder/Placeholder.tsx";
 
 // Thin: wires the route to the feature and nothing else (ADR-0009).
 export const Route = createFileRoute("/_shell/add-ons")({
+  staticData: { minRole: "admin" },
   component: () => <Placeholder title="Add-ons" />,
 });

@@ -8,6 +8,8 @@ export type Principal = {
   tenantId: string;
   userId?: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
   sessionId?: string;
   mustChangePassword?: boolean;
   role?: Role;

@@ -140,6 +140,8 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
           mustChangePassword?: boolean;
           userId?: string;
           email?: string;
+          firstName?: string;
+          lastName?: string;
           role?: Principal["role"];
         } = {},
       ) =>
@@ -148,6 +150,8 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
             tenantId,
             userId: options.userId,
             email: options.email,
+            firstName: options.firstName,
+            lastName: options.lastName,
             mustChangePassword: options.mustChangePassword,
             role: options.role ?? "admin",
           },

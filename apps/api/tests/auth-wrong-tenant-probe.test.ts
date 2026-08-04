@@ -119,6 +119,9 @@ describe("wrong-tenant probes on auth.*", () => {
       role: "admin",
       userId: pair.userA,
       email: pair.emailA,
+      firstName: "",
+      lastName: "",
+      stores: [],
     });
 
     await expectWrongTenantRefusal({

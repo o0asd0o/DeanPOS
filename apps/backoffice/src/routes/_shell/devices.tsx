@@ -1,13 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { Devices } from "@/features/devices/Devices.tsx";
 
 // Thin: wires the route to the feature and nothing else (ADR-0009). `admin`
-// only — the route itself refuses (record 046 §4, record 056).
+// only — `_shell`'s own guard refuses, not this route (issue 15, record 063 §1).
 export const Route = createFileRoute("/_shell/devices")({
-  beforeLoad: async ({ context }) => {
-    const me = await context.queryClient.fetchQuery(context.orpc.auth.me.queryOptions());
-    if (!me.authenticated || me.role !== "admin") throw redirect({ to: "/" });
-  },
+  staticData: { minRole: "admin" },
   component: Devices,
 });

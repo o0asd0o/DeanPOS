@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { createDb } from "backend/src/db/client.ts";
+import { createDb, withTenantScope } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
+import { insertUserStore } from "backend/src/access/db-operations/commands/insert-user-store.command.ts";
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 
@@ -52,6 +53,9 @@ describe("auth.me", () => {
       role: "admin",
       userId,
       email,
+      firstName: "",
+      lastName: "",
+      stores: [],
     });
   });
 
@@ -73,10 +77,67 @@ describe("auth.me", () => {
       role: "cashier",
       userId: tempUserId,
       email: tempEmail,
+      firstName: "",
+      lastName: "",
+      stores: [],
     });
 
     await ownerDb.deleteFrom("Session").where("user_id", "=", tempUserId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", tempUserId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", tempUserId).execute();
+  });
+
+  it("carries the caller's own name and assigned Stores, never anyone else's", async () => {
+    const namedUserId = randomUUID();
+    const namedEmail = `me-named-${randomUUID()}@sign-in.test`;
+    const storeId = randomUUID();
+    const otherStoreId = randomUUID();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Store")
+        .values([
+          { id: storeId, tenant_id: tenantId, name: "Assigned Store" },
+          { id: otherStoreId, tenant_id: tenantId, name: "Unassigned Store" },
+        ])
+        .execute(),
+    );
+    await seedTenantUser(ownerDb, {
+      id: namedUserId,
+      tenantId,
+      email: namedEmail,
+      passwordHash: await hashPassword("temp-password-1"),
+      mustChangePassword: false,
+      role: "cashier",
+      firstName: "Ada",
+      lastName: "Lovelace",
+    });
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      insertUserStore(db, {
+        id: randomUUID(),
+        tenantId,
+        userId: namedUserId,
+        storeId,
+        assigned: true,
+        effectiveFrom: new Date(),
+      }),
+    );
+
+    const { client } = await seam.actors.signIn(namedEmail, "temp-password-1");
+    await expect(client.auth.me()).resolves.toStrictEqual({
+      authenticated: true,
+      mustChangePassword: false,
+      role: "cashier",
+      userId: namedUserId,
+      email: namedEmail,
+      firstName: "Ada",
+      lastName: "Lovelace",
+      stores: [{ id: storeId, name: "Assigned Store" }],
+    });
+
+    await ownerDb.deleteFrom("Session").where("user_id", "=", namedUserId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", namedUserId).execute();
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", namedUserId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", namedUserId).execute();
+    await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   });
 });

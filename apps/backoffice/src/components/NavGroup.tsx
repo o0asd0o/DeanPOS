@@ -11,7 +11,9 @@ import {
   SidebarMenuItem,
 } from "ui";
 
-export type NavItem = { label: string; icon: LucideIcon; to: LinkProps["to"] };
+import type { Role } from "@/lib/roles.ts";
+
+export type NavItem = { label: string; icon: LucideIcon; to: LinkProps["to"]; minRole: Role };
 
 // One entry of Nav's structure: an optional heading, then links styled by the
 // pulled sidebar's pill classes. `useId` keeps the heading/list pairing intact
@@ -27,6 +29,8 @@ export function NavGroup({
 }) {
   const headingId = useId();
   const matchRoute = useMatchRoute();
+
+  if (items.length === 0) return null;
 
   return (
     <SidebarGroup>

@@ -19,7 +19,7 @@ describe("the header's global search", () => {
   });
 
   it("greets the signed-in User and opens on Cmd/Ctrl+K", async () => {
-    const { db } = renderRoute({ router, tenantId, email: seededEmail });
+    const { db } = renderRoute({ router, tenantId, email: seededEmail, firstName: "Search" });
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByText(/👋 Hi Search/)).toBeTruthy());

@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 
 import { GlobalSearch } from "./GlobalSearch.tsx";
-import { firstNameFromEmail } from "./helpers.ts";
 import { NotificationsMenu } from "./NotificationsMenu.tsx";
 import { UserMenu } from "./UserMenu.tsx";
 
@@ -12,12 +11,12 @@ import { UserMenu } from "./UserMenu.tsx";
 export function AppHeader() {
   const { orpc } = useRouteContext({ from: "/_shell" });
   const me = useQuery(orpc.auth.me.queryOptions());
-  const email = me.data?.authenticated ? me.data.email : undefined;
+  const firstName = me.data?.authenticated ? me.data.firstName : undefined;
 
   return (
     <div className="relative mx-4 flex min-h-20 items-center gap-3 border-b py-4">
       <p className="hidden text-lg font-medium whitespace-nowrap sm:block">
-        👋 Hi {firstNameFromEmail(email)}
+        👋 Hi {firstName || "there"}
       </p>
       {/* Out of the flow: the search sits on the screen's centre line, which is
           left of this column's own (`screen-centered`). */}

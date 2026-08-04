@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useRouteContext } from "@tanstack/react-router";
+import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { KeyRoundIcon, LogOutIcon, SettingsIcon } from "lucide-react";
 import {
   Button,
@@ -19,10 +19,9 @@ import {
   DropdownMenuTrigger,
 } from "ui";
 
-import { PinDialog } from "@/features/pin/PinDialog.tsx";
 import { SettingsDialog } from "@/features/settings/SettingsDialog.tsx";
 
-import { displayNameFromEmail, initialsFromEmail } from "./helpers.ts";
+import { displayName, initials } from "./helpers.ts";
 
 // The one reachable path to auth.signOut. The confirm dialog is controlled
 // rather than triggered, because the menu unmounts its own items on select and
@@ -33,7 +32,6 @@ export function UserMenu() {
   const navigate = useNavigate();
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [pinOpen, setPinOpen] = useState(false);
 
   const me = useQuery(orpc.auth.me.queryOptions());
   const signOut = useMutation(
@@ -44,6 +42,8 @@ export function UserMenu() {
 
   const email = me.data?.authenticated ? me.data.email : undefined;
   const role = me.data?.authenticated ? me.data.role : undefined;
+  const firstName = me.data?.authenticated ? me.data.firstName : undefined;
+  const lastName = me.data?.authenticated ? me.data.lastName : undefined;
 
   const handleSignOut = async () => {
     await signOut.mutateAsync();
@@ -62,12 +62,12 @@ export function UserMenu() {
             className="size-10 rounded-full bg-muted p-0 text-sm font-medium text-muted-foreground hover:bg-hover"
             aria-label="Account"
           >
-            {initialsFromEmail(email)}
+            {initials(firstName, lastName)}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel className="flex flex-col gap-0.5">
-            <span className="font-medium">{displayNameFromEmail(email)}</span>
+            <span className="font-medium">{displayName(firstName, lastName)}</span>
             <span className="text-xs font-normal text-muted-foreground">{email}</span>
             {/* The role stays in the menu — record 048 put it here. */}
             <span className="text-xs font-normal text-muted-foreground capitalize">{role}</span>
@@ -81,9 +81,11 @@ export function UserMenu() {
               Settings
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onSelect={() => setPinOpen(true)}>
-            <KeyRoundIcon />
-            PIN
+          <DropdownMenuItem asChild>
+            <Link to="/account">
+              <KeyRoundIcon />
+              Account
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setConfirmingSignOut(true)}>
             <LogOutIcon />
@@ -92,7 +94,6 @@ export function UserMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <PinDialog open={pinOpen} onOpenChange={setPinOpen} />
       <Dialog open={confirmingSignOut} onOpenChange={setConfirmingSignOut}>
         <DialogContent>
           <DialogHeader>

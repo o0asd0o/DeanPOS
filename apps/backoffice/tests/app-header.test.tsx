@@ -34,13 +34,19 @@ describe("the back-office header", () => {
   });
 
   it("carries notifications and the account menu, and adds no second banner", async () => {
-    const { container, db } = renderRoute({ router, tenantId, email: seededEmail });
+    const { container, db } = renderRoute({
+      router,
+      tenantId,
+      email: seededEmail,
+      firstName: "Header",
+      lastName: "Probe",
+    });
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Notifications" })).toBeTruthy());
 
-    // The control itself is initials only; the email and the name derived from
-    // it live one click away, in the menu (record 048).
+    // The control itself is initials only; the email and the name it
+    // carries live one click away, in the menu (record 048).
     const account = screen.getByRole("button", { name: "Account" });
     expect(account.textContent).toBe("HP");
     expect(account.textContent).not.toContain(seededEmail);

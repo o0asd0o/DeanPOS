@@ -69,6 +69,8 @@ export const buildContextFromSession = async (
         tenantId: session.tenant_id,
         userId: user.id,
         email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
         sessionId,
         mustChangePassword: user.must_change_password,
         role: currentRole.role,

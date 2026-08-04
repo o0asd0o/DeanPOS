@@ -1,34 +1,14 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
-import { useRouteContext } from "@tanstack/react-router";
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  PasswordInput,
-} from "ui";
+import { CheckIcon } from "lucide-react";
+import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
 
-// Self-service PIN set/change (issue 10, record 058) — one field, no
-// `currentPin`: the password session that opens this dialog is already a
-// stronger factor than the PIN it writes.
-export function PinDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { orpc } = useRouteContext({ from: "/_shell" });
-  const setPin = useMutation(
-    orpc.user.setPin.mutationOptions({
-      meta: { success: "PIN saved", error: "Couldn't save the PIN" },
-    }),
-  );
+import { useSetPinMutation } from "./__common/queries.ts";
+
+// `PinDialog`'s form body (issue 10, record 058), unchanged — one field, no
+// `currentPin` — moved here from a `UserMenu` dialog (issue 15, record 063
+// Amendment 1 §3).
+export function PinCard() {
+  const setPin = useSetPinMutation();
 
   const form = useForm({
     defaultValues: { pin: "" },
@@ -38,7 +18,6 @@ export function PinDialog({
         if (!result.ok) return;
         form.reset();
         setPin.reset();
-        onOpenChange(false);
       } catch {
         // isError is already set on the mutation; swallow so it doesn't
         // also surface as an unhandled promise rejection.
@@ -47,8 +26,11 @@ export function PinDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Card>
+      <CardHeader>
+        <CardTitle>PIN</CardTitle>
+      </CardHeader>
+      <CardContent>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -57,16 +39,13 @@ export function PinDialog({
           }}
           className="flex flex-col gap-6"
         >
-          <DialogHeader>
-            <DialogTitle>Set your PIN</DialogTitle>
-            <DialogDescription>
-              You use this PIN to unlock a till. It is four to six digits, and nobody else is shown
-              it.
-            </DialogDescription>
-          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            You use this PIN to unlock a till. It is four to six digits, and nobody else is shown
+            it.
+          </p>
           <form.Field name="pin">
             {(field) => (
-              <div className="flex flex-col gap-2">
+              <div className="flex max-w-xs flex-col gap-2">
                 <label htmlFor="pin">PIN</label>
                 <PasswordInput
                   id="pin"
@@ -91,18 +70,14 @@ export function PinDialog({
               Couldn&rsquo;t save the PIN
             </div>
           )}
-          <DialogFooter className="mt-2 border-t pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
+          <div className="flex items-center justify-end gap-2 border-t pt-4">
             <Button type="submit" aria-disabled={setPin.isPending}>
+              <CheckIcon />
               {setPin.isPending ? "Saving…" : "Save PIN"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 }
