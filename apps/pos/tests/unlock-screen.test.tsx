@@ -269,7 +269,29 @@ describe("the unlock screen", () => {
     expect((screen.getByLabelText("PIN") as HTMLInputElement).value).toBe("");
   });
 
-  it("a User with no PIN yet shows the connect-to-set-one message and Unlock stays disabled", async () => {
+  it("Unlock stays live with nothing filled in and names the first missing step on click", async () => {
+    await seedDeviceAndRoster();
+
+    const { db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
+    expect(screen.getByRole("button", { name: "Unlock" }).getAttribute("aria-disabled")).toBe(
+      "false",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    await waitFor(() => expect(screen.getByText("Choose who is on the till")).toBeTruthy());
+
+    // Choosing answers that message; the PIN is then the missing step.
+    fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
+    expect(screen.queryByText("Choose who is on the till")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    await waitFor(() => expect(screen.getByText("Enter your PIN")).toBeTruthy());
+  });
+
+  it("a User with no PIN yet shows the connect-to-set-one message, which stands in for Unlock's answer", async () => {
     await seedDeviceAndRoster();
 
     const { db } = renderRoute({ router, initialLocation: "/" });
@@ -285,9 +307,10 @@ describe("the unlock screen", () => {
         ),
       ).toBeTruthy(),
     );
-    expect(screen.getByRole("button", { name: "Unlock" }).getAttribute("aria-disabled")).toBe(
-      "true",
-    );
+    // Clicking adds no second message — the standing alert is the answer.
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(screen.queryByText("Enter your PIN")).toBeNull();
+    expect(screen.queryByText("Choose who is on the till")).toBeNull();
   });
 
   it("no roster synced yet shows the empty-till message", async () => {

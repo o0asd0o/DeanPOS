@@ -72,11 +72,21 @@ export function ManagerUnlockDialog({
     setError(null);
   };
 
-  const canUnlock =
-    selectedUser !== null && selectedUser.pinHash !== null && pin.length >= 4 && !isLocked;
-
+  // Unlock stays live whenever there is something to complete, and the click
+  // names the first unmet step — a disabled button explains nothing. Only an
+  // empty roster, a lock or a request in flight actually disables it.
   const handleUnlock = async () => {
-    if (!canUnlock || !selectedUser || pending) return;
+    if (pending || isLocked) return;
+    if (!selectedUser) {
+      setError("Choose who is signing in");
+      return;
+    }
+    // The no-PIN-yet case already stands as its own alert below.
+    if (selectedUser.pinHash === null) return;
+    if (pin.length < 4) {
+      setError("Enter your PIN");
+      return;
+    }
 
     setPending(true);
     setError(null);
@@ -148,12 +158,16 @@ export function ManagerUnlockDialog({
             />
 
             {selectedUser && selectedUser.pinHash === null && (
-              <p role="alert">
+              <p role="alert" className="text-sm text-destructive">
                 {selectedUser.displayName} has no PIN yet. They set one in the back office, from
                 their account menu
               </p>
             )}
-            {error && !isLocked && <p role="alert">{error}</p>}
+            {error && !isLocked && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
           </>
         )}
 
@@ -163,7 +177,7 @@ export function ManagerUnlockDialog({
           </Button>
           <Button
             type="button"
-            aria-disabled={!canUnlock || pending}
+            aria-disabled={pending || isLocked || approvers.length === 0}
             onClick={() => void handleUnlock()}
           >
             {pending ? "Unlocking…" : "Unlock"}

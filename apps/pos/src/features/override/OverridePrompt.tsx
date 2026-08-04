@@ -84,8 +84,21 @@ export function OverridePrompt({
   const form = useForm({
     defaultValues: { reason: "", note: "", pin: "" },
     onSubmit: async ({ value }) => {
-      if (!approver || approver.pinHash === null || isLocked || pending) return;
-      if (value.reason.trim() === "" || value.pin.length < 4) return;
+      if (isLocked || pending) return;
+      if (value.reason.trim() === "") {
+        setError("Enter a reason");
+        return;
+      }
+      if (!approver) {
+        setError("Choose who is approving");
+        return;
+      }
+      // The no-PIN-yet case already stands as its own alert below.
+      if (approver.pinHash === null) return;
+      if (value.pin.length < 4) {
+        setError("Enter the manager PIN");
+        return;
+      }
 
       setPending(true);
       setError(null);
@@ -130,7 +143,7 @@ export function OverridePrompt({
     },
   });
   const values = useStore(form.store, (state) => state.values);
-  const gate = useSubmitGate(form, { busy: pending });
+  const gate = useSubmitGate(form, { busy: pending, dirty: true });
 
   const reset = () => {
     setApproverId(null);
@@ -155,12 +168,10 @@ export function OverridePrompt({
     setError(null);
   };
 
-  const canApprove =
-    approver !== null &&
-    approver.pinHash !== null &&
-    values.pin.length >= 4 &&
-    values.reason.trim() !== "" &&
-    !isLocked;
+  // Approve stays live whenever there is something to complete, and the click
+  // names the first unmet step — a disabled button explains nothing. Only an
+  // empty roster, a lock or a recording in flight actually disables it.
+  const approveBlocked = gate.blocked || isLocked || approvers.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(next) : close())}>
@@ -253,12 +264,16 @@ export function OverridePrompt({
               />
 
               {approver && approver.pinHash === null && (
-                <p role="alert">
+                <p role="alert" className="text-sm text-destructive">
                   {approver.displayName} has no PIN yet. They set one in the back office, from their
                   account menu
                 </p>
               )}
-              {error && !isLocked && <p role="alert">{error}</p>}
+              {error && !isLocked && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -267,11 +282,7 @@ export function OverridePrompt({
           <Button type="button" variant="outline" aria-disabled={pending} onClick={close}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            aria-disabled={gate.blocked || !canApprove}
-            onClick={() => gate.submit()}
-          >
+          <Button type="button" aria-disabled={approveBlocked} onClick={() => gate.submit()}>
             {pending ? "Approving…" : "Approve"}
           </Button>
         </DialogFooter>

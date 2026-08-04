@@ -70,7 +70,17 @@ export function Unlock() {
   const form = useForm({
     defaultValues: { pin: "" },
     onSubmit: async ({ value }) => {
-      if (!selectedUser || selectedUser.pinHash === null || isLocked || pending) return;
+      if (isLocked || pending) return;
+      if (!selectedUser) {
+        setError("Choose who is on the till");
+        return;
+      }
+      // The no-PIN-yet case already stands as its own alert below.
+      if (selectedUser.pinHash === null) return;
+      if (value.pin.length < 4) {
+        setError("Enter your PIN");
+        return;
+      }
 
       setPending(true);
       setError(null);
@@ -90,7 +100,9 @@ export function Unlock() {
     },
   });
   const pin = useStore(form.store, (state) => state.values.pin);
-  const gate = useSubmitGate(form, { busy: pending });
+  // `dirty` opts out of the pristine block: an empty PIN has to reach the
+  // submit path, or Unlock could never explain what is missing.
+  const gate = useSubmitGate(form, { busy: pending, dirty: true });
 
   const setPinDigits = (next: string) => {
     form.setFieldValue("pin", next);
@@ -105,8 +117,9 @@ export function Unlock() {
     pinInputRef.current?.focus();
   };
 
-  const canUnlock =
-    selectedUser !== null && selectedUser.pinHash !== null && pin.length >= 4 && !isLocked;
+  // Unlock stays live whenever there is something to complete, and the click
+  // names the first unmet step — a disabled button explains nothing.
+  const unlockBlocked = gate.blocked || isLocked;
 
   const noOneYet = !roster || (!restricted && roster.users.length === 0);
 
@@ -147,18 +160,22 @@ export function Unlock() {
                     }
                     srStatus={srStatus}
                     trailing={
-                      <Button type="submit" aria-disabled={gate.blocked || !canUnlock}>
+                      <Button type="submit" aria-disabled={unlockBlocked}>
                         {pending ? "Unlocking…" : "Unlock"}
                       </Button>
                     }
                   />
                   {assignedUser.pinHash === null && (
-                    <p role="alert">
+                    <p role="alert" className="text-sm text-destructive">
                       {assignedUser.displayName} has no PIN yet. They set one in the back office,
                       from their account menu
                     </p>
                   )}
-                  {error && !isLocked && <p role="alert">{error}</p>}
+                  {error && !isLocked && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {error}
+                    </p>
+                  )}
                 </form>
               ) : (
                 <p role="alert">
@@ -220,19 +237,23 @@ export function Unlock() {
                   }
                   srStatus={srStatus}
                   trailing={
-                    <Button type="submit" aria-disabled={gate.blocked || !canUnlock}>
+                    <Button type="submit" aria-disabled={unlockBlocked}>
                       {pending ? "Unlocking…" : "Unlock"}
                     </Button>
                   }
                 />
 
                 {selectedUser && selectedUser.pinHash === null && (
-                  <p role="alert">
+                  <p role="alert" className="text-sm text-destructive">
                     {selectedUser.displayName} has no PIN yet. They set one in the back office, from
                     their account menu
                   </p>
                 )}
-                {error && !isLocked && <p role="alert">{error}</p>}
+                {error && !isLocked && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
               </form>
             </>
           )}

@@ -38,7 +38,10 @@ export const getPinRoster = async (
 
     roster.push({
       userId: user.id,
-      displayName: `${user.first_name} ${user.last_name}`.trim(),
+      // A provisioned tenant owner and every pre-name row carry '' for both
+      // names (20260803120000_employee_names) — a blank button is unusable,
+      // and the payload deliberately never carries the email to fall back on.
+      displayName: `${user.first_name} ${user.last_name}`.trim() || "Unknown",
       pinHash: user.pin_hash,
       canApproveOverride: currentRole !== undefined && hasAtLeastRole(currentRole.role, "manager"),
     });

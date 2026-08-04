@@ -221,6 +221,17 @@ describe("terminal.pinSync", () => {
     }
   });
 
+  it("a User with no name on record is labelled, never blank — a blank button cannot be picked", async () => {
+    // adminA is seeded the way provisionTenant creates a tenant owner: no
+    // first or last name, so both columns hold the migration's ''.
+    const device = await enrolDeviceAt(storeA1, "PS2b", adminA, tenantA);
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.users.find((u) => u.userId === adminA)?.displayName).toBe("Unknown");
+  });
+
   it("an admin's PIN hash lands on every terminal in the tenant, including a Store the admin is not assigned to", async () => {
     const device = await enrolDeviceAt(storeA2, "PS3", adminA, tenantA);
     const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
