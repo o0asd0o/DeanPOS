@@ -42,6 +42,19 @@ describe("the header's account menu", () => {
     expect(screen.queryByRole("heading", { name: "DeanPOS back-office" })).toBeNull();
   });
 
+  it("the Account item links to /account", async () => {
+    const { db } = renderRoute({ router, tenantId });
+    cleanup = () => db.destroy();
+
+    const menu = await openAccountMenu();
+    const link = within(menu).getByRole("menuitem", { name: "Account" });
+    expect(link.getAttribute("href")).toBe("/account");
+
+    fireEvent.click(link);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Account" })).toBeTruthy());
+  });
+
   it("confirms first, then signs out and returns to the sign-in screen", async () => {
     const { container, db } = renderRoute({ router, tenantId });
     cleanup = () => db.destroy();

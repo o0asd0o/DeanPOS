@@ -7,10 +7,8 @@ import { hasAtLeastRole } from "@/lib/roles.ts";
 import { NAV_GROUPS } from "./helpers.ts";
 import { NavGroup } from "./NavGroup.tsx";
 
-// Settings is not here: admin-only (record 046 §4), it opens as a dialog from
-// the account menu, so the sidebar carries no entry for it at all. Every
-// other entry is filtered to the caller's role here — presentation, not
-// enforcement (record 046 §4, issue 15, record 063 §5).
+// Settings is admin-only and opens as a dialog, not a sidebar entry
+// (record 046 §4). Filtering here is presentation, not enforcement.
 export function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const { orpc } = useRouteContext({ from: "/_shell" });
   const me = useQuery(orpc.auth.me.queryOptions());

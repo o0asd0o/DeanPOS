@@ -1,14 +1,15 @@
+import { useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
-
-import { useMeQuery } from "./__common/queries.ts";
 
 // Read-only, and only ever the signed-in User's own row — sourced from
 // `auth.me`, never `user.list` (issue 15, record 063 §3): a cashier's own
 // name, email, role, and assigned Stores, nobody else's, ever.
 export function ProfileCard() {
-  const meQuery = useMeQuery();
+  const { orpc } = useRouteContext({ from: "/_shell/account" });
+  const meQuery = useQuery(orpc.auth.me.queryOptions());
   const me = meQuery.data;
 
   return (
@@ -42,9 +43,7 @@ export function ProfileCard() {
             <div className="flex flex-col gap-1">
               <dt className="text-sm text-muted-foreground">Stores</dt>
               <dd className="text-foreground">
-                {me.stores && me.stores.length > 0
-                  ? me.stores.map((store) => store.name).join(", ")
-                  : "None"}
+                {me.stores.length > 0 ? me.stores.map((store) => store.name).join(", ") : "None"}
               </dd>
             </div>
           </dl>

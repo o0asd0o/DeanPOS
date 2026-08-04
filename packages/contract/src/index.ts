@@ -1,6 +1,7 @@
 export {
   contract,
   meOutputSchema,
+  roleSchema,
   pingOutputSchema,
   setPasswordInputSchema,
   signInInputSchema,

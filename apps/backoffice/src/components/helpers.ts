@@ -21,10 +21,8 @@ import {
 
 import type { NavItem } from "./NavGroup.tsx";
 
-// The sidebar's three groups (record 022), here rather than in `Nav` because
-// the header's search reaches the same screens by name. `minRole` mirrors
-// each route's own `staticData.minRole` exactly — held equal by
-// `tests/nav-groups-match-routes.test.ts` (issue 15, record 063 §5).
+// The sidebar's three groups (record 022). `minRole` mirrors each route's
+// `staticData.minRole`, held equal by `nav-groups-match-routes.test.ts`.
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Reports",

@@ -4,13 +4,9 @@ import { AppShell } from "@/components/AppShell.tsx";
 import type { Role } from "@/lib/roles.ts";
 import { hasAtLeastRole } from "@/lib/roles.ts";
 
-// The one place the session guard, the must-change redirect (record 030),
-// and the role gate (issue 15, record 063 §1, amended) live: every route
-// under `_shell/` — current and future — is covered by construction.
-//
-// A destination that declares no `staticData.minRole`, or declares one the
-// caller doesn't meet, is `notFound()` — never a redirect, so an undeclared
-// `/` can't loop (record 063 §1).
+// Session guard, must-change redirect, and the role gate — every route
+// under `_shell/` is covered by construction. Refusal is `notFound()`,
+// never a redirect. Record 063 §1.
 export const Route = createFileRoute("/_shell")({
   beforeLoad: async ({ context, matches }) => {
     const me = await context.queryClient.fetchQuery(context.orpc.auth.me.queryOptions());

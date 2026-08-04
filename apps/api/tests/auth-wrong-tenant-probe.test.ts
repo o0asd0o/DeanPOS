@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
-import { createDb } from "backend/src/db/client.ts";
+import { createDb, withTenantScope } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
@@ -24,6 +24,8 @@ type Pair = {
   userB: string;
   emailA: string;
   emailB: string;
+  storeA: { id: string; name: string };
+  storeB: { id: string; name: string };
 };
 
 async function seedPair(options: { mustChangePassword?: boolean } = {}): Promise<Pair> {
@@ -33,6 +35,8 @@ async function seedPair(options: { mustChangePassword?: boolean } = {}): Promise
   const userB = randomUUID();
   const emailA = `wrong-tenant-a-${randomUUID()}@sign-in.test`;
   const emailB = `wrong-tenant-b-${randomUUID()}@sign-in.test`;
+  const storeA = { id: randomUUID(), name: "Wrong-tenant A Store" };
+  const storeB = { id: randomUUID(), name: "Wrong-tenant B Store" };
   const mustChangePassword = options.mustChangePassword ?? false;
 
   await ownerDb
@@ -60,12 +64,62 @@ async function seedPair(options: { mustChangePassword?: boolean } = {}): Promise
     role: "admin",
   });
 
-  return { tenantA, tenantB, userA, userB, emailA, emailB };
+  // Each User is assigned their own Tenant's Store, so `auth.me`'s Store
+  // read (me.ts:30-37) is actually exercised rather than short-circuiting
+  // on an empty assignment set.
+  await withTenantScope(ownerDb, tenantA, (db) =>
+    db
+      .insertInto("Store")
+      .values({ ...storeA, tenant_id: tenantA })
+      .execute(),
+  );
+  await withTenantScope(ownerDb, tenantB, (db) =>
+    db
+      .insertInto("Store")
+      .values({ ...storeB, tenant_id: tenantB })
+      .execute(),
+  );
+  await withTenantScope(ownerDb, tenantA, (db) =>
+    db
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantA,
+        user_id: userA,
+        store_id: storeA.id,
+        assigned: true,
+        effective_from: new Date(),
+      })
+      .execute(),
+  );
+  await withTenantScope(ownerDb, tenantB, (db) =>
+    db
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantB,
+        user_id: userB,
+        store_id: storeB.id,
+        assigned: true,
+        effective_from: new Date(),
+      })
+      .execute(),
+  );
+
+  return { tenantA, tenantB, userA, userB, emailA, emailB, storeA, storeB };
 }
 
 async function cleanupPair(pair: Pair): Promise<void> {
   await ownerDb
     .deleteFrom("Session")
+    .where("tenant_id", "in", [pair.tenantA, pair.tenantB])
+    .execute();
+  await ownerDb
+    .deleteFrom("UserStore")
+    .where("tenant_id", "in", [pair.tenantA, pair.tenantB])
+    .execute();
+  await ownerDb
+    .deleteFrom("Store")
     .where("tenant_id", "in", [pair.tenantA, pair.tenantB])
     .execute();
   await ownerDb.deleteFrom("UserRole").where("user_id", "in", [pair.userA, pair.userB]).execute();
@@ -121,7 +175,17 @@ describe("wrong-tenant probes on auth.*", () => {
       email: pair.emailA,
       firstName: "",
       lastName: "",
-      stores: [],
+      stores: [pair.storeA],
+    });
+    expect(ownerSees).toStrictEqual({
+      authenticated: true,
+      mustChangePassword: false,
+      role: "admin",
+      userId: pair.userB,
+      email: pair.emailB,
+      firstName: "",
+      lastName: "",
+      stores: [pair.storeB],
     });
 
     await expectWrongTenantRefusal({

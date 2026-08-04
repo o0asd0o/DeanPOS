@@ -367,12 +367,8 @@ export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
 export const signOutOutputSchema = z.object({ ok: z.literal(true) });
 
-// What `_shell`'s `beforeLoad` guard reads (record 030). `role` (038 §6)
-// and optional `userId` (044 §4 clause 2) feed the Stores/Users screens.
-// `firstName`/`lastName` (issue 15, record 063 Amendment 1) feed the
-// `/account` profile section and the header greeting. `stores` is the
-// caller's own assignment, read via `getAssignedStoreIdsAsOf` regardless of
-// role — the only way a `cashier` can see their own Stores at all.
+// What `_shell`'s `beforeLoad` guard reads (record 030). `firstName`/
+// `lastName`/`stores` feed `/account` (issue 15, record 063 Amendment 1).
 export const meOutputSchema = z.discriminatedUnion("authenticated", [
   z.object({ authenticated: z.literal(false) }),
   z.object({
@@ -381,9 +377,9 @@ export const meOutputSchema = z.discriminatedUnion("authenticated", [
     role: roleSchema,
     userId: z.string().optional(),
     email: z.string().optional(),
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
-    stores: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+    firstName: z.string(),
+    lastName: z.string(),
+    stores: z.array(z.object({ id: z.string(), name: z.string() })),
   }),
 ]);
 

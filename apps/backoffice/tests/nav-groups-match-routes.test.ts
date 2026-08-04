@@ -19,3 +19,23 @@ describe("NAV_GROUPS matches the routes it points at", () => {
     }
   }
 });
+
+// The mirror direction: every reachable `_shell` route is advertised by
+// `NAV_GROUPS`, `/` and `/account` excepted (they are reached without a
+// sidebar entry — record 063 §5).
+describe("every reachable _shell route has a NAV_GROUPS entry", () => {
+  const advertised = new Set<string>(
+    NAV_GROUPS.flatMap((group) => group.items.map((item) => item.to as string)),
+  );
+  const entryLess = new Set(["/", "/account"]);
+
+  for (const id of Object.keys(router.routesById)) {
+    if (!id.startsWith("/_shell/")) continue;
+    const to = id === "/_shell/" ? "/" : id.slice("/_shell".length);
+    if (entryLess.has(to)) continue;
+
+    it(`${to} is advertised by a NAV_GROUPS entry`, () => {
+      expect(advertised.has(to), `${to} is reachable but not in NAV_GROUPS`).toBe(true);
+    });
+  }
+});

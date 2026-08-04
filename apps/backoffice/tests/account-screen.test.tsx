@@ -108,6 +108,15 @@ describe("the Account screen", () => {
     expect(screen.getByText("cashier")).toBeTruthy();
     expect(screen.getByText("Downtown")).toBeTruthy();
 
+    for (const role of ["cashier", "manager", "admin"] as const) {
+      const userIdEmail = await ownerDb
+        .selectFrom("User")
+        .select("email")
+        .where("id", "=", userIdByRole[role])
+        .executeTakeFirstOrThrow();
+      expect(screen.queryByText(userIdEmail.email)).toBeNull();
+    }
+
     await expectNoAxeViolations(container);
   });
 
