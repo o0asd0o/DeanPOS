@@ -131,7 +131,9 @@ describe("the Payment methods screen — as an admin", () => {
       expect(screen.getByText("A new tenant starts with cash only")).toBeTruthy(),
     );
     expect(screen.getByText(/records an amount and charges\s+nothing/)).toBeTruthy();
-    expect(screen.getByText(/never verifies that a scan against it was actually\s+paid/)).toBeTruthy();
+    expect(
+      screen.getByText(/never verifies that a scan against it was actually\s+paid/),
+    ).toBeTruthy();
   });
 
   it("edits a method's name and availability together, in one Save", async () => {
