@@ -1,6 +1,6 @@
 # 02 — Variants, the price, and the archive cascade
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
