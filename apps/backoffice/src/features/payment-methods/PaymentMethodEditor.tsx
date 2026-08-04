@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Input } from "ui";
+import { Button } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 
 import { AvailabilityField } from "./AvailabilityField.tsx";
 import { PaymentDetailsFields } from "./PaymentDetailsFields.tsx";
+import { PaymentMethodNameField } from "./PaymentMethodNameField.tsx";
 import type { PaymentDetailsValue } from "./PaymentDetailsFields.tsx";
 import {
   useCreatePaymentMethodMutation,
@@ -14,7 +15,6 @@ import {
   useStoresQuery,
   useUpdatePaymentMethodMutation,
 } from "./__common/queries.ts";
-import { PAYMENT_METHOD_NAME_PRESETS } from "./helpers.ts";
 import type { PaymentMethodOutput } from "./helpers.ts";
 
 // The method editor (record 054 Q3): one form, one Save, name and the whole
@@ -125,25 +125,12 @@ export function PaymentMethodEditor({
     >
       <form.Field name="name">
         {(field) => (
-          <div className="flex flex-col gap-2">
-            <label htmlFor="payment-method-name">Name</label>
-            <Input
-              id="payment-method-name"
-              name={field.name}
-              list="payment-method-name-presets"
-              placeholder="GCash"
-              required
-              autoFocus
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-            />
-            <datalist id="payment-method-name-presets">
-              {PAYMENT_METHOD_NAME_PRESETS.map((preset) => (
-                <option key={preset} value={preset} />
-              ))}
-            </datalist>
-          </div>
+          <PaymentMethodNameField
+            name={field.name}
+            value={field.state.value}
+            onChange={field.handleChange}
+            onBlur={field.handleBlur}
+          />
         )}
       </form.Field>
       <AvailabilityField stores={stores} selectedIds={storeIds} onChange={setStoreIds} />

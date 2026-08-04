@@ -11,7 +11,7 @@ export type PaymentMethodOutput = {
   storeIds: string[];
 };
 
-// Seed suggestions on the Name field's `<datalist>`, not a fixed enum
+// Seed suggestions on the Name field, not a fixed enum
 // (record 054 §"Smaller calls" 5) — nothing downstream branches on these.
 export const PAYMENT_METHOD_NAME_PRESETS = ["Card", "GCash", "Maya", "Bank transfer"];
 
