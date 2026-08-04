@@ -1,5 +1,6 @@
+import { InfoIcon, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
-import { Button, Card, CardContent, Sheet, SheetContent } from "ui";
+import { Alert, AlertDescription, AlertTitle, Button, Sheet, SheetContent } from "ui";
 
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import { PaymentMethodEditor } from "./PaymentMethodEditor.tsx";
@@ -11,6 +12,10 @@ import {
   useStoresQuery,
 } from "./__common/queries.ts";
 import type { PaymentMethodOutput } from "./helpers.ts";
+
+// Per-browser, not per-tenant: dismissing a primer is a reading preference,
+// and `tenant_settings` is admin-only and audits every change.
+const NOTICE_KEY = "deanpos.backoffice.paymentMethodsNoticeDismissed";
 
 type EditorState =
   | { mode: "closed" }
@@ -33,6 +38,14 @@ export function PaymentMethods() {
   });
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
+
+  const [noticeDismissed, setNoticeDismissed] = useState(
+    () => localStorage.getItem(NOTICE_KEY) === "1",
+  );
+  const dismissNotice = () => {
+    localStorage.setItem(NOTICE_KEY, "1");
+    setNoticeDismissed(true);
+  };
 
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const lastOpenEditor = useRef<EditorState>({ mode: "create" });
@@ -101,18 +114,30 @@ export function PaymentMethods() {
           </Button>
         )}
       </div>
-      <Card>
-        <CardContent className="flex flex-col gap-1 text-sm text-foreground">
-          <p className="font-medium">A new tenant starts with cash only</p>
-          <p className="text-muted-foreground">
+      {/* `role="note"`, not the default `alert`: a standing primer, not a live
+          message — an `alert` would be read out on every render. */}
+      {!noticeDismissed && (
+        <Alert role="note" className="pr-12">
+          <InfoIcon />
+          <AlertTitle className="line-clamp-none">A new tenant starts with cash only</AlertTitle>
+          <AlertDescription>
             Only cash reaches the drawer. Every other method records an amount and charges nothing —
             no gateway, no QR generation, no settlement. A QR image is a poster the merchant already
             owns; DeanPOS never verifies that a scan against it was actually paid. The name is
             recorded on each sale as it stood at the time, so renaming a method never changes past
             sales.
-          </p>
-        </CardContent>
-      </Card>
+          </AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Dismiss notice"
+            onClick={dismissNotice}
+            className="absolute top-2 right-2 text-muted-foreground"
+          >
+            <XIcon />
+          </Button>
+        </Alert>
+      )}
       <PaymentMethodListCard
         methods={methodsQuery.data}
         stores={stores}

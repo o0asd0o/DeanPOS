@@ -44,6 +44,7 @@ export {
   CardDescription,
   CardContent,
 } from "./components/card.tsx";
+export { Alert, AlertTitle, AlertDescription } from "./components/alert.tsx";
 export { Badge, badgeVariants } from "./components/badge.tsx";
 export {
   Dialog,

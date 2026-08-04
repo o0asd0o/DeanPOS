@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  cleanup as unmountAll,
   createDb,
   expectNoAxeViolations,
   fireEvent,
@@ -67,6 +68,7 @@ describe("the Payment methods screen — as an admin", () => {
   afterEach(async () => {
     await cleanup?.();
     cleanup = undefined;
+    localStorage.removeItem("deanpos.backoffice.paymentMethodsNoticeDismissed");
   });
 
   it("shows cash as Always on with no Edit, creates a method available everywhere by default, and shows no delete anywhere", async () => {
@@ -208,6 +210,36 @@ describe("the Payment methods screen — as an admin", () => {
     expect(
       screen.getByText(/never verifies that a scan against it was actually\s+paid/),
     ).toBeTruthy();
+  });
+
+  it("keeps the primer dismissed once it is closed", async () => {
+    const first = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+
+    await waitFor(() => expect(screen.getByLabelText("Dismiss notice")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Dismiss notice"));
+    expect(screen.queryByText("A new tenant starts with cash only")).toBeNull();
+    await first.db.destroy();
+    unmountAll();
+
+    const second = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => second.db.destroy();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Payment methods" })).toBeTruthy(),
+    );
+    expect(screen.queryByText("A new tenant starts with cash only")).toBeNull();
   });
 
   it("edits a method's name and availability together, in one Save", async () => {
