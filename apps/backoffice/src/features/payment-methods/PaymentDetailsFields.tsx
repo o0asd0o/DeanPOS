@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { XIcon } from "lucide-react";
-import { Button, Input } from "ui";
+import { UploadCloudIcon, XIcon } from "lucide-react";
+import { Button, Input, cn } from "ui";
 import {
   PAYMENT_DETAIL_IMAGE_MAX_BYTES,
   sniffPaymentDetailImageMime,
@@ -50,6 +50,7 @@ export function PaymentDetailsFields({
   existingImageDataUrl: string | null | undefined;
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Revokes the object URL this component created — on replacement, on
@@ -68,9 +69,8 @@ export function PaymentDetailsFields({
         ? (existingImageDataUrl ?? null)
         : null;
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  // The one path a file takes, whether it was picked or dropped.
+  const acceptFile = async (file: File | undefined) => {
     if (!file) return;
     const result = await readAndValidateImage(file);
     if (!result.ok) {
@@ -115,36 +115,69 @@ export function PaymentDetailsFields({
           Optional. A screenshot of the QR code the till already prints — DeanPOS never verifies
           that a scan against it was actually paid.
         </Hint>
-        {previewUrl && (
-          <img
-            src={previewUrl}
-            alt="The uploaded QR code for this payment method"
-            className="h-32 w-32 rounded-xl border object-contain"
-          />
-        )}
-        <div className="flex items-center gap-2">
+        {/* The file input stays the keyboard control — `sr-only`, still the
+            label's target — so the drop area needs no ARIA of its own. */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            void acceptFile(event.dataTransfer.files[0]);
+          }}
+          className={cn(
+            "relative flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed p-6 text-center transition-colors",
+            "focus-within:ring-2 focus-within:ring-ring hover:bg-hover",
+            isDragging && "border-primary bg-hover",
+          )}
+        >
           <input
             ref={fileInputRef}
             id="payment-method-qr-image"
             type="file"
             accept="image/png,image/jpeg"
+            className="sr-only"
             aria-describedby={uploadError ? "payment-method-qr-image-error" : undefined}
-            onChange={(event) => void handleFileChange(event)}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              void acceptFile(file);
+            }}
           />
           {previewUrl && (
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              onClick={() => {
+              size="icon-sm"
+              aria-label="Remove QR image"
+              className="absolute top-2 right-2"
+              onClick={(event) => {
+                event.stopPropagation();
                 setUploadError(null);
                 onChange({ ...value, image: { kind: "none" } });
               }}
             >
               <XIcon />
-              Remove
             </Button>
           )}
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt="The uploaded QR code for this payment method"
+              className="h-32 w-32 rounded-xl border bg-background object-contain"
+            />
+          ) : (
+            <UploadCloudIcon className="size-8 text-muted-foreground" />
+          )}
+          <p className="text-sm text-muted-foreground">
+            {previewUrl ? "Drop a new image to replace it, or " : "Drag an image here, or "}
+            <span className="font-medium text-foreground underline">browse</span>
+            <span className="block text-xs">PNG or JPEG, up to 1MB</span>
+          </p>
         </div>
         {uploadError && (
           <p

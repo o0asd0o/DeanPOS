@@ -158,6 +158,39 @@ describe("the Payment methods screen — as an admin", () => {
     await expectNoAxeViolations(document.body);
   });
 
+  it("a QR image dropped onto the upload area previews the same as a picked one", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Payment methods" })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add method" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New method" })).toBeTruthy());
+
+    const dropZone = screen.getByLabelText("QR image").parentElement!;
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const pngFile = new File([pngBytes], "qr.png", { type: "image/png" });
+    fireEvent.drop(dropZone, { dataTransfer: { files: [pngFile] } });
+
+    await waitFor(() =>
+      expect(screen.getByAltText("The uploaded QR code for this payment method")).toBeTruthy(),
+    );
+
+    // A dropped file the server would refuse is refused here too.
+    const svgFile = new File([new TextEncoder().encode("<svg></svg>")], "qr.png", {
+      type: "image/png",
+    });
+    fireEvent.drop(dropZone, { dataTransfer: { files: [svgFile] } });
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/Only PNG and JPEG/));
+  });
+
   it("states plainly that a non-cash method records an amount and charges nothing", async () => {
     const { db } = renderRoute({
       router,
