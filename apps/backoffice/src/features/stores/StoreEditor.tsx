@@ -2,7 +2,7 @@ import { Hint } from "@/components/Hint.tsx";
 import { useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Input } from "ui";
+import { Button, Input, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 
@@ -55,18 +55,26 @@ export function StoreEditor({
     },
   });
 
+  // The labels live outside the form, so their own change has to reach the gate.
+  const labelsChanged =
+    labelRows
+      .map((row) => row.value)
+      .filter((value) => value.trim() !== "")
+      .join("\n") !== (store?.tableLabels ?? []).join("\n");
+  const gate = useSubmitGate(form, { busy: saving, dirty: labelsChanged });
+
   return (
     <SheetForm
       title={store ? `Edit ${store.name}` : "New store"}
       busy={saving}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={gate.submit}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onCancel}>
             <XIcon />
             Cancel
           </Button>
-          <Button type="submit" aria-disabled={saving}>
+          <Button type="submit" aria-disabled={gate.blocked}>
             <CheckIcon />
             {store ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create store"}
           </Button>

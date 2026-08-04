@@ -53,6 +53,8 @@ export function SetPassword() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
+            // No pristine gate: this screen takes sign-in's treatment, and
+            // record 030 forbids disabling the commit for validation.
             if (setPassword.isPending) return;
             void form.handleSubmit();
           }}

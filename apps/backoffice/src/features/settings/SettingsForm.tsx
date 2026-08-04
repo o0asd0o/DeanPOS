@@ -11,6 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useSubmitGate,
 } from "ui";
 
 import { Hint } from "@/components/Hint.tsx";
@@ -91,12 +92,13 @@ export function SettingsForm({
     },
   });
 
+  const gate = useSubmitGate(form, { busy: saving });
+
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (saving) return;
-        void form.handleSubmit();
+        gate.submit();
       }}
       aria-busy={saving}
       className="flex flex-col gap-6"
@@ -214,7 +216,7 @@ export function SettingsForm({
       )}
 
       <DialogFooter className="border-t pt-4">
-        <Button type="submit" aria-disabled={saving}>
+        <Button type="submit" aria-disabled={gate.blocked}>
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </DialogFooter>

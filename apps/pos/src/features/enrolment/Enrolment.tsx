@@ -1,7 +1,16 @@
-import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from "ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  useSubmitGate,
+} from "ui";
 
 import { readDeviceToken } from "@/lib/device-token.ts";
 import { useEnrolMutation, useTerminalMeQuery } from "./__common/queries.ts";
@@ -19,7 +28,6 @@ export function Enrolment() {
   const navigate = useNavigate();
   const meQuery = useTerminalMeQuery();
   const enrol = useEnrolMutation();
-  const [code, setCode] = useState("");
   const [result, setResult] = useState<{ name: string; storeName: string } | null>(null);
   // Captured once: a fresh enrol overwrites this same key, and that success
   // is handled by `result` below — this only ever gates the initial load.
@@ -29,13 +37,15 @@ export function Enrolment() {
     if (meQuery.data?.authenticated) void navigate({ to: "/" });
   }, [meQuery.data, navigate]);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (enrol.isPending) return;
-    const outcome = await enrol.mutateAsync({ secret: normalizeCode(code) });
-    if (!outcome.ok) return;
-    setResult({ name: outcome.name, storeName: outcome.storeName });
-  };
+  const form = useForm({
+    defaultValues: { code: "" },
+    onSubmit: async ({ value }) => {
+      const outcome = await enrol.mutateAsync({ secret: normalizeCode(value.code) });
+      if (!outcome.ok) return;
+      setResult({ name: outcome.name, storeName: outcome.storeName });
+    },
+  });
+  const gate = useSubmitGate(form, { busy: enrol.isPending });
 
   if (result) {
     return (
@@ -75,35 +85,47 @@ export function Enrolment() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              gate.submit();
+            }}
+            className="flex flex-col gap-4"
+          >
             {revoked && (
               <p role="alert" className="rounded-md bg-status-warning-tint p-3 text-sm">
                 This terminal has been revoked. An admin must enrol it again.
               </p>
             )}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="enrolment-code">Enrolment code</label>
-              <Input
-                id="enrolment-code"
-                required
-                autoFocus
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                aria-describedby="enrolment-code-hint"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-              <p id="enrolment-code-hint" className="text-xs text-muted-foreground">
-                Eight characters. Dashes and spaces are ignored.
-              </p>
-            </div>
+            <form.Field name="code">
+              {(field) => (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="enrolment-code">Enrolment code</label>
+                  <Input
+                    id="enrolment-code"
+                    name={field.name}
+                    required
+                    autoFocus
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    aria-describedby="enrolment-code-hint"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  />
+                  <p id="enrolment-code-hint" className="text-xs text-muted-foreground">
+                    Eight characters. Dashes and spaces are ignored.
+                  </p>
+                </div>
+              )}
+            </form.Field>
             {failed && (
               <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
                 That code is expired, already used, or not recognised
               </div>
             )}
-            <Button type="submit" className="w-full" aria-disabled={enrol.isPending}>
+            <Button type="submit" className="w-full" aria-disabled={gate.blocked}>
               {enrol.isPending ? "Enrolling…" : "Enrol this terminal"}
             </Button>
           </form>

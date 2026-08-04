@@ -10,6 +10,13 @@ You drive DeanPOS's issues to completion using six subagents. You do not write p
 | `qa`          | verifies one whole PRD by exercising it                                          |
 | `decider`     | decides blockers and open questions on the human's behalf, with a written record |
 | `explorer`    | bounded lookups for everyone except the reviewer                                 |
+| `critic`      | names the obvious version and what would beat it — no verdict, blocks nothing    |
+
+<!-- local: not produced by `orc2 render`. A re-render drops every local block in this file; recover them from git. -->
+
+**`critic` is the only role that is not checking conformance.** Every other one asks whether the work is correct, complete, or matching — and all of them can pass on work that is dull, at which point the pipeline stops, because "nothing is wrong" is its only exit condition. The `critic` is the ceiling; it does not add one to the floor. It returns no PASS and no REVISE, and nothing it writes blocks a merge. Do not put it in the fix loop, do not run it per issue, and do not ask it to arbitrate a finding. `docs/agents/direction-and-scenarios.md` carries the two sections it produces.
+
+<!-- /local -->
 
 Use `explorer` yourself for cheap scans — reading status across issues, checking which dependencies are complete, locating a path before handing it to another agent.
 
@@ -151,6 +158,10 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
 6. **Close.** On PASS with a green gate: merge to `main` following **Merging to `main`** below, remove the worktree, mark the issue done with a one-line note, and record what changed on the issue.
 
+   <!-- local -->
+   **Append the implementer's `## Not handled` section to the issue file, verbatim.** Do not summarise it, do not filter it, and do not treat a long one as a bad sign. Carry every `deferred` and `undecided` entry into the PRD checkpoint report — those are the two that need a person. An implementer report arriving without that section is an incomplete report: ask for it before closing.
+   <!-- /local -->
+
    Mark it **done**, not "ready for a human" — that state means work a human must still implement, and using it on close makes finished and blocked issues indistinguishable. An issue that closes while still carrying an open question for a person is still done; the question is recorded on the issue and reaches the human at the PRD checkpoint.
 
 7. **Next.** Return to step 1 until no issue is selectable.
@@ -226,6 +237,16 @@ Anything unanswered is an open question, and it goes to the `decider` — not to
 
 ## Per PRD
 
+<!-- local -->
+### Before the first issue — the PRD needs a `## Direction`
+
+Check `.scratch/<prd>/PRD.md` for a `## Direction` section before selecting anything under it. It settles the ties an issue does not, and it is the only artifact both issue 03 and issue 11 read — without it, every unspecified thing in the PRD lands on the median independently.
+
+**If it is missing, escalate to the human. Do not spawn `critic` to write one unattended, and do not proceed without it.** Direction is a design choice with a person's taste in it: the `critic` produces three approaches and a human picks one. An agent picking its own is the pipeline inventing the thing it is supposed to be building against — the same rule that keeps the interactive half interactive. Say in the escalation that `critic` is the role that drafts it and that the human runs it above the seam.
+
+Same for a `## Scenarios` table whose rows are still `?`: unreviewed defaults to out-of-scope, so it is not a blocker, but say in the cycle report how many rows went unreviewed. A silent default is how an uncovered case becomes invisible again.
+<!-- /local -->
+
 When every issue under a PRD is closed:
 
 ### A PRD may stage its QA — check for a plan first
@@ -240,6 +261,16 @@ Copy every mock this PRD's screens need into `.scratch/<prd>/reference/`, named 
 
 QA judges a lo-fi build on **structure, order, presence, state coverage, and accessibility** — never on spacing or proportion, which the mock never specified. A fidelity finding against a value the mock does not contain is not a finding; it is an open question, and it is routed as one.
 
+
+<!-- local -->
+### Run `critic` once, after the last issue closes and before QA
+
+Spawn `critic` with the PRD path, the reference directory, and the `## Not handled` sections collected from every closed issue under it. It appends `## Critic — post-build` to the PRD and stops.
+
+**It runs before QA, not after, and it never gates.** Before, because its output is worth most while the PRD is still open and the worktrees are cheap to re-cut; never gating, because a critic that can block gets negotiated with, and the negotiation converges on exactly the median it exists to prevent.
+
+Do not send its output to the `fixer`, and do not open a round on it. It goes to the human at the checkpoint, alongside QA's "needs human eyes" list, and the human decides whether anything in it becomes a new issue. If `critic` returns "the work is basically good" in one line, that is a valid result — record it and move on rather than re-running it for something longer.
+<!-- /local -->
 
 ### Run the QA loop, capped at 2
 

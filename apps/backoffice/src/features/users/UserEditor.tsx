@@ -3,7 +3,16 @@ import { TemporaryPasswordField } from "./TemporaryPasswordField.tsx";
 import { useState } from "react";
 import { CheckIcon, KeyRoundIcon, LockKeyholeIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useSubmitGate,
+} from "ui";
 
 import {
   useCreateUserMutation,
@@ -86,11 +95,16 @@ export function UserEditor({
     },
   });
 
+  // The Store set lives outside the form, so its own change has to reach the gate.
+  const storesChanged =
+    [...storeIds].sort().join("\n") !== [...(user?.storeIds ?? [])].sort().join("\n");
+  const gate = useSubmitGate(form, { busy: saving, dirty: storesChanged });
+
   return (
     <SheetForm
       title={user ? `Edit ${user.email}` : "New employee"}
       busy={saving}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={gate.submit}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onCancel}>
@@ -110,7 +124,7 @@ export function UserEditor({
                 Reset PIN
               </Button>
             )}
-            <Button type="submit" aria-disabled={saving}>
+            <Button type="submit" aria-disabled={gate.blocked}>
               <CheckIcon />
               {user
                 ? saving

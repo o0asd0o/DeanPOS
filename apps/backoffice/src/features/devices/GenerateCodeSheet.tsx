@@ -1,6 +1,15 @@
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "ui";
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useSubmitGate,
+} from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 import { useGenerateCodeMutation } from "./__common/queries.ts";
@@ -43,19 +52,20 @@ export function GenerateCodeSheet({
 
   const saving = generateCode.isPending;
   const failed = generateCode.isError || (generateCode.data && !generateCode.data.ok);
+  const gate = useSubmitGate(form, { busy: saving });
 
   return (
     <SheetForm
       title="Enrol a device"
       busy={saving}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={gate.submit}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
             <XIcon />
             Cancel
           </Button>
-          <Button type="submit" aria-disabled={saving}>
+          <Button type="submit" aria-disabled={gate.blocked}>
             <CheckIcon />
             {saving ? "Generating…" : "Generate code"}
           </Button>

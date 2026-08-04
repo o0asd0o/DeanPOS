@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 import { CheckIcon, XIcon } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput, useSubmitGate } from "ui";
 
 // `PinDialog`'s form body (issue 10, record 058), unchanged — one field, no
 // `currentPin` — moved here from a `UserMenu` dialog (issue 15, record 063
@@ -30,6 +30,8 @@ export function PinCard() {
     },
   });
 
+  const gate = useSubmitGate(form, { busy: setPin.isPending });
+
   return (
     <Card>
       <CardHeader>
@@ -39,8 +41,7 @@ export function PinCard() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (setPin.isPending) return;
-            void form.handleSubmit();
+            gate.submit();
           }}
           className="flex flex-col gap-6"
         >
@@ -87,7 +88,7 @@ export function PinCard() {
               <XIcon />
               Cancel
             </Button>
-            <Button type="submit" aria-disabled={setPin.isPending}>
+            <Button type="submit" aria-disabled={gate.blocked}>
               <CheckIcon />
               {setPin.isPending ? "Saving…" : "Save PIN"}
             </Button>

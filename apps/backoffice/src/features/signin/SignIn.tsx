@@ -59,7 +59,8 @@ export function SignIn() {
           onSubmit={(event) => {
             event.preventDefault();
             // The early return, not `aria-disabled`, is what stops a double
-            // POST — record 030.
+            // POST — record 030. No pristine gate here: 030 forbids disabling
+            // this commit for validation.
             if (signIn.isPending) return;
             void form.handleSubmit();
           }}

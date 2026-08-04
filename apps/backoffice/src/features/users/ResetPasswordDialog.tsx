@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  useSubmitGate,
 } from "ui";
 
 import { useResetUserPasswordMutation } from "./__common/queries.ts";
@@ -43,14 +44,15 @@ export function ResetPasswordDialog({
     },
   });
 
+  const gate = useSubmitGate(form, { busy: resetPassword.isPending });
+
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent>
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (resetPassword.isPending) return;
-            void form.handleSubmit();
+            gate.submit();
           }}
           className="flex flex-col gap-6"
         >
@@ -86,7 +88,7 @@ export function ResetPasswordDialog({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" aria-disabled={resetPassword.isPending}>
+            <Button type="submit" aria-disabled={gate.blocked}>
               {resetPassword.isPending ? "Resetting…" : "Reset password"}
             </Button>
           </DialogFooter>

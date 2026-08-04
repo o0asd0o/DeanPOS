@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Button } from "ui";
+import { Button, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 
@@ -99,18 +99,31 @@ export function PaymentMethodEditor({
     },
   });
 
+  // Availability and the payment details live outside the form, so their own
+  // changes have to reach the gate. Both are compared against what they were
+  // seeded with — a default that arrives late is not an edit.
+  const storesChanged =
+    [...storeIds].sort().join("\n") !==
+    [...(method?.storeIds ?? stores.map((store) => store.id))].sort().join("\n");
+  const detailsChanged =
+    detailsValue.image.kind === "new" ||
+    (method !== null && detailsValue.image.kind === "none") ||
+    detailsValue.accountName.trim() !== (detailsQuery.data?.accountName ?? "") ||
+    detailsValue.accountNumber.trim() !== (detailsQuery.data?.accountNumber ?? "");
+  const gate = useSubmitGate(form, { busy: saving, dirty: storesChanged || detailsChanged });
+
   return (
     <SheetForm
       title={method ? `Edit ${method.name}` : "New method"}
       busy={saving}
-      onSubmit={() => void form.handleSubmit()}
+      onSubmit={gate.submit}
       footer={
         <>
           <Button type="button" variant="outline" onClick={onCancel}>
             <XIcon />
             Cancel
           </Button>
-          <Button type="submit" aria-disabled={saving}>
+          <Button type="submit" aria-disabled={gate.blocked}>
             <CheckIcon />
             {method
               ? saving

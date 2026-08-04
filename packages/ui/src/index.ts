@@ -91,5 +91,6 @@ export { Input } from "./components/input.tsx";
 export { PasswordInput } from "./components/password-input.tsx";
 export { Toaster } from "./components/sonner.tsx";
 export { toast } from "sonner";
+export { useSubmitGate } from "./hooks/use-submit-gate.ts";
 export { createQueryClient } from "./lib/query-client.ts";
 export { cn } from "./lib/utils.ts";

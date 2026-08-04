@@ -1,6 +1,6 @@
-import type { FormEvent } from "react";
 import { useRef, useState } from "react";
-import { Button, Card, CardContent, CardHeader, CardTitle } from "ui";
+import { useForm, useStore } from "@tanstack/react-form";
+import { Button, Card, CardContent, CardHeader, CardTitle, useSubmitGate } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
@@ -35,7 +35,6 @@ export function Unlock() {
   const { setActingUser } = useActingUser();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [managerUnlockOpen, setManagerUnlockOpen] = useState(false);
@@ -68,42 +67,46 @@ export function Unlock() {
     selectedUser?.displayName,
   );
 
+  const form = useForm({
+    defaultValues: { pin: "" },
+    onSubmit: async ({ value }) => {
+      if (!selectedUser || selectedUser.pinHash === null || isLocked || pending) return;
+
+      setPending(true);
+      setError(null);
+      const ok = await verifyPin(value.pin, selectedUser.pinHash);
+      setPending(false);
+
+      if (!ok) {
+        recordPinFailure(selectedUser.userId);
+        const justLocked = pinLockUntil(readPinThrottle(), selectedUser.userId) !== null;
+        form.reset();
+        // A lock replaces the error, never joins it — the strip covers it.
+        setError(justLocked ? null : "That PIN is not correct");
+        return;
+      }
+      recordPinSuccess(selectedUser.userId);
+      setActingUser({ userId: selectedUser.userId, displayName: selectedUser.displayName });
+    },
+  });
+  const pin = useStore(form.store, (state) => state.values.pin);
+  const gate = useSubmitGate(form, { busy: pending });
+
   const setPinDigits = (next: string) => {
-    setPin(next);
+    form.setFieldValue("pin", next);
     setSrStatus("");
   };
 
   const handleSelect = (userId: string) => {
     if (isDeviceLock) return;
     setSelectedId(userId);
-    setPin("");
+    form.reset();
     setError(null);
     pinInputRef.current?.focus();
   };
 
   const canUnlock =
     selectedUser !== null && selectedUser.pinHash !== null && pin.length >= 4 && !isLocked;
-
-  const handleUnlock = async (event?: FormEvent) => {
-    event?.preventDefault();
-    if (!canUnlock || !selectedUser || pending) return;
-
-    setPending(true);
-    setError(null);
-    const ok = await verifyPin(pin, selectedUser.pinHash!);
-    setPending(false);
-
-    if (!ok) {
-      recordPinFailure(selectedUser.userId);
-      const justLocked = pinLockUntil(readPinThrottle(), selectedUser.userId) !== null;
-      setPin("");
-      // A lock replaces the error, never joins it — the strip covers it.
-      setError(justLocked ? null : "That PIN is not correct");
-      return;
-    }
-    recordPinSuccess(selectedUser.userId);
-    setActingUser({ userId: selectedUser.userId, displayName: selectedUser.displayName });
-  };
 
   const noOneYet = !roster || (!restricted && roster.users.length === 0);
 
@@ -125,7 +128,13 @@ export function Unlock() {
               </p>
 
               {assignedUser ? (
-                <form onSubmit={handleUnlock} className="flex flex-col gap-4">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    gate.submit();
+                  }}
+                  className="flex flex-col gap-4"
+                >
                   <PinPad
                     inputRef={pinInputRef}
                     pin={pin}
@@ -138,7 +147,7 @@ export function Unlock() {
                     }
                     srStatus={srStatus}
                     trailing={
-                      <Button type="submit" aria-disabled={!canUnlock || pending}>
+                      <Button type="submit" aria-disabled={gate.blocked || !canUnlock}>
                         {pending ? "Unlocking…" : "Unlock"}
                       </Button>
                     }
@@ -192,7 +201,13 @@ export function Unlock() {
                 ))}
               </div>
 
-              <form onSubmit={handleUnlock} className="flex flex-col gap-4">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  gate.submit();
+                }}
+                className="flex flex-col gap-4"
+              >
                 <PinPad
                   inputRef={pinInputRef}
                   pin={pin}
@@ -205,7 +220,7 @@ export function Unlock() {
                   }
                   srStatus={srStatus}
                   trailing={
-                    <Button type="submit" aria-disabled={!canUnlock || pending}>
+                    <Button type="submit" aria-disabled={gate.blocked || !canUnlock}>
                       {pending ? "Unlocking…" : "Unlock"}
                     </Button>
                   }

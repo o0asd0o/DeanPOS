@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from "ui";
+import { useForm, useStore } from "@tanstack/react-form";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  useSubmitGate,
+} from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
@@ -52,9 +62,6 @@ export function OverridePrompt({
   const approvers = (roster?.users ?? []).filter((user) => user.canApproveOverride);
 
   const [approverId, setApproverId] = useState<string | null>(null);
-  const [pin, setPin] = useState("");
-  const [reason, setReason] = useState("");
-  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -74,11 +81,60 @@ export function OverridePrompt({
     approver?.displayName,
   );
 
+  const form = useForm({
+    defaultValues: { reason: "", note: "", pin: "" },
+    onSubmit: async ({ value }) => {
+      if (!approver || approver.pinHash === null || isLocked || pending) return;
+      if (value.reason.trim() === "" || value.pin.length < 4) return;
+
+      setPending(true);
+      setError(null);
+      const ok = await verifyPin(value.pin, approver.pinHash);
+      if (!ok) {
+        recordPinFailure(approver.userId);
+        const justLocked = pinLockUntil(readPinThrottle(), approver.userId) !== null;
+        form.setFieldValue("pin", "");
+        setPending(false);
+        setError(justLocked ? null : "That PIN is not correct");
+        return;
+      }
+
+      const result = await recordOverride
+        .mutateAsync({
+          approverUserId: approver.userId,
+          actionType: action,
+          reason: value.reason.trim(),
+          note: value.note.trim() === "" ? undefined : value.note.trim(),
+          approvedAt: new Date(),
+        })
+        .catch(() => "unreachable" as const);
+      setPending(false);
+
+      // Two distinguishable failures (record 061): a rejected fetch never
+      // reached the server, a refusal did. Neither clears the form or calls
+      // onApproved, and the PIN lock clears only once recording succeeds.
+      if (result === "unreachable") {
+        setError(
+          "The till couldn't reach the server. The approval was not recorded — try again in a moment",
+        );
+        return;
+      }
+      if (!result.ok) {
+        setError("Couldn't record the approval");
+        return;
+      }
+      recordPinSuccess(approver.userId);
+      reset();
+      onOpenChange(false);
+      onApproved(result.overrideId);
+    },
+  });
+  const values = useStore(form.store, (state) => state.values);
+  const gate = useSubmitGate(form, { busy: pending });
+
   const reset = () => {
     setApproverId(null);
-    setPin("");
-    setReason("");
-    setNote("");
+    form.reset();
     setError(null);
     setSrStatus("");
   };
@@ -95,61 +151,16 @@ export function OverridePrompt({
   const handleSelectApprover = (userId: string) => {
     if (isDeviceLock) return;
     setApproverId(userId);
-    setPin("");
+    form.setFieldValue("pin", "");
     setError(null);
   };
 
   const canApprove =
     approver !== null &&
     approver.pinHash !== null &&
-    pin.length >= 4 &&
-    reason.trim() !== "" &&
+    values.pin.length >= 4 &&
+    values.reason.trim() !== "" &&
     !isLocked;
-
-  const handleApprove = async () => {
-    if (!canApprove || !approver || pending) return;
-
-    setPending(true);
-    setError(null);
-    const ok = await verifyPin(pin, approver.pinHash!);
-    if (!ok) {
-      recordPinFailure(approver.userId);
-      const justLocked = pinLockUntil(readPinThrottle(), approver.userId) !== null;
-      setPin("");
-      setPending(false);
-      setError(justLocked ? null : "That PIN is not correct");
-      return;
-    }
-
-    const result = await recordOverride
-      .mutateAsync({
-        approverUserId: approver.userId,
-        actionType: action,
-        reason: reason.trim(),
-        note: note.trim() === "" ? undefined : note.trim(),
-        approvedAt: new Date(),
-      })
-      .catch(() => "unreachable" as const);
-    setPending(false);
-
-    // Two distinguishable failures (record 061): a rejected fetch never
-    // reached the server, a refusal did. Neither clears the form or calls
-    // onApproved, and the PIN lock clears only once recording succeeds.
-    if (result === "unreachable") {
-      setError(
-        "The till couldn't reach the server. The approval was not recorded — try again in a moment",
-      );
-      return;
-    }
-    if (!result.ok) {
-      setError("Couldn't record the approval");
-      return;
-    }
-    recordPinSuccess(approver.userId);
-    reset();
-    onOpenChange(false);
-    onApproved(result.overrideId);
-  };
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(next) : close())}>
@@ -160,29 +171,41 @@ export function OverridePrompt({
 
         <p className="text-sm text-muted-foreground">{subject}</p>
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor="override-reason">Reason (required)</label>
-          <Input
-            id="override-reason"
-            list="override-reasons"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-          />
-          <datalist id="override-reasons">
-            {REASON_SUGGESTIONS.map((suggestion) => (
-              <option key={suggestion} value={suggestion} />
-            ))}
-          </datalist>
-        </div>
+        <form.Field name="reason">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="override-reason">Reason (required)</label>
+              <Input
+                id="override-reason"
+                name={field.name}
+                list="override-reasons"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+              <datalist id="override-reasons">
+                {REASON_SUGGESTIONS.map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
+                ))}
+              </datalist>
+            </div>
+          )}
+        </form.Field>
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor="override-note">Note (optional)</label>
-          <Input
-            id="override-note"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        </div>
+        <form.Field name="note">
+          {(field) => (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="override-note">Note (optional)</label>
+              <Input
+                id="override-note"
+                name={field.name}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            </div>
+          )}
+        </form.Field>
 
         <div className="flex flex-col gap-2">
           <span id="who-is-approving" className="text-sm font-medium">
@@ -214,9 +237,9 @@ export function OverridePrompt({
               </div>
 
               <PinPad
-                pin={pin}
+                pin={values.pin}
                 onPinChange={(next) => {
-                  setPin(next);
+                  form.setFieldValue("pin", next);
                   setSrStatus("");
                 }}
                 lockedUntil={lockedUntil}
@@ -244,7 +267,11 @@ export function OverridePrompt({
           <Button type="button" variant="outline" aria-disabled={pending} onClick={close}>
             Cancel
           </Button>
-          <Button type="button" aria-disabled={!canApprove || pending} onClick={handleApprove}>
+          <Button
+            type="button"
+            aria-disabled={gate.blocked || !canApprove}
+            onClick={() => gate.submit()}
+          >
             {pending ? "Approving…" : "Approve"}
           </Button>
         </DialogFooter>
