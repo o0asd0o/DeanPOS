@@ -1,19 +1,10 @@
-import { ORPCError } from "@orpc/client";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
-
-// A rejection on policy (record 032) arrives as oRPC's own input-validation
-// error, carrying the zod issue message; anything else is a real transport
-// failure and stays ErrorState's job.
-function policyRejectionMessage(error: unknown): string | null {
-  if (!(error instanceof ORPCError) || error.code !== "BAD_REQUEST") return null;
-  const data = error.data as { issues?: { message?: string }[] } | undefined;
-  return data?.issues?.[0]?.message ?? null;
-}
+import { policyRejectionMessage } from "@/lib/policy-rejection.ts";
 
 // States, copy, colours and order are record 030's, extended with the two
 // decisions this screen adds: no current-password field, and a confirm field.

@@ -77,6 +77,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await ownerDb.deleteFrom("SignInThrottle").where("key", "like", "pwchange:%").execute();
   await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
@@ -138,4 +139,80 @@ describe("the Account screen", () => {
       await waitFor(() => expect(screen.getByText("PIN saved")).toBeTruthy());
     });
   }
+
+  it("changes the signed-in User's own password given the correct current one", async () => {
+    const { container, db } = renderRoute({
+      router,
+      tenantId,
+      userId: userIdByRole.cashier,
+      role: "cashier",
+      initialLocation: "/account",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByLabelText("Current password")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "irrelevant" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "a brand new account password" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "a brand new account password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
+
+    await waitFor(() => expect(screen.getByText("Password changed")).toBeTruthy());
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows the wrong-current-password sentence and leaves the field on screen", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: userIdByRole.manager,
+      role: "manager",
+      initialLocation: "/account",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByLabelText("Current password")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "definitely wrong" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "another brand new password" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "another brand new password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toBe("Current password is incorrect");
+  });
+
+  it("shows the mismatch sentence when the two new-password fields disagree", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: userIdByRole.admin,
+      role: "admin",
+      initialLocation: "/account",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByLabelText("Current password")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "irrelevant" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), { target: { value: "the first one" } });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "the second one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save password" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toBe("The two passwords do not match");
+  });
 });

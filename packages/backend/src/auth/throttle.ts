@@ -1,7 +1,12 @@
 import { clearThrottleKey } from "./db-operations/commands/clear-throttle-key.command.ts";
 import { releaseThrottleReservation } from "./db-operations/commands/release-throttle-reservation.command.ts";
 import { upsertThrottleFailure } from "./db-operations/commands/upsert-throttle-failure.command.ts";
-import { EMAIL_FAILURE_LIMIT, IP_FAILURE_LIMIT, THROTTLE_WINDOW_MS } from "./throttle-policy.ts";
+import {
+  EMAIL_FAILURE_LIMIT,
+  IP_FAILURE_LIMIT,
+  PASSWORD_CHANGE_FAILURE_LIMIT,
+  THROTTLE_WINDOW_MS,
+} from "./throttle-policy.ts";
 import type { DatabaseInstance } from "../db/client.ts";
 
 export type ThrottleKeys = { emailKey: string; ipKey: string };
@@ -41,3 +46,23 @@ export const releaseSignInThrottle = (db: DatabaseInstance, keys: ThrottleKeys) 
 // back its IP budget by finally guessing one account right (record 033).
 export const clearSignInThrottle = (db: DatabaseInstance, keys: ThrottleKeys) =>
   clearThrottleKey(db, keys.emailKey);
+
+// Self-service password change (record 065 §2): keyed on the caller's own
+// `userId`, never sign-in's `email:`/`ip:` — a failed change must not burn
+// the sign-in budget. Same reserve-before-hash/release/clear machinery.
+export const passwordChangeThrottleKey = (userId: string): string => `pwchange:${userId}`;
+
+export const reservePasswordChangeAttempt = async (
+  db: DatabaseInstance,
+  key: string,
+): Promise<boolean> => {
+  const staleBefore = new Date(Date.now() - THROTTLE_WINDOW_MS);
+  const failures = await upsertThrottleFailure(db, key, staleBefore);
+  return failures > PASSWORD_CHANGE_FAILURE_LIMIT;
+};
+
+export const releasePasswordChangeThrottle = (db: DatabaseInstance, key: string) =>
+  releaseThrottleReservation(db, key);
+
+export const clearPasswordChangeThrottle = (db: DatabaseInstance, key: string) =>
+  clearThrottleKey(db, key);

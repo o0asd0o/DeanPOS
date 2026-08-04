@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vite-plus/test";
 
-// Grep proof for issue 02 and issue 03: nothing in these paths logs
-// anything, so a password, hash, or session id can never reach a log.
+// Grep proof for issue 02, issue 03, and issue 16: nothing in these paths
+// logs anything, so a password, hash, or session id can never reach a log.
+// packages/backend/src/auth already covers change-password.ts and throttle.ts.
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const scanDirs = [
   join(repoRoot, "packages/backend/src/platform-admin"),

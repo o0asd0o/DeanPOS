@@ -250,6 +250,58 @@ describe("wrong-tenant probes on auth.*", () => {
     await cleanupPair(pair);
   });
 
+  it("wrong-tenant probe [auth.changePassword]: auth.changePassword as Tenant A's session never touches Tenant B's User row", async () => {
+    const pair = await seedPair();
+
+    const before = await ownerDb
+      .selectFrom("User")
+      .select("password_hash")
+      .where("id", "=", pair.userB)
+      .executeTakeFirstOrThrow();
+
+    const { result, client } = await seam.actors.signIn(pair.emailA, password);
+    expect(result.ok).toBe(true);
+
+    const ownerSees = await client.auth.changePassword({
+      currentPassword: password,
+      newPassword: "a's own changed password",
+    });
+    expect(ownerSees).toStrictEqual({ ok: true });
+
+    const rowA = await ownerDb
+      .selectFrom("User")
+      .selectAll()
+      .where("id", "=", pair.userA)
+      .executeTakeFirstOrThrow();
+    const rowB = await ownerDb
+      .selectFrom("User")
+      .selectAll()
+      .where("id", "=", pair.userB)
+      .executeTakeFirstOrThrow();
+
+    expect(rowA.password_hash).not.toBe(before.password_hash);
+    expect(rowB.password_hash).toBe(before.password_hash);
+
+    const bSignIn = await seam.actors.signIn(pair.emailB, password);
+    expect(bSignIn.result.ok).toBe(true);
+    const otherSees = await bSignIn.client.auth.changePassword({
+      currentPassword: password,
+      newPassword: "b's own changed password",
+    });
+
+    await expectWrongTenantRefusal({
+      path: "auth.changePassword",
+      mode: "effect",
+      ownerSees,
+      otherGets: async () => otherSees,
+      otherBefore: before.password_hash,
+      otherAfter: async () => rowB.password_hash,
+      why: "changePassword's { ok: true } carries no tenant data by design; isolation is proven by the per-row password hash comparison.",
+    });
+
+    await cleanupPair(pair);
+  });
+
   it("wrong-tenant probe [auth.signOut]: auth.signOut as Tenant A's session never revokes Tenant B's Session row", async () => {
     const pair = await seedPair();
 

@@ -1,3 +1,4 @@
+import { PasswordCard } from "./PasswordCard.tsx";
 import { PinCard } from "./PinCard.tsx";
 import { ProfileCard } from "./ProfileCard.tsx";
 
@@ -9,10 +10,11 @@ export function Account() {
     <div className="flex flex-col gap-4 p-4">
       <div>
         <h1 className="text-xl font-semibold">Account</h1>
-        <p className="text-sm text-muted-foreground">Your own profile and PIN.</p>
+        <p className="text-sm text-muted-foreground">Your own profile, PIN, and password.</p>
       </div>
       <ProfileCard />
       <PinCard />
+      <PasswordCard />
     </div>
   );
 }

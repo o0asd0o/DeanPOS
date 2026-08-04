@@ -1,5 +1,6 @@
 import { implement } from "@orpc/server";
 import type { Ctx } from "backend/src/common/ctx.ts";
+import { handler as changePasswordHandler } from "backend/src/auth/handlers/change-password.ts";
 import { handler as meHandler } from "backend/src/auth/handlers/me.ts";
 import { handler as setPasswordHandler } from "backend/src/auth/handlers/set-password.ts";
 import { handler as signInHandler } from "backend/src/auth/handlers/sign-in.ts";
@@ -38,9 +39,19 @@ export const createAuthRoutes = (appDomain: string, dev = false) => {
     setPasswordHandler({ ctx: context, input }),
   );
 
+  const changePasswordRoute = builder.auth.changePassword.handler(({ context, input }) =>
+    changePasswordHandler({ ctx: context, input }),
+  );
+
   const meRoute = builder.auth.me.handler(({ context }) =>
     meHandler({ ctx: context, input: undefined }),
   );
 
-  return { signIn: signInRoute, signOut: signOutRoute, setPassword: setPasswordRoute, me: meRoute };
+  return {
+    signIn: signInRoute,
+    signOut: signOutRoute,
+    setPassword: setPasswordRoute,
+    changePassword: changePasswordRoute,
+    me: meRoute,
+  };
 };

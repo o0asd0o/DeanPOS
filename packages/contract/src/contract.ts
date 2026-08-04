@@ -365,6 +365,22 @@ export const signInOutputSchema = z.discriminatedUnion("ok", [
 export const setPasswordInputSchema = z.object({ newPassword: passwordSchema });
 export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
+// Record 065: a second procedure, not a branch — both fields required in
+// the schema, refused at the boundary rather than by a runtime flag read.
+// `currentPassword` verifies bytes against an existing hash, never the
+// policy schema (same reasoning as sign-in's own password field).
+export const changePasswordInputSchema = z.object({
+  currentPassword: signInPasswordSchema,
+  newPassword: passwordSchema,
+});
+export const changePasswordOutputSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true) }),
+  z.object({
+    ok: z.literal(false),
+    reason: z.enum(["wrong-current-password", "throttled", "refused"]),
+  }),
+]);
+
 export const signOutOutputSchema = z.object({ ok: z.literal(true) });
 
 // What `_shell`'s `beforeLoad` guard reads (record 030). `firstName`/
@@ -452,6 +468,7 @@ export const contract = {
     signIn: oc.input(signInInputSchema).output(signInOutputSchema),
     signOut: oc.input(z.void()).output(signOutOutputSchema),
     setPassword: oc.input(setPasswordInputSchema).output(setPasswordOutputSchema),
+    changePassword: oc.input(changePasswordInputSchema).output(changePasswordOutputSchema),
     me: oc.input(z.void()).output(meOutputSchema),
   },
   // Device management (issue 09, record 056 Q6). Cookie/admin — never
