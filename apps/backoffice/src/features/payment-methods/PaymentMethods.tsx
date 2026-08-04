@@ -105,9 +105,11 @@ export function PaymentMethods() {
         <CardContent className="flex flex-col gap-1 text-sm text-foreground">
           <p className="font-medium">A new tenant starts with cash only</p>
           <p className="text-muted-foreground">
-            Only cash reaches the drawer. Every other method records an amount and authorises
-            nothing — no gateway, no QR code, no settlement. The name is recorded on each sale as it
-            stood at the time, so renaming a method never changes past sales.
+            Only cash reaches the drawer. Every other method records an amount and charges nothing —
+            no gateway, no QR generation, no settlement. A QR image is a poster the merchant already
+            owns; DeanPOS never verifies that a scan against it was actually paid. The name is
+            recorded on each sale as it stood at the time, so renaming a method never changes past
+            sales.
           </p>
         </CardContent>
       </Card>

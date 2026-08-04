@@ -6,8 +6,11 @@ import { Button, Input } from "ui";
 import { SheetForm } from "@/components/SheetForm.tsx";
 
 import { AvailabilityField } from "./AvailabilityField.tsx";
+import { PaymentDetailsFields } from "./PaymentDetailsFields.tsx";
+import type { PaymentDetailsValue } from "./PaymentDetailsFields.tsx";
 import {
   useCreatePaymentMethodMutation,
+  usePaymentMethodPaymentDetailsQuery,
   useStoresQuery,
   useUpdatePaymentMethodMutation,
 } from "./__common/queries.ts";
@@ -40,6 +43,25 @@ export function PaymentMethodEditor({
     setStoreIds(new Set(stores.map((store) => store.id)));
   }, [stores]);
 
+  const detailsQuery = usePaymentMethodPaymentDetailsQuery(method?.id ?? null);
+  const [detailsValue, setDetailsValue] = useState<PaymentDetailsValue>(() => ({
+    accountName: "",
+    accountNumber: "",
+    image: method ? { kind: "unchanged" } : { kind: "none" },
+  }));
+  // The Tenant-default row arrives asynchronously (issue 14) — seeded once,
+  // the same pattern availability's defaultedRef uses above.
+  const detailsDefaultedRef = useRef(method === null);
+  useEffect(() => {
+    if (detailsDefaultedRef.current || !detailsQuery.isSuccess) return;
+    detailsDefaultedRef.current = true;
+    setDetailsValue({
+      accountName: detailsQuery.data?.accountName ?? "",
+      accountNumber: detailsQuery.data?.accountNumber ?? "",
+      image: { kind: "unchanged" },
+    });
+  }, [detailsQuery.isSuccess, detailsQuery.data]);
+
   const createMethod = useCreatePaymentMethodMutation();
   const updateMethod = useUpdatePaymentMethodMutation();
   const saving = createMethod.isPending || updateMethod.isPending;
@@ -48,13 +70,30 @@ export function PaymentMethodEditor({
   const form = useForm({
     defaultValues: { name: method?.name ?? "" },
     onSubmit: async ({ value }) => {
+      const paymentDetails = {
+        accountName:
+          detailsValue.accountName.trim() === "" ? null : detailsValue.accountName.trim(),
+        accountNumber:
+          detailsValue.accountNumber.trim() === "" ? null : detailsValue.accountNumber.trim(),
+        image:
+          detailsValue.image.kind === "unchanged"
+            ? undefined
+            : detailsValue.image.kind === "none"
+              ? null
+              : { base64: detailsValue.image.base64 },
+      };
       const saved = method
         ? await updateMethod.mutateAsync({
             id: method.id,
             name: value.name,
             storeIds: [...storeIds],
+            paymentDetails,
           })
-        : await createMethod.mutateAsync({ name: value.name, storeIds: [...storeIds] });
+        : await createMethod.mutateAsync({
+            name: value.name,
+            storeIds: [...storeIds],
+            paymentDetails,
+          });
       if (!saved) return;
       onSaved();
     },
@@ -108,6 +147,11 @@ export function PaymentMethodEditor({
         )}
       </form.Field>
       <AvailabilityField stores={stores} selectedIds={storeIds} onChange={setStoreIds} />
+      <PaymentDetailsFields
+        value={detailsValue}
+        onChange={setDetailsValue}
+        existingImageDataUrl={detailsQuery.data?.image?.dataUrl}
+      />
       {failed && (
         <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
           Couldn&rsquo;t save the payment method

@@ -88,12 +88,22 @@ describe("update-payment-method: concurrent saves form an unbroken audit chain",
 
     const saveV2 = updatePaymentMethod({
       ctx,
-      input: { id: methodId, name: "Name v2", storeIds: [] },
+      input: {
+        id: methodId,
+        name: "Name v2",
+        storeIds: [],
+        paymentDetails: { accountName: null, accountNumber: null },
+      },
     });
     await waitForBlockedBackends(1);
     const saveV3 = updatePaymentMethod({
       ctx,
-      input: { id: methodId, name: "Name v3", storeIds: [] },
+      input: {
+        id: methodId,
+        name: "Name v3",
+        storeIds: [],
+        paymentDetails: { accountName: null, accountNumber: null },
+      },
     });
     await waitForBlockedBackends(2);
 

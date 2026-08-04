@@ -106,6 +106,10 @@ afterAll(async () => {
     .where("tenant_id", "in", [tenantA, tenantB])
     .execute();
   await ownerDb
+    .deleteFrom("PaymentMethodPaymentDetails")
+    .where("tenant_id", "in", [tenantA, tenantB])
+    .execute();
+  await ownerDb
     .deleteFrom("PaymentMethodAvailability")
     .where("tenant_id", "in", [tenantA, tenantB])
     .execute();
@@ -374,6 +378,137 @@ describe("paymentMethod.update", () => {
       .where("id", "=", methodB)
       .executeTakeFirstOrThrow();
     expect(stillAsB.name).toBe("B's GCash");
+  });
+});
+
+const PNG_BASE64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]).toString(
+  "base64",
+);
+const SVG_RENAMED_TO_PNG_BASE64 = Buffer.from(
+  "<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+).toString("base64");
+
+describe("paymentMethod.update: payment details", () => {
+  it("saves account name, account number, and an image in the same transaction as name/availability, and audits each with the actor", async () => {
+    const created = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({ name: "GCash Details", storeIds: [storeA1] });
+
+    const updated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.update({
+        id: created!.id,
+        name: "GCash Details",
+        storeIds: [storeA1],
+        paymentDetails: {
+          accountName: "Juan Dela Cruz",
+          accountNumber: "0917 123 4567",
+          image: { base64: PNG_BASE64 },
+        },
+      });
+    expect(updated?.name).toBe("GCash Details");
+
+    const fetched = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.getPaymentDetails({ id: created!.id });
+    expect(fetched?.accountName).toBe("Juan Dela Cruz");
+    expect(fetched?.accountNumber).toBe("0917 123 4567");
+    expect(fetched?.image?.byteLength).toBe(11);
+    expect(fetched?.image?.mime).toBe("image/png");
+
+    const audits = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("PaymentMethodAudit")
+        .select(["field", "old_value", "new_value", "actor_user_id"])
+        .where("payment_method_id", "=", created!.id)
+        .where("field", "in", ["accountName", "accountNumber", "image"])
+        .execute(),
+    );
+    expect(audits).toHaveLength(3);
+    for (const audit of audits) {
+      expect(audit.actor_user_id).toBe(adminA);
+      expect(audit.old_value).toBe("");
+      expect(audit.new_value).not.toBe("");
+    }
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodPaymentDetails")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodAvailability")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
+  });
+
+  it("refuses an SVG renamed to .png, leaving the name and availability unchanged", async () => {
+    const created = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({ name: "Original Name", storeIds: [] });
+
+    const rejected = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.update({
+        id: created!.id,
+        name: "Renamed",
+        storeIds: [storeA1],
+        paymentDetails: {
+          accountName: null,
+          accountNumber: null,
+          image: { base64: SVG_RENAMED_TO_PNG_BASE64 },
+        },
+      });
+    expect(rejected).toBeNull();
+
+    const stillOriginal = await ownerDb
+      .selectFrom("PaymentMethod")
+      .selectAll()
+      .where("id", "=", created!.id)
+      .executeTakeFirstOrThrow();
+    expect(stillOriginal.name).toBe("Original Name");
+
+    const availability = await ownerDb
+      .selectFrom("PaymentMethodAvailability")
+      .selectAll()
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    expect(availability).toHaveLength(0);
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
+  });
+
+  it("wrong-tenant probe [paymentMethod.getPaymentDetails]: Tenant A addressing Tenant B's method id is refused", async () => {
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.update({
+        id: methodB,
+        name: "B's GCash",
+        storeIds: [],
+        paymentDetails: { accountName: "B Account", accountNumber: null },
+      });
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.getPaymentDetails({ id: methodB });
+    expect(ownerSees?.accountName).toBe("B Account");
+
+    await expectWrongTenantRefusal({
+      path: "paymentMethod.getPaymentDetails",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.paymentMethod.getPaymentDetails({ id: methodB }),
+    });
   });
 });
 

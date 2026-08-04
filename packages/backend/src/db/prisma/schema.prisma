@@ -38,6 +38,7 @@ model Tenant {
   paymentMethods               PaymentMethod[]
   paymentMethodAvailabilities  PaymentMethodAvailability[]
   paymentMethodAudits          PaymentMethodAudit[]
+  paymentMethodPaymentDetails  PaymentMethodPaymentDetails[]
   devices                      Device[]
   enrolmentCodes               EnrolmentCode[]
   deviceAudits                 DeviceAudit[]
@@ -63,6 +64,7 @@ model Store {
   userStores        UserStore[]
   paymentMethodAvailabilities PaymentMethodAvailability[]
   paymentMethodAudits         PaymentMethodAudit[]
+  paymentMethodPaymentDetails PaymentMethodPaymentDetails[]
   devices                     Device[]
   enrolmentCodes              EnrolmentCode[]
   overrides                   Override[]
@@ -219,9 +221,10 @@ model PaymentMethod {
   kind      PaymentMethodKind
   active    Boolean           @default(true)
   createdAt DateTime          @default(now()) @map("created_at")
-  tenant         Tenant                      @relation(fields: [tenantId], references: [id])
+  tenant         Tenant                        @relation(fields: [tenantId], references: [id])
   availabilities PaymentMethodAvailability[]
-  audits         PaymentMethodAudit[]        @relation("PaymentMethodAuditMethod")
+  audits         PaymentMethodAudit[]          @relation("PaymentMethodAuditMethod")
+  paymentDetails PaymentMethodPaymentDetails[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -260,6 +263,32 @@ model PaymentMethodAudit {
   tenant        Tenant        @relation(fields: [tenantId], references: [id])
   actor         User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
   paymentMethod PaymentMethod @relation("PaymentMethodAuditMethod", fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@index([tenantId])
+}
+
+// The Tenant default (`storeId` null) or a Store's override, resolved
+// whole-row, never field by field (issue 14, record 066 Q2/Q4). `cash`
+// holds no rows here — enforced by a trigger, not a handler check. The two
+// partial unique indexes live in this model's migration, not here.
+model PaymentMethodPaymentDetails {
+  id              String   @id
+  tenantId        String   @map("tenant_id")
+  paymentMethodId String   @map("payment_method_id")
+  storeId         String?  @map("store_id")
+  accountName     String?  @map("account_name")
+  accountNumber   String?  @map("account_number")
+  // The QR poster's bytes, `bytea` in this repository's own database — no
+  // bucket (record 066 Q3). Never selected wholesale outside the one query
+  // that resolves details for a caller who is allowed to see them.
+  imageBytes      Bytes?   @map("image_bytes")
+  imageMime       String?  @map("image_mime")
+  imageSha256     String?  @map("image_sha256")
+  imageByteLength Int?     @map("image_byte_length")
+  createdAt       DateTime @default(now()) @map("created_at")
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  paymentMethod PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
   store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
   @@index([tenantId])

@@ -142,23 +142,55 @@ export const paymentMethodOutputSchema = z.object({
   storeIds: z.array(z.string()),
 });
 
+// Each independently optional; a method with none set behaves byte-for-byte
+// as it does today (issue 14, record 066 Q5). `image` is tri-state: absent
+// leaves the stored bytes untouched, `null` clears them, an object replaces
+// them — the client never resends bytes it did not change (record 066 Q7).
+export const paymentMethodPaymentDetailsInputSchema = z.object({
+  accountName: z.string().trim().min(1).nullable(),
+  accountNumber: z.string().trim().min(1).nullable(),
+  image: z
+    .object({ base64: z.string().min(1) })
+    .nullable()
+    .optional(),
+});
+
 // Every created method is `recorded` — there is no `kind` control (record 054
 // Q3). Availability defaults to every Store checked (record 054 §"Smaller
 // calls" 4); the caller decides which to uncheck.
 export const paymentMethodCreateInputSchema = z.object({
   name: z.string().min(1),
   storeIds: z.array(z.string()),
+  paymentDetails: paymentMethodPaymentDetailsInputSchema.optional(),
 });
 
-// Name and the whole availability set move together — one form, one Save,
-// one transaction (record 054 Q3). Never `active`; that is its own procedure.
+// Name, the whole availability set, and the payment-detail fields all move
+// together — one form, one Save, one transaction (record 054 Q3, extended by
+// record 066 Q7). Never `active`; that is its own procedure.
 export const paymentMethodUpdateInputSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   storeIds: z.array(z.string()),
+  paymentDetails: paymentMethodPaymentDetailsInputSchema.optional(),
 });
 
 export const paymentMethodIdInputSchema = z.object({ id: z.string() });
+
+// The Tenant-default row for a method, admin-only (issue 14). `image` carries
+// a data URL for the editor's preview and the hash triple the audit stores —
+// never a separate endpoint that could commit outside the one Save.
+export const paymentMethodPaymentDetailsOutputSchema = z.object({
+  accountName: z.string().nullable(),
+  accountNumber: z.string().nullable(),
+  image: z
+    .object({
+      dataUrl: z.string(),
+      mime: z.string(),
+      sha256: z.string(),
+      byteLength: z.number(),
+    })
+    .nullable(),
+});
 
 // Device management (issue 09, record 056). `admin`-only.
 export const deviceOutputSchema = z.object({
@@ -392,6 +424,11 @@ export const contract = {
     // state (record 040 §3, carried into record 054 Q3).
     deactivate: oc.input(paymentMethodIdInputSchema).output(paymentMethodOutputSchema.nullable()),
     reactivate: oc.input(paymentMethodIdInputSchema).output(paymentMethodOutputSchema.nullable()),
+    // The editor's own fetch when it opens for edit (issue 14) — never
+    // riding `list`, which keeps `list`'s output shape unchanged.
+    getPaymentDetails: oc
+      .input(paymentMethodIdInputSchema)
+      .output(paymentMethodPaymentDetailsOutputSchema.nullable()),
   },
   // `admin`-only, tenant-wide financial controls (issue 07). `null` for any
   // non-admin or unauthenticated caller — the same not-found shape store.get

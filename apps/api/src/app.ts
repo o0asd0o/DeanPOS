@@ -11,6 +11,7 @@ import type { DatabaseInstance } from "backend/src/db/client.ts";
 import { contract } from "contract/src/index.ts";
 import { toSafeErrorResponse } from "error/src/index.ts";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 
 import { buildContextFromDeviceToken, buildContextFromSession, createContext } from "./context.ts";
@@ -36,6 +37,7 @@ import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import {
   paymentMethodCreateRoute,
   paymentMethodDeactivateRoute,
+  paymentMethodGetPaymentDetailsRoute,
   paymentMethodListRoute,
   paymentMethodReactivateRoute,
   paymentMethodUpdateRoute,
@@ -136,6 +138,7 @@ export const createApp = ({
         update: paymentMethodUpdateRoute,
         deactivate: paymentMethodDeactivateRoute,
         reactivate: paymentMethodReactivateRoute,
+        getPaymentDetails: paymentMethodGetPaymentDetailsRoute,
       },
       settings: { get: settingsGetRoute, update: settingsUpdateRoute },
       platformAdmin: { provisionTenant: provisionTenantRoute },
@@ -162,6 +165,11 @@ export const createApp = ({
       override: { list: overrideListRoute },
     });
   const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
+
+  // No explicit limit existed before issue 14 — bodies were unbounded. Sized
+  // for the 1MB raw QR image cap riding base64 inside `paymentMethod.update`
+  // (record 066 Q7): ~1.4MB inflated, plus headroom for the rest of the form.
+  app.use("/rpc/*", bodyLimit({ maxSize: 2 * 1024 * 1024 }));
 
   app.use("/rpc/*", async (c, next) => {
     // Trustworthy only because docker-compose.yml never publishes the api

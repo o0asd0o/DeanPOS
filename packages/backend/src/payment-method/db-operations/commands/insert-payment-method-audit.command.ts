@@ -11,7 +11,7 @@ export const insertPaymentMethodAudit = (
     actorUserId: string;
     paymentMethodId: string;
     storeId: string | null;
-    field: "created" | "name" | "active" | "available";
+    field: "created" | "name" | "active" | "available" | "accountName" | "accountNumber" | "image";
     oldValue: string | null;
     newValue: string;
   },

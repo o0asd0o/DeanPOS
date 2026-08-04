@@ -9,10 +9,22 @@ import { insertPaymentMethod } from "../db-operations/commands/insert-payment-me
 import { insertPaymentMethodAudit } from "../db-operations/commands/insert-payment-method-audit.command.ts";
 import { insertPaymentMethodAvailability } from "../db-operations/commands/insert-payment-method-availability.command.ts";
 import { toPaymentMethodOutput } from "../helpers.ts";
+import { savePaymentMethodPaymentDetails } from "../save-payment-method-payment-details.ts";
+import { validatePaymentDetailImage } from "../validate-payment-detail-image.ts";
+
+const paymentDetailsInputSchema = z.object({
+  accountName: z.string().trim().min(1).nullable(),
+  accountNumber: z.string().trim().min(1).nullable(),
+  image: z
+    .object({ base64: z.string().min(1) })
+    .nullable()
+    .optional(),
+});
 
 export const inputSchema = z.object({
   name: z.string().min(1),
   storeIds: z.array(z.string()),
+  paymentDetails: paymentDetailsInputSchema.optional(),
 });
 
 type CreatePaymentMethodInput = z.infer<typeof inputSchema>;
@@ -27,6 +39,15 @@ export const handler: Handler<CreatePaymentMethodInput, PaymentMethodOutput | nu
   if (ctx.kind !== "tenant" || !ctx.principal.userId || !ctx.principal.role) return null;
   const { tenantId, userId, role } = ctx.principal;
   if (!hasAtLeastRole(role, "admin")) return null;
+
+  const paymentDetails = input.paymentDetails;
+  const validatedImage =
+    paymentDetails?.image === undefined
+      ? undefined
+      : paymentDetails.image === null
+        ? null
+        : validatePaymentDetailImage(paymentDetails.image.base64);
+  if (validatedImage && "error" in validatedImage) return null;
 
   const storeIds = [...new Set(input.storeIds)];
 
@@ -64,6 +85,20 @@ export const handler: Handler<CreatePaymentMethodInput, PaymentMethodOutput | nu
         field: "available",
         oldValue: String(false),
         newValue: String(true),
+      });
+    }
+
+    if (paymentDetails) {
+      await savePaymentMethodPaymentDetails(scopedDb, {
+        tenantId,
+        actorUserId: userId,
+        paymentMethodId: method.id,
+        existing: undefined,
+        desired: {
+          accountName: paymentDetails.accountName,
+          accountNumber: paymentDetails.accountNumber,
+          image: validatedImage,
+        },
       });
     }
 

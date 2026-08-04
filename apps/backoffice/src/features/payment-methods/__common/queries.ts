@@ -11,6 +11,16 @@ export function useStoresQuery() {
   return useQuery(orpc.store.list.queryOptions());
 }
 
+// Fetched only when the editor opens for edit (issue 14) — never rides
+// `list`, which keeps `list`'s output shape unchanged.
+export function usePaymentMethodPaymentDetailsQuery(id: string | null) {
+  const { orpc } = useRouteContext({ from: "/_shell/payment-methods" });
+  return useQuery({
+    ...orpc.paymentMethod.getPaymentDetails.queryOptions({ input: { id: id ?? "" } }),
+    enabled: id !== null,
+  });
+}
+
 export function useMeQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/payment-methods" });
   return useQuery(orpc.auth.me.queryOptions());

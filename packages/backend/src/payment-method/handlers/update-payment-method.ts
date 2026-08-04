@@ -11,12 +11,25 @@ import { deletePaymentMethodAvailability } from "../db-operations/commands/delet
 import { updatePaymentMethodName } from "../db-operations/commands/update-payment-method-name.command.ts";
 import { getPaymentMethod } from "../db-operations/queries/get-payment-method.query.ts";
 import { getPaymentMethodAvailabilityStoreIds } from "../db-operations/queries/get-payment-method-availability-store-ids.query.ts";
+import { getPaymentMethodPaymentDetails } from "../db-operations/queries/get-payment-method-payment-details.query.ts";
 import { toPaymentMethodOutput } from "../helpers.ts";
+import { savePaymentMethodPaymentDetails } from "../save-payment-method-payment-details.ts";
+import { validatePaymentDetailImage } from "../validate-payment-detail-image.ts";
+
+const paymentDetailsInputSchema = z.object({
+  accountName: z.string().trim().min(1).nullable(),
+  accountNumber: z.string().trim().min(1).nullable(),
+  image: z
+    .object({ base64: z.string().min(1) })
+    .nullable()
+    .optional(),
+});
 
 export const inputSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   storeIds: z.array(z.string()),
+  paymentDetails: paymentDetailsInputSchema.optional(),
 });
 
 type UpdatePaymentMethodInput = z.infer<typeof inputSchema>;
@@ -31,6 +44,20 @@ export const handler: Handler<UpdatePaymentMethodInput, PaymentMethodOutput | nu
   if (ctx.kind !== "tenant" || !ctx.principal.userId || !ctx.principal.role) return null;
   const { tenantId, userId, role } = ctx.principal;
   if (!hasAtLeastRole(role, "admin")) return null;
+
+  // Absent `paymentDetails` leaves the stored set untouched, so the 189
+  // existing Tenants' methods stay valid on a save that never sends it.
+  const paymentDetails = input.paymentDetails;
+
+  // Validated before anything is written (issue 14 acceptance criterion 6):
+  // a rejected image must leave the name and availability unchanged too.
+  const validatedImage =
+    paymentDetails?.image === undefined
+      ? undefined
+      : paymentDetails.image === null
+        ? null
+        : validatePaymentDetailImage(paymentDetails.image.base64);
+  if (validatedImage && "error" in validatedImage) return null;
 
   const desiredStoreIds = new Set(input.storeIds);
 
@@ -93,6 +120,21 @@ export const handler: Handler<UpdatePaymentMethodInput, PaymentMethodOutput | nu
         field: "available",
         oldValue: String(true),
         newValue: String(false),
+      });
+    }
+
+    if (paymentDetails) {
+      const existingDetails = await getPaymentMethodPaymentDetails(scopedDb, input.id, null);
+      await savePaymentMethodPaymentDetails(scopedDb, {
+        tenantId,
+        actorUserId: userId,
+        paymentMethodId: input.id,
+        existing: existingDetails,
+        desired: {
+          accountName: paymentDetails.accountName,
+          accountNumber: paymentDetails.accountNumber,
+          image: validatedImage,
+        },
       });
     }
 
