@@ -722,7 +722,8 @@ describe("the Device token principal", () => {
       mode: "effect",
       ownerSees: heartbeatAsB,
       otherGets: async () => heartbeatAsA,
-      otherUnaffected: async () => (await lastSeen(exchangedAsA.deviceId)) === afterA,
+      otherBefore: afterA,
+      otherAfter: () => lastSeen(exchangedAsA.deviceId),
       why: "heartbeat's { ok: true } carries no tenant data by design; isolation is proven by the last_seen canary, which the response shape can't show.",
     });
   });

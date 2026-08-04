@@ -52,7 +52,7 @@ describe("expectWrongTenantRefusal: exact refusal shapes", () => {
 });
 
 describe('expectWrongTenantRefusal: mode "effect"', () => {
-  it("requires otherUnaffected", async () => {
+  it("requires otherBefore and otherAfter", async () => {
     await expect(
       expectWrongTenantRefusal({
         path: "fake.path",
@@ -61,30 +61,32 @@ describe('expectWrongTenantRefusal: mode "effect"', () => {
         otherGets: async () => ownerSees,
         why: "a write whose own result carries no tenant data at all",
       }),
-    ).rejects.toThrow(/requires otherUnaffected/);
+    ).rejects.toThrow(/requires otherBefore and otherAfter/);
   });
 
-  it("fails when otherUnaffected resolves false", async () => {
+  it("fails when the other Tenant's before and after reads differ — the helper compares them itself", async () => {
     await expect(
       expectWrongTenantRefusal({
         path: "fake.path",
         mode: "effect",
         ownerSees,
         otherGets: async () => ownerSees,
-        otherUnaffected: async () => false,
+        otherBefore: "untouched",
+        otherAfter: async () => "touched",
         why: "a write whose own result carries no tenant data at all",
       }),
-    ).rejects.toThrow(/otherUnaffected\(\) returned false/);
+    ).rejects.toThrow(/before\/after read differ/);
   });
 
-  it("passes when the other Tenant's own result matches and otherUnaffected resolves true", async () => {
+  it("passes when the other Tenant's before and after reads are identical", async () => {
     await expect(
       expectWrongTenantRefusal({
         path: "fake.path",
         mode: "effect",
         ownerSees,
         otherGets: async () => ownerSees,
-        otherUnaffected: async () => true,
+        otherBefore: "untouched",
+        otherAfter: async () => "untouched",
         why: "a write whose own result carries no tenant data at all",
       }),
     ).resolves.toBeUndefined();

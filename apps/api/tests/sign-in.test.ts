@@ -132,26 +132,25 @@ describe("auth.signIn", () => {
     const otherTenantId = randomUUID();
     const otherUserId = randomUUID();
     const otherEmail = `other-tenant-${randomUUID()}@sign-in.test`;
-    await ownerDb
-      .insertInto("Tenant")
-      .values({ id: otherTenantId, name: "Other Sign-in Tenant" })
-      .execute();
-    await seedTenantUser(ownerDb, {
-      id: otherUserId,
-      tenantId: otherTenantId,
-      email: otherEmail,
-      passwordHash: await hashPassword(password),
-      mustChangePassword: false,
-      role: "admin",
-    });
-
-    // Proves otherEmail is a real, reachable account in another Tenant
-    // before probing it — otherwise the probe below exercises an absent
-    // account, not the wrong-tenant case it claims to cover.
-    const otherOwnerSignIn = await client.auth.signIn({ email: otherEmail, password });
-    expect(otherOwnerSignIn).toStrictEqual({ ok: true, mustChangePassword: false });
-
     try {
+      await ownerDb
+        .insertInto("Tenant")
+        .values({ id: otherTenantId, name: "Other Sign-in Tenant" })
+        .execute();
+      await seedTenantUser(ownerDb, {
+        id: otherUserId,
+        tenantId: otherTenantId,
+        email: otherEmail,
+        passwordHash: await hashPassword(password),
+        mustChangePassword: false,
+        role: "admin",
+      });
+
+      // Proves otherEmail is reachable before probing it — otherwise the
+      // probe below exercises an absent account, not the wrong-tenant case.
+      const otherOwnerSignIn = await client.auth.signIn({ email: otherEmail, password });
+      expect(otherOwnerSignIn).toStrictEqual({ ok: true, mustChangePassword: false });
+
       await expectWrongTenantRefusal({
         path: "auth.signIn",
         mode: "refusal",

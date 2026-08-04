@@ -163,7 +163,6 @@ describe("wrong-tenant probes on auth.*", () => {
     // the same plaintext would also be, salt notwithstanding.
     expect(rowA.password_hash).not.toBe(before.password_hash);
     expect(rowB.password_hash).toBe(before.password_hash);
-    const bWasUnaffected = rowB.password_hash === before.password_hash;
 
     const bSignIn = await seam.actors.signIn(pair.emailB, password);
     expect(bSignIn.result.ok).toBe(true);
@@ -176,7 +175,8 @@ describe("wrong-tenant probes on auth.*", () => {
       mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      otherUnaffected: async () => bWasUnaffected,
+      otherBefore: before.password_hash,
+      otherAfter: async () => rowB.password_hash,
       why: "setPassword's { ok: true } carries no tenant data by design; isolation is proven by the per-row password hash comparison.",
     });
 
@@ -190,6 +190,12 @@ describe("wrong-tenant probes on auth.*", () => {
     expect(sessionB.result.ok).toBe(true);
     const sessionA = await seam.actors.signIn(pair.emailA, password);
     expect(sessionA.result.ok).toBe(true);
+
+    const beforeB = await ownerDb
+      .selectFrom("Session")
+      .select("revoked_at")
+      .where("id", "=", sessionB.sessionCookie!.split("=")[1]!)
+      .executeTakeFirstOrThrow();
 
     const ownerSees = await sessionA.client.auth.signOut();
 
@@ -205,7 +211,6 @@ describe("wrong-tenant probes on auth.*", () => {
       .executeTakeFirstOrThrow();
     expect(rowA.revoked_at).not.toBeNull();
     expect(rowB.revoked_at).toBeNull();
-    const bWasUnaffected = rowB.revoked_at === null;
 
     const otherSees = await sessionB.client.auth.signOut();
 
@@ -214,7 +219,8 @@ describe("wrong-tenant probes on auth.*", () => {
       mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      otherUnaffected: async () => bWasUnaffected,
+      otherBefore: beforeB.revoked_at,
+      otherAfter: async () => rowB.revoked_at,
       why: "signOut's { ok: true } carries no tenant data by design; isolation is proven by the per-row revoked_at comparison.",
     });
 

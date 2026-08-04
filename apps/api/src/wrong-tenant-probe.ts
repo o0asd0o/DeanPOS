@@ -15,11 +15,10 @@ export type WrongTenantProbeArgs<T> = {
   otherGets: () => Promise<T>;
   /** mode "confined" only: what the other Tenant should see of its own data. */
   otherOwn?: T;
-  /**
-   * mode "effect" only: resolves true iff the owner's write left the other
-   * Tenant's own data untouched (e.g. a re-read of the other Tenant's row).
-   */
-  otherUnaffected?: () => Promise<boolean>;
+  /** mode "effect" only: the other Tenant's own data before the owner's write. */
+  otherBefore?: unknown;
+  /** mode "effect" only: re-reads that same other-Tenant data after the write. */
+  otherAfter?: () => Promise<unknown>;
   /** modes "shared"/"effect" only: why this result carries no tenant data. Min 20 chars. */
   why?: string;
 };
@@ -63,7 +62,8 @@ export async function expectWrongTenantRefusal<T>({
   ownerSees,
   otherGets,
   otherOwn,
-  otherUnaffected,
+  otherBefore,
+  otherAfter,
   why,
 }: WrongTenantProbeArgs<T>): Promise<void> {
   if (ownerSees === undefined || isRefusalShape(ownerSees)) {
@@ -76,9 +76,9 @@ export async function expectWrongTenantRefusal<T>({
       `wrong-tenant probe [${path}]: mode "confined" requires the other Tenant's result to equal otherOwn.`,
     );
   }
-  if (mode === "effect" && typeof otherUnaffected !== "function") {
+  if (mode === "effect" && (otherBefore === undefined || typeof otherAfter !== "function")) {
     throw new Error(
-      `wrong-tenant probe [${path}]: mode "effect" requires otherUnaffected, a thunk proving the write left the other Tenant's data untouched.`,
+      `wrong-tenant probe [${path}]: mode "effect" requires otherBefore and otherAfter, so the helper can prove the write left the other Tenant's data untouched.`,
     );
   }
   if ((mode === "shared" || mode === "effect") && (!why || why.length < 20)) {
@@ -134,9 +134,9 @@ export async function expectWrongTenantRefusal<T>({
         `wrong-tenant probe [${path}]: mode "effect" requires both Tenants' own trivial results to match.`,
       );
     }
-    if (!(await otherUnaffected!())) {
+    if (!deepEqual(await otherAfter!(), otherBefore)) {
       throw new Error(
-        `wrong-tenant probe [${path}]: mode "effect" requires the other Tenant's data to remain unaffected by the owner's write, but otherUnaffected() returned false.`,
+        `wrong-tenant probe [${path}]: mode "effect" requires the other Tenant's data to remain unaffected by the owner's write, but the before/after read differ.`,
       );
     }
     return;

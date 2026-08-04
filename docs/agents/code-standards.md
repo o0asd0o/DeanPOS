@@ -294,10 +294,11 @@ it("wrong-tenant probe [store.update]: Tenant A addressing Tenant B's Store id i
   non-leaking `NOT_FOUND`); `"confined"` for one with no addressable id, where the other Tenant
   legitimately gets its own data instead (`list`, `settings.get`); `"effect"` for a write whose own
   result is trivial and identical for every caller but whose side effect must never cross Tenants
-  (`auth.setPassword`, `auth.signOut`, `terminal.heartbeat`) — requires `otherUnaffected`, a thunk
-  that re-reads the other Tenant's own data and resolves `true` only if the write left it untouched,
-  plus a written `why`; `"shared"` only for a procedure that is genuinely tenant-neutral — no write,
-  no per-Tenant data at all — which today is `ping` alone, with a written `why` of real length.
+  (`auth.setPassword`, `auth.signOut`, `terminal.heartbeat`) — requires `otherBefore` (the other
+  Tenant's own data before the write) and `otherAfter` (a thunk that re-reads it afterward); the
+  helper compares the two itself, plus a written `why`; `"shared"` only for a procedure that is
+  genuinely tenant-neutral — no write, no per-Tenant data at all — which today is `ping` alone,
+  with a written `why` of real length.
   Never reach for `"shared"` to route around a hard case.
 - DON'T add an exclusion. There is no exclusions list and none may be created — a tenant-neutral
   procedure takes `mode: "shared"` and a reason, because that assertion fails the day the
