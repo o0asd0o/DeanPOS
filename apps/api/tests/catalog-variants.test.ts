@@ -252,7 +252,7 @@ describe("catalog variants + archive cascade (read model)", () => {
     expect(b).toBeTruthy();
     expect(a!.id).toBe(b!.id);
     const list = await client.catalog.listVariants({ menuItemId: item.id });
-    expect(list.filter((row) => row.name === "Adobo" && row.archivedAt === null)).toHaveLength(1);
+    expect(list.filter((row) => row.id === a!.id && row.archivedAt === null)).toHaveLength(1);
   });
 
   it("manager can mutate; cashier cannot", async () => {
