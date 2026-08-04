@@ -44,6 +44,12 @@ vp run --no-cache -r test
 replays an earlier verdict as if it had just run. A gate that replays is not a gate. Check the
 `cache hit` percentage on every run: it must read `0/N`.
 
+**`migrate` caches too, and that one is worse.** `vp run -w migrate` against a database you have
+just dropped and recreated reports `cache hit, 1.43s saved` and never connects — the schema stays
+empty and the failure arrives later, in the test run, looking exactly like a code defect. Whenever
+you rebuild a lane database, migrate it with `vp run --no-cache -w migrate` and check the table
+count before trusting the gate.
+
 Run every command in that list, in that order, every time. A subset is not the gate. If one of them is slow enough that you are tempted to skip it, say so in the cycle report rather than dropping it silently.
 
 **You count the rounds.** Agents do not self-limit. 2 review→fix rounds per issue, then stop.
