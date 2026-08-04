@@ -77,7 +77,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await ownerDb.deleteFrom("SignInThrottle").where("key", "like", "pwchange:%").execute();
+  const ownUserIds = [cashierId, ...Object.values(userIdByRole)];
+  await ownerDb
+    .deleteFrom("SignInThrottle")
+    .where(
+      "key",
+      "in",
+      ownUserIds.map((id) => `pwchange:${id}`),
+    )
+    .execute();
   await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();

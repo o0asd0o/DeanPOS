@@ -33,6 +33,10 @@ export const handler: Handler<ChangePasswordInput, ChangePasswordResult> = async
 }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.userId) return { ok: false, reason: "refused" };
   if (ctx.principal.mustChangePassword) return { ok: false, reason: "refused" };
+  // A real session always carries one (context.ts:74); a principal built
+  // without one cannot have its other sessions safely excluded, so it is
+  // refused rather than silently revoking nothing.
+  if (!ctx.principal.sessionId) return { ok: false, reason: "refused" };
 
   const { userId, tenantId, sessionId } = ctx.principal;
   const key = passwordChangeThrottleKey(userId);
@@ -59,7 +63,7 @@ export const handler: Handler<ChangePasswordInput, ChangePasswordResult> = async
   const passwordHash = await hashPassword(input.newPassword);
   await withTenantScope(ctx.db, tenantId, async (db) => {
     await updateUserPassword(db, userId, passwordHash);
-    if (sessionId) await revokeOtherSessionsForUser(db, userId, sessionId);
+    await revokeOtherSessionsForUser(db, userId, sessionId);
   });
 
   return { ok: true };

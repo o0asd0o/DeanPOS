@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -77,6 +78,8 @@ export function renderRoute<TRouter extends AnyRouter>(
   if (initialLocation) window.history.pushState(null, "", initialLocation);
 
   const seam = createTestSeam(seamOptions);
+  // A screen test's principal stands in for a real signed-in session
+  // (.scratch/decisions/065), which always carries a sessionId.
   const actor = tenantId
     ? seam.actors.asTenant(tenantId, {
         mustChangePassword,
@@ -85,6 +88,7 @@ export function renderRoute<TRouter extends AnyRouter>(
         email,
         firstName,
         lastName,
+        sessionId: randomUUID(),
       })
     : seam;
 

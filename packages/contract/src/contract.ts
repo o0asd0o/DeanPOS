@@ -365,10 +365,9 @@ export const signInOutputSchema = z.discriminatedUnion("ok", [
 export const setPasswordInputSchema = z.object({ newPassword: passwordSchema });
 export const setPasswordOutputSchema = z.object({ ok: z.boolean() });
 
-// Record 065: a second procedure, not a branch — both fields required in
-// the schema, refused at the boundary rather than by a runtime flag read.
-// `currentPassword` verifies bytes against an existing hash, never the
-// policy schema (same reasoning as sign-in's own password field).
+// .scratch/decisions/065: both fields required, refused at the boundary.
+// currentPassword uses signInPasswordSchema, not 065's passwordSchema —
+// a pre-policy password must stay submittable; see the record.
 export const changePasswordInputSchema = z.object({
   currentPassword: signInPasswordSchema,
   newPassword: passwordSchema,

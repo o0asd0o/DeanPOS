@@ -41,7 +41,19 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Session").where("tenant_id", "=", tenantId).execute();
-  await ownerDb.deleteFrom("SignInThrottle").where("key", "like", "pwchange:%").execute();
+  const ownUsers = await ownerDb
+    .selectFrom("User")
+    .select("id")
+    .where("tenant_id", "=", tenantId)
+    .execute();
+  await ownerDb
+    .deleteFrom("SignInThrottle")
+    .where(
+      "key",
+      "in",
+      ownUsers.map(({ id }) => `pwchange:${id}`),
+    )
+    .execute();
   await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -87,13 +99,26 @@ describe("auth.changePassword", () => {
     const { userId, email } = await seedUser();
     await clearKey(userId);
 
+    const emailKey = `email:${email.trim().toLowerCase()}`;
+    const ipKey = `ip:${seam.clientIp}`;
+    const readThrottle = (key: string) =>
+      ownerDb.selectFrom("SignInThrottle").selectAll().where("key", "=", key).executeTakeFirst();
+
     for (let i = 0; i < PASSWORD_CHANGE_FAILURE_LIMIT; i++) {
       const { client } = await seam.actors.signIn(email, password);
+      const beforeEmail = await readThrottle(emailKey);
+      const beforeIp = await readThrottle(ipKey);
+
       const attempt = await client.auth.changePassword({
         currentPassword: "wrong",
         newPassword: "a different new password",
       });
       expect(attempt).toStrictEqual({ ok: false, reason: "wrong-current-password" });
+
+      // Asserted directly on sign-in's own rows, not inferred from a later
+      // sign-in succeeding: a failed change must not touch email:/ip:.
+      expect((await readThrottle(emailKey))?.failures).toBe(beforeEmail?.failures);
+      expect((await readThrottle(ipKey))?.failures).toBe(beforeIp?.failures);
     }
 
     const { client } = await seam.actors.signIn(email, password);
@@ -102,11 +127,6 @@ describe("auth.changePassword", () => {
       newPassword: "a different new password",
     });
     expect(sixth).toStrictEqual({ ok: false, reason: "throttled" });
-
-    // The caller's own sign-in budget (email:/ip: keys) is untouched — a
-    // correct sign-in still succeeds right after the pwchange lockout.
-    const stillSignsIn = await seam.actors.signIn(email, password);
-    expect(stillSignsIn.result.ok).toBe(true);
 
     await clearKey(userId);
   });
@@ -189,7 +209,7 @@ describe("auth.changePassword", () => {
   });
 
   it("a successful change revokes the User's other live sessions and keeps the caller's", async () => {
-    const { userId, email } = await seedUser();
+    const { email } = await seedUser();
     const other = await seam.actors.signIn(email, password);
     const caller = await seam.actors.signIn(email, password);
 
@@ -201,11 +221,9 @@ describe("auth.changePassword", () => {
 
     await expect(other.client.auth.me()).resolves.toStrictEqual({ authenticated: false });
     await expect(caller.client.auth.me()).resolves.toMatchObject({ authenticated: true });
-
-    void userId;
   });
 
-  it("refuses with reason: refused when mustChangePassword is set", async () => {
+  it("refuses with reason: refused when mustChangePassword is set — the middleware exempts this path, so this guard is the only enforcement", async () => {
     const { email } = await seedUser({ mustChangePassword: true });
     const { client } = await seam.actors.signIn(email, password);
 

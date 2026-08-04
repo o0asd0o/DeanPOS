@@ -6,10 +6,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from 
 
 import { policyRejectionMessage } from "@/lib/policy-rejection.ts";
 
-// Issue 16, record 065: currentPassword and newPassword are both required —
-// a second procedure, `auth.changePassword`, never a branch on setPassword.
-// `reason` failures (wrong-current-password, throttled, refused) are
-// inline text; a policy-invalid newPassword arrives as a BAD_REQUEST.
+// .scratch/decisions/065: a second procedure, not a branch on setPassword.
+// `reason` failures are inline text; policy rejection is a BAD_REQUEST.
 export function PasswordCard() {
   const { orpc } = useRouteContext({ from: "/_shell/account" });
   const changePassword = useMutation(

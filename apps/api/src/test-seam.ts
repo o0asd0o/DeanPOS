@@ -143,6 +143,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
           firstName?: string;
           lastName?: string;
           role?: Principal["role"];
+          sessionId?: string;
         } = {},
       ) =>
         buildActor({
@@ -154,6 +155,7 @@ export const createTestSeam = (options: TestSeamOptions = {}) => {
             lastName: options.lastName,
             mustChangePassword: options.mustChangePassword,
             role: options.role ?? "admin",
+            sessionId: options.sessionId,
           },
         }),
       asPlatformAdmin: (platformAdminId: string) =>

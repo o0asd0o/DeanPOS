@@ -132,6 +132,15 @@ afterAll(async () => {
   await seam.db.destroy();
 });
 
+const passwordHashOf = async (userId: string) =>
+  (
+    await ownerDb
+      .selectFrom("User")
+      .select("password_hash")
+      .where("id", "=", userId)
+      .executeTakeFirstOrThrow()
+  ).password_hash;
+
 describe("wrong-tenant probes on auth.*", () => {
   it("auth.signIn: Tenant B's real password never opens Tenant A's account, and the created session is scoped to the account actually matched", async () => {
     const pair = await seedPair();
@@ -201,49 +210,32 @@ describe("wrong-tenant probes on auth.*", () => {
 
   it("wrong-tenant probe [auth.setPassword]: auth.setPassword as Tenant A's session never touches Tenant B's User row", async () => {
     const pair = await seedPair({ mustChangePassword: true });
+    const beforeA = await passwordHashOf(pair.userA);
 
-    const before = await ownerDb
-      .selectFrom("User")
-      .select("password_hash")
-      .where("id", "=", pair.userB)
-      .executeTakeFirstOrThrow();
+    // B changes its own password first, establishing the row state that
+    // must survive A's own write untouched.
+    const bSignIn = await seam.actors.signIn(pair.emailB, password);
+    expect(bSignIn.result.ok).toBe(true);
+    const otherSees = await bSignIn.client.auth.setPassword({
+      newPassword: "b's own new password",
+    });
+    expect(otherSees).toStrictEqual({ ok: true });
+    const otherBefore = await passwordHashOf(pair.userB);
 
     const { result, client } = await seam.actors.signIn(pair.emailA, password);
     expect(result.ok).toBe(true);
 
     const ownerSees = await client.auth.setPassword({ newPassword: "a's new password" });
     expect(ownerSees).toStrictEqual({ ok: true });
-
-    const rowA = await ownerDb
-      .selectFrom("User")
-      .selectAll()
-      .where("id", "=", pair.userA)
-      .executeTakeFirstOrThrow();
-    const rowB = await ownerDb
-      .selectFrom("User")
-      .selectAll()
-      .where("id", "=", pair.userB)
-      .executeTakeFirstOrThrow();
-
-    // A's hash changed to the new password; B's is byte-for-byte unchanged
-    // — not merely "still a scrypt-shaped string", which a fresh hash of
-    // the same plaintext would also be, salt notwithstanding.
-    expect(rowA.password_hash).not.toBe(before.password_hash);
-    expect(rowB.password_hash).toBe(before.password_hash);
-
-    const bSignIn = await seam.actors.signIn(pair.emailB, password);
-    expect(bSignIn.result.ok).toBe(true);
-    const otherSees = await bSignIn.client.auth.setPassword({
-      newPassword: "b's own new password",
-    });
+    expect(await passwordHashOf(pair.userA)).not.toBe(beforeA);
 
     await expectWrongTenantRefusal({
       path: "auth.setPassword",
       mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      otherBefore: before.password_hash,
-      otherAfter: async () => rowB.password_hash,
+      otherBefore,
+      otherAfter: async () => passwordHashOf(pair.userB),
       why: "setPassword's { ok: true } carries no tenant data by design; isolation is proven by the per-row password hash comparison.",
     });
 
@@ -252,12 +244,18 @@ describe("wrong-tenant probes on auth.*", () => {
 
   it("wrong-tenant probe [auth.changePassword]: auth.changePassword as Tenant A's session never touches Tenant B's User row", async () => {
     const pair = await seedPair();
+    const beforeA = await passwordHashOf(pair.userA);
 
-    const before = await ownerDb
-      .selectFrom("User")
-      .select("password_hash")
-      .where("id", "=", pair.userB)
-      .executeTakeFirstOrThrow();
+    // B changes its own password first, establishing the row state that
+    // must survive A's own write untouched.
+    const bSignIn = await seam.actors.signIn(pair.emailB, password);
+    expect(bSignIn.result.ok).toBe(true);
+    const otherSees = await bSignIn.client.auth.changePassword({
+      currentPassword: password,
+      newPassword: "b's own changed password",
+    });
+    expect(otherSees).toStrictEqual({ ok: true });
+    const otherBefore = await passwordHashOf(pair.userB);
 
     const { result, client } = await seam.actors.signIn(pair.emailA, password);
     expect(result.ok).toBe(true);
@@ -267,35 +265,15 @@ describe("wrong-tenant probes on auth.*", () => {
       newPassword: "a's own changed password",
     });
     expect(ownerSees).toStrictEqual({ ok: true });
-
-    const rowA = await ownerDb
-      .selectFrom("User")
-      .selectAll()
-      .where("id", "=", pair.userA)
-      .executeTakeFirstOrThrow();
-    const rowB = await ownerDb
-      .selectFrom("User")
-      .selectAll()
-      .where("id", "=", pair.userB)
-      .executeTakeFirstOrThrow();
-
-    expect(rowA.password_hash).not.toBe(before.password_hash);
-    expect(rowB.password_hash).toBe(before.password_hash);
-
-    const bSignIn = await seam.actors.signIn(pair.emailB, password);
-    expect(bSignIn.result.ok).toBe(true);
-    const otherSees = await bSignIn.client.auth.changePassword({
-      currentPassword: password,
-      newPassword: "b's own changed password",
-    });
+    expect(await passwordHashOf(pair.userA)).not.toBe(beforeA);
 
     await expectWrongTenantRefusal({
       path: "auth.changePassword",
       mode: "effect",
       ownerSees,
       otherGets: async () => otherSees,
-      otherBefore: before.password_hash,
-      otherAfter: async () => rowB.password_hash,
+      otherBefore,
+      otherAfter: async () => passwordHashOf(pair.userB),
       why: "changePassword's { ok: true } carries no tenant data by design; isolation is proven by the per-row password hash comparison.",
     });
 
