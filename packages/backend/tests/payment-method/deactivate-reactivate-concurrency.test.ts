@@ -68,23 +68,26 @@ const ctx: Ctx = {
   principal: { tenantId, userId, role: "admin" },
 };
 
-// Polls pg_stat_activity rather than sleeping: waits until `expected` backends
-// are actually blocked on the PaymentMethod row lock.
-const waitForBlockedBackends = async (expected: number) => {
+// Polls rather than sleeping, and follows the whole wait chain from this
+// barrier: the second writer queues behind the first, not behind the barrier,
+// so a direct `pg_blocking_pids` test never counts it.
+const waitForBlockedBackends = async (blockerPid: number, expected: number) => {
   for (let i = 0; i < 500; i++) {
     const { rows } = await sql<{ count: string }>`
-      select count(*)::text as count
-      from pg_stat_activity
-      where wait_event_type = 'Lock'
-        and query ilike '%"PaymentMethod"%'
-        and pid <> pg_backend_pid()
+      with recursive blocked as (
+        select pid from pg_stat_activity
+        where pg_blocking_pids(pid) @> array[${blockerPid}]::int[]
+        union
+        select waiter.pid
+        from pg_stat_activity waiter
+        join blocked on pg_blocking_pids(waiter.pid) @> array[blocked.pid]::int[]
+      )
+      select count(*)::text as count from blocked
     `.execute(ownerDb);
     if (Number(rows[0]?.count ?? 0) >= expected) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(
-    `timed out waiting for ${expected} backend(s) blocked on the PaymentMethod row lock`,
-  );
+  throw new Error(`timed out waiting for ${expected} backend(s) blocked behind pid ${blockerPid}`);
 };
 
 // Locks the row, queues both handlers behind it, then releases — Postgres
@@ -99,15 +102,22 @@ const raceUnderLock = async (
   const barrierReleased = new Promise<void>((resolve) => {
     releaseBarrier = resolve;
   });
+  let announceBarrierPid!: (pid: number) => void;
+  const barrierPid = new Promise<number>((resolve) => {
+    announceBarrierPid = resolve;
+  });
   const barrier = ownerDb.transaction().execute(async (trx) => {
     await sql`select id from "PaymentMethod" where id = ${id} for update`.execute(trx);
+    const { rows } = await sql<{ pid: number }>`select pg_backend_pid() as pid`.execute(trx);
+    announceBarrierPid(rows[0]!.pid);
     await barrierReleased;
   });
 
+  const blockerPid = await barrierPid;
   const firstCall = first();
-  await waitForBlockedBackends(1);
+  await waitForBlockedBackends(blockerPid, 1);
   const secondCall = second();
-  await waitForBlockedBackends(2);
+  await waitForBlockedBackends(blockerPid, 2);
 
   releaseBarrier();
   await Promise.all([firstCall, secondCall, barrier]);
