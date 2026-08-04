@@ -282,45 +282,6 @@ describe("paymentMethod.create", () => {
       .where("id", "in", [createdAsB!.id, createdAsA!.id])
       .execute();
   });
-
-  it("cross-tenant probe: Tenant A cannot plant payment details on a Tenant-B-scoped create, B's create still succeeds normally", async () => {
-    const createdAsA = await seam.actors
-      .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.paymentMethod.create({
-        name: "A Payment Details Create Probe",
-        storeIds: [storeA1],
-        paymentDetails: { accountName: "Tenant A Account", accountNumber: null },
-      });
-    expect(createdAsA?.name).toBe("A Payment Details Create Probe");
-
-    const detailsAsA = await seam.actors
-      .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.paymentMethod.getPaymentDetails({ id: createdAsA!.id });
-    expect(detailsAsA?.accountName).toBe("Tenant A Account");
-
-    const detailsAsB = await withTenantScope(seam.db, tenantB, (db) =>
-      db
-        .selectFrom("PaymentMethodPaymentDetails")
-        .selectAll()
-        .where("payment_method_id", "=", createdAsA!.id)
-        .execute(),
-    );
-    expect(detailsAsB).toHaveLength(0);
-
-    await ownerDb
-      .deleteFrom("PaymentMethodAudit")
-      .where("payment_method_id", "=", createdAsA!.id)
-      .execute();
-    await ownerDb
-      .deleteFrom("PaymentMethodPaymentDetails")
-      .where("payment_method_id", "=", createdAsA!.id)
-      .execute();
-    await ownerDb
-      .deleteFrom("PaymentMethodAvailability")
-      .where("payment_method_id", "=", createdAsA!.id)
-      .execute();
-    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", createdAsA!.id).execute();
-  });
 });
 
 describe("paymentMethod.update", () => {

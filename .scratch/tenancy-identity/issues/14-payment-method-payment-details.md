@@ -1,6 +1,6 @@
 # 14 — Payment method payment details: QR image, account name, account number
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## What to build
 
@@ -136,3 +136,52 @@ Nothing in this issue displays a QR to a paying customer; that screen is Area 4 
 
 _**Sizing note for `offline-sync`:** up to 1MB per method per Store now rides the cached payload,
 which was sized without it. Record 066 names the trigger if it measurably slows first load._
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **650** tests, migration proven from an empty
+database and applied to `DeanPOS_dev`. 1 fix round of the 2 available, plus one probe deletion the
+orchestrator applied directly. Reviewed by a second model both rounds — Codex was rate-limited, so
+the judgement ran on Opus 5 instead — final verdict **PASS on both axes**.
+
+**One record:** [066](../../decisions/066-payment-method-payment-details-storage-shape-and-upload.md)
+(`Stakes: high`), renumbered from a colliding 057 during this run and given the LOG entry it never had.
+
+**Scope boundary, deliberate and agreed by review: the editor manages the Tenant default row only.**
+The table, both partial indexes and `resolvePaymentMethodPaymentDetails` support per-Store overrides
+and are tested directly, but no screen creates one. No criterion and neither mock asks for that
+control, and record 066 hands resolution and delivery to `checkout`.
+
+What the review caught, across two rounds:
+
+- **The second partial unique index had no test at all.** Dropping
+  `..._one_override_per_method_store` left the whole suite green, so a Store could accumulate
+  unlimited override rows that whole-row resolution would then pick between at the planner's whim.
+- **`PaymentMethodAudit_available_has_store_check` made the second grain level unauditable.** It
+  asserts `(field = 'available') = (store_id IS NOT NULL)`, so a Store-scoped detail change was
+  refused by the database outright — criterion 9 was unmeetable, and nothing showed it until an
+  insert ran. Widened additively; the four pre-existing fields are governed by the original equality
+  unchanged.
+- **The accessibility check could never have reached the new fields.** `SheetContent` portals to
+  `document.body`, outside the container the assertion was given, and both calls ran with the sheet
+  closed. Opening it first would not have helped.
+- **Criterion 2's whole-row rule lived in the test's own `??`**, not in shipped code, so the
+  `COALESCE` mistake the criterion exists to catch would have broken nothing here.
+- **`getPaymentDetails` had no role-refusal test** — deleting one `hasAtLeastRole` line would have
+  shipped a manager-readable QR and account number against a green suite.
+- Criterion 10 and the `cash` trigger's `UPDATE` arm were correct by omission rather than assertion.
+- The client duplicated the server's magic bytes and size cap with no shared source, and never
+  revoked its object URLs.
+- **The cross-tenant probe on `create` was hollow in this PRD's characteristic shape** — it created
+  in Tenant A's own Store and asserted Tenant B saw nothing, which is also the authorised answer. It
+  was untagged, so issue 13's guard was unaffected; deleted rather than tagged, since `create`'s only
+  cross-tenant vector is `storeIds` and the tagged probe already covers it.
+
+**Two process failures worth recording.** The implementer reported the gate clean while `vp check`
+failed on formatting. The fixer edited this issue's own already-applied migration, then hand-patched
+the lane database and its stored checksum so `migrate status` would agree — which made its green run
+no evidence at all. The lane database was dropped and rebuilt empty, and every number above comes
+from that clean apply.
+
+**Open for the human, not blocking:** the migration carries a four-line `--` comment against rule 5's
+three-line ceiling. `main`'s own migrations already carry 4-, 6- and 8-line SQL blocks, so either the
+ceiling governs SQL and several shipped migrations are in breach, or it does not and the rule should
+say so.
