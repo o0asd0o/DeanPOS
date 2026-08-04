@@ -547,7 +547,35 @@ checkbox list of every Variant in the tenant. **Discounts:** the same list card,
 
 ### Chosen approach
 
-_(human picks one of the three below and writes it here before `/to-tickets`)_
+**B — ModifierGroups and Add-ons become a tenant-level library; item editors only link.**
+Picked by the human on 2026-08-04.
+
+Concretely, and binding on the issues: **the MenuItem editor is never a creation surface for a
+ModifierGroup or an Add-on.** Both are tenant-level objects owned by their own screen, each row
+showing its linked-to count. From a Variant you link to what exists; the count is visible *before*
+an edit is saved, not after. Prohibition 8 is the enforcement of this and is not negotiable by an
+issue.
+
+**Why, in one line:** it is the only one of the three that answers the question the PRD's own
+Problem Statement asks — where a shared group lives — and the other two leave it exactly where the
+mock put it.
+
+**Evidence, not taste.** Loyverse ships this shape for modifiers: `Items → Modifiers` is a
+tenant-level library and item editors only activate what already exists. It ships the opposite for
+variants — per-item options, retyped per item — and that half is precisely the duplication this
+PRD's Further Notes name as the abandonment cause. The segment leader has the bug in the half of
+its model it did not make a library. See `.scratch/catalog/research/loyverse-catalog-structure.md`,
+cited to the manual's own pages.
+
+**What B does not settle, and the issues must not pretend it does.** The first-run cost is real:
+configuring the first MenuItem means visiting the library first. Do not solve that by re-adding a
+create control to the item editor. If it needs solving, it is an empty-state and ordering problem
+on the library screen, and it is a question for the `decider`, not a prohibition to erode.
+
+**A and C are not dead.** A's per-row dirty state with a page-level Save is now specified by record
+067 for the Availability screen, so A is cheaper than it was scored; C remains the answer if support
+load turns out to be *"it's not showing at the till"*. Both are candidates for a later PRD, not for
+this one.
 
 ## Approaches considered
 
@@ -619,31 +647,31 @@ Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) 
 
 | #  | Scenario                                                                                          | Status | Note |
 |----|---------------------------------------------------------------------------------------------------|--------|------|
-| 1  | Category archived while a terminal is offline; it keeps selling from the cached menu for hours      | ?      |      |
-| 2  | Two managers edit the same shared ModifierGroup from two browsers; last write wins silently         | ?      |      |
-| 3  | A Variant's price is *lowered* below a linked absolute Delta, going negative from the price side    | ?      |      |
-| 4  | The only Modifier of a `required-one` group is archived at 11:40am; its Variants vanish mid-service | ?      |      |
-| 5  | Un-archiving a Category whose MenuItems were *separately* archived while it was away                | ?      |      |
-| 6  | A Variant is renamed while a cashier has it in an open cart on the terminal                         | ?      |      |
-| 7  | Availability toggled back ON while the terminal is offline and still caches "sold out"              | ?      |      |
-| 8  | A manager assigned to two Stores toggles availability in a tab left open on the wrong Store         | ?      |      |
-| 9  | A tenant with 400 Variants fetches the one-shot read model over a phone tether                      | ?      |      |
-| 10 | An Add-on's max quantity is lowered from 3 to 1 while a cart already holds 2                        | ?      |      |
-| 11 | A no-op save (same values) — does the derived version move, and should it                           | ?      |      |
-| 12 | Two Modifiers with the same name in two groups linked to one Variant; the cashier sees "Half" twice | ?      |      |
-| 13 | A MenuItem is moved to another Category while that Category is being archived in another tab        | ?      |      |
-| 14 | A price pasted as `₱1,200.00`, or typed as `120.505`, or as `1e3`                                   | ?      |      |
-| 15 | Two `required-one` groups on one Variant whose defaults compose (×0.5 × ×0.5) unnoticed             | ?      |      |
-| 16 | A Category with zero non-archived MenuItems — does it still render as a tab on the terminal grid    | ?      |      |
-| 17 | A new Store is created; nothing says whether its Variants start available or unavailable            | ?      |      |
-| 18 | A Store is deactivated in `tenancy-identity` while it still holds availability rows                 | ?      |      |
-| 19 | A brand-new tenant's Device enrols and fetches a read model with zero Categories                    | ?      |      |
-| 20 | A manager's Store assignment is revoked while their Availability screen is open on that Store       | ?      |      |
-| 21 | Two managers reorder the same list concurrently and two rows land on the same sort position         | ?      |      |
-| 22 | A price goes up and back down between two fetches; a content-hash version is equal at both ends     | ?      |      |
-| 23 | A Discount's `requiresReference` label is renamed after sales captured references under the old one | ?      |      |
-| 24 | Save clicked twice on a slow connection; two Variants named "Adobo" under one MenuItem              | ?      |      |
-| 25 | A group set to `many` with maximum 0 — configured, legal-looking, unsatisfiable                     | ?      |      |
-| 26 | An Add-on stays linked to a Variant that is later archived; its linked count counts a dead link     | ?      |      |
-| 27 | A 60-character Tagalog dish name, or emoji, in a name that has to fit a terminal tile               | ?      |      |
-| 28 | A Variant un-archived while its MenuItem is still archived                                          | ?      |      |
+| 1  | Category archived while a terminal is offline; it keeps selling from the cached menu for hours      | L      | `offline-sync` — cache invalidation is area 5's whole job |
+| 2  | Two managers edit the same shared ModifierGroup from two browsers; last write wins silently         | Y      | B makes groups shared, so this is B's cost. Same call as 067 §3 or an explicit divergence — decider |
+| 3  | A Variant's price is *lowered* below a linked absolute Delta, going negative from the price side    | Y      | Money semantics. Decider-grade; a negative line total must be impossible, not merely unlikely |
+| 4  | The only Modifier of a `required-one` group is archived at 11:40am; its Variants vanish mid-service | Y      | Already row 5 of the PRD's cascade table. Prohibition 6's dialog must state the count it takes |
+| 5  | Un-archiving a Category whose MenuItems were *separately* archived while it was away                | Y      | Cascade correctness. Un-archive must not resurrect what was archived on its own |
+| 6  | A Variant is renamed while a cashier has it in an open cart on the terminal                         | L      | `checkout` — ADR-0010's capture-at-sale-time governs the cart line |
+| 7  | Availability toggled back ON while the terminal is offline and still caches "sold out"              | L      | `offline-sync` |
+| 8  | A manager assigned to two Stores toggles availability in a tab left open on the wrong Store         | Y      | Answered by 067 §5 — Store is a route search param, so the draft cannot span two. Assert it |
+| 9  | A tenant with 400 Variants fetches the one-shot read model over a phone tether                      | Y      | The read model is this PRD's. Assert a payload bound at a realistic size; do not paginate it |
+| 10 | An Add-on's max quantity is lowered from 3 to 1 while a cart already holds 2                        | L      | `checkout` — the stepper enforces at the till |
+| 11 | A no-op save (same values) — does the derived version move, and should it                           | Y      | The `## Testing Decisions` / `## Implementation Decisions` contradiction. **Decider first** — `offline-sync` is built against the answer |
+| 12 | Two Modifiers with the same name in two groups linked to one Variant; the cashier sees "Half" twice | L      | Revisit if reported. No uniqueness rule exists and inventing one is scope |
+| 13 | A MenuItem is moved to another Category while that Category is being archived in another tab        | Y      | Concurrency on the cascade. Cheap to constrain, expensive to discover |
+| 14 | A price pasted as `₱1,200.00`, or typed as `120.505`, or as `1e3`                                   | Y      | Prohibition 3 governs the input; this is its test |
+| 15 | Two `required-one` groups on one Variant whose defaults compose (×0.5 × ×0.5) unnoticed             | Y      | Money semantics, decider-grade. Composition order is stored or it is guessed |
+| 16 | A Category with zero non-archived MenuItems — does it still render as a tab on the terminal grid    | Y      | Read-model shape, and the terminal has no other source |
+| 17 | A new Store is created; nothing says whether its Variants start available or unavailable            | Y      | Routed out of 067 as join polarity. **Needs its own record before the availability slice** |
+| 18 | A Store is deactivated in `tenancy-identity` while it still holds availability rows                 | Y      | FK behaviour across an area boundary. Must be decided here, not discovered there |
+| 19 | A brand-new tenant's Device enrols and fetches a read model with zero Categories                    | Y      | Empty read model. Cheap, and it is every tenant's first request |
+| 20 | A manager's Store assignment is revoked while their Availability screen is open on that Store       | L      | `hardening` — authorisation revocation timing is area 9 |
+| 21 | Two managers reorder the same list concurrently and two rows land on the same sort position         | Y      | 039 owns reordering; four lists inherit it. Needs a stated tiebreak |
+| 22 | A price goes up and back down between two fetches; a content-hash version is equal at both ends     | Y      | Same contradiction as 11, same decider record |
+| 23 | A Discount's `requiresReference` label is renamed after sales captured references under the old one | Y      | Assert capture-at-sale, per ADR-0010's principle. One test |
+| 24 | Save clicked twice on a slow connection; two Variants named "Adobo" under one MenuItem              | Y      | Idempotency. 067 §3 already requires it for availability; the same must hold here |
+| 25 | A group set to `many` with maximum 0 — configured, legal-looking, unsatisfiable                     | Y      | A `CHECK`, not a comment |
+| 26 | An Add-on stays linked to a Variant that is later archived; its linked count counts a dead link     | Y      | **Directly undermines B.** The linked-to count is the whole mechanism; a count that lies defeats it |
+| 27 | A 60-character Tagalog dish name, or emoji, in a name that has to fit a terminal tile               | Y      | The length bound is this PRD's; tile rendering is `checkout`'s. Set the bound, flag the render |
+| 28 | A Variant un-archived while its MenuItem is still archived                                          | Y      | Cascade correctness, and the mirror of row 5 |
