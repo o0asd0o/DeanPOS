@@ -1,6 +1,6 @@
 # 01 — Categories, MenuItems, and the read model's first shot
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -36,37 +36,37 @@ are the way this silently stops working while every test stays green.
 
 ## Acceptance criteria
 
-- [ ] `Category` and `MenuItem` tables exist with `tenant_id`, RLS `ENABLED` and `FORCED` in the
+- [x] `Category` and `MenuItem` tables exist with `tenant_id`, RLS `ENABLED` and `FORCED` in the
       creating migration, and composite `(tenant_id, id)` FKs — structure copied from
       `packages/backend/src/db/prisma/migrations/20260803130000_payment_methods`, not from prose.
-- [ ] A manager creates a Category, renames it, and archives it; a MenuItem is created inside
+- [x] A manager creates a Category, renames it, and archives it; a MenuItem is created inside
       one, renamed, moved to another Category, and archived — in
       `packages/backend/src/catalog/handlers/commands/`.
 - [ ] Both lists reorder with up/down `Button` pairs per record 039, and two concurrent reorders
       cannot produce two rows at one sort position — asserted with two concurrent writes, not
       one sequential pair (`## Scenarios` rows 13, 21).
-- [ ] A MenuItem with no non-archived Variant is **absent from the read model** and is listed in
+- [x] A MenuItem with no non-archived Variant is **absent from the read model** and is listed in
       the back-office flagged `not sellable — no variant`, whose row action reads `Add a variant`
       rather than `Edit` (`## Direction` prohibition 7).
 - [ ] Archiving a Category excludes its MenuItems from the read model by parent chain, writing
       exactly one row; un-archiving restores those that were never themselves archived —
       verified by `apps/backoffice/tests/catalog-screen.test.tsx` and a backend test.
-- [ ] The archive dialog states the count of MenuItems it takes with it, reusing 041's
+- [x] The archive dialog states the count of MenuItems it takes with it, reusing 041's
       `DeactivateDialog` shape and not its Store copy.
-- [ ] `catalog.read({ storeId })` returns categories and items in sort order plus
+- [x] `catalog.read({ storeId })` returns categories and items in sort order plus
       `version: string`, 64 lowercase hex. `catalog.version({ storeId })` returns the same value
       and **selects only the hash column** — the payload never leaves the database (record 070).
-- [ ] Equal versions mean equal payloads, asserted in both directions; a no-op save on a MenuItem
+- [x] Equal versions mean equal payloads, asserted in both directions; a no-op save on a MenuItem
       does **not** move the version (`## Scenarios` row 11, and read 069's Discount carve-out
       before writing this test).
-- [ ] A Category with zero non-archived MenuItems still renders as a tab in the read model, or
+- [x] A Category with zero non-archived MenuItems still renders as a tab in the read model, or
       does not — decide, state it in the issue's `## Comments`, and assert whichever
       (`## Scenarios` row 16).
-- [ ] A brand-new Tenant fetches a read model with zero Categories and receives an empty list per
+- [x] A brand-new Tenant fetches a read model with zero Categories and receives an empty list per
       field, never an omitted field (`## Scenarios` row 19).
-- [ ] A 60-character name and an emoji name are accepted or rejected at a stated bound; the bound
+- [x] A 60-character name and an emoji name are accepted or rejected at a stated bound; the bound
       is set here, and tile rendering is `checkout`'s (`## Scenarios` row 27).
-- [ ] `cashier` cannot mutate anything here, enforced server-side; `admin` and `manager` can.
+- [x] `cashier` cannot mutate anything here, enforced server-side; `admin` and `manager` can.
       Wrong-tenant probes on every procedure this issue exposes, including the read model.
 - [ ] WCAG 2.2 AA, asserted by the existing automated accessibility check.
 
@@ -101,3 +101,6 @@ None.
 - A non-archived Category remains in the device read model even when it has no sellable MenuItems: the Category is a terminal tab and its ordering is meaningful.
 - Category and MenuItem names are trimmed, require 1–60 characters, and accept emoji. Tile truncation belongs to `checkout`.
 - Concurrent reorders are resolved by partial unique indexes on active sort positions. A conflicting write is refused rather than permitting duplicate positions.
+- Closed 2026-08-05 as `done` on human instruction after land on `main` (`7e5bb2d feat(catalog): implement category and menu item management features`). Surfaces: Category/MenuItem schema+RLS, catalog handlers (create/rename/archive/reactivate/reorder/move/list/read/version), BO catalog screen, `catalog-read-model` + full `catalog.*` wrong-tenant probes, contract keys include `catalog`.
+- Residual / not fully evidenced on close (carry to PRD checkpoint): no `apps/backoffice/tests/catalog-screen.test.tsx`; concurrent two-writer reorder assertion not present as a dedicated test; reorder UI uses dnd-kit mapping to up/down API rather than visible record-039 Button pairs alone; WCAG axe on the catalog screen not proven by a BO test file. Backend partial unique indexes + reactivate park-sort-before-unarchive are in place.
+- Not handled / deferred to later catalog issues: Variants (02), options library (03+), availability (07). "Add a variant" remains a disabled stub until 02.
