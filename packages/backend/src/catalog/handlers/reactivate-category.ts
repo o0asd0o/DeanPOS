@@ -13,10 +13,7 @@ type Input = z.infer<typeof inputSchema>;
 type CategoryOutput = ReturnType<typeof toCategoryOutput>;
 
 // Reactivate unconfirmed (038/041). Park at end of active list to avoid unique sort collisions.
-export const handler: Handler<Input, CategoryOutput | null> = async ({
-  ctx,
-  input,
-}) => {
+export const handler: Handler<Input, CategoryOutput | null> = async ({ ctx, input }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return null;
   const { tenantId, role } = ctx.principal;
   if (!hasAtLeastRole(role, "manager")) return null;

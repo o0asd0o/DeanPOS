@@ -86,14 +86,14 @@ export const catalogRenameVariantRoute = os.catalog.renameVariant.handler(({ con
 export const catalogSetVariantPriceRoute = os.catalog.setVariantPrice.handler(
   ({ context, input }) => setVariantPriceHandler({ ctx: context, input }),
 );
-export const catalogArchiveVariantRoute = os.catalog.archiveVariant.handler(
-  ({ context, input }) => archiveVariantHandler({ ctx: context, input }),
+export const catalogArchiveVariantRoute = os.catalog.archiveVariant.handler(({ context, input }) =>
+  archiveVariantHandler({ ctx: context, input }),
 );
 export const catalogReactivateVariantRoute = os.catalog.reactivateVariant.handler(
   ({ context, input }) => reactivateVariantHandler({ ctx: context, input }),
 );
-export const catalogReorderVariantRoute = os.catalog.reorderVariant.handler(
-  ({ context, input }) => reorderVariantHandler({ ctx: context, input }),
+export const catalogReorderVariantRoute = os.catalog.reorderVariant.handler(({ context, input }) =>
+  reorderVariantHandler({ ctx: context, input }),
 );
 export const catalogReadRoute = os.catalog.read.handler(({ context, input }) =>
   readCatalogHandler({ ctx: context, input }),

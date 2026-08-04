@@ -7,13 +7,7 @@ export const listSellableMenuItems = (db: DatabaseInstance) =>
     .innerJoin("Category as c", (join) =>
       join.onRef("c.id", "=", "m.category_id").onRef("c.tenant_id", "=", "m.tenant_id"),
     )
-    .select([
-      "m.id",
-      "m.tenant_id",
-      "m.category_id",
-      "m.name",
-      "m.sort_order",
-    ])
+    .select(["m.id", "m.tenant_id", "m.category_id", "m.name", "m.sort_order"])
     .where("m.archived_at", "is", null)
     .where("c.archived_at", "is", null)
     .where((eb) =>

@@ -4,11 +4,7 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { Button, Input, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
-import {
-  centavosToEditorString,
-  parsePriceInput,
-  type VariantOutput,
-} from "./helpers.ts";
+import { centavosToEditorString, parsePriceInput, type VariantOutput } from "./helpers.ts";
 
 const NAME_MAX = 60;
 

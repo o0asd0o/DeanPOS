@@ -9,10 +9,7 @@ export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
 
 // Hash only — payload never leaves the DB (record 070).
-export const handler: Handler<Input, { version: string }> = async ({
-  ctx,
-  input,
-}) => {
+export const handler: Handler<Input, { version: string }> = async ({ ctx, input }) => {
   const tenantId =
     ctx.kind === "tenant"
       ? ctx.principal.tenantId

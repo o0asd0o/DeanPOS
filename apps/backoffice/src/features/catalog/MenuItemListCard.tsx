@@ -39,11 +39,10 @@ import { SortableMenuItemRow } from "./SortableMenuItemRow.tsx";
 
 type SortKey = "name" | "status";
 
-const SORT_VALUES: Record<SortKey, (item: MenuItemOutput) => string | number> =
-  {
-    name: (item) => item.name.toLowerCase(),
-    status: (item) => (item.archivedAt ? 1 : 0),
-  };
+const SORT_VALUES: Record<SortKey, (item: MenuItemOutput) => string | number> = {
+  name: (item) => item.name.toLowerCase(),
+  status: (item) => (item.archivedAt ? 1 : 0),
+};
 
 export function MenuItemListCard({
   category,
@@ -74,19 +73,13 @@ export function MenuItemListCard({
   const [query, setQuery] = useState("");
 
   const inCategory = useMemo(
-    () =>
-      (menuItems ?? []).filter(
-        (item) => category !== null && item.categoryId === category.id,
-      ),
+    () => (menuItems ?? []).filter((item) => category !== null && item.categoryId === category.id),
     [menuItems, category],
   );
   const term = query.trim().toLowerCase();
   // Drag only when the full active order is on screen — search/filter breaks position meaning.
   const canDrag =
-    category !== null &&
-    category.archivedAt === null &&
-    status === "active" &&
-    term === "";
+    category !== null && category.archivedAt === null && status === "active" && term === "";
 
   const serverActiveOrdered = useMemo(
     () =>
@@ -130,8 +123,7 @@ export function MenuItemListCard({
 
   const body = () => {
     if (isPending) return <p role="status">Loading…</p>;
-    if (isError)
-      return <ErrorState onRetry={refetch} isFetching={isFetching} />;
+    if (isError) return <ErrorState onRetry={refetch} isFetching={isFetching} />;
     if (!category) {
       return (
         <p role="status" className="text-muted-foreground">
@@ -149,11 +141,7 @@ export function MenuItemListCard({
 
     if (canDrag) {
       return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
             items={ordered.map((item) => item.id)}
             strategy={verticalListSortingStrategy}
@@ -230,9 +218,7 @@ export function MenuItemListCard({
                       ) : item.sellable ? (
                         <Badge variant="success">Sellable</Badge>
                       ) : (
-                        <Badge variant="warning">
-                          Not sellable — no variant
-                        </Badge>
+                        <Badge variant="warning">Not sellable — no variant</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -247,12 +233,7 @@ export function MenuItemListCard({
                         </Button>
                       ) : (
                         <div className="flex justify-end gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="tap-target"
-                            asChild
-                          >
+                          <Button variant="outline" size="sm" className="tap-target" asChild>
                             <Link to="/catalog/$id" params={{ id: item.id }}>
                               {item.sellable ? "Edit" : "Add a variant"}
                             </Link>
@@ -291,9 +272,7 @@ export function MenuItemListCard({
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold">
-              {category ? category.name : "Menu items"}
-            </h2>
+            <h2 className="text-base font-semibold">{category ? category.name : "Menu items"}</h2>
             <p className="text-sm text-muted-foreground">
               Drafts stay here until a variant makes them sellable.
             </p>

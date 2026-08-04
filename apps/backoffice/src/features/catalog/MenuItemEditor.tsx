@@ -28,15 +28,9 @@ export function MenuItemEditor({
   const createMenuItem = useCreateMenuItemMutation();
   const renameMenuItem = useRenameMenuItemMutation();
   const moveMenuItem = useMoveMenuItemMutation();
-  const saving =
-    createMenuItem.isPending ||
-    renameMenuItem.isPending ||
-    moveMenuItem.isPending;
-  const failed =
-    createMenuItem.isError || renameMenuItem.isError || moveMenuItem.isError;
-  const activeCategories = categories.filter(
-    (category) => category.archivedAt === null,
-  );
+  const saving = createMenuItem.isPending || renameMenuItem.isPending || moveMenuItem.isPending;
+  const failed = createMenuItem.isError || renameMenuItem.isError || moveMenuItem.isError;
+  const activeCategories = categories.filter((category) => category.archivedAt === null);
 
   const form = useForm({
     defaultValues: {
@@ -119,9 +113,7 @@ export function MenuItemEditor({
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              1–{NAME_MAX} characters. Emoji allowed.
-            </p>
+            <p className="text-xs text-muted-foreground">1–{NAME_MAX} characters. Emoji allowed.</p>
           </div>
         )}
       </form.Field>
@@ -148,10 +140,7 @@ export function MenuItemEditor({
         )}
       </form.Field>
       {failed && (
-        <div
-          role="alert"
-          className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-        >
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
           Couldn&rsquo;t {menuItem ? "update" : "create"} the menu item
         </div>
       )}

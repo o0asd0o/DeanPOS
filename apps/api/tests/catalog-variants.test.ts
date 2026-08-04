@@ -109,9 +109,9 @@ describe("catalog variants + archive cascade (read model)", () => {
       name: "Bowl",
       priceCentavos: 15_000,
     });
-    expect((await client.catalog.read({ storeId })).menuItems.some((row) => row.id === item.id)).toBe(
-      true,
-    );
+    expect(
+      (await client.catalog.read({ storeId })).menuItems.some((row) => row.id === item.id),
+    ).toBe(true);
 
     await client.catalog.archiveCategory({ id: category.id });
     const read = await client.catalog.read({ storeId });
@@ -129,9 +129,9 @@ describe("catalog variants + archive cascade (read model)", () => {
     await client.catalog.archiveMenuItem({ id: item.id });
     const read = await client.catalog.read({ storeId });
     expect(read.menuItems.map((row) => row.id)).not.toContain(item.id);
-    expect(
-      read.menuItems.flatMap((row) => row.variants.map((entry) => entry.id)),
-    ).not.toContain(variant!.id);
+    expect(read.menuItems.flatMap((row) => row.variants.map((entry) => entry.id))).not.toContain(
+      variant!.id,
+    );
   });
 
   it("cascade row 3: archiving a Variant leaves siblings; last Variant drops the MenuItem", async () => {
@@ -163,7 +163,9 @@ describe("catalog variants + archive cascade (read model)", () => {
 
   it("un-archive Category restores only never-self-archived children (scenario 5)", async () => {
     const client = asAdmin();
-    const category = await client.catalog.createCategory({ name: `Unarch ${randomUUID().slice(0, 6)}` });
+    const category = await client.catalog.createCategory({
+      name: `Unarch ${randomUUID().slice(0, 6)}`,
+    });
     const kept = await client.catalog.createMenuItem({
       categoryId: category!.id,
       name: "Kept",
@@ -208,9 +210,9 @@ describe("catalog variants + archive cascade (read model)", () => {
 
     const read = await client.catalog.read({ storeId });
     expect(read.menuItems.map((row) => row.id)).not.toContain(item.id);
-    expect(
-      read.menuItems.flatMap((row) => row.variants.map((entry) => entry.id)),
-    ).not.toContain(variant!.id);
+    expect(read.menuItems.flatMap((row) => row.variants.map((entry) => entry.id))).not.toContain(
+      variant!.id,
+    );
   });
 
   it("price change moves version; no-op save does not (scenario 11 / record 069)", async () => {

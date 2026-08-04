@@ -417,9 +417,7 @@ export function MenuItemDetail() {
       >
         <SheetContent side="right" className="w-full sm:max-w-md">
           <VariantEditorSheet
-            key={
-              shownVariantEditor.mode === "edit" ? shownVariantEditor.variant.id : "create"
-            }
+            key={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant.id : "create"}
             variant={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant : null}
             busy={variantBusy}
             failed={variantFailed}

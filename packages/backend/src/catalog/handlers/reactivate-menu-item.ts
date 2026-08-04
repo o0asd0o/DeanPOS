@@ -13,10 +13,7 @@ export const inputSchema = z.object({ id: z.string() });
 type Input = z.infer<typeof inputSchema>;
 type MenuItemOutput = ReturnType<typeof toMenuItemOutput>;
 
-export const handler: Handler<Input, MenuItemOutput | null> = async ({
-  ctx,
-  input,
-}) => {
+export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, input }) => {
   if (ctx.kind !== "tenant" || !ctx.principal.role) return null;
   const { tenantId, role } = ctx.principal;
   if (!hasAtLeastRole(role, "manager")) return null;

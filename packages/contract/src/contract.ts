@@ -588,19 +588,13 @@ export const contract = {
       .input(catalogEntityIdInputSchema)
       .output(menuItemOutputSchema.nullable()),
     reorderMenuItem: oc.input(catalogReorderInputSchema).output(menuItemOutputSchema.nullable()),
-    createVariant: oc
-      .input(catalogVariantCreateInputSchema)
-      .output(variantOutputSchema.nullable()),
-    renameVariant: oc
-      .input(catalogVariantRenameInputSchema)
-      .output(variantOutputSchema.nullable()),
+    createVariant: oc.input(catalogVariantCreateInputSchema).output(variantOutputSchema.nullable()),
+    renameVariant: oc.input(catalogVariantRenameInputSchema).output(variantOutputSchema.nullable()),
     setVariantPrice: oc
       .input(catalogVariantSetPriceInputSchema)
       .output(variantOutputSchema.nullable()),
     archiveVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
-    reactivateVariant: oc
-      .input(catalogEntityIdInputSchema)
-      .output(variantOutputSchema.nullable()),
+    reactivateVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
     reorderVariant: oc.input(catalogReorderInputSchema).output(variantOutputSchema.nullable()),
     read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
     version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),

@@ -11,10 +11,7 @@ export const toCategoryOutput = (category: Selectable<Category>) => ({
   createdAt: category.created_at,
 });
 
-export const toMenuItemOutput = (
-  menuItem: Selectable<MenuItem>,
-  sellable = false,
-) => ({
+export const toMenuItemOutput = (menuItem: Selectable<MenuItem>, sellable = false) => ({
   id: menuItem.id,
   tenantId: menuItem.tenant_id,
   name: menuItem.name,

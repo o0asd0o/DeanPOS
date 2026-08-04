@@ -15,15 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { PlusIcon } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "ui";
+import { Badge, Button, Card, CardAction, CardContent, CardHeader, CardTitle } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
 import type { CategoryOutput } from "./helpers.ts";
@@ -86,9 +78,7 @@ export function CategoryRail({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id || reordering) return;
-    const fromIndex = ordered.findIndex(
-      (category) => category.id === active.id,
-    );
+    const fromIndex = ordered.findIndex((category) => category.id === active.id);
     const toIndex = ordered.findIndex((category) => category.id === over.id);
     if (fromIndex < 0 || toIndex < 0) return;
     setOrdered((rows) => arrayMove(rows, fromIndex, toIndex));
@@ -143,17 +133,10 @@ export function CategoryRail({
             </DndContext>
             {archived.length > 0 && (
               <div className="mt-2 flex flex-col gap-2 border-t pt-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Archived
-                </p>
+                <p className="text-xs font-medium text-muted-foreground">Archived</p>
                 {archived.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex items-center gap-2 px-2 py-1"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {category.name}
-                    </span>
+                  <div key={category.id} className="flex items-center gap-2 px-2 py-1">
+                    <span className="min-w-0 flex-1 truncate text-sm">{category.name}</span>
                     <Badge variant="secondary">Archived</Badge>
                     <Button
                       variant="ghost"

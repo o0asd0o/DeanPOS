@@ -45,9 +45,7 @@ export function formatCentavos(centavos: number): string {
   const abs = Math.abs(centavos);
   const fraction = abs % 100;
   const whole = (abs - fraction) / 100;
-  const wholeGrouped = whole
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const wholeGrouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return `${negative ? "-" : ""}₱${wholeGrouped}.${fraction.toString().padStart(2, "0")}`;
 }
 
@@ -62,6 +60,9 @@ export function centavosToEditorString(centavos: number): string {
 // Stated bounds for scenario 14: strip ₱ and thousands commas, then parseCentavos.
 // `₱1,200.00` → accept 120000; `120.505` / `1e3` → reject (invalid-format).
 export function parsePriceInput(raw: string): ParseCentavosResult {
-  const stripped = raw.trim().replace(/^₱\s*/u, "").replace(/,/g, "");
+  const stripped = raw
+    .trim()
+    .replace(/^₱\s*/u, "")
+    .replace(/,/g, "");
   return parseCentavos(stripped);
 }

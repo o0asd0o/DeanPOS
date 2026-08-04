@@ -3,10 +3,7 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { Button, Input, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
-import {
-  useCreateCategoryMutation,
-  useRenameCategoryMutation,
-} from "./__common/queries.ts";
+import { useCreateCategoryMutation, useRenameCategoryMutation } from "./__common/queries.ts";
 import type { CategoryOutput } from "./helpers.ts";
 
 const NAME_MAX = 60;
@@ -78,17 +75,12 @@ export function CategoryEditor({
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              1–{NAME_MAX} characters. Emoji allowed.
-            </p>
+            <p className="text-xs text-muted-foreground">1–{NAME_MAX} characters. Emoji allowed.</p>
           </div>
         )}
       </form.Field>
       {failed && (
-        <div
-          role="alert"
-          className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-        >
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
           Couldn&rsquo;t {category ? "update" : "create"} the category
         </div>
       )}

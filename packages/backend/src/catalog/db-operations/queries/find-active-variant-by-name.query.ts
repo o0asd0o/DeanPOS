@@ -1,10 +1,6 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-export const findActiveVariantByName = (
-  db: DatabaseInstance,
-  menuItemId: string,
-  name: string,
-) =>
+export const findActiveVariantByName = (db: DatabaseInstance, menuItemId: string, name: string) =>
   db
     .selectFrom("Variant")
     .selectAll()

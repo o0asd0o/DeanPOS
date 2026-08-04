@@ -32,8 +32,8 @@ export function ArchiveVariantDialog({
         <DialogHeader>
           <DialogTitle>Archive {variant.name}?</DialogTitle>
           <DialogDescription>
-            This variant leaves every terminal. If it is the last one, the menu
-            item is no longer sellable. Reactivate brings it back.
+            This variant leaves every terminal. If it is the last one, the menu item is no longer
+            sellable. Reactivate brings it back.
           </DialogDescription>
         </DialogHeader>
         {failed && (

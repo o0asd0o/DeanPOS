@@ -147,15 +147,10 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 
 // A User's own name, now that `auth.me` carries one (issue 15, record 063
 // Amendment 1) — no longer derived from the email local-part.
-export const displayName = (
-  firstName: string | undefined,
-  lastName: string | undefined,
-): string => [firstName, lastName].filter(Boolean).join(" ") || "Account";
+export const displayName = (firstName: string | undefined, lastName: string | undefined): string =>
+  [firstName, lastName].filter(Boolean).join(" ") || "Account";
 
-export const initials = (
-  firstName: string | undefined,
-  lastName: string | undefined,
-): string =>
+export const initials = (firstName: string | undefined, lastName: string | undefined): string =>
   [firstName, lastName]
     .filter(Boolean)
     .map((part) => part![0]!.toUpperCase())
