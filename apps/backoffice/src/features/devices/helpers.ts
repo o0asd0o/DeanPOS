@@ -24,6 +24,14 @@ export type EnrolmentCode = {
 
 export type PendingCode = EnrolmentCode & { id: string };
 
+// The assignment picker's own shape (issue 17) — just enough of
+// `userOutputSchema` to list and filter a Store's eligible Users.
+export type AssignableUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+};
+
 // Relative text, computed once at render — never an interval (record 056 Q5).
 export const relativeLastSeen = (lastSeenAt: Date, now: Date = new Date()): string => {
   const seconds = Math.max(0, Math.round((now.getTime() - lastSeenAt.getTime()) / 1000));

@@ -14,9 +14,8 @@ import {
   SelectValue,
 } from "ui";
 
-import type { UserOutput } from "@/features/users/helpers.ts";
 import { useSetAssignedUserMutation } from "./__common/queries.ts";
-import type { DeviceOutput } from "./helpers.ts";
+import type { AssignableUser, DeviceOutput } from "./helpers.ts";
 
 // The value "open" stands in for `null` (open-to-all) inside the Select,
 // which cannot carry a null item value — translated back at submit time.
@@ -33,7 +32,7 @@ export function AssignUserDialog({
   onAssigned,
 }: {
   device: DeviceOutput;
-  eligibleUsers: UserOutput[];
+  eligibleUsers: AssignableUser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAssigned: (assignedUserId: string | null) => void;

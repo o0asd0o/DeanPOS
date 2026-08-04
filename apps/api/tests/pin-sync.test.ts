@@ -325,6 +325,25 @@ describe("terminal.pinSync", () => {
 // this payload — `assignedUserId` non-null narrows `users` server-side.
 describe("terminal.pinSync — a restricted Device", () => {
   it("carries only the assigned User and this Store's manager-or-above, and no one else", async () => {
+    // A second cashier at the same Store, seeded only for this test — the
+    // one fixture that proves the filter actually removes somebody.
+    const cashierA2 = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    const pinHashCashierA2 = await hashPin("112233");
+    await seedTenantUser(ownerDb, {
+      id: cashierA2,
+      tenantId: tenantA,
+      email: `pin-cashier-a2-${randomUUID()}@pin.test`,
+      passwordHash,
+      role: "cashier",
+    });
+    await assignStore(tenantA, cashierA2, storeA1);
+    await ownerDb
+      .updateTable("User")
+      .set({ pin_hash: pinHashCashierA2, first_name: "Second", last_name: "Cashier" })
+      .where("id", "=", cashierA2)
+      .execute();
+
     const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
     const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
     const assigned = await asAdmin.client.device.setAssignedUser({
@@ -344,10 +363,17 @@ describe("terminal.pinSync — a restricted Device", () => {
     // cashierA is the assigned User. cashierElsewhere and deactivatedA were
     // already excluded from the open roster and stay excluded here.
     expect(userIds).toStrictEqual([adminA, managerA, cashierA].sort());
+    expect(userIds).not.toContain(cashierA2);
+    expect(result.users.map((u) => u.displayName)).not.toContain("Second Cashier");
+    expect(result.users.map((u) => u.pinHash)).not.toContain(pinHashCashierA2);
     for (const user of result.users) {
       if (user.userId === cashierA) continue;
       expect(user.canApproveOverride).toBe(true);
     }
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierA2).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", cashierA2).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", cashierA2).execute();
   });
 
   it("clearing the restriction restores the full open-to-all roster on the next sync", async () => {

@@ -10,6 +10,7 @@ import {
   screen,
   waitFor,
   withTenantScope,
+  within,
 } from "api/src/test-seam-react.tsx";
 import { hashPin } from "contract/src/pin.ts";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
@@ -620,6 +621,11 @@ describe("the restricted unlock screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Manager sign-in" }));
 
     await waitFor(() => expect(screen.getByText("Eli Nunez")).toBeTruthy(), { timeout: 3000 });
+    // Scoped to the dialog's own subtree: the restricted screen behind it
+    // is legitimately `aria-hidden` while open, and still holds its own
+    // focusable PIN pad — checking `container` here would flag that, not
+    // this dialog.
+    await expectNoAxeViolations(screen.getByRole("dialog"));
     fireEvent.click(screen.getByRole("button", { name: "Eli Nunez" }));
     for (const digit of "135790") {
       fireEvent.click(screen.getByRole("button", { name: digit }));
@@ -668,6 +674,68 @@ describe("the restricted unlock screen", () => {
           effective_from: new Date(),
         })
         .execute(),
+    );
+  });
+
+  it("5 wrong PINs lock the assigned employee, named on the strip — the same per-User counter as the open screen", async () => {
+    await seedRestrictedDevice();
+    const { db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+    await waitFor(() => expect(screen.getByText("Dana Ortiz")).toBeTruthy(), { timeout: 3000 });
+
+    for (let i = 0; i < 5; i++) {
+      for (const digit of "000000") fireEvent.click(screen.getByRole("button", { name: digit }));
+      fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+      await waitFor(() =>
+        expect((screen.getByLabelText("PIN") as HTMLInputElement).value).toBe(""),
+      );
+    }
+
+    await waitFor(() => expect(screen.getByText(/Too many attempts —/)).toBeTruthy());
+    expect(screen.getByText(/Too many attempts —/).textContent).toMatch(
+      /Dana Ortiz locked for \d:\d\d/,
+    );
+    expect(pinLockUntil(readPinThrottle(), assignedCashierId)).not.toBeNull();
+  });
+
+  it("failing the assigned employee, then the manager through the sign-in dialog, shares the Device counter across both paths — criterion 10", async () => {
+    await seedRestrictedDevice();
+    const { db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+    await waitFor(() => expect(screen.getByText("Dana Ortiz")).toBeTruthy(), { timeout: 3000 });
+
+    for (let i = 0; i < 5; i++) {
+      for (const digit of "000000") fireEvent.click(screen.getByRole("button", { name: digit }));
+      fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+      await waitFor(() =>
+        expect((screen.getByLabelText("PIN") as HTMLInputElement).value).toBe(""),
+      );
+    }
+    expect(pinLockUntil(readPinThrottle(), assignedCashierId)).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manager sign-in" }));
+    await waitFor(() => expect(screen.getByText("Eli Nunez")).toBeTruthy(), { timeout: 3000 });
+    fireEvent.click(screen.getByRole("button", { name: "Eli Nunez" }));
+
+    // The restricted screen's own PIN input is still in the DOM behind the
+    // dialog (aria-hidden, not unmounted) — scoped so this doesn't match it.
+    const dialog = within(screen.getByRole("dialog"));
+    for (let i = 0; i < 5; i++) {
+      for (const digit of "000000") fireEvent.click(dialog.getByRole("button", { name: digit }));
+      fireEvent.click(dialog.getByRole("button", { name: "Unlock" }));
+      await waitFor(() =>
+        expect((dialog.getByLabelText("PIN") as HTMLInputElement).value).toBe(""),
+      );
+    }
+
+    // The manager's own 5 failures never reach her per-User limit, but they
+    // push the shared Device counter from 5 to 10 — the whole till locks,
+    // reported without naming her (criterion 10's Device-wide branch).
+    const state = readPinThrottle();
+    expect(state.device.failures).toBe(10);
+    await waitFor(() => expect(dialog.getByText(/Too many attempts —/)).toBeTruthy());
+    expect(dialog.getByText(/Too many attempts —/).textContent).toMatch(
+      /^Too many attempts — locked for \d:\d\d/,
     );
   });
 });

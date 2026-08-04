@@ -18,10 +18,8 @@ import {
 // (record 059 Q1) before an approver is chosen.
 const DEVICE_ONLY_KEY = "";
 
-// Issue 17's manager sign-in control on a restricted till: a full unlock —
-// the manager who enters their PIN here becomes the acting User, same as
-// any unlock — never an override-scoped session. `canApproveOverride` is
-// reused as the manager/admin filter, not a new role flag.
+// A full unlock, not an override-scoped session — the manager who enters
+// their PIN here becomes the acting User, same as any unlock.
 export function ManagerUnlockDialog({
   open,
   onOpenChange,
@@ -141,9 +139,9 @@ export function ManagerUnlockDialog({
               }}
               lockedUntil={lockedUntil}
               lockMessage={
-                selectedUser
-                  ? `Too many attempts — ${selectedUser.displayName} locked for`
-                  : "Too many attempts — locked for"
+                isDeviceLock
+                  ? "Too many attempts — locked for"
+                  : `Too many attempts — ${selectedUser?.displayName} locked for`
               }
               srStatus={srStatus}
               trailing={null}

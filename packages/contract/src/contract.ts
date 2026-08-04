@@ -302,10 +302,8 @@ export const terminalPinSyncOutputSchema = z
     storeId: z.string(),
     syncedAt: z.string(),
     users: z.array(pinRosterUserSchema),
-    // Issue 17: null is open-to-all. Set, `users` is already narrowed to the
-    // assigned User plus this Store's manager-or-above — carried separately
-    // because the assigned User may be absent from `users` (deactivated,
-    // no PIN, unassigned since the last sync) and the screen must say so.
+    // Null is open-to-all. Set, `users` is already narrowed — carried
+    // separately since the assigned User may be absent from it.
     assignedUserId: z.string().nullable(),
     // Non-null only when assignedUserId is set and absent from `users` —
     // distinguishes deactivation from unassignment for that message.

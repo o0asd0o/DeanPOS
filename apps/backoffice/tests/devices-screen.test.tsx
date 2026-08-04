@@ -305,6 +305,115 @@ describe("the Devices screen — as an admin", () => {
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", cashierId).execute();
   });
+
+  it("issue 17: closing the dialog for a restricted Device and reopening it for a different, open-to-all Device does not carry the first selection over", async () => {
+    const restrictedDeviceId = randomUUID();
+    const openDeviceId = randomUUID();
+    const cashierId = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: cashierId,
+        tenant_id: tenantId,
+        email: `devices-screen-cashier-${randomUUID()}@pm.test`,
+        password_hash: passwordHash,
+        first_name: "Fay",
+        last_name: "Ibarra",
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: cashierId,
+          store_id: storeId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Device")
+        .values([
+          {
+            id: restrictedDeviceId,
+            tenant_id: tenantId,
+            store_id: storeId,
+            name: "Counter 18",
+            code: "C18",
+            token_hash: "irrelevant-hash-18",
+            assigned_user_id: cashierId,
+          },
+          {
+            id: openDeviceId,
+            tenant_id: tenantId,
+            store_id: storeId,
+            name: "Counter 19",
+            code: "C19",
+            token_hash: "irrelevant-hash-19",
+          },
+        ])
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/devices",
+    });
+    cleanup = async () => {
+      await db.destroy();
+    };
+
+    await waitFor(() => expect(screen.getByText("Counter 18")).toBeTruthy());
+    const restrictedRow = screen.getByText("Counter 18").closest("tr")!;
+    fireEvent.click(within(restrictedRow).getByRole("button", { name: "Restrict Counter 18" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Restrict Counter 18" })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const openRow = screen.getByText("Counter 19").closest("tr")!;
+    fireEvent.click(within(openRow).getByRole("button", { name: "Restrict Counter 19" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Restrict Counter 19" })).toBeTruthy(),
+    );
+    expect(screen.getByRole("combobox").textContent).toBe("Open to all");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const updatedRow = screen.getByText("Counter 19").closest("tr")!;
+      expect(within(updatedRow).getByText("Restrict")).toBeTruthy();
+    });
+
+    const stored = await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["assigned_user_id"])
+        .where("id", "=", openDeviceId)
+        .executeTakeFirst(),
+    );
+    expect(stored?.assigned_user_id).toBeNull();
+
+    // The cancelled dialog left restrictedDeviceId's assignment in place.
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .updateTable("Device")
+        .set({ assigned_user_id: null })
+        .where("id", "=", restrictedDeviceId)
+        .execute(),
+    );
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", cashierId).execute();
+  });
 });
 
 describe("the Devices screen — as a manager", () => {

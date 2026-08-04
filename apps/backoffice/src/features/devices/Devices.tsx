@@ -26,11 +26,11 @@ import type { DeviceOutput, EnrolmentCode, PendingCode } from "./helpers.ts";
 export function Devices() {
   const devicesQuery = useDevicesQuery();
   const storesQuery = useStoresQuery();
-  const usersQuery = useUsersQuery();
   const pendingCodesQuery = usePendingCodesQuery();
   const invalidatePendingCodes = useInvalidatePendingCodes();
   const meQuery = useMeQuery();
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
+  const usersQuery = useUsersQuery(isAdmin);
 
   const storeNameById = new Map((storesQuery.data ?? []).map((store) => [store.id, store.name]));
   const activeStores = (storesQuery.data ?? []).filter((store) => store.active);
@@ -231,6 +231,7 @@ export function Devices() {
       )}
       {shownAssignTarget && (
         <AssignUserDialog
+          key={shownAssignTarget.id}
           device={shownAssignTarget}
           eligibleUsers={(usersQuery.data ?? []).filter(
             (user) => user.active && user.storeIds.includes(shownAssignTarget.storeId),

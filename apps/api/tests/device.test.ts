@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createDb, sql, withTenantScope } from "backend/src/db/client.ts";
 import { hashPassword } from "backend/src/common/password.ts";
 import { consumeEnrolmentCode } from "backend/src/device/db-operations/commands/consume-enrolment-code.command.ts";
+import { insertDeviceAudit } from "backend/src/device/db-operations/commands/insert-device-audit.command.ts";
 import { hashDeviceToken } from "backend/src/device/token.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -649,6 +650,7 @@ describe("the Device token principal", () => {
         storeId: storeA1,
         code: "T1",
         name: "Counter 1",
+        assignedUserId: null,
       })
       .client.terminal.me();
 
@@ -1341,5 +1343,82 @@ describe("device.setAssignedUser", () => {
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierBId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", cashierBId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", cashierBId).execute();
+  });
+});
+
+describe("DeviceAudit_name_has_old_value_check", () => {
+  it("still forces a `name` row to a non-null old_value and every other pre-existing field to null, in both directions", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "SA5");
+    if (!exchanged.ok) throw new Error("setup failed");
+
+    await expect(
+      withTenantScope(seam.db, tenantA, (db) =>
+        insertDeviceAudit(db, {
+          id: randomUUID(),
+          tenantId: tenantA,
+          actorUserId: adminA,
+          deviceId: exchanged.deviceId,
+          enrolmentCodeId: null,
+          field: "name",
+          oldValue: null,
+          newValue: "Renamed",
+        }),
+      ),
+    ).rejects.toThrow(/DeviceAudit_name_has_old_value_check/);
+
+    await expect(
+      withTenantScope(seam.db, tenantA, (db) =>
+        insertDeviceAudit(db, {
+          id: randomUUID(),
+          tenantId: tenantA,
+          actorUserId: adminA,
+          deviceId: exchanged.deviceId,
+          enrolmentCodeId: null,
+          field: "revoked",
+          oldValue: "not null",
+          newValue: new Date().toISOString(),
+        }),
+      ),
+    ).rejects.toThrow(/DeviceAudit_name_has_old_value_check/);
+
+    const nameId = randomUUID();
+    await withTenantScope(seam.db, tenantA, (db) =>
+      insertDeviceAudit(db, {
+        id: nameId,
+        tenantId: tenantA,
+        actorUserId: adminA,
+        deviceId: exchanged.deviceId,
+        enrolmentCodeId: null,
+        field: "name",
+        oldValue: "Old Name",
+        newValue: "New Name",
+      }),
+    );
+    const nameRow = await ownerDb
+      .selectFrom("DeviceAudit")
+      .select(["old_value"])
+      .where("id", "=", nameId)
+      .executeTakeFirstOrThrow();
+    expect(nameRow.old_value).toBe("Old Name");
+
+    const revokedId = randomUUID();
+    await withTenantScope(seam.db, tenantA, (db) =>
+      insertDeviceAudit(db, {
+        id: revokedId,
+        tenantId: tenantA,
+        actorUserId: adminA,
+        deviceId: exchanged.deviceId,
+        enrolmentCodeId: null,
+        field: "revoked",
+        oldValue: null,
+        newValue: new Date().toISOString(),
+      }),
+    );
+    const revokedRow = await ownerDb
+      .selectFrom("DeviceAudit")
+      .select(["old_value"])
+      .where("id", "=", revokedId)
+      .executeTakeFirstOrThrow();
+    expect(revokedRow.old_value).toBeNull();
   });
 });

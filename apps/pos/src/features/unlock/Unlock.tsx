@@ -131,7 +131,11 @@ export function Unlock() {
                     pin={pin}
                     onPinChange={setPinDigits}
                     lockedUntil={lockedUntil}
-                    lockMessage="Too many attempts — locked for"
+                    lockMessage={
+                      isDeviceLock
+                        ? "Too many attempts — locked for"
+                        : `Too many attempts — ${assignedUser.displayName} locked for`
+                    }
                     srStatus={srStatus}
                     trailing={
                       <Button type="submit" aria-disabled={!canUnlock || pending}>
@@ -155,12 +159,7 @@ export function Unlock() {
                 </p>
               )}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2 border-t pt-4"
-                onClick={() => setManagerUnlockOpen(true)}
-              >
+              <Button type="button" variant="outline" onClick={() => setManagerUnlockOpen(true)}>
                 Manager sign-in
               </Button>
               <ManagerUnlockDialog

@@ -29,8 +29,9 @@ export type DevicePrincipal = {
   storeId: string;
   code: string;
   name: string;
-  // Issue 17: null/absent is open-to-all, the default.
-  assignedUserId?: string | null;
+  // Issue 17: null is open-to-all, the default. Required, not optional — an
+  // omitted field must not compile into "ship the whole roster".
+  assignedUserId: string | null;
 };
 
 // Built once per app instance, not per request (issue 03 moves this). ADR-0008.

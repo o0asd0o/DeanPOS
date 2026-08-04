@@ -19,7 +19,7 @@ export type PinRosterRow = {
 export const getPinRoster = async (
   db: DatabaseInstance,
   storeId: string,
-  assignedUserId: string | null = null,
+  assignedUserId: string | null,
 ): Promise<PinRosterRow[]> => {
   const users = await db
     .selectFrom("User")

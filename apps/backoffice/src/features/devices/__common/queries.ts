@@ -16,12 +16,11 @@ export function useMeQuery() {
   return useQuery(orpc.auth.me.queryOptions());
 }
 
-// The assignment dialog's picker (issue 17) — the server independently
-// refuses a User not currently assigned to the Device's Store, so this list
-// only needs to narrow the options shown, not enforce anything.
-export function useUsersQuery() {
+// The assignment dialog's picker (issue 17), `admin`-only like the dialog
+// itself — a `manager` viewing this screen can't reach it.
+export function useUsersQuery(enabled: boolean) {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  return useQuery(orpc.user.list.queryOptions());
+  return useQuery({ ...orpc.user.list.queryOptions(), enabled });
 }
 
 // Same key as the list, so one poll both closes the enrolment dialog and

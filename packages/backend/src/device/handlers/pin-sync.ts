@@ -24,7 +24,7 @@ type PinSyncResult = {
 export const handler: Handler<void, PinSyncResult> = async ({ ctx }) => {
   const deviceCtxValue = deviceCtx(ctx);
   if (!deviceCtxValue) return null;
-  const { tenantId, storeId, assignedUserId = null } = deviceCtxValue.device;
+  const { tenantId, storeId, assignedUserId } = deviceCtxValue.device;
 
   return withTenantScope(ctx.db, tenantId, async (scopedDb) => {
     const roster = await getPinRoster(scopedDb, storeId, assignedUserId);

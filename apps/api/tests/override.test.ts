@@ -154,6 +154,7 @@ describe("terminal.recordOverride", () => {
         storeId: storeA1,
         code: "XA1",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerA,
@@ -183,6 +184,7 @@ describe("terminal.recordOverride", () => {
         storeId: storeA1,
         code: "XA2",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: cashierA,
@@ -202,6 +204,7 @@ describe("terminal.recordOverride", () => {
         storeId: storeA1,
         code: "XA3",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerAOtherStore,
@@ -221,6 +224,7 @@ describe("terminal.recordOverride", () => {
         storeId: storeA1,
         code: "XA4",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerA,
@@ -253,6 +257,7 @@ describe("terminal.recordOverride", () => {
         storeId: storeB,
         code: "XB1",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerB,
@@ -284,6 +289,7 @@ describe("terminal.recordOverride", () => {
             storeId: storeA1,
             code: "XA5",
             name: "t",
+            assignedUserId: null,
           })
           .client.terminal.recordOverride({
             approverUserId: adminB,
@@ -310,6 +316,7 @@ describe("override.list", () => {
         storeId: storeA1,
         code: "XA6",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerA,
@@ -349,6 +356,7 @@ describe("override.list", () => {
         storeId: storeA1,
         code: "XA7",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerA,
@@ -389,6 +397,7 @@ describe("override.list", () => {
         storeId: storeB,
         code: "XB2",
         name: "t",
+        assignedUserId: null,
       })
       .client.terminal.recordOverride({
         approverUserId: managerB,

@@ -16,10 +16,10 @@ export const inputSchema = z.object({ id: z.string(), userId: z.string().nullabl
 type SetAssignedUserInput = z.infer<typeof inputSchema>;
 type DeviceOutput = ReturnType<typeof toDeviceOutput>;
 
-// `admin` only (record 056 Q5), matching every other Device action. `userId:
-// null` clears the restriction. A non-null target must be an active User
-// currently assigned to this Device's Store — refused here, not merely
-// absent from the back office's picker (issue 17 acceptance criteria).
+const CLEARED_SENTINEL = "";
+
+// `admin` only (record 056 Q5). A non-null target must be an active User
+// currently assigned to this Device's Store, refused server-side.
 export const handler: Handler<SetAssignedUserInput, DeviceOutput | null> = async ({
   ctx,
   input,
@@ -50,8 +50,10 @@ export const handler: Handler<SetAssignedUserInput, DeviceOutput | null> = async
       enrolmentCodeId: null,
       field: "assigned_user",
       oldValue: existing.assigned_user_id,
-      // `new_value` is NOT NULL (record 056 Q1) — "" is the clear sentinel.
-      newValue: input.userId ?? "",
+      // `new_value` is NOT NULL (record 056 Q1), so clearing can't write a
+      // real NULL. "" stands for it instead — no userId is ever empty, so
+      // a reader can't mistake it for one.
+      newValue: input.userId ?? CLEARED_SENTINEL,
     });
 
     return toDeviceOutput(updated);
