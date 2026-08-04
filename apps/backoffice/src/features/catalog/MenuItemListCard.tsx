@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   closestCenter,
   DndContext,
@@ -52,7 +53,6 @@ export function MenuItemListCard({
   isFetching,
   refetch,
   onAdd,
-  onRename,
   onArchive,
   onReactivate,
   onReorder,
@@ -65,7 +65,6 @@ export function MenuItemListCard({
   isFetching: boolean;
   refetch: () => void;
   onAdd: () => void;
-  onRename: (item: MenuItemOutput) => void;
   onArchive: (item: MenuItemOutput) => void;
   onReactivate: (item: MenuItemOutput) => void;
   onReorder: (itemId: string, fromIndex: number, toIndex: number) => void;
@@ -177,7 +176,6 @@ export function MenuItemListCard({
                       key={item.id}
                       item={item}
                       disabled={reordering || ordered.length < 2}
-                      onRename={onRename}
                       onArchive={onArchive}
                     />
                   ))}
@@ -217,18 +215,20 @@ export function MenuItemListCard({
                       {archived ? (
                         item.name
                       ) : (
-                        <button
-                          type="button"
-                          className="text-left underline-offset-4 hover:underline"
-                          onClick={() => onRename(item)}
+                        <Link
+                          to="/catalog/$id"
+                          params={{ id: item.id }}
+                          className="underline-offset-4 hover:underline"
                         >
                           {item.name}
-                        </button>
+                        </Link>
                       )}
                     </TableCell>
                     <TableCell>
                       {archived ? (
                         <Badge variant="secondary">Archived</Badge>
+                      ) : item.sellable ? (
+                        <Badge variant="success">Sellable</Badge>
                       ) : (
                         <Badge variant="warning">
                           Not sellable — no variant
@@ -251,9 +251,11 @@ export function MenuItemListCard({
                             variant="outline"
                             size="sm"
                             className="tap-target"
-                            disabled
+                            asChild
                           >
-                            Add a variant
+                            <Link to="/catalog/$id" params={{ id: item.id }}>
+                              {item.sellable ? "Edit" : "Add a variant"}
+                            </Link>
                           </Button>
                           <Button
                             variant="ghost"

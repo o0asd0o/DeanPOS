@@ -46,6 +46,7 @@ model Tenant {
   overrideConsumptions                  OverrideConsumption[]
   categories                            Category[]
   menuItems                             MenuItem[]
+  variants                              Variant[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -277,10 +278,29 @@ model MenuItem {
   createdAt  DateTime  @default(now()) @map("created_at")
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
   category   Category  @relation(fields: [tenantId, categoryId], references: [tenantId, id])
+  variants   Variant[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
   @@index([tenantId, categoryId])
+}
+
+// Price lives only on Variant (ADR-0005). Composite unique for issue 07 availability FK.
+model Variant {
+  id             String    @id
+  tenantId       String    @map("tenant_id")
+  menuItemId     String    @map("menu_item_id")
+  name           String
+  priceCentavos  Int       @map("price_centavos")
+  sortOrder      Int       @map("sort_order")
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  menuItem       MenuItem  @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, menuItemId])
 }
 
 // Append-only (record 054 Q1). `storeId` null is a change to the method

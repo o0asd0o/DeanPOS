@@ -140,3 +140,106 @@ export function useReorderMenuItemMutation() {
     }),
   );
 }
+
+function useInvalidateMenuItemEditor(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.getMenuItem.queryKey({ input: { id: menuItemId } }),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.listVariants.queryKey({ input: { menuItemId } }),
+    });
+    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listMenuItems.queryKey() });
+    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listCategories.queryKey() });
+  };
+}
+
+export function useCreateVariantMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.createVariant.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't save the variant" },
+    }),
+  );
+}
+
+export function useRenameVariantMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.renameVariant.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't save the variant" },
+    }),
+  );
+}
+
+export function useSetVariantPriceMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.setVariantPrice.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't save the variant" },
+    }),
+  );
+}
+
+export function useArchiveVariantMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.archiveVariant.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't archive the variant" },
+    }),
+  );
+}
+
+export function useReactivateVariantMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.reactivateVariant.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't update the variant" },
+    }),
+  );
+}
+
+export function useReorderVariantMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.reorderVariant.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't reorder the variant" },
+    }),
+  );
+}
+
+export function useRenameMenuItemOnDetailMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.renameMenuItem.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't save the menu item" },
+    }),
+  );
+}
+
+export function useMoveMenuItemOnDetailMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.moveMenuItem.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't save the menu item" },
+    }),
+  );
+}

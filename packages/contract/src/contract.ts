@@ -197,6 +197,33 @@ export const menuItemOutputSchema = categoryOutputSchema.extend({
   sellable: z.boolean(),
 });
 
+export const variantOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  menuItemId: z.string(),
+  name: z.string(),
+  priceCentavos: z.number().int(),
+  sortOrder: z.number().int(),
+  archivedAt: z.date().nullable(),
+  createdAt: z.date(),
+});
+
+export const catalogReadVariantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  priceCentavos: z.number().int(),
+  sortOrder: z.number().int(),
+});
+
+export const catalogReadMenuItemSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  categoryId: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int(),
+  variants: z.array(catalogReadVariantSchema),
+});
+
 export const catalogCategoryCreateInputSchema = z.object({
   name: catalogNameSchema,
 });
@@ -216,10 +243,26 @@ export const catalogMenuItemMoveInputSchema = z.object({
   id: z.string(),
   categoryId: z.string(),
 });
+export const catalogVariantCreateInputSchema = z.object({
+  menuItemId: z.string(),
+  name: catalogNameSchema,
+  priceCentavos: z.number().int(),
+});
+export const catalogVariantRenameInputSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+});
+export const catalogVariantSetPriceInputSchema = z.object({
+  id: z.string(),
+  priceCentavos: z.number().int(),
+});
+export const catalogListVariantsInputSchema = z.object({
+  menuItemId: z.string(),
+});
 export const catalogReadInputSchema = z.object({ storeId: z.string() });
 export const catalogReadOutputSchema = z.object({
   categories: z.array(categoryOutputSchema),
-  menuItems: z.array(menuItemOutputSchema),
+  menuItems: z.array(catalogReadMenuItemSchema),
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export const catalogVersionOutputSchema = z.object({
@@ -519,6 +562,9 @@ export const contract = {
   catalog: {
     listCategories: oc.input(z.void()).output(z.array(categoryOutputSchema)),
     listMenuItems: oc.input(z.void()).output(z.array(menuItemOutputSchema)),
+    getMenuItem: oc.input(catalogEntityIdInputSchema).output(menuItemOutputSchema.nullable()),
+    listVariants: oc.input(catalogListVariantsInputSchema).output(z.array(variantOutputSchema)),
+    getVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
     createCategory: oc
       .input(catalogCategoryCreateInputSchema)
       .output(categoryOutputSchema.nullable()),
@@ -542,6 +588,20 @@ export const contract = {
       .input(catalogEntityIdInputSchema)
       .output(menuItemOutputSchema.nullable()),
     reorderMenuItem: oc.input(catalogReorderInputSchema).output(menuItemOutputSchema.nullable()),
+    createVariant: oc
+      .input(catalogVariantCreateInputSchema)
+      .output(variantOutputSchema.nullable()),
+    renameVariant: oc
+      .input(catalogVariantRenameInputSchema)
+      .output(variantOutputSchema.nullable()),
+    setVariantPrice: oc
+      .input(catalogVariantSetPriceInputSchema)
+      .output(variantOutputSchema.nullable()),
+    archiveVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
+    reactivateVariant: oc
+      .input(catalogEntityIdInputSchema)
+      .output(variantOutputSchema.nullable()),
+    reorderVariant: oc.input(catalogReorderInputSchema).output(variantOutputSchema.nullable()),
     read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
     version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),
   },

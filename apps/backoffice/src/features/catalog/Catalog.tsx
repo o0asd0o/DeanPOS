@@ -112,10 +112,6 @@ export function Catalog() {
     opener.current = document.activeElement as HTMLElement;
     setMenuItemEditor({ mode: "create" });
   };
-  const openMenuItemRename = (item: MenuItemOutput) => {
-    opener.current = document.activeElement as HTMLElement;
-    setMenuItemEditor({ mode: "edit", item });
-  };
   const closeMenuItemEditor = () => {
     setMenuItemEditor({ mode: "closed" });
     opener.current?.focus();
@@ -221,7 +217,6 @@ export function Catalog() {
             isFetching={menuItemsQuery.isFetching}
             refetch={() => void menuItemsQuery.refetch()}
             onAdd={openMenuItemCreate}
-            onRename={openMenuItemRename}
             onArchive={setArchiveItemTarget}
             onReactivate={async (item) => {
               if (reactivateMenuItem.isPending) return;

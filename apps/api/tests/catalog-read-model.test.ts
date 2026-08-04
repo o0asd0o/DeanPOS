@@ -31,6 +31,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await ownerDb.deleteFrom("Variant").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("id", "=", storeId).execute();

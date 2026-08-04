@@ -5,18 +5,30 @@ import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { catalogVersion } from "../db-operations/queries/catalog-version.query.ts";
 import { listActiveCategories } from "../db-operations/queries/list-active-categories.query.ts";
+import { listActiveVariantsForMenuItem } from "../db-operations/queries/list-active-variants-for-menu-item.query.ts";
+import { listSellableMenuItems } from "../db-operations/queries/list-sellable-menu-items.query.ts";
 import { toCategoryOutput } from "../helpers.ts";
 
 export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
 type ReadOutput = {
   categories: ReturnType<typeof toCategoryOutput>[];
-  menuItems: [];
+  menuItems: {
+    id: string;
+    tenantId: string;
+    categoryId: string;
+    name: string;
+    sortOrder: number;
+    variants: {
+      id: string;
+      name: string;
+      priceCentavos: number;
+      sortOrder: number;
+    }[];
+  }[];
   version: string;
 };
 
-// Device/tenant read model. menuItems empty until Variants (issue 02).
-// Unauthenticated → empty payload + empty-catalog version shape via zero ids.
 export const handler: Handler<Input, ReadOutput> = async ({ ctx, input }) => {
   const tenantId =
     ctx.kind === "tenant"
@@ -30,7 +42,26 @@ export const handler: Handler<Input, ReadOutput> = async ({ ctx, input }) => {
 
   return withTenantScope(ctx.db, tenantId, async (db) => {
     const categories = (await listActiveCategories(db)).map(toCategoryOutput);
+    const sellable = await listSellableMenuItems(db);
+    const menuItems = await Promise.all(
+      sellable.map(async (item) => {
+        const variants = await listActiveVariantsForMenuItem(db, item.id);
+        return {
+          id: item.id,
+          tenantId: item.tenant_id,
+          categoryId: item.category_id,
+          name: item.name,
+          sortOrder: item.sort_order,
+          variants: variants.map((variant) => ({
+            id: variant.id,
+            name: variant.name,
+            priceCentavos: variant.price_centavos,
+            sortOrder: variant.sort_order,
+          })),
+        };
+      }),
+    );
     const version = await catalogVersion(db, tenantId, input.storeId);
-    return { categories, menuItems: [], version };
+    return { categories, menuItems, version };
   });
 };

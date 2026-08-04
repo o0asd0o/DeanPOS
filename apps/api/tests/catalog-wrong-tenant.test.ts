@@ -92,6 +92,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await ownerDb.deleteFrom("Variant").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Store").where("id", "in", [storeA, storeB]).execute();
@@ -338,6 +339,163 @@ describe("catalog wrong-tenant probes", () => {
       ownerSees: versionAsB,
       otherGets: async () => versionAsA,
       otherOwn: versionAsA,
+    });
+  });
+});
+
+describe("catalog variant wrong-tenant probes", () => {
+  let variantA: string;
+  let variantB: string;
+  let archivedVariantB: string;
+
+  beforeAll(async () => {
+    const createdA = await asA().catalog.createVariant({
+      menuItemId: itemA,
+      name: "A Regular",
+      priceCentavos: 10_000,
+    });
+    const createdB = await asB().catalog.createVariant({
+      menuItemId: itemB,
+      name: "B Regular",
+      priceCentavos: 11_000,
+    });
+    variantA = createdA!.id;
+    variantB = createdB!.id;
+    const extraB = await asB().catalog.createVariant({
+      menuItemId: itemB,
+      name: "B Archive",
+      priceCentavos: 12_000,
+    });
+    archivedVariantB = extraB!.id;
+    await asB().catalog.archiveVariant({ id: archivedVariantB });
+  });
+
+  it("wrong-tenant probe [catalog.listVariants]: Tenant B's variants never appear in A's list", async () => {
+    const listAsB = await asB().catalog.listVariants({ menuItemId: itemB });
+    const ownAsB = listAsB.find((row) => row.id === variantB);
+    expect(ownAsB).toBeTruthy();
+
+    const listAsA = await asA().catalog.listVariants({ menuItemId: itemA });
+    expect(listAsA.map((row) => row.id)).not.toContain(variantB);
+
+    await expectWrongTenantRefusal({
+      path: "catalog.listVariants",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => listAsA.find((row) => row.id === variantA),
+      otherOwn: listAsA.find((row) => row.id === variantA),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.getVariant]: Tenant A cannot read Tenant B's variant", async () => {
+    const ownerSees = await asB().catalog.getVariant({ id: variantB });
+    expect(ownerSees).toBeTruthy();
+    await expectWrongTenantRefusal({
+      path: "catalog.getVariant",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () => asA().catalog.getVariant({ id: variantB }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.getMenuItem]: Tenant A cannot read Tenant B's menu item", async () => {
+    const ownerSees = await asB().catalog.getMenuItem({ id: itemB });
+    expect(ownerSees).toBeTruthy();
+    await expectWrongTenantRefusal({
+      path: "catalog.getMenuItem",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () => asA().catalog.getMenuItem({ id: itemB }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.createVariant]: creates stay confined", async () => {
+    const createdAsA = await asA().catalog.createVariant({
+      menuItemId: itemA,
+      name: "A Probe",
+      priceCentavos: 1_000,
+    });
+    const createdAsB = await asB().catalog.createVariant({
+      menuItemId: itemB,
+      name: "B Probe",
+      priceCentavos: 1_000,
+    });
+    expect(createdAsA).toBeTruthy();
+    expect(createdAsB).toBeTruthy();
+    const listAsA = await asA().catalog.listVariants({ menuItemId: itemA });
+    expect(listAsA.map((row) => row.id)).not.toContain(createdAsB!.id);
+    await expectWrongTenantRefusal({
+      path: "catalog.createVariant",
+      mode: "confined",
+      ownerSees: createdAsA,
+      otherGets: async () => createdAsB,
+      otherOwn: createdAsB,
+    });
+  });
+
+  it("wrong-tenant probe [catalog.renameVariant]: Tenant A cannot rename Tenant B's variant", async () => {
+    const beforeAsB = await asB().catalog.renameVariant({ id: variantB, name: "B Regular" });
+    await expectWrongTenantRefusal({
+      path: "catalog.renameVariant",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.renameVariant({ id: variantB, name: "Hijacked" }),
+    });
+    const after = await asB().catalog.getVariant({ id: variantB });
+    expect(after?.name).toBe("B Regular");
+  });
+
+  it("wrong-tenant probe [catalog.setVariantPrice]: Tenant A cannot reprice Tenant B's variant", async () => {
+    const beforeAsB = await asB().catalog.setVariantPrice({ id: variantB, priceCentavos: 11_000 });
+    await expectWrongTenantRefusal({
+      path: "catalog.setVariantPrice",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.setVariantPrice({ id: variantB, priceCentavos: 1 }),
+    });
+    const after = await asB().catalog.getVariant({ id: variantB });
+    expect(after?.priceCentavos).toBe(11_000);
+  });
+
+  it("wrong-tenant probe [catalog.archiveVariant]: Tenant A cannot archive Tenant B's variant", async () => {
+    const target = await asB().catalog.createVariant({
+      menuItemId: itemB,
+      name: "B Archive Probe",
+      priceCentavos: 3_000,
+    });
+    const beforeAsB = await asB().catalog.archiveVariant({ id: target!.id });
+    expect(beforeAsB?.archivedAt).not.toBeNull();
+    await expectWrongTenantRefusal({
+      path: "catalog.archiveVariant",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.archiveVariant({ id: variantB }),
+    });
+    const still = await asB().catalog.getVariant({ id: variantB });
+    expect(still?.archivedAt).toBeNull();
+  });
+
+  it("wrong-tenant probe [catalog.reactivateVariant]: Tenant A cannot reactivate Tenant B's variant", async () => {
+    const beforeAsB = await asB().catalog.reactivateVariant({ id: archivedVariantB });
+    expect(beforeAsB?.archivedAt).toBeNull();
+    await asB().catalog.archiveVariant({ id: archivedVariantB });
+    await expectWrongTenantRefusal({
+      path: "catalog.reactivateVariant",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reactivateVariant({ id: archivedVariantB }),
+    });
+    const still = await asB().catalog.getVariant({ id: archivedVariantB });
+    expect(still?.archivedAt).not.toBeNull();
+  });
+
+  it("wrong-tenant probe [catalog.reorderVariant]: Tenant A cannot reorder Tenant B's variant", async () => {
+    const beforeAsB = await asB().catalog.reorderVariant({ id: variantB, direction: "up" });
+    await expectWrongTenantRefusal({
+      path: "catalog.reorderVariant",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reorderVariant({ id: variantB, direction: "down" }),
     });
   });
 });

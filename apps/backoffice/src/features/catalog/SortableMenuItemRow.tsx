@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Link } from "@tanstack/react-router";
 import { ArchiveIcon, GripVerticalIcon } from "lucide-react";
 import { Badge, Button, cn, TableCell, TableRow } from "ui";
 
@@ -8,12 +9,10 @@ import type { MenuItemOutput } from "./helpers.ts";
 export function SortableMenuItemRow({
   item,
   disabled,
-  onRename,
   onArchive,
 }: {
   item: MenuItemOutput;
   disabled: boolean;
-  onRename: (item: MenuItemOutput) => void;
   onArchive: (item: MenuItemOutput) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -44,22 +43,27 @@ export function SortableMenuItemRow({
         </button>
       </TableCell>
       <TableCell className="font-medium">
-        <button
-          type="button"
-          className="text-left underline-offset-4 hover:underline"
-          onClick={() => onRename(item)}
+        <Link
+          to="/catalog/$id"
+          params={{ id: item.id }}
+          className="underline-offset-4 hover:underline"
         >
           {item.name}
-        </button>
+        </Link>
       </TableCell>
       <TableCell>
-        <Badge variant="warning">Not sellable — no variant</Badge>
+        {item.sellable ? (
+          <Badge variant="success">Sellable</Badge>
+        ) : (
+          <Badge variant="warning">Not sellable — no variant</Badge>
+        )}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
-          {/* Issue 01: primary row action is Add a variant, not Edit (Direction §7). */}
-          <Button variant="outline" size="sm" className="tap-target" disabled>
-            Add a variant
+          <Button variant="outline" size="sm" className="tap-target" asChild>
+            <Link to="/catalog/$id" params={{ id: item.id }}>
+              {item.sellable ? "Edit" : "Add a variant"}
+            </Link>
           </Button>
           <Button
             variant="ghost"

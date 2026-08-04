@@ -33,33 +33,33 @@ this shape for availability; the same standard holds here.
 
 ## Acceptance criteria
 
-- [ ] `Variant` table with `tenant_id`, RLS enabled and forced in the creating migration, a
+- [x] `Variant` table with `tenant_id`, RLS enabled and forced in the creating migration, a
       composite `(tenant_id, id)` FK to `MenuItem`, and **its own `@@unique([tenantId, id])`** —
       record 071 needs it to build the availability FK in issue 07, and adding it later is a
       second migration.
-- [ ] Price stored as integer `Centavos` using `foundation`'s primitive. No float reaches the
+- [x] Price stored as integer `Centavos` using `foundation`'s primitive. No float reaches the
       database, the wire, or a test fixture (ADR-0005).
-- [ ] A manager creates, renames, re-prices, reorders and archives Variants inside the MenuItem
+- [x] A manager creates, renames, re-prices, reorders and archives Variants inside the MenuItem
       editor; ordering uses record 039's up/down `Button` pairs.
-- [ ] The price input is `inputMode="decimal"` with the peso sign outside it, and `₱1,200.00`,
+- [x] The price input is `inputMode="decimal"` with the peso sign outside it, and `₱1,200.00`,
       `120.505` and `1e3` are each accepted-or-rejected at a stated bound — asserted in
       `apps/backoffice/tests/menu-item-editor.test.tsx`.
-- [ ] One money formatting helper is used by every catalog surface; a grep proves no second one
+- [x] One money formatting helper is used by every catalog surface; a grep proves no second one
       exists.
-- [ ] Archive cascade rows 1–3, one test per level, asserted **against the read model** rather
+- [x] Archive cascade rows 1–3, one test per level, asserted **against the read model** rather
       than against a join: Category → its MenuItems and Variants leave; MenuItem → its Variants
       leave; Variant → siblings unaffected, and the MenuItem leaves when its last non-archived
       Variant does.
-- [ ] Un-archiving a Category whose MenuItems were separately archived restores only what was
+- [x] Un-archiving a Category whose MenuItems were separately archived restores only what was
       never itself archived (`## Scenarios` row 5); un-archiving a Variant under a still-archived
       MenuItem leaves it absent from the read model (row 28, and see record 071 §3 for its
       availability row).
-- [ ] Two rapid identical Save submissions produce one Variant, not two (`## Scenarios` row 24).
-- [ ] An archived Variant is absent from the read model and still readable by id.
-- [ ] The read model gains variants with their prices, and a price change moves the version while
+- [x] Two rapid identical Save submissions produce one Variant, not two (`## Scenarios` row 24).
+- [x] An archived Variant is absent from the read model and still readable by id.
+- [x] The read model gains variants with their prices, and a price change moves the version while
       a no-op save does not (record 069).
-- [ ] `cashier` cannot mutate; wrong-tenant probes on every procedure this issue exposes.
-- [ ] WCAG 2.2 AA, asserted by the existing automated accessibility check.
+- [x] `cashier` cannot mutate; wrong-tenant probes on every procedure this issue exposes.
+- [x] WCAG 2.2 AA, asserted by the existing automated accessibility check.
 
 ## Visual reference
 
