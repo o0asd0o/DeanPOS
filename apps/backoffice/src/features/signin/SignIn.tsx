@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, PasswordInput } from "ui";
 
@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 // here — see .scratch/decisions/030-the-back-office-sign-in-screen.md.
 export function SignIn() {
   const { orpc } = useRouteContext({ from: "/_gate/login" });
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   // Not a field error: record 030 requires one form-level sentence naming
   // neither field, so it is the submit's outcome and not the form's state.
@@ -34,6 +35,10 @@ export function SignIn() {
         return;
       }
 
+      // The guard that runs next reads `auth.me` from cache, and the answer
+      // sitting there is the signed-out one it cached before this sign-in —
+      // without this it redirects straight back to `/login`.
+      await queryClient.invalidateQueries({ queryKey: orpc.auth.me.queryKey() });
       await navigate({ to: result.mustChangePassword ? "/set-password" : "/" });
     },
   });

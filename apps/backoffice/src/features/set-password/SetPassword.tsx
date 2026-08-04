@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/client";
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, PasswordInput } from "ui";
 
@@ -19,6 +19,7 @@ function policyRejectionMessage(error: unknown): string | null {
 // decisions this screen adds: no current-password field, and a confirm field.
 export function SetPassword() {
   const { orpc } = useRouteContext({ from: "/_gate/set-password" });
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const setPassword = useMutation(
@@ -36,6 +37,9 @@ export function SetPassword() {
       } catch {
         return; // surfaced below via setPassword.error / policyMessage
       }
+      // The cached `auth.me` still carries the must-change flag this call
+      // just cleared, and `_shell`'s guard would bounce back to this screen.
+      await queryClient.invalidateQueries({ queryKey: orpc.auth.me.queryKey() });
       await navigate({ to: "/" });
     },
   });

@@ -1,4 +1,4 @@
-# 057: Payment details are a `bytea` row keyed by `(method, Store-or-NULL)`, resolved whole-row, uploaded as base64 through the existing Save, and audited as a hash
+# 066: Payment details are a `bytea` row keyed by `(method, Store-or-NULL)`, resolved whole-row, uploaded as base64 through the existing Save, and audited as a hash
 
 - **Status:** decided
 - **Stakes:** high — a new table on the money-adjacent path, an image displayed to a paying customer, an append-only audit that can never be corrected, and a storage choice that was reversed once during the session

@@ -26,7 +26,7 @@ customer then reads one branch's name beneath another branch's QR. Whole-row res
 that state unrepresentable rather than merely invalid.
 
 **No object storage.** The bytes are a `bytea` column in this repository's own database.
-ADR-0012's ban is untouched and needs no amendment. Record 057 has the sizing and the reversal
+ADR-0012's ban is untouched and needs no amendment. Record 066 has the sizing and the reversal
 trigger.
 
 **`cash` holds no payment-detail row**, mirroring its availability treatment (record 054) —
@@ -106,7 +106,7 @@ report.
 
 _Sliced from a `/grilling` session of 2026-08-03 against issue 08, which shipped without any way
 to tell a customer where to send the money. **One record:**
-[057](../../decisions/057-payment-method-payment-details-storage-shape-and-upload.md)
+[066](../../decisions/066-payment-method-payment-details-storage-shape-and-upload.md)
 (`Stakes: high`) — it carries the sizing behind `bytea`, the S3 option that was chosen and then
 withdrawn, and both database traps named above._
 
@@ -135,4 +135,4 @@ Nothing in this issue displays a QR to a paying customer; that screen is Area 4 
 > this obligation exists to prevent._
 
 _**Sizing note for `offline-sync`:** up to 1MB per method per Store now rides the cached payload,
-which was sized without it. Record 057 names the trigger if it measurably slows first load._
+which was sized without it. Record 066 names the trigger if it measurably slows first load._

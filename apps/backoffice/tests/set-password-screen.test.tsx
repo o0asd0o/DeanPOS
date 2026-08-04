@@ -7,9 +7,51 @@ import {
   screen,
   waitFor,
 } from "api/src/test-seam-react.tsx";
-import { describe, expect, it } from "vite-plus/test";
+import { createTestSeam } from "api/src/test-seam.ts";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { router } from "@/router.tsx";
+
+const seam = createTestSeam();
+const email = `set-password-screen-${randomUUID()}@set-password.test`;
+let admin: { tenantId: string; userId: string };
+
+beforeAll(async () => {
+  const provisioned = await seam.actors
+    .asPlatformAdmin(randomUUID())
+    .client.platformAdmin.provisionTenant({
+      tenantName: "Set-password Screen Tenant",
+      adminEmail: email,
+      adminPassword: "correct horse battery staple",
+    });
+  if (!provisioned) throw new Error("provisionTenant refused");
+  admin = provisioned;
+});
+
+afterAll(async () => {
+  await seam.db.destroy();
+});
+
+// The must-change flag is what the two guards branch on, so it has to change
+// under the screen the way a real session's does — before the save it is set,
+// after the save it is not.
+function sessionCarryingFetch(): typeof fetch {
+  const asAdmin = (mustChangePassword: boolean) =>
+    seam.actors.asTenant(admin.tenantId, {
+      userId: admin.userId,
+      email,
+      role: "admin",
+      mustChangePassword,
+    });
+  const changed = asAdmin(false);
+  let current = asAdmin(true);
+
+  return (async (request: Request, init?: RequestInit) => {
+    const response = await current.app.request(request, init);
+    if (request.url.endsWith("/auth/setPassword") && response.status === 200) current = changed;
+    return response;
+  }) as unknown as typeof fetch;
+}
 
 // Record 030's `/set-password` structure. The redirect *into* it is proven
 // server-side in apps/api/tests/forced-password-change.test.ts; this file
@@ -113,6 +155,34 @@ describe("the set-password screen", () => {
     expect(screen.queryByText("Can’t reach the server.")).toBeNull();
 
     await expectNoAxeViolations(container);
+    await db.destroy();
+  });
+
+  // This screen's own guard caches an `auth.me` still carrying the flag the
+  // save clears, so without an invalidation `_shell` reads it and sends the
+  // user straight back here.
+  it("a saved password leaves the gate rather than bouncing back to this screen", async () => {
+    const { container, db } = renderRoute({
+      router,
+      initialLocation: "/set-password",
+      fetch: sessionCarryingFetch(),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Set a new password" })).toBeTruthy(),
+    );
+
+    const newPassword = "a brand new long password";
+    fireEvent.change(screen.getByLabelText("New password"), { target: { value: newPassword } });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: newPassword },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+
+    // The shell draws a nav; the gate draws none.
+    await waitFor(() => expect(container.querySelector("nav")).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Set a new password" })).toBeNull();
+
     await db.destroy();
   });
 });

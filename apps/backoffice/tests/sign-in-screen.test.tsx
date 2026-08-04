@@ -18,17 +18,44 @@ const authSeam = createTestSeam();
 const email = `sign-in-screen-${randomUUID()}@sign-in.test`;
 const password = "correct horse battery staple";
 
+let admin: { tenantId: string; userId: string };
+
 beforeAll(async () => {
-  await authSeam.actors.asPlatformAdmin(randomUUID()).client.platformAdmin.provisionTenant({
-    tenantName: "Sign-in Screen Tenant",
-    adminEmail: email,
-    adminPassword: password,
-  });
+  const provisioned = await authSeam.actors
+    .asPlatformAdmin(randomUUID())
+    .client.platformAdmin.provisionTenant({
+      tenantName: "Sign-in Screen Tenant",
+      adminEmail: email,
+      adminPassword: password,
+    });
+  if (!provisioned) throw new Error("provisionTenant refused");
+  admin = provisioned;
 });
 
 afterAll(async () => {
   await authSeam.db.destroy();
 });
+
+// happy-dom strips `Set-Cookie` from a Response, so the browser's cookie jar
+// is stood in for here: requests answer as signed out until the sign-in
+// succeeds, and as that admin afterwards.
+function sessionCarryingFetch(): typeof fetch {
+  const signedOut = authSeam.actors.asUnauthenticated();
+  const signedIn = authSeam.actors.asTenant(admin.tenantId, {
+    userId: admin.userId,
+    email,
+    role: "admin",
+    mustChangePassword: true,
+  });
+  let current = signedOut;
+
+  return (async (request: Request, init?: RequestInit) => {
+    const isSignIn = request.url.endsWith("/auth/signIn");
+    const response = await (isSignIn ? signedOut : current).app.request(request, init);
+    if (isSignIn && response.status === 200) current = signedIn;
+    return response;
+  }) as unknown as typeof fetch;
+}
 
 describe("the sign-in screen", () => {
   it("renders the mock's structure and order, with no sidebar and no header", async () => {
@@ -103,9 +130,8 @@ describe("the sign-in screen", () => {
     await db.destroy();
   });
 
-  // The full "lands in the back-office" round trip needs a real cookie jar,
-  // which happy-dom refuses scripts (see this issue's `## Comments`) — the
-  // cookie itself is proven server-side, in apps/api/tests/sign-in.test.ts.
+  // happy-dom refuses scripts a cookie jar, so the round trip below carries
+  // the session header itself against the shared seam's app.
   it("a correct sign-in never shows the failure sentence", async () => {
     const { db } = renderRoute({ router });
 
@@ -120,6 +146,29 @@ describe("the sign-in screen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Signing in…" })).toBeTruthy());
     await waitFor(() => expect(screen.queryByRole("button", { name: "Signing in…" })).toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
+
+    await db.destroy();
+  });
+
+  // Arriving at `/` first is what makes this the real path: the guard's own
+  // `auth.me` fetch caches an unauthenticated answer, and the sign-in has to
+  // invalidate it or every guard after it reads the pre-sign-in session.
+  it("a correct sign-in leaves the login screen when the guard cached the signed-out answer", async () => {
+    const { db } = renderRoute({ router, initialLocation: "/", fetch: sessionCarryingFetch() });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "DeanPOS back-office" })).toBeTruthy(),
+    );
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: password } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    // A provisioned admin still owes a password change, so the gate hands
+    // them to `/set-password` rather than to the shell.
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Set a new password" })).toBeTruthy(),
+    );
 
     await db.destroy();
   });

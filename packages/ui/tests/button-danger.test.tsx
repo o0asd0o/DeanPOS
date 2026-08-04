@@ -25,6 +25,16 @@ describe("Button danger", () => {
     expect(className).toContain("text-status-danger-tone");
   });
 
+  it("marks an outline toggle's pressed state", () => {
+    const { container } = render(
+      <Button variant="outline" aria-pressed>
+        Ana Reyes
+      </Button>,
+    );
+
+    expect(container.querySelector("button")?.className).toContain("aria-pressed:bg-primary");
+  });
+
   it("leaves a button without the prop untouched", () => {
     const { container } = render(<Button>Save</Button>);
 
