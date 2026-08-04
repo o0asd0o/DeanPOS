@@ -157,4 +157,4 @@ and the customer is never told **where to send the money**. Issue 14 adds an opt
 set — account name, account number, and an uploaded QR image — at a Tenant default with per-Store
 override, resolved whole-row. It stores an image and still generates no payload, so this issue's
 non-goal is carried forward unreversed. Decided by
-[record 057](../../decisions/057-payment-method-payment-details-storage-shape-and-upload.md).
+[record 066](../../decisions/066-payment-method-payment-details-storage-shape-and-upload.md).

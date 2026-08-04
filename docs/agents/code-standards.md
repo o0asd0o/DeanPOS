@@ -208,8 +208,10 @@ applies to.
 
 ## 9. A form's actions are one row: cancel left, the commit right, both with icons
 
-Every editor and dialog footer takes the same shape, so a user does not have to
-re-learn where the safe exit is on each screen:
+**This rule governs a form's own footer — an editor page or a sheet — and not a
+`Dialog`.** Dialogs have their own shape, at the end of this rule. Every form
+footer takes the same shape, so a user does not have to re-learn where the safe
+exit is on each screen:
 
 ```tsx
 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -240,6 +242,14 @@ re-learn where the safe exit is on each screen:
 - Row actions in a list are the mirror image: icon **and** word, `variant="outline"`,
   in a right-aligned column, so the destructive one is never where a cursor
   lands by accident.
+
+**A `Dialog` is the exception, and it is not a defect.** Use `DialogFooter` from
+`ui` and put nothing else in it: the pair sits right-aligned, cancel first and
+the commit last, with **no separator and no icons**. Every dialog in both apps
+is built this way, and a dialog is small enough that the eye finds the commit
+without a border to divide it from four inches of form. Reviewers: do not raise
+a missing icon or separator on a `DialogFooter` — it is the standard, not a
+deviation from it.
 
 ## 10. Every mutation toasts its outcome, and the copy lives on `meta`
 
