@@ -7,7 +7,15 @@ import type { Principal } from "backend/src/common/ctx.ts";
 import { createDb, withTenantScope } from "backend/src/db/client.ts";
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type AnyRouter, createRouter, RouterProvider } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  configure,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import axe from "axe-core";
 import { createClient } from "contract/src/index.ts";
 import { createQueryClient, Toaster } from "ui";
@@ -19,6 +27,11 @@ import { createTestSeam, type TestSeamOptions } from "./test-seam.ts";
 // style imports test functions explicitly). One registration, here, covers
 // every render that goes through this helper. .scratch/decisions/008.
 afterEach(cleanup);
+
+// A shared CPU and database, and scrypt at ~260ms a sign-in, outrun `waitFor`'s
+// 1s default with nothing actually wrong. Configured through the same instance
+// the seam renders with — only `api` resolves `@testing-library/dom` directly.
+configure({ asyncUtilTimeout: 15_000 });
 
 export { cleanup, fireEvent, render, screen, waitFor, within };
 

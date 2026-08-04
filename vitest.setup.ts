@@ -21,14 +21,3 @@ try {
 } catch {
   // No workspace-root .env (e.g. real environment variables already set).
 }
-
-// A shared DB/CPU and scrypt's ~260ms sign-in can outlast the 1s default
-// timeout with nothing actually wrong. The specifier is a variable so Vite
-// can't resolve it at transform time — a package with no DOM tests skips it.
-const domTestingLibrary = "@testing-library/dom";
-try {
-  const { configure } = await import(/* @vite-ignore */ domTestingLibrary);
-  configure({ asyncUtilTimeout: 15_000 });
-} catch {
-  // No DOM tests in this package.
-}
