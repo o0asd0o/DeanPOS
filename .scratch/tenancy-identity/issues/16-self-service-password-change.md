@@ -1,6 +1,6 @@
 # 16 — Self-service password change
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** enhancement
 
 ## What to build
@@ -221,3 +221,50 @@ cannot exercise once 065 is read: no external access, no design decision, no man
 
 **Still blocked on sequencing, not on specification.** `## Depends on` names issue 15, which is
 not built. `/account` must exist before this attaches a section to it.
+
+---
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **713** tests from an empty database. 1 fix
+round of the 2 available, plus one test the orchestrator added directly. Reviewed both rounds by a
+second model — Codex was rate-limited, so the judgement ran on Opus 5 — final verdict **PASS on both
+axes**. No migration, and `auth.setPassword` and `forced-password-change.test.ts` are byte-unchanged
+as the issue required.
+
+**One undeclared source change, reviewed and kept:** `apps/api/src/middlewares/must-change-password.ts`
+gained `/rpc/auth/changePassword` in its exempt list, so the handler's own guard produces
+`reason: "refused"` rather than a bare transport 403. Verified narrow — the match is exact-string, the
+`RPCHandler` carries no batching plugin that could smuggle another procedure through that path, and
+the handler guards before any database work, so a User with `mustChangePassword` set gains no
+capability. **The cost is named: enforcement for this path now rests on one handler line with no
+middleware backstop**, and the test that covers it is named after that fact so the coupling is not
+rediscovered.
+
+**One declared deviation from record 065:** `currentPassword` uses `signInPasswordSchema`, not the
+`passwordSchema` its instruction table specifies. A current password predating a policy change stays
+submittable, and it hands a caller no free "is my password too short" probe. Recorded in
+`contract.ts` where the next reader meets it; **record 065's table now misdescribes the shipped
+contract.**
+
+What the review caught:
+
+- **The criterion that mattered was untested.** "A failed change does not consume the caller's
+  sign-in budget" was proved by asserting a later sign-in succeeded — but the test's own loop signed
+  in successfully six times, and a successful sign-in *deletes* the `email:` throttle row. Pointing
+  `changePassword` at sign-in's keys would have left every test green. It now reads the `email:` and
+  `ip:` rows directly, before and after.
+- **`otherAfter` in the new wrong-tenant probe was a constant thunk** — it closed over a hash read
+  before the other Tenant acted, which is exactly the hole rule 11 documents as unverifiable. **The
+  defect was copied verbatim from the shipped `auth.setPassword` probe**; both are reshaped so the
+  thunk performs a live re-read that brackets the other Tenant's write.
+- **A principal with no `sessionId` succeeded while revoking nothing** — and the `/account` success
+  test drove exactly that principal, so the UI asserted "Password changed" over a silent no-op. It
+  now refuses, before the throttle reservation and before any hashing, and the seam always carries a
+  session.
+- Two `afterAll` teardowns deleted `SignInThrottle` rows with an unscoped `LIKE 'pwchange:%'`, which
+  would have wiped a concurrently-running suite's live reservations.
+
+**Carried forward, not fixed here:** `auth-wrong-tenant-probe.test.ts`'s `auth.signOut` probe has the
+same stale-`otherAfter` shape, and the reviewer's judgement is that the right fix is a sweep across
+every probe plus a helper change — `expectWrongTenantRefusal` taking `otherBefore` as a thunk it
+invokes itself, which makes the stale-closure shape *unwritable* rather than merely discouraged by a
+paragraph in rule 11. Spun out rather than folded in.

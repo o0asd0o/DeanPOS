@@ -234,6 +234,18 @@ describe("auth.changePassword", () => {
     expect(result).toStrictEqual({ ok: false, reason: "refused" });
   });
 
+  it("refuses with reason: refused when the principal carries no sessionId — there is nothing to keep alive while the others are revoked", async () => {
+    const { userId } = await seedUser();
+
+    const result = await seam.actors
+      .asTenant(tenantId, { userId, role: "admin" })
+      .client.auth.changePassword({
+        currentPassword: password,
+        newPassword: "a sessionless new password",
+      });
+    expect(result).toStrictEqual({ ok: false, reason: "refused" });
+  });
+
   it("both write paths go through updateUserPassword: a self-service change also clears must_change_password", async () => {
     const { userId, email } = await seedUser();
     const { client } = await seam.actors.signIn(email, password);
