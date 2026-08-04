@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { paymentMethodPaymentDetailsInputSchema } from "contract/src/contract.ts";
 import { z } from "zod";
 
 import { hasAtLeastRole } from "../../common/authorize.ts";
@@ -16,20 +17,11 @@ import { toPaymentMethodOutput } from "../helpers.ts";
 import { savePaymentMethodPaymentDetails } from "../save-payment-method-payment-details.ts";
 import { validatePaymentDetailImage } from "../validate-payment-detail-image.ts";
 
-const paymentDetailsInputSchema = z.object({
-  accountName: z.string().trim().min(1).nullable(),
-  accountNumber: z.string().trim().min(1).nullable(),
-  image: z
-    .object({ base64: z.string().min(1) })
-    .nullable()
-    .optional(),
-});
-
 export const inputSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   storeIds: z.array(z.string()),
-  paymentDetails: paymentDetailsInputSchema.optional(),
+  paymentDetails: paymentMethodPaymentDetailsInputSchema.optional(),
 });
 
 type UpdatePaymentMethodInput = z.infer<typeof inputSchema>;

@@ -15,6 +15,16 @@ CREATE TABLE "PaymentMethodPaymentDetails" (
     CONSTRAINT "PaymentMethodPaymentDetails_pkey" PRIMARY KEY ("id")
 );
 
+-- The four image columns are all null (no image) or all set (record 066
+-- Q6's hash triple plus the bytes) — never a partial row a `!` read would
+-- turn into `data:null;base64,…`.
+ALTER TABLE "PaymentMethodPaymentDetails" ADD CONSTRAINT "PaymentMethodPaymentDetails_image_columns_together_check"
+  CHECK (
+    ("image_bytes" IS NULL) = ("image_mime" IS NULL)
+    AND ("image_bytes" IS NULL) = ("image_sha256" IS NULL)
+    AND ("image_bytes" IS NULL) = ("image_byte_length" IS NULL)
+  );
+
 CREATE INDEX "PaymentMethodPaymentDetails_tenant_id_idx" ON "PaymentMethodPaymentDetails"("tenant_id");
 
 -- `NULL` does not deduplicate under a plain composite unique (issue 14,
@@ -63,7 +73,18 @@ CREATE TRIGGER payment_method_payment_details_refuses_cash
 
 -- Widens the append-only audit's field allow-list to cover the new detail
 -- fields (issue 14). Additive: no row is dropped or reinterpreted, and
--- `available_has_store_check`/`created_has_no_old_value_check` are untouched.
+-- `created_has_no_old_value_check` is untouched.
 ALTER TABLE "PaymentMethodAudit" DROP CONSTRAINT "PaymentMethodAudit_field_check";
 ALTER TABLE "PaymentMethodAudit" ADD CONSTRAINT "PaymentMethodAudit_field_check"
   CHECK ("field" IN ('created', 'name', 'active', 'available', 'accountName', 'accountNumber', 'image'));
+
+-- `available_has_store_check` forced every non-`available` field to a null
+-- `store_id`. A detail field is auditable at Store scope too (issue 14
+-- criterion 9), so it is exempted rather than held to `available`'s rule —
+-- `available` and every pre-existing field keep exactly their old behaviour.
+ALTER TABLE "PaymentMethodAudit" DROP CONSTRAINT "PaymentMethodAudit_available_has_store_check";
+ALTER TABLE "PaymentMethodAudit" ADD CONSTRAINT "PaymentMethodAudit_available_has_store_check"
+  CHECK (
+    "field" IN ('accountName', 'accountNumber', 'image')
+    OR (("field" = 'available') = ("store_id" IS NOT NULL))
+  );

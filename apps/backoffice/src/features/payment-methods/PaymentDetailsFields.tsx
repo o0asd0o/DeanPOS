@@ -1,15 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { XIcon } from "lucide-react";
 import { Button, Input } from "ui";
+import {
+  PAYMENT_DETAIL_IMAGE_MAX_BYTES,
+  sniffPaymentDetailImageMime,
+} from "schemas/src/payment-detail-image.ts";
 
 import { Hint } from "@/components/Hint.tsx";
-
-const MAX_BYTES = 1024 * 1024;
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const JPEG_MAGIC = [0xff, 0xd8, 0xff];
-
-const startsWith = (bytes: Uint8Array, magic: number[]) =>
-  magic.every((byte, index) => bytes[index] === byte);
 
 // A client-side echo of the server's own check (validate-payment-detail-image.ts)
 // so a refused upload never round-trips just to announce itself — the server
@@ -19,13 +16,10 @@ async function readAndValidateImage(
 ): Promise<
   { ok: true; base64: string; mime: string; previewUrl: string } | { ok: false; reason: string }
 > {
-  if (file.size > MAX_BYTES) return { ok: false, reason: "That image is larger than 1MB" };
+  if (file.size > PAYMENT_DETAIL_IMAGE_MAX_BYTES)
+    return { ok: false, reason: "That image is larger than 1MB" };
   const buffer = new Uint8Array(await file.arrayBuffer());
-  const mime = startsWith(buffer, PNG_MAGIC)
-    ? "image/png"
-    : startsWith(buffer, JPEG_MAGIC)
-      ? "image/jpeg"
-      : null;
+  const mime = sniffPaymentDetailImageMime(buffer);
   if (!mime) return { ok: false, reason: "Only PNG and JPEG images are accepted" };
   let binary = "";
   for (const byte of buffer) binary += String.fromCharCode(byte);
@@ -57,6 +51,15 @@ export function PaymentDetailsFields({
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Revokes the object URL this component created — on replacement, on
+  // Remove, and on unmount — never the server's own `data:` preview.
+  useEffect(() => {
+    const activeUrl = value.image.kind === "new" ? value.image.previewUrl : null;
+    return () => {
+      if (activeUrl) URL.revokeObjectURL(activeUrl);
+    };
+  }, [value.image]);
 
   const previewUrl =
     value.image.kind === "new"
@@ -109,8 +112,8 @@ export function PaymentDetailsFields({
       <div className="flex flex-col gap-2">
         <label htmlFor="payment-method-qr-image">QR image</label>
         <Hint>
-          Optional. A screenshot of the QR code the till already prints — this records nothing and
-          does not verify that a scan was actually paid.
+          Optional. A screenshot of the QR code the till already prints — DeanPOS never verifies
+          that a scan against it was actually paid.
         </Hint>
         {previewUrl && (
           <img

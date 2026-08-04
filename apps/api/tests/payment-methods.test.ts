@@ -282,6 +282,45 @@ describe("paymentMethod.create", () => {
       .where("id", "in", [createdAsB!.id, createdAsA!.id])
       .execute();
   });
+
+  it("cross-tenant probe: Tenant A cannot plant payment details on a Tenant-B-scoped create, B's create still succeeds normally", async () => {
+    const createdAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({
+        name: "A Payment Details Create Probe",
+        storeIds: [storeA1],
+        paymentDetails: { accountName: "Tenant A Account", accountNumber: null },
+      });
+    expect(createdAsA?.name).toBe("A Payment Details Create Probe");
+
+    const detailsAsA = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.getPaymentDetails({ id: createdAsA!.id });
+    expect(detailsAsA?.accountName).toBe("Tenant A Account");
+
+    const detailsAsB = await withTenantScope(seam.db, tenantB, (db) =>
+      db
+        .selectFrom("PaymentMethodPaymentDetails")
+        .selectAll()
+        .where("payment_method_id", "=", createdAsA!.id)
+        .execute(),
+    );
+    expect(detailsAsB).toHaveLength(0);
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", createdAsA!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodPaymentDetails")
+      .where("payment_method_id", "=", createdAsA!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodAvailability")
+      .where("payment_method_id", "=", createdAsA!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", createdAsA!.id).execute();
+  });
 });
 
 describe("paymentMethod.update", () => {
@@ -378,6 +417,31 @@ describe("paymentMethod.update", () => {
       .where("id", "=", methodB)
       .executeTakeFirstOrThrow();
     expect(stillAsB.name).toBe("B's GCash");
+  });
+
+  it("cross-tenant probe: Tenant A addressing Tenant B's method id with payment details is refused, B's details are untouched", async () => {
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.update({
+        id: methodB,
+        name: "B's GCash",
+        storeIds: [],
+        paymentDetails: { accountName: "B's Own Account", accountNumber: null },
+      });
+
+    await expect(
+      seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.paymentMethod.update({
+        id: methodB,
+        name: "Hijacked From A",
+        storeIds: [],
+        paymentDetails: { accountName: "Hijacked Account", accountNumber: null },
+      }),
+    ).resolves.toBeNull();
+
+    const stillAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.paymentMethod.getPaymentDetails({ id: methodB });
+    expect(stillAsB?.accountName).toBe("B's Own Account");
   });
 });
 
@@ -481,6 +545,66 @@ describe("paymentMethod.update: payment details", () => {
 
     await ownerDb
       .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
+  });
+
+  it("a manager and a cashier are refused, server-side", async () => {
+    const created = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({
+        name: "Details Refusal Target",
+        storeIds: [],
+        paymentDetails: { accountName: "Should Not Be Readable", accountNumber: null },
+      });
+
+    const asManager = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.paymentMethod.getPaymentDetails({ id: created!.id });
+    const asCashier = await seam.actors
+      .asTenant(tenantA, { userId: cashierA, role: "cashier" })
+      .client.paymentMethod.getPaymentDetails({ id: created!.id });
+
+    expect(asManager).toBeNull();
+    expect(asCashier).toBeNull();
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodPaymentDetails")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();
+  });
+
+  it("deactivating a method leaves its payment details readable (criterion 10)", async () => {
+    const created = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.create({
+        name: "Deactivate Keeps Details",
+        storeIds: [],
+        paymentDetails: { accountName: "Still Readable", accountNumber: null },
+      });
+
+    const deactivated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.deactivate({ id: created!.id });
+    expect(deactivated?.active).toBe(false);
+
+    const details = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.paymentMethod.getPaymentDetails({ id: created!.id });
+    expect(details?.accountName).toBe("Still Readable");
+
+    await ownerDb
+      .deleteFrom("PaymentMethodAudit")
+      .where("payment_method_id", "=", created!.id)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodPaymentDetails")
       .where("payment_method_id", "=", created!.id)
       .execute();
     await ownerDb.deleteFrom("PaymentMethod").where("id", "=", created!.id).execute();

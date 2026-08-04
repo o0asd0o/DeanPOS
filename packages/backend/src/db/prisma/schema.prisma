@@ -269,9 +269,8 @@ model PaymentMethodAudit {
 }
 
 // The Tenant default (`storeId` null) or a Store's override, resolved
-// whole-row, never field by field (issue 14, record 066 Q2/Q4). `cash`
-// holds no rows here — enforced by a trigger, not a handler check. The two
-// partial unique indexes live in this model's migration, not here.
+// whole-row, never field by field (issue 14, record 066 Q2/Q4). `cash` holds
+// no rows here; the trigger and the two partial unique indexes live in this model's migration.
 model PaymentMethodPaymentDetails {
   id              String   @id
   tenantId        String   @map("tenant_id")

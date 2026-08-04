@@ -144,8 +144,7 @@ export const paymentMethodOutputSchema = z.object({
 
 // Each independently optional; a method with none set behaves byte-for-byte
 // as it does today (issue 14, record 066 Q5). `image` is tri-state: absent
-// leaves the stored bytes untouched, `null` clears them, an object replaces
-// them — the client never resends bytes it did not change (record 066 Q7).
+// leaves the bytes untouched, `null` clears them, an object replaces them.
 export const paymentMethodPaymentDetailsInputSchema = z.object({
   accountName: z.string().trim().min(1).nullable(),
   accountNumber: z.string().trim().min(1).nullable(),

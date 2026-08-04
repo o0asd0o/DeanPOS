@@ -117,6 +117,47 @@ describe("the Payment methods screen — as an admin", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("the sheet's QR upload is accessible: a labelled control, alt text on the preview, and a refused upload announces its reason (criterion 12)", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Payment methods" })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add method" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New method" })).toBeTruthy());
+
+    // The file control's visible label.
+    const fileInput = screen.getByLabelText("QR image") as HTMLInputElement;
+    expect(fileInput.type).toBe("file");
+
+    // A refused upload announces its reason to a screen reader.
+    const svgFile = new File(
+      [new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'></svg>")],
+      "qr.png",
+      { type: "image/png" },
+    );
+    fireEvent.change(fileInput, { target: { files: [svgFile] } });
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/Only PNG and JPEG/));
+
+    // The preview's alternative text.
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const pngFile = new File([pngBytes], "qr.png", { type: "image/png" });
+    fireEvent.change(fileInput, { target: { files: [pngFile] } });
+    await waitFor(() =>
+      expect(screen.getByAltText("The uploaded QR code for this payment method")).toBeTruthy(),
+    );
+
+    // `SheetContent` portals to `document.body`, outside any render `container`.
+    await expectNoAxeViolations(document.body);
+  });
+
   it("states plainly that a non-cash method records an amount and charges nothing", async () => {
     const { db } = renderRoute({
       router,
