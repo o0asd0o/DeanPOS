@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Placeholder } from "@/features/placeholder/Placeholder.tsx";
+import { Catalog } from "@/features/catalog/Catalog.tsx";
 
 // Thin: wires the route to the feature and nothing else (ADR-0009).
 export const Route = createFileRoute("/_shell/catalog")({
-  staticData: { minRole: "admin" },
-  component: () => <Placeholder title="Catalog" />,
+  staticData: { minRole: "manager" },
+  component: Catalog,
 });

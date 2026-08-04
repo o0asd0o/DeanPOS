@@ -20,6 +20,23 @@ import { allowedOrigins } from "./middlewares/cors.ts";
 import { isMustChangePasswordExempt } from "./middlewares/must-change-password.ts";
 import { createAuthRoutes } from "./routes/auth.ts";
 import {
+  catalogArchiveCategoryRoute,
+  catalogArchiveMenuItemRoute,
+  catalogCreateCategoryRoute,
+  catalogCreateMenuItemRoute,
+  catalogListCategoriesRoute,
+  catalogListMenuItemsRoute,
+  catalogMoveMenuItemRoute,
+  catalogReadRoute,
+  catalogReactivateCategoryRoute,
+  catalogReactivateMenuItemRoute,
+  catalogRenameCategoryRoute,
+  catalogRenameMenuItemRoute,
+  catalogReorderCategoryRoute,
+  catalogReorderMenuItemRoute,
+  catalogVersionRoute,
+} from "./routes/catalog.ts";
+import {
   deviceCancelCodeRoute,
   deviceGenerateCodeRoute,
   deviceListRoute,
@@ -94,7 +111,13 @@ export const createApp = ({
   // credentials: true is required for the session cookie to survive the
   // cross-subdomain request (issue 03) — without it the browser discards
   // Set-Cookie regardless of the cookie's own attributes.
-  app.use("*", cors({ origin: [...allowedOrigins(appDomain), ...devOrigins], credentials: true }));
+  app.use(
+    "*",
+    cors({
+      origin: [...allowedOrigins(appDomain), ...devOrigins],
+      credentials: true,
+    }),
+  );
 
   // No identity concept applies to a liveness check — always unauthenticated.
   // clientIp is unused on this path; the same absent-header literal as /rpc
@@ -141,6 +164,23 @@ export const createApp = ({
         reactivate: paymentMethodReactivateRoute,
         getPaymentDetails: paymentMethodGetPaymentDetailsRoute,
       },
+      catalog: {
+        listCategories: catalogListCategoriesRoute,
+        listMenuItems: catalogListMenuItemsRoute,
+        createCategory: catalogCreateCategoryRoute,
+        renameCategory: catalogRenameCategoryRoute,
+        archiveCategory: catalogArchiveCategoryRoute,
+        reactivateCategory: catalogReactivateCategoryRoute,
+        reorderCategory: catalogReorderCategoryRoute,
+        createMenuItem: catalogCreateMenuItemRoute,
+        renameMenuItem: catalogRenameMenuItemRoute,
+        moveMenuItem: catalogMoveMenuItemRoute,
+        archiveMenuItem: catalogArchiveMenuItemRoute,
+        reactivateMenuItem: catalogReactivateMenuItemRoute,
+        reorderMenuItem: catalogReorderMenuItemRoute,
+        read: catalogReadRoute,
+        version: catalogVersionRoute,
+      },
       settings: { get: settingsGetRoute, update: settingsUpdateRoute },
       platformAdmin: { provisionTenant: provisionTenantRoute },
       auth: authRoutes,
@@ -166,7 +206,9 @@ export const createApp = ({
       // or manager — never accepts a Device token.
       override: { list: overrideListRoute },
     });
-  const rpcHandler = new RPCHandler(router, { plugins: [new ResponseHeadersPlugin()] });
+  const rpcHandler = new RPCHandler(router, {
+    plugins: [new ResponseHeadersPlugin()],
+  });
 
   // No explicit limit existed before issue 14 — bodies were unbounded. Sized
   // for the 1MB raw QR image cap riding base64 inside `paymentMethod.update`

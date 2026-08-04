@@ -20,48 +20,50 @@ model Ping {
 // tenant_id column of its own, reachable only through platform-admin paths
 // (issue 02).
 model Tenant {
-  id         String      @id
-  name       String
-  createdAt  DateTime    @default(now())
+  id                                    String                        @id
+  name                                  String
+  createdAt                             DateTime                      @default(now())
   // Issue 07: a setting governs sales made from now on, never a past one —
   // no code path here reads these to interpret a past Order (record 046).
-  timezone                               String  @default("Asia/Manila")
-  vatEnabled                             Boolean @default(false) @map("vat_enabled")
-  vatRatePercent                         Int     @default(12) @map("vat_rate_percent")
-  varianceToleranceCentavos              Int     @default(0) @map("variance_tolerance_centavos")
-  cashMovementOverrideThresholdCentavos  Int     @default(0) @map("cash_movement_override_threshold_centavos")
-  stores                       Store[]
-  users                        User[]
-  userRoles                    UserRole[]
-  userStores                   UserStore[]
-  tenantSettingsAudits         TenantSettingsAudit[]
-  paymentMethods               PaymentMethod[]
-  paymentMethodAvailabilities  PaymentMethodAvailability[]
-  paymentMethodAudits          PaymentMethodAudit[]
-  paymentMethodPaymentDetails  PaymentMethodPaymentDetails[]
-  devices                      Device[]
-  enrolmentCodes               EnrolmentCode[]
-  deviceAudits                 DeviceAudit[]
-  overrides                    Override[]
-  overrideConsumptions         OverrideConsumption[]
+  timezone                              String                        @default("Asia/Manila")
+  vatEnabled                            Boolean                       @default(false) @map("vat_enabled")
+  vatRatePercent                        Int                           @default(12) @map("vat_rate_percent")
+  varianceToleranceCentavos             Int                           @default(0) @map("variance_tolerance_centavos")
+  cashMovementOverrideThresholdCentavos Int                           @default(0) @map("cash_movement_override_threshold_centavos")
+  stores                                Store[]
+  users                                 User[]
+  userRoles                             UserRole[]
+  userStores                            UserStore[]
+  tenantSettingsAudits                  TenantSettingsAudit[]
+  paymentMethods                        PaymentMethod[]
+  paymentMethodAvailabilities           PaymentMethodAvailability[]
+  paymentMethodAudits                   PaymentMethodAudit[]
+  paymentMethodPaymentDetails           PaymentMethodPaymentDetails[]
+  devices                               Device[]
+  enrolmentCodes                        EnrolmentCode[]
+  deviceAudits                          DeviceAudit[]
+  overrides                             Override[]
+  overrideConsumptions                  OverrideConsumption[]
+  categories                            Category[]
+  menuItems                             MenuItem[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
 // FORCED in the same migration that creates this table.
 model Store {
-  id                String      @id
-  tenantId          String      @map("tenant_id")
-  name              String
+  id                          String                        @id
+  tenantId                    String                        @map("tenant_id")
+  name                        String
   // `HH:mm`, 24-hour, the exact string an `<input type="time">` produces —
   // no TIME column and no timezone conversion (issue 05, record 040 §2).
-  businessDayStart  String      @default("00:00") @map("business_day_start")
+  businessDayStart            String                        @default("00:00") @map("business_day_start")
   // An ordered list of free strings; order is only expressible as the whole
   // array, which is why the editor saves it whole (issue 05, ADR-0011).
-  tableLabels       String[]    @default([]) @map("table_labels")
-  active            Boolean     @default(true)
-  createdAt         DateTime    @default(now())
-  tenant            Tenant      @relation(fields: [tenantId], references: [id])
-  userStores        UserStore[]
+  tableLabels                 String[]                      @default([]) @map("table_labels")
+  active                      Boolean                       @default(true)
+  createdAt                   DateTime                      @default(now())
+  tenant                      Tenant                        @relation(fields: [tenantId], references: [id])
+  userStores                  UserStore[]
   paymentMethodAvailabilities PaymentMethodAvailability[]
   paymentMethodAudits         PaymentMethodAudit[]
   paymentMethodPaymentDetails PaymentMethodPaymentDetails[]
@@ -82,19 +84,19 @@ enum Role {
 // Belongs to a Tenant. `email` is globally unique, not merely unique per
 // Tenant — see issue 03's `## Comments` for why sign-in requires that.
 model User {
-  id                 String      @id
-  tenantId           String      @map("tenant_id")
-  email              String      @unique
-  firstName          String      @default("") @map("first_name")
-  lastName           String      @default("") @map("last_name")
-  passwordHash       String      @map("password_hash")
-  mustChangePassword Boolean     @default(true) @map("must_change_password")
+  id                   String                @id
+  tenantId             String                @map("tenant_id")
+  email                String                @unique
+  firstName            String                @default("") @map("first_name")
+  lastName             String                @default("") @map("last_name")
+  passwordHash         String                @map("password_hash")
+  mustChangePassword   Boolean               @default(true) @map("must_change_password")
   // The PIN's hash, PBKDF2-HMAC-SHA-256 (issue 10, record 057). Nullable —
   // no PIN until the User's first use; never selected wholesale (list-users.query.ts).
-  pinHash            String?     @map("pin_hash")
-  role               Role
-  active             Boolean     @default(true)
-  createdAt          DateTime    @default(now())
+  pinHash              String?               @map("pin_hash")
+  role                 Role
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
   tenant               Tenant                @relation(fields: [tenantId], references: [id])
   sessions             Session[]
   userRoles            UserRole[]
@@ -102,8 +104,8 @@ model User {
   tenantSettingsAudits TenantSettingsAudit[]
   paymentMethodAudits  PaymentMethodAudit[]
   deviceAudits         DeviceAudit[]
-  overridesApproved    Override[] @relation("overridesApproved")
-  assignedDevices      Device[]   @relation("deviceAssignedUser")
+  overridesApproved    Override[]            @relation("overridesApproved")
+  assignedDevices      Device[]              @relation("deviceAssignedUser")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -122,8 +124,8 @@ model UserRole {
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   user          User     @relation(fields: [tenantId, userId], references: [tenantId, id])
 
-  @@index([tenantId])
   @@unique([userId, effectiveFrom])
+  @@index([tenantId])
 }
 
 // Effective-dated history of which Stores a User may operate (issue 04).
@@ -141,8 +143,8 @@ model UserStore {
   user          User     @relation(fields: [tenantId, userId], references: [tenantId, id])
   store         Store    @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
-  @@index([tenantId])
   @@unique([userId, storeId, effectiveFrom])
+  @@index([tenantId])
 }
 
 // Append-only, structurally, like UserRole/UserStore (record 046 §3).
@@ -216,12 +218,12 @@ enum PaymentMethodKind {
 // may branch on, never `name`. The one-`cash`-per-Tenant partial index lives
 // in this model's migration — Prisma cannot express it here (record 054).
 model PaymentMethod {
-  id        String            @id
-  tenantId  String            @map("tenant_id")
-  name      String
-  kind      PaymentMethodKind
-  active    Boolean           @default(true)
-  createdAt DateTime          @default(now()) @map("created_at")
+  id             String                        @id
+  tenantId       String                        @map("tenant_id")
+  name           String
+  kind           PaymentMethodKind
+  active         Boolean                       @default(true)
+  createdAt      DateTime                      @default(now()) @map("created_at")
   tenant         Tenant                        @relation(fields: [tenantId], references: [id])
   availabilities PaymentMethodAvailability[]
   audits         PaymentMethodAudit[]          @relation("PaymentMethodAuditMethod")
@@ -235,36 +237,69 @@ model PaymentMethod {
 // means the method is offered at that Store. `cash` holds no rows here — it
 // is available everywhere unconditionally (record 054 §"Smaller calls" 3).
 model PaymentMethodAvailability {
-  id              String   @id
-  tenantId        String   @map("tenant_id")
-  paymentMethodId String   @map("payment_method_id")
-  storeId         String   @map("store_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
-  paymentMethod PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
-  store         Store         @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  id              String        @id
+  tenantId        String        @map("tenant_id")
+  paymentMethodId String        @map("payment_method_id")
+  storeId         String        @map("store_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  paymentMethod   PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store           Store         @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
   @@unique([paymentMethodId, storeId])
   @@index([tenantId])
+}
+
+// Categories determine the terminal's grid order. They are archived rather
+// than deleted so historical orders can continue resolving their references.
+model Category {
+  id         String     @id
+  tenantId   String     @map("tenant_id")
+  name       String
+  sortOrder  Int        @map("sort_order")
+  archivedAt DateTime?  @map("archived_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  menuItems  MenuItem[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+// A MenuItem has no price and is not sellable until it owns a Variant.
+model MenuItem {
+  id         String    @id
+  tenantId   String    @map("tenant_id")
+  categoryId String    @map("category_id")
+  name       String
+  sortOrder  Int       @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  category   Category  @relation(fields: [tenantId, categoryId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, categoryId])
 }
 
 // Append-only (record 054 Q1). `storeId` null is a change to the method
 // itself, non-null is availability at that Store; CHECKs and composite FKs
 // live in this model's migration, not here.
 model PaymentMethodAudit {
-  id              String   @id
-  tenantId        String   @map("tenant_id")
-  actorUserId     String   @map("actor_user_id")
-  paymentMethodId String   @map("payment_method_id")
-  storeId         String?  @map("store_id")
+  id              String        @id
+  tenantId        String        @map("tenant_id")
+  actorUserId     String        @map("actor_user_id")
+  paymentMethodId String        @map("payment_method_id")
+  storeId         String?       @map("store_id")
   field           String
-  oldValue        String?  @map("old_value")
-  newValue        String   @map("new_value")
-  createdAt       DateTime @default(now()) @map("created_at")
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
-  actor         User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
-  paymentMethod PaymentMethod @relation("PaymentMethodAuditMethod", fields: [tenantId, paymentMethodId], references: [tenantId, id])
-  store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  oldValue        String?       @map("old_value")
+  newValue        String        @map("new_value")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  actor           User          @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+  paymentMethod   PaymentMethod @relation("PaymentMethodAuditMethod", fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store           Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
   @@index([tenantId])
 }
@@ -273,23 +308,23 @@ model PaymentMethodAudit {
 // whole-row, never field by field (issue 14, record 066 Q2/Q4). `cash` holds
 // no rows here; the trigger and the two partial unique indexes live in this model's migration.
 model PaymentMethodPaymentDetails {
-  id              String   @id
-  tenantId        String   @map("tenant_id")
-  paymentMethodId String   @map("payment_method_id")
-  storeId         String?  @map("store_id")
-  accountName     String?  @map("account_name")
-  accountNumber   String?  @map("account_number")
+  id              String        @id
+  tenantId        String        @map("tenant_id")
+  paymentMethodId String        @map("payment_method_id")
+  storeId         String?       @map("store_id")
+  accountName     String?       @map("account_name")
+  accountNumber   String?       @map("account_number")
   // The QR poster's bytes, `bytea` in this repository's own database — no
   // bucket (record 066 Q3). Never selected wholesale outside the one query
   // that resolves details for a caller who is allowed to see them.
-  imageBytes      Bytes?   @map("image_bytes")
-  imageMime       String?  @map("image_mime")
-  imageSha256     String?  @map("image_sha256")
-  imageByteLength Int?     @map("image_byte_length")
-  createdAt       DateTime @default(now()) @map("created_at")
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
-  paymentMethod PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
-  store         Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  imageBytes      Bytes?        @map("image_bytes")
+  imageMime       String?       @map("image_mime")
+  imageSha256     String?       @map("image_sha256")
+  imageByteLength Int?          @map("image_byte_length")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  paymentMethod   PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
+  store           Store?        @relation(fields: [tenantId, storeId], references: [tenantId, id])
 
   @@index([tenantId])
 }
@@ -298,19 +333,19 @@ model PaymentMethodPaymentDetails {
 // a reservation only — the hard uniqueness guarantee is `Device`'s own full
 // unique index. `secret` is the separate high-entropy value exchanged.
 model EnrolmentCode {
-  id          String    @id
-  tenantId    String    @map("tenant_id")
-  storeId     String    @map("store_id")
-  name        String
-  code        String
-  secret      String
-  expiresAt   DateTime  @map("expires_at")
-  consumedAt  DateTime? @map("consumed_at")
-  deviceId    String?   @map("device_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
-  store       Store     @relation(fields: [tenantId, storeId], references: [tenantId, id])
-  device      Device?   @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  id           String        @id
+  tenantId     String        @map("tenant_id")
+  storeId      String        @map("store_id")
+  name         String
+  code         String
+  secret       String
+  expiresAt    DateTime      @map("expires_at")
+  consumedAt   DateTime?     @map("consumed_at")
+  deviceId     String?       @map("device_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  store        Store         @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  device       Device?       @relation(fields: [tenantId, deviceId], references: [tenantId, id])
   deviceAudits DeviceAudit[]
 
   @@unique([tenantId, id])
@@ -321,15 +356,15 @@ model EnrolmentCode {
 // is never reissued after revocation — no `WHERE` on its unique index.
 // Most columns are immutable after insert by a column-level grant (Q6).
 model Device {
-  id          String    @id
-  tenantId    String    @map("tenant_id")
-  storeId     String    @map("store_id")
-  name        String
-  code        String
-  tokenHash   String    @map("token_hash")
-  enrolledAt  DateTime  @default(now()) @map("enrolled_at")
-  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
-  revokedAt   DateTime? @map("revoked_at")
+  id             String          @id
+  tenantId       String          @map("tenant_id")
+  storeId        String          @map("store_id")
+  name           String
+  code           String
+  tokenHash      String          @map("token_hash")
+  enrolledAt     DateTime        @default(now()) @map("enrolled_at")
+  lastSeenAt     DateTime        @default(now()) @map("last_seen_at")
+  revokedAt      DateTime?       @map("revoked_at")
   // Issue 17: NULL is open-to-all, the default and every pre-existing Device's
   // state after this migration. Set, the unlock screen offers only this User.
   assignedUserId String?         @map("assigned_user_id")
@@ -349,19 +384,19 @@ model Device {
 // block verbatim). Exactly one of `deviceId`/`enrolmentCodeId` is set — the
 // enrolment exchange itself writes no row, its actor is a terminal, not a User.
 model DeviceAudit {
-  id              String   @id
-  tenantId        String   @map("tenant_id")
-  actorUserId     String   @map("actor_user_id")
-  deviceId        String?  @map("device_id")
-  enrolmentCodeId String?  @map("enrolment_code_id")
+  id              String         @id
+  tenantId        String         @map("tenant_id")
+  actorUserId     String         @map("actor_user_id")
+  deviceId        String?        @map("device_id")
+  enrolmentCodeId String?        @map("enrolment_code_id")
   field           String
-  oldValue        String?  @map("old_value")
-  newValue        String   @map("new_value")
-  createdAt       DateTime @default(now()) @map("created_at")
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  actor         User           @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
-  device        Device?        @relation(fields: [tenantId, deviceId], references: [tenantId, id])
-  enrolmentCode EnrolmentCode? @relation(fields: [tenantId, enrolmentCodeId], references: [tenantId, id])
+  oldValue        String?        @map("old_value")
+  newValue        String         @map("new_value")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  actor           User           @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+  device          Device?        @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  enrolmentCode   EnrolmentCode? @relation(fields: [tenantId, enrolmentCodeId], references: [tenantId, id])
 
   @@index([tenantId])
 }
@@ -370,25 +405,25 @@ model DeviceAudit {
 // lives on OverrideConsumption, not here — an Override does not know what
 // it authorised until consumed.
 model Override {
-  id             String   @id
-  tenantId       String   @map("tenant_id")
-  storeId        String   @map("store_id")
-  deviceId       String   @map("device_id")
-  approverUserId String   @map("approver_user_id")
-  actionType     String   @map("action_type")
+  id             String                @id
+  tenantId       String                @map("tenant_id")
+  storeId        String                @map("store_id")
+  deviceId       String                @map("device_id")
+  approverUserId String                @map("approver_user_id")
+  actionType     String                @map("action_type")
   reason         String
   note           String?
   // The terminal's claim, bounded against Device.enrolledAt and server-now
   // by verifyOverrideAsOf plus a DB CHECK against created_at.
-  approvedAt     DateTime @map("approved_at")
+  approvedAt     DateTime              @map("approved_at")
   // The server's clock — kept alongside approvedAt so their gap is the only
   // forensic tell an offline row leaves.
-  createdAt      DateTime @default(now()) @map("created_at")
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
-  store        Store                  @relation(fields: [tenantId, storeId], references: [tenantId, id])
-  device       Device                 @relation(fields: [tenantId, deviceId], references: [tenantId, id])
-  approver     User                   @relation("overridesApproved", fields: [tenantId, approverUserId], references: [tenantId, id])
-  consumptions OverrideConsumption[]
+  createdAt      DateTime              @default(now()) @map("created_at")
+  tenant         Tenant                @relation(fields: [tenantId], references: [id])
+  store          Store                 @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  device         Device                @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  approver       User                  @relation("overridesApproved", fields: [tenantId, approverUserId], references: [tenantId, id])
+  consumptions   OverrideConsumption[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -404,8 +439,8 @@ model OverrideConsumption {
   orderId         String?  @map("order_id")
   drawerSessionId String?  @map("drawer_session_id")
   createdAt       DateTime @default(now()) @map("created_at")
-  tenant   Tenant   @relation(fields: [tenantId], references: [id])
-  override Override @relation(fields: [tenantId, overrideId], references: [tenantId, id])
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  override        Override @relation(fields: [tenantId, overrideId], references: [tenantId, id])
 
   @@unique([tenantId, overrideId])
   @@index([tenantId])

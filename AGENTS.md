@@ -28,20 +28,21 @@ Scope discipline, one component per file, helper placement, the routes/features 
 <!-- orc2:agent-skills:end -->
 
 <!-- agent-context-budget:start -->
+
 ## Context budget (binding)
 
 Disk is free. Context is not. **Do not preload docs for orientation.**
 
-| Path | When to read |
-| --- | --- |
-| `docs/agents/code-standards.md` | Writing or reviewing product code |
-| `CONTEXT-MAP.md` → relevant slice of `CONTEXT.md` | Naming domain terms / types / tests |
-| `docs/adr/NNNN-*.md` | Only ADRs the issue or change names |
-| `.scratch/decisions/LOG.md` then matching `NNN-*.md` | Only decisions that touch this change — never the whole folder |
-| `.scratch/<prd>/…` | Only the open issue + its parent PRD |
-| `docs/agents/*` other than code-standards | Only when running that pipeline concern |
-| `.orc2/ORCHESTRATOR.md`, `.claude/agents/*`, `.claude/skills/*` | Only when executing that role/skill |
-| `design/lofi/*` | Only UI work with a named mock |
+| Path                                                            | When to read                                                   |
+| --------------------------------------------------------------- | -------------------------------------------------------------- |
+| `docs/agents/code-standards.md`                                 | Writing or reviewing product code                              |
+| `CONTEXT-MAP.md` → relevant slice of `CONTEXT.md`               | Naming domain terms / types / tests                            |
+| `docs/adr/NNNN-*.md`                                            | Only ADRs the issue or change names                            |
+| `.scratch/decisions/LOG.md` then matching `NNN-*.md`            | Only decisions that touch this change — never the whole folder |
+| `.scratch/<prd>/…`                                              | Only the open issue + its parent PRD                           |
+| `docs/agents/*` other than code-standards                       | Only when running that pipeline concern                        |
+| `.orc2/ORCHESTRATOR.md`, `.claude/agents/*`, `.claude/skills/*` | Only when executing that role/skill                            |
+| `design/lofi/*`                                                 | Only UI work with a named mock                                 |
 
 **Never:** dump `docs/`, `.scratch/`, ADRs, skills, or agent role files into the session “to get oriented.”
 **Keep on disk forever:** glossary, ADRs, decisions, code-standards — they are product law, not always-on prompt fuel.

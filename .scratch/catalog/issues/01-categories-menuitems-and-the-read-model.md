@@ -11,7 +11,7 @@ procedure a Device fetches — carrying a version — with categories and items 
 
 **A MenuItem has no price and is not sellable.** One with zero non-archived Variants is a
 half-finished draft: the back-office lists it and says so plainly, and it is excluded from the
-read model. Variants arrive in issue 02, so at this issue's build point *every* MenuItem is in
+read model. Variants arrive in issue 02, so at this issue's build point _every_ MenuItem is in
 that state — which makes the exclusion easy to assert and easy to get wrong in the direction of
 shipping an empty menu.
 
@@ -95,3 +95,9 @@ The Categories rail is the left column of the Catalog screen and that placement 
 ## Depends on
 
 None.
+
+## Comments
+
+- A non-archived Category remains in the device read model even when it has no sellable MenuItems: the Category is a terminal tab and its ordering is meaningful.
+- Category and MenuItem names are trimmed, require 1–60 characters, and accept emoji. Tile truncation belongs to `checkout`.
+- Concurrent reorders are resolved by partial unique indexes on active sort positions. A conflicting write is refused rather than permitting duplicate positions.

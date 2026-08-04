@@ -44,7 +44,9 @@ export const storeFieldsInputSchema = z.object({
 });
 
 export const storeCreateInputSchema = storeFieldsInputSchema;
-export const storeUpdateInputSchema = storeFieldsInputSchema.extend({ id: z.string() });
+export const storeUpdateInputSchema = storeFieldsInputSchema.extend({
+  id: z.string(),
+});
 export const storeIdInputSchema = z.object({ id: z.string() });
 
 export const userOutputSchema = z.object({
@@ -175,6 +177,55 @@ export const paymentMethodUpdateInputSchema = z.object({
 
 export const paymentMethodIdInputSchema = z.object({ id: z.string() });
 
+const catalogNameSchema = z.string().trim().min(1).max(60);
+const catalogEntityIdInputSchema = z.object({ id: z.string() });
+const catalogReorderInputSchema = catalogEntityIdInputSchema.extend({
+  direction: z.enum(["up", "down"]),
+});
+
+export const categoryOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int(),
+  archivedAt: z.date().nullable(),
+  createdAt: z.date(),
+});
+
+export const menuItemOutputSchema = categoryOutputSchema.extend({
+  categoryId: z.string(),
+  sellable: z.boolean(),
+});
+
+export const catalogCategoryCreateInputSchema = z.object({
+  name: catalogNameSchema,
+});
+export const catalogCategoryRenameInputSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+});
+export const catalogMenuItemCreateInputSchema = z.object({
+  categoryId: z.string(),
+  name: catalogNameSchema,
+});
+export const catalogMenuItemRenameInputSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+});
+export const catalogMenuItemMoveInputSchema = z.object({
+  id: z.string(),
+  categoryId: z.string(),
+});
+export const catalogReadInputSchema = z.object({ storeId: z.string() });
+export const catalogReadOutputSchema = z.object({
+  categories: z.array(categoryOutputSchema),
+  menuItems: z.array(menuItemOutputSchema),
+  version: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export const catalogVersionOutputSchema = z.object({
+  version: z.string().regex(/^[0-9a-f]{64}$/),
+});
+
 // The Tenant-default row for a method, admin-only (issue 14). `image` carries
 // a data URL for the editor's preview and the hash triple the audit stores —
 // never a separate endpoint that could commit outside the one Save.
@@ -241,7 +292,10 @@ export const devicePendingCodeSchema = z.object({
   expiresAt: z.date(),
 });
 
-export const deviceRenameInputSchema = z.object({ id: z.string(), name: z.string().min(1) });
+export const deviceRenameInputSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+});
 export const deviceIdInputSchema = z.object({ id: z.string() });
 
 // Issue 17: `userId: null` clears the restriction back to open-to-all.
@@ -461,6 +515,35 @@ export const contract = {
     getPaymentDetails: oc
       .input(paymentMethodIdInputSchema)
       .output(paymentMethodPaymentDetailsOutputSchema.nullable()),
+  },
+  catalog: {
+    listCategories: oc.input(z.void()).output(z.array(categoryOutputSchema)),
+    listMenuItems: oc.input(z.void()).output(z.array(menuItemOutputSchema)),
+    createCategory: oc
+      .input(catalogCategoryCreateInputSchema)
+      .output(categoryOutputSchema.nullable()),
+    renameCategory: oc
+      .input(catalogCategoryRenameInputSchema)
+      .output(categoryOutputSchema.nullable()),
+    archiveCategory: oc.input(catalogEntityIdInputSchema).output(categoryOutputSchema.nullable()),
+    reactivateCategory: oc
+      .input(catalogEntityIdInputSchema)
+      .output(categoryOutputSchema.nullable()),
+    reorderCategory: oc.input(catalogReorderInputSchema).output(categoryOutputSchema.nullable()),
+    createMenuItem: oc
+      .input(catalogMenuItemCreateInputSchema)
+      .output(menuItemOutputSchema.nullable()),
+    renameMenuItem: oc
+      .input(catalogMenuItemRenameInputSchema)
+      .output(menuItemOutputSchema.nullable()),
+    moveMenuItem: oc.input(catalogMenuItemMoveInputSchema).output(menuItemOutputSchema.nullable()),
+    archiveMenuItem: oc.input(catalogEntityIdInputSchema).output(menuItemOutputSchema.nullable()),
+    reactivateMenuItem: oc
+      .input(catalogEntityIdInputSchema)
+      .output(menuItemOutputSchema.nullable()),
+    reorderMenuItem: oc.input(catalogReorderInputSchema).output(menuItemOutputSchema.nullable()),
+    read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
+    version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),
   },
   // `admin`-only, tenant-wide financial controls (issue 07). `null` for any
   // non-admin or unauthenticated caller — the same not-found shape store.get
