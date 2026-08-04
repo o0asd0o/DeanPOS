@@ -451,3 +451,199 @@ behaviour — `offline-sync`. Visual regression of the grid — the design contr
 _Specification derived from the `/plan-app` grilling session of 2026-07-31 and
 ADR-0002, ADR-0005, ADR-0006. Reuses the seam from `foundation` and the actors and
 wrong-tenant probe helper from `tenancy-identity`._
+
+## Direction
+
+### Optimise for
+
+**The cost of maintaining a real 40-item carinderia menu — on day 0 and on the Tuesday the
+pork price moves.** Every tie an issue does not settle goes to whichever option makes the
+second, third and thirtieth item cheaper than the first. Correctness of the model is
+already settled above; what is not settled is whether a manager will keep using it.
+
+### The obvious version, named
+
+Five nav leaves already routed (`catalog`, `add-ons`, `discounts`, `availability`). **Catalog:**
+h1 + one sentence + `Add menu item`, one `Card` holding a Categories rail left, a search field, and
+a `Table` of `MENU ITEM · CATEGORY · VARIANTS · STATUS · actions` with `useTableView` sort and
+`TablePagination`. `Edit` pushes `/catalog/$id` — a full-page form: `Name` `<Input>`, `Category`
+`<Select>`, `Archive` top-right, a Variants `Table` with `edit archive`, `+ Add variant` opening a
+`Sheet`, a Modifier-groups card with `+ Add modifier group` opening a second `Sheet` over the first,
+one `Save` bottom-right, `toast("Saved")`. **Add-ons:** the 038 list card; the editor is a
+`SheetForm` with Name, two Delta radios, a value `<Input type="number">`, a max-qty stepper, and a
+checkbox list of every Variant in the tenant. **Discounts:** the same list card, the same
+`SheetForm`, eight columns. **Availability:** a Store `<Select>`, a search field, a `Table` with an
+`[ON|OFF]` switch per row writing on tap, `Mark all available` top-right. **Read model:** one
+`catalog.read({ storeId })` returning nested JSON plus a `version` hash.
+
+### Rightly obvious — off the table, do not re-litigate
+
+- The 038 list shape: page header (title, one sentence, one primary action), then a single `Card`
+  holding `ListToolbar` + `Table` + `TablePagination`. Nothing between them.
+- The 049 detached non-modal right `Sheet` + 050 `SheetForm` for every editor that is a form.
+- Up/down `Button` pairs for every reorder, no drag surface (039). Categories, MenuItems, Variants
+  and Modifiers are four such lists; the accessible name names the list, not just the index.
+- Archive, never delete; `Reactivate` unconfirmed; the word `delete` nowhere (038/041/044).
+- 038's two alternating `role="status"` sr-only regions and inline failure copy.
+- The Categories rail as the left column of the Catalog screen. It is the terminal's grid order and
+  seeing it beside the items is why the mock draws it there.
+- Prices in pesos with two decimals always, `Centavos` at the boundary, tabular figures global (013).
+- The Discounts empty state as the default configuration, drawn (correctly) in the mock as the
+  primary state rather than an edge case.
+- One read-model procedure, one shot, version derived not hand-bumped.
+
+### Prohibitions
+
+1. **No `Sheet` opened from inside a `Sheet`.** 049's editor is `modal={false}` with no overlay, so
+   two stacked panels have no z-order story, and 050's own note says a nested form's submit bubbles
+   into the outer handler and fires a save nobody asked for. A Variant is edited in the row that
+   shows it, or the MenuItem editor is a route, not a sheet — pick one and never both.
+2. **No `<Select>` for the Delta type.** A dropdown whose two options silently change the meaning of
+   the number beside it is exactly how `0.5` becomes ₱0.50. Two radios, and the value field's own
+   affix renders `+₱` or `×` and changes as the radio changes, while the number is being typed.
+3. **No `type="number"` and no `₱` inside the price field.** `inputMode="decimal"`, the peso sign
+   rendered outside the input, parsed to `Centavos` at the boundary. `type="number"` ships a spinner
+   on a price and accepts `1e3`.
+4. **No multiselect combobox, and no checkbox list of every Variant, on the Add-on editor.**
+   `packages/ui` exports no combobox, and 054's `AvailabilityField` at 60 rows is unusable. Link from
+   the Variant side where the list is a handful; the Add-ons list keeps `LINKED VARIANTS` as
+   read-only text, the way 054 made `Available at` read-only text.
+5. **No `toast()` on a catalog save.** `sonner` is exported and it is the reflex. Six screens already
+   announce through 038's live regions and show failure inline; a toast reading "Saved" over a row
+   that still shows the old price is the pattern 038 refused.
+   **Overridden for the Availability screen's page-level Save on 2026-08-04 by the human; see
+   decision records 067 §6 and 068. The prohibition stands for every other catalog save, including
+   the MenuItem editor.**
+6. **No archive-a-Category dialog that reuses 041's Store copy.** Archiving a Category silently takes
+   every MenuItem and Variant under it off every terminal. Reuse the `DeactivateDialog` shape; the
+   body must state the count it takes with it, or it is a confirm that confirms nothing.
+7. **No `Not sellable` badge as the only signal.** The row's action reads `Add a variant`, not
+   `Edit`, so the half-finished draft the mock flags is one click from being fixed rather than one
+   click from a form the manager has to re-read.
+8. **No `+ Add modifier group` that creates a group belonging to the item it was created from.** That
+   is the mock's shape and it is the single most likely way this ships as per-item duplication — the
+   abandonment cause this PRD's Further Notes name. Creating from an item editor must show the
+   existing library first and require an explicit new-group step, and the linked-to count must be
+   visible **before** an edit is saved, not after.
+9. **No two money formatters.** `₱120.00` in the table and `120` in the editor is how a manager reads
+   ₱1,200 as ₱120.0. One helper, two decimals, everywhere.
+10. **No silent version.** After a write, the screen states the catalog version it just produced, in
+    the region that is already there. `offline-sync` is area 5; until it exists, nothing else in the
+    product tells a manager whether the till has the new price. One line of text, not a sync widget.
+
+### Collisions to route, not resolve here
+
+- **`availability-1440` draws an inline `[ ON | OFF ]` per row. Record 054 Q3 refused exactly that
+  control on payment methods** — for audit atomicity and one-form-one-Save, neither of which
+  obviously transfers: catalog availability has no audit table and is a one-tap mid-service action by
+  a manager standing at the counter. This is a genuine collision between a mock and a settled record.
+  **`Stakes: high`.** It must not be resolved by an implementer copying `AvailabilityField`.
+- **`menuitem-editor-1440` is the obvious version, drawn.** A full-page stacked form with a Save
+  bottom-right. It is not wrong, but it answers neither question that decides whether this catalog is
+  maintainable — where a shared ModifierGroup is created, and how many Variants a group is linked to
+  when you edit it. **`Stakes: high`**, and the reason `## Approaches considered` exists.
+- `catalog-list-1440` and `discounts-1440` are **not** flagged. The category rail is right, and the
+  Discounts mock drawing the empty state as the default is the least obvious thing in the set.
+
+### Chosen approach
+
+_(human picks one of the three below and writes it here before `/to-tickets`)_
+
+## Approaches considered
+
+### A — The catalog is one editable outline on one route
+
+No `/catalog/$id` route and no per-Variant sheet. The right pane of the Catalog screen is an
+outline: a MenuItem row that expands to reveal its Variants indented beneath it, price editable in
+the cell, attached group and add-on names as read-only chips per Variant. `+ Add variant` appends a
+row and focuses its name field. One dirty-state Save per expanded item.
+
+- **Axis: fewer steps to the common task.** The Tuesday price change is click-type-tab, and three
+  prices before service never leave the screen. Configuring forty items costs no navigations.
+- **Cost.** `Table` + `useTableView` do not nest and have no per-row dirty state, so this is a
+  component the codebase does not have. It breaks one-form-one-Save (040/045/054) and walks into the
+  hazard 054 Q3 option 3 named by name: dirty cells with the Save elsewhere is how an admin leaves
+  believing a change landed. ModifierGroups still have no home. Smallest departure of the three.
+- **True when** managers change prices far more often than they add items, and a tenant's menu stays
+  under roughly sixty Variants so the outline never pages.
+
+### B — ModifierGroups and Add-ons become a tenant-level library screen; item editors only link
+
+`Add-ons` becomes `Options` (or gains a second Card): ModifierGroups and Add-ons both live there as
+tenant-level objects, each showing its linked-to count and an `Applies to` picker. The MenuItem
+editor's group and add-on cells become pickers over that library and are never a creation surface.
+Linking runs in whichever direction has fewer things to pick — Variant → groups, Variant → add-ons.
+
+- **Axis: survives the case the obvious version silently drops.** The mock's `+ Add modifier group`
+  inside a MenuItem teaches every manager that a group belongs to the item they made it from. Thirty
+  items later there are thirty `Size` groups with drifting rates, which is the combinatorial
+  explosion the model exists to prevent, arriving through the UI instead of the schema.
+- **Cost.** First-run is worse: configuring the first item means going somewhere else first. The
+  sidebar already carries 22 rows. Two screens must agree about the same objects.
+- **True when** groups genuinely repeat across items — which the PRD asserts as its driving example
+  (Whole/Half on every ulam) and which is the whole argument for shared groups existing at all.
+
+### C — Every catalog screen carries a live read-model preview
+
+A right-hand pane on Catalog, Add-ons and Availability rendering exactly the tile grid the current
+configuration produces for the selected Store: the categories in order, the sellable Variants, the
+sold-out tiles, and the gaps where a MenuItem has no Variant. It re-renders from the same read-model
+payload the terminal fetches. The archive cascade becomes something you watch happen.
+
+- **Axis: recoverable from the mistake people actually make.** The failures that reach a customer are
+  "I thought I withdrew that" and "why isn't Adobo on the till". The cascade table in this PRD has
+  six rows and two of them produce disappearances no manager would predict — archiving the last
+  Modifier of a `required-one` group removes that group's Variants. Nothing in the product renders
+  the read model, which is the only thing that is true.
+- **Cost.** It builds a POS grid renderer in the back office, and the POS grid belongs to `checkout`
+  (area 4) — either `checkout` reuses this one or the two diverge, and divergence makes the preview a
+  lie, which is worse than no preview. It also spends the width the category rail and the table are
+  already using at 1440.
+- **True when** the cascade rules are as surprising in practice as they are on paper, and the support
+  load is "it's not showing at the till" rather than "I can't find where to type it".
+
+### Cut, and why
+
+**Text authoring** — one textarea where the whole menu is typed with indentation encoding the
+hierarchy, parsed live into a preview, saved in one transaction. It beats every option above on the
+axis the Problem Statement actually names (a forty-item menu in one sitting versus roughly 240
+interactions), and the target user already has the menu written down. Cut because it argues directly
+with an explicit Out of Scope line whose trigger — *"onboarding a tenant with a menu too large to
+type"* — has not fired, and a parser plus its line-numbered error surface is not a thing to build on
+a guess. **Named here so that when self-serve signup arrives, this is the option to move to, and
+nobody re-derives it from scratch.**
+
+## Scenarios
+
+Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) · `L` later (name the slice)
+
+| #  | Scenario                                                                                          | Status | Note |
+|----|---------------------------------------------------------------------------------------------------|--------|------|
+| 1  | Category archived while a terminal is offline; it keeps selling from the cached menu for hours      | ?      |      |
+| 2  | Two managers edit the same shared ModifierGroup from two browsers; last write wins silently         | ?      |      |
+| 3  | A Variant's price is *lowered* below a linked absolute Delta, going negative from the price side    | ?      |      |
+| 4  | The only Modifier of a `required-one` group is archived at 11:40am; its Variants vanish mid-service | ?      |      |
+| 5  | Un-archiving a Category whose MenuItems were *separately* archived while it was away                | ?      |      |
+| 6  | A Variant is renamed while a cashier has it in an open cart on the terminal                         | ?      |      |
+| 7  | Availability toggled back ON while the terminal is offline and still caches "sold out"              | ?      |      |
+| 8  | A manager assigned to two Stores toggles availability in a tab left open on the wrong Store         | ?      |      |
+| 9  | A tenant with 400 Variants fetches the one-shot read model over a phone tether                      | ?      |      |
+| 10 | An Add-on's max quantity is lowered from 3 to 1 while a cart already holds 2                        | ?      |      |
+| 11 | A no-op save (same values) — does the derived version move, and should it                           | ?      |      |
+| 12 | Two Modifiers with the same name in two groups linked to one Variant; the cashier sees "Half" twice | ?      |      |
+| 13 | A MenuItem is moved to another Category while that Category is being archived in another tab        | ?      |      |
+| 14 | A price pasted as `₱1,200.00`, or typed as `120.505`, or as `1e3`                                   | ?      |      |
+| 15 | Two `required-one` groups on one Variant whose defaults compose (×0.5 × ×0.5) unnoticed             | ?      |      |
+| 16 | A Category with zero non-archived MenuItems — does it still render as a tab on the terminal grid    | ?      |      |
+| 17 | A new Store is created; nothing says whether its Variants start available or unavailable            | ?      |      |
+| 18 | A Store is deactivated in `tenancy-identity` while it still holds availability rows                 | ?      |      |
+| 19 | A brand-new tenant's Device enrols and fetches a read model with zero Categories                    | ?      |      |
+| 20 | A manager's Store assignment is revoked while their Availability screen is open on that Store       | ?      |      |
+| 21 | Two managers reorder the same list concurrently and two rows land on the same sort position         | ?      |      |
+| 22 | A price goes up and back down between two fetches; a content-hash version is equal at both ends     | ?      |      |
+| 23 | A Discount's `requiresReference` label is renamed after sales captured references under the old one | ?      |      |
+| 24 | Save clicked twice on a slow connection; two Variants named "Adobo" under one MenuItem              | ?      |      |
+| 25 | A group set to `many` with maximum 0 — configured, legal-looking, unsatisfiable                     | ?      |      |
+| 26 | An Add-on stays linked to a Variant that is later archived; its linked count counts a dead link     | ?      |      |
+| 27 | A 60-character Tagalog dish name, or emoji, in a name that has to fit a terminal tile               | ?      |      |
+| 28 | A Variant un-archived while its MenuItem is still archived                                          | ?      |      |
