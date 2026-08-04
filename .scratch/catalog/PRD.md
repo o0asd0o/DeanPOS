@@ -317,7 +317,12 @@ leak to a competitor on the same platform.
 - An Add-on offered on one Variant is not offered on another.
 - A cashier cannot mutate anything in this area.
 - A manager cannot toggle availability at a Store they are not assigned to.
-- The version changes after any catalog write and does not change after a read.
+- The version changes after any catalog write **that changes what the read model
+  contains**, and does not change after a read. It is a content fingerprint (record 069),
+  so a write that leaves the payload identical — a Save with no edits, or a price moved up
+  and back down between two fetches — returns the version it already had. That is correct:
+  a terminal holding that version holds a correct copy. The property to assert is the one
+  that matters and holds in both directions: **equal versions mean equal payloads.**
 - **An availability toggle is a catalog write and moves the version** — asserted on its
   own, because it is the one write most likely to be treated as "not really catalog", and
   a version that does not move leaves every offline terminal selling a sold-out dish until
@@ -657,7 +662,7 @@ Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) 
 | 8  | A manager assigned to two Stores toggles availability in a tab left open on the wrong Store         | Y      | Answered by 067 §5 — Store is a route search param, so the draft cannot span two. Assert it |
 | 9  | A tenant with 400 Variants fetches the one-shot read model over a phone tether                      | Y      | The read model is this PRD's. Assert a payload bound at a realistic size; do not paginate it |
 | 10 | An Add-on's max quantity is lowered from 3 to 1 while a cart already holds 2                        | L      | `checkout` — the stepper enforces at the till |
-| 11 | A no-op save (same values) — does the derived version move, and should it                           | Y      | The `## Testing Decisions` / `## Implementation Decisions` contradiction. **Decider first** — `offline-sync` is built against the answer |
+| 11 | A no-op save (same values) — does the derived version move, and should it                           | Y      | Decided by record 069: the version **does not** move, and the payload is byte-identical. **Use a Variant or an availability no-op — not a Discount** (see 069's carve-out) |
 | 12 | Two Modifiers with the same name in two groups linked to one Variant; the cashier sees "Half" twice | L      | Revisit if reported. No uniqueness rule exists and inventing one is scope |
 | 13 | A MenuItem is moved to another Category while that Category is being archived in another tab        | Y      | Concurrency on the cascade. Cheap to constrain, expensive to discover |
 | 14 | A price pasted as `₱1,200.00`, or typed as `120.505`, or as `1e3`                                   | Y      | Prohibition 3 governs the input; this is its test |
@@ -668,7 +673,7 @@ Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) 
 | 19 | A brand-new tenant's Device enrols and fetches a read model with zero Categories                    | Y      | Empty read model. Cheap, and it is every tenant's first request |
 | 20 | A manager's Store assignment is revoked while their Availability screen is open on that Store       | L      | `hardening` — authorisation revocation timing is area 9 |
 | 21 | Two managers reorder the same list concurrently and two rows land on the same sort position         | Y      | 039 owns reordering; four lists inherit it. Needs a stated tiebreak |
-| 22 | A price goes up and back down between two fetches; a content-hash version is equal at both ends     | Y      | Same contradiction as 11, same decider record |
+| 22 | A price goes up and back down between two fetches; a content-hash version is equal at both ends     | Y      | Decided by record 069: the version at both ends is **equal**, and so is the payload, so the terminal's cached copy is correct. A terminal that fetched *during* the window holds the intermediate version and re-fetches, because it differs |
 | 23 | A Discount's `requiresReference` label is renamed after sales captured references under the old one | Y      | Assert capture-at-sale, per ADR-0010's principle. One test |
 | 24 | Save clicked twice on a slow connection; two Variants named "Adobo" under one MenuItem              | Y      | Idempotency. 067 §3 already requires it for availability; the same must hold here |
 | 25 | A group set to `many` with maximum 0 — configured, legal-looking, unsatisfiable                     | Y      | A `CHECK`, not a comment |
