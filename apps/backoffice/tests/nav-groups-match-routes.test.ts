@@ -27,7 +27,9 @@ describe("every reachable _shell route has a NAV_GROUPS entry", () => {
   const advertised = new Set<string>(
     NAV_GROUPS.flatMap((group) => group.items.map((item) => item.to as string)),
   );
-  const entryLess = new Set(["/", "/account"]);
+  // Detail routes are reached from a list, not the sidebar (MenuItem editor = /catalog/$id).
+  // Pathless file `catalog_.$id` surfaces as route id `/_shell/catalog_/$id` → to `/catalog_/$id`.
+  const entryLess = new Set(["/", "/account", "/catalog_/$id", "/catalog/$id"]);
 
   for (const id of Object.keys(router.routesById)) {
     if (!id.startsWith("/_shell/")) continue;
