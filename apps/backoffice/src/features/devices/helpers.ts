@@ -24,8 +24,8 @@ export type EnrolmentCode = {
 
 export type PendingCode = EnrolmentCode & { id: string };
 
-// The assignment picker's own shape (issue 17) — just enough of
-// `userOutputSchema` to list and filter a Store's eligible Users.
+// The assignment picker's own shape — enough of `userOutputSchema` to name a
+// User. Eligibility is filtered before a value narrows to this.
 export type AssignableUser = {
   id: string;
   firstName: string;

@@ -1,6 +1,6 @@
 # 17 — The single-employee terminal
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** enhancement
 
 ## What to build
@@ -180,3 +180,44 @@ manager sign-in unlock, unassigned-employee message — WCAG 2.2 AA checked), an
 
 Gate run exactly as specified: `vp run -w codegen`, `vp check`, `vp run --no-cache -r check` (0/10
 cache hit), `vp run --no-cache -r test` (0/10 cache hit, 726 tests green — 713 baseline + 13 new).
+
+---
+
+**Closed 2026-08-04.** Merged to `main`; gate green at **730** tests from an empty database, migration
+proven from empty and applied to `DeanPOS_dev`. 1 fix round of the 2 available, plus three
+line-deletions the orchestrator applied directly. Reviewed both rounds by a second model — Codex was
+rate-limited, so the judgement ran on Opus 5 — final verdict **PASS on both axes**.
+
+**The review caught the defect this issue exists to prevent.** Criterion 5's payload assertion was
+**structurally incapable of failing**: `storeA1`'s only active Users were the assignee and two
+`manager`-or-above accounts, so the filter removed nobody and the restricted roster was byte-identical
+to the open one — *deleting the filter entirely left the test green*, and the next test asserted the
+open roster was those same three ids, which is proof the two sets never diverge. A second active
+cashier with her own PIN hash is now seeded at that Store, and her id, display name **and hash** are
+each asserted absent.
+
+**Two fail-open shapes, the same mistake twice.** `DevicePrincipal.assignedUserId` was optional and
+`getPinRoster`'s parameter defaulted to `null`, so *forgetting* either one compiled into "ship the
+whole Store's roster, every PIN hash included, to a restricted till". Both are required now, and the
+ten `asDevice({...})` literals the optionality existed to spare were updated — which is what makes the
+type change bite.
+
+**The migration silently weakened a shipped constraint.** `(old_value IS NULL) = (field <> 'name')`
+forced a rename to record the previous name; the first replacement dropped that requirement while a
+comment two lines above claimed it had not. Now a `CASE` that keeps `name` requiring a non-null
+`old_value`, exempts `assigned_user`, and leaves everything else requiring null — verified row by row,
+with a regression test asserting **both** directions on the pre-existing fields.
+
+Also caught: criterion 10 had no assertion at all ("exercised implicitly"), and now proves the two
+unlock paths share one Device counter by reading `state.device.failures === 10` after five failures on
+each; the assignment dialog stayed mounted across targets, so a stale selection would have assigned a
+second Device to the first one's employee; the accessibility check ran before the manager dialog
+opened; and the lock copy named the locked User where the open screen deliberately does not.
+
+**Open for the human — a convention that lives only in a `const`.** Clearing a restriction writes
+`new_value: ""`, because `DeviceAudit.new_value` is `NOT NULL` per record 056 Q1 and a real NULL is
+not representable. Naming it `CLEARED_SENTINEL` improved the code and changed nothing about the data:
+**every future reader or exporter of `DeviceAudit` must be told that `""` means cleared.** The
+reviewer's judgement, which the orchestrator accepts, is that this is the least-bad option — the
+alternative relaxes `NOT NULL` for every audit field to serve one case — but that it belongs in a
+decision record rather than a constant in one handler. **Not written; routed to the human.**

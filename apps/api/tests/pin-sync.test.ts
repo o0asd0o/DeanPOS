@@ -344,36 +344,40 @@ describe("terminal.pinSync — a restricted Device", () => {
       .where("id", "=", cashierA2)
       .execute();
 
-    const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
-    const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
-    const assigned = await asAdmin.client.device.setAssignedUser({
-      id: device.deviceId,
-      userId: cashierA,
-    });
-    expect(assigned?.assignedUserId).toBe(cashierA);
+    try {
+      const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
+      const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
+      const assigned = await asAdmin.client.device.setAssignedUser({
+        id: device.deviceId,
+        userId: cashierA,
+      });
+      expect(assigned?.assignedUserId).toBe(cashierA);
 
-    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
-    expect(result).not.toBeNull();
-    if (!result) return;
-    expect(result.assignedUserId).toBe(cashierA);
-    expect(result.assignedUserStatus).toBeNull();
+      const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+      expect(result).not.toBeNull();
+      if (!result) return;
+      expect(result.assignedUserId).toBe(cashierA);
+      expect(result.assignedUserStatus).toBeNull();
 
-    const userIds = result.users.map((u) => u.userId).sort();
-    // adminA and managerA both qualify as canApproveOverride at this Store;
-    // cashierA is the assigned User. cashierElsewhere and deactivatedA were
-    // already excluded from the open roster and stay excluded here.
-    expect(userIds).toStrictEqual([adminA, managerA, cashierA].sort());
-    expect(userIds).not.toContain(cashierA2);
-    expect(result.users.map((u) => u.displayName)).not.toContain("Second Cashier");
-    expect(result.users.map((u) => u.pinHash)).not.toContain(pinHashCashierA2);
-    for (const user of result.users) {
-      if (user.userId === cashierA) continue;
-      expect(user.canApproveOverride).toBe(true);
+      const userIds = result.users.map((u) => u.userId).sort();
+      // adminA and managerA both qualify as canApproveOverride at this Store;
+      // cashierA is the assigned User. cashierElsewhere and deactivatedA were
+      // already excluded from the open roster and stay excluded here.
+      expect(userIds).toStrictEqual([adminA, managerA, cashierA].sort());
+      expect(userIds).not.toContain(cashierA2);
+      expect(result.users.map((u) => u.displayName)).not.toContain("Second Cashier");
+      expect(result.users.map((u) => u.pinHash)).not.toContain(pinHashCashierA2);
+      for (const user of result.users) {
+        if (user.userId === cashierA) continue;
+        expect(user.canApproveOverride).toBe(true);
+      }
+    } finally {
+      // A failure here otherwise leaves an extra active cashier at storeA1 and
+      // cascades into the open-roster test below, hiding which one really broke.
+      await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierA2).execute();
+      await ownerDb.deleteFrom("UserRole").where("user_id", "=", cashierA2).execute();
+      await ownerDb.deleteFrom("User").where("id", "=", cashierA2).execute();
     }
-
-    await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierA2).execute();
-    await ownerDb.deleteFrom("UserRole").where("user_id", "=", cashierA2).execute();
-    await ownerDb.deleteFrom("User").where("id", "=", cashierA2).execute();
   });
 
   it("clearing the restriction restores the full open-to-all roster on the next sync", async () => {
