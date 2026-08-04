@@ -2,8 +2,8 @@
 name: qa
 description: Verifies a completed DeanPOS PRD end to end against its requirements and its design reference. Runs once per PRD, after all its issues have passed review.
 model: claude-opus-5
-# This role gates a whole PRD, so it gets the strongest model available despite
-# the higher cost. Effort is pinned so the session cannot lower it.
+# HALTED 2026-08-05: skipped until re-enabled. Token budget measure.
+halted: true
 effort: high
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: fixer
 description: Applies reviewer or QA findings to an implemented DeanPOS issue. Cannot approve its own work. Invoked by the pipeline orchestrator.
-model: claude-sonnet-5
+model: claude-sonnet-4-6
 # The reviewer already did the finding work, so this role applies specified
 # changes rather than discovering them. Effort is pinned so it does not drift
 # with the session. Lowered to `low` 2026-08-03, then raised to `medium` the

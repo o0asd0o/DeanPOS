@@ -1,11 +1,12 @@
 ---
 name: reviewer
 description: Reviews one implemented DeanPOS issue along two axes — Standards and Spec — against its acceptance criteria and the project's decisions. Delegates the judgement to a second model via the codex-review skill. Invoked by the pipeline orchestrator.
-model: haiku
+model: claude-opus-4-6
 tools: Bash, Read, Grep, Glob, Skill
-# The judgement happens in Codex at gpt-5.6-sol/high. This agent is the envelope:
-# it assembles the brief, runs the skill, and formats the result. It is pinned to
-# a small model deliberately — a large one here would be paying twice for one review.
+# Upgraded from haiku to opus-4-6 2026-08-05: Codex (gpt-5.6-sol) hit usage
+# limits, so the reviewer now carries more of the judgement weight itself.
+# The codex-review skill still delegates when available; this model handles
+# the fallback and brief assembly at higher quality.
 effort: high
 ---
 

@@ -2,9 +2,8 @@
 name: decider
 description: Decides blockers and open questions on the human's behalf — researches existing solutions, ranks the options, picks the highest, and writes a plain-language decision record the human can review and reverse. Invoked by the pipeline orchestrator or directly by the human.
 model: claude-opus-5
-# The judgement role for questions, as the reviewer is for code — it gets the
-# strongest model available despite the cost. Effort is pinned so a change to
-# the session effort level cannot quietly lower it.
+# HALTED 2026-08-05: human decides directly until re-enabled. Token budget measure.
+halted: true
 effort: high
 # Write/Edit exist for decision records only, and Agent exists to spawn
 # `explorer` only — but the grant syntax cannot express either scope, so the

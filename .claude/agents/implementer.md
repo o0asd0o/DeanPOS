@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: Implements one DeanPOS issue test-first, in an isolated worktree, and commits it. Invoked by the pipeline orchestrator, never directly by a human.
-model: claude-sonnet-5
+model: claude-sonnet-4-6
 # Lowered to `low` 2026-08-03 on the premise that the issue already specifies the
 # work and the decision records specify the rest, so this role executes a plan
 # rather than deriving one. Raised back to `high` 2026-08-04: the premise held,
