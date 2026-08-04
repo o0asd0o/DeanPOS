@@ -197,7 +197,10 @@ not have; 040 refused a "discard changes?" prompt on exactly that ground.
 2. **Availability is a positive join — presence of a `(method, store)` row means available**, current
    state only, no effective dating; `PaymentMethodAudit` is the sole history, because two copies of
    one fact is 045 §4 clause 3's hazard. **Named cost:** a new Store starts with `cash` alone, so
-   adding an outlet means visiting this screen. That is the fail-safe direction.
+   adding an outlet means visiting this screen. That is the fail-safe direction **for a tender**.
+   **Catalog availability goes the other way on purpose** — [071](071-catalog-availability-is-a-negative-join-and-a-new-variant-is-sellable-everywhere.md)
+   made `VariantUnavailability` a negative join, because a dish that fails closed does not exist at
+   the till. This clause is not overturned; the two objects fail safe in opposite directions.
 3. **`cash` is available everywhere unconditionally, holds no join rows, renders `All stores`, has no
    `Edit`, and its actions cell reads `Always on`.** Turning cash off at a Store would configure a
    till into a state where nothing can be sold — the hazard the partial unique index prevents.

@@ -227,7 +227,9 @@ references it.
 configuration most tenants will keep — it is not an edge case to be improvised at build
 time.
 
-**Availability is per Store, and is not stock.** A boolean toggle per (Variant, Store).
+**Availability is per Store, and is not stock.** A Variant is available at every Store unless
+a row says otherwise — the table is an exception list, so a new Variant is sellable everywhere
+the moment it is created and a new Store carries the whole menu on day one (record 071).
 Quantity tracking, depletion, and recipes are non-goals for v1 — this is the F&B "86'd"
 switch, nothing more. It lives here rather than in a future inventory area because the
 terminal needs it and it costs one table.
@@ -668,8 +670,8 @@ Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) 
 | 14 | A price pasted as `₱1,200.00`, or typed as `120.505`, or as `1e3`                                   | Y      | Prohibition 3 governs the input; this is its test |
 | 15 | Two `required-one` groups on one Variant whose defaults compose (×0.5 × ×0.5) unnoticed             | Y      | Money semantics, decider-grade. Composition order is stored or it is guessed |
 | 16 | A Category with zero non-archived MenuItems — does it still render as a tab on the terminal grid    | Y      | Read-model shape, and the terminal has no other source |
-| 17 | A new Store is created; nothing says whether its Variants start available or unavailable            | Y      | Routed out of 067 as join polarity. **Needs its own record before the availability slice** |
-| 18 | A Store is deactivated in `tenancy-identity` while it still holds availability rows                 | Y      | FK behaviour across an area boundary. Must be decided here, not discovered there |
+| 17 | A new Store is created; nothing says whether its Variants start available or unavailable            | Y      | Answered by 071 — negative join, so a new Store carries the whole menu and a new Variant is sellable everywhere at once. Assert both |
+| 18 | A Store is deactivated in `tenancy-identity` while it still holds availability rows                 | Y      | Answered by 071 §4 — rows survive deactivation, a Store is never deleted, so the `RESTRICT` FK is never exercised and nothing is cleaned up |
 | 19 | A brand-new tenant's Device enrols and fetches a read model with zero Categories                    | Y      | Empty read model. Cheap, and it is every tenant's first request |
 | 20 | A manager's Store assignment is revoked while their Availability screen is open on that Store       | L      | `hardening` — authorisation revocation timing is area 9 |
 | 21 | Two managers reorder the same list concurrently and two rows land on the same sort position         | Y      | 039 owns reordering; four lists inherit it. Needs a stated tiebreak |
@@ -679,4 +681,4 @@ Status: `?` unreviewed · `Y` must handle · `N` out of scope (reason required) 
 | 25 | A group set to `many` with maximum 0 — configured, legal-looking, unsatisfiable                     | Y      | A `CHECK`, not a comment |
 | 26 | An Add-on stays linked to a Variant that is later archived; its linked count counts a dead link     | Y      | **Directly undermines B.** The linked-to count is the whole mechanism; a count that lies defeats it |
 | 27 | A 60-character Tagalog dish name, or emoji, in a name that has to fit a terminal tile               | Y      | The length bound is this PRD's; tile rendering is `checkout`'s. Set the bound, flag the render |
-| 28 | A Variant un-archived while its MenuItem is still archived                                          | Y      | Cascade correctness, and the mirror of row 5 |
+| 28 | A Variant un-archived while its MenuItem is still archived                                          | Y      | Answered by 071 §3 — the row survives an archive and the dish returns sold out. Cascade correctness is still the mirror of row 5 |
