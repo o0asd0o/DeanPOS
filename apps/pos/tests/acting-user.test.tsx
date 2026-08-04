@@ -48,7 +48,13 @@ describe("ActingUserProvider", () => {
       storeId: "s1",
       storeName: "Downtown",
     };
-    const roster = { storeId: "s1", syncedAt: "now", users: [] };
+    const roster = {
+      storeId: "s1",
+      syncedAt: "now",
+      users: [],
+      assignedUserId: null,
+      assignedUserStatus: null,
+    };
     writeDeviceToken("token-value", identity);
     writePinRoster(roster);
 

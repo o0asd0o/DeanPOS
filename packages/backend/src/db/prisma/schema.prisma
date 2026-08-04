@@ -103,6 +103,7 @@ model User {
   paymentMethodAudits  PaymentMethodAudit[]
   deviceAudits         DeviceAudit[]
   overridesApproved    Override[] @relation("overridesApproved")
+  assignedDevices      Device[]   @relation("deviceAssignedUser")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -329,8 +330,12 @@ model Device {
   enrolledAt  DateTime  @default(now()) @map("enrolled_at")
   lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
   revokedAt   DateTime? @map("revoked_at")
+  // Issue 17: NULL is open-to-all, the default and every pre-existing Device's
+  // state after this migration. Set, the unlock screen offers only this User.
+  assignedUserId String?         @map("assigned_user_id")
   tenant         Tenant          @relation(fields: [tenantId], references: [id])
   store          Store           @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  assignedUser   User?           @relation("deviceAssignedUser", fields: [tenantId, assignedUserId], references: [tenantId, id])
   enrolmentCodes EnrolmentCode[]
   deviceAudits   DeviceAudit[]
   overrides      Override[]

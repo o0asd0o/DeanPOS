@@ -6,6 +6,7 @@ import { consumeEnrolmentCode } from "backend/src/device/db-operations/commands/
 import { hashDeviceToken } from "backend/src/device/token.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
+import { seedTenantUser } from "../src/seed-tenant-user.ts";
 import { createTestSeam } from "../src/test-seam.ts";
 import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
@@ -87,6 +88,9 @@ afterAll(async () => {
   // referencing rows first.
   await ownerDb.deleteFrom("EnrolmentCode").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Device").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  // Issue 17's tests assign Users to Stores via UserStore — clear those
+  // rows before deleting the Users (ON DELETE RESTRICT).
+  await ownerDb.deleteFrom("UserStore").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
@@ -1170,5 +1174,172 @@ describe("Device and EnrolmentCode RLS isolation", () => {
       db.selectFrom("EnrolmentCode").selectAll().where("tenant_id", "=", tenantB).execute(),
     );
     expect(asBScoped.length).toBe(ownerCodesForB.length);
+  });
+});
+
+// Issue 17: the single-employee terminal. `admin`-only (record 056 Q5), and
+// only a User currently assigned to the Device's own Store may be chosen —
+// refused server-side, not merely absent from a picker.
+describe("device.setAssignedUser", () => {
+  async function assignStore(tenantId: string, userId: string, storeId: string) {
+    await withTenantScope(seam.db, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: userId,
+          store_id: storeId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+  }
+
+  it("an admin assigns a User currently assigned to the Device's Store, and it is audited with the old and new value", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "SA1");
+    if (!exchanged.ok) throw new Error("setup failed");
+    await assignStore(tenantA, cashierA, storeA1);
+
+    const result = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.setAssignedUser({ id: exchanged.deviceId, userId: cashierA });
+
+    expect(result?.assignedUserId).toBe(cashierA);
+
+    const audit = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .selectAll()
+        .where("device_id", "=", exchanged.deviceId)
+        .where("field", "=", "assigned_user")
+        .execute(),
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0]!.old_value).toBeNull();
+    expect(audit[0]!.new_value).toBe(cashierA);
+  });
+
+  it("clearing the restriction is audited with the old assignee as old_value and no new_value", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "SA2");
+    if (!exchanged.ok) throw new Error("setup failed");
+    await assignStore(tenantA, cashierA, storeA1);
+    const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
+    await asAdmin.client.device.setAssignedUser({ id: exchanged.deviceId, userId: cashierA });
+
+    const result = await asAdmin.client.device.setAssignedUser({
+      id: exchanged.deviceId,
+      userId: null,
+    });
+    expect(result?.assignedUserId).toBeNull();
+
+    const audit = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .selectAll()
+        .where("device_id", "=", exchanged.deviceId)
+        .where("field", "=", "assigned_user")
+        .orderBy("created_at", "desc")
+        .execute(),
+    );
+    expect(audit[0]!.old_value).toBe(cashierA);
+    expect(audit[0]!.new_value).toBe("");
+  });
+
+  it("refuses a User not currently assigned to the Device's Store — not merely absent from a picker", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "SA3");
+    if (!exchanged.ok) throw new Error("setup failed");
+    // cashierElsewhere-style: a User with no assignment to storeA1 at all.
+    const outsider = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await seedTenantUser(ownerDb, {
+      id: outsider,
+      tenantId: tenantA,
+      email: `assign-outsider-${randomUUID()}@dev.test`,
+      passwordHash,
+      role: "cashier",
+    });
+    await assignStore(tenantA, outsider, storeA2);
+
+    const result = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.setAssignedUser({ id: exchanged.deviceId, userId: outsider });
+    expect(result).toBeNull();
+
+    const stored = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["assigned_user_id"])
+        .where("id", "=", exchanged.deviceId)
+        .executeTakeFirst(),
+    );
+    expect(stored?.assigned_user_id).toBeNull();
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", outsider).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", outsider).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", outsider).execute();
+  });
+
+  it("a manager cannot set or clear the restriction — same as every other Device action", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "SA4");
+    if (!exchanged.ok) throw new Error("setup failed");
+    await assignStore(tenantA, cashierA, storeA1);
+
+    const result = await seam.actors
+      .asTenant(tenantA, { userId: managerA, role: "manager" })
+      .client.device.setAssignedUser({ id: exchanged.deviceId, userId: cashierA });
+    expect(result).toBeNull();
+  });
+
+  it("wrong-tenant probe [device.setAssignedUser]: Tenant A cannot restrict Tenant B's Device; B's row is untouched", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Assign Target", code: "BA" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    const cashierBId = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await seedTenantUser(ownerDb, {
+      id: cashierBId,
+      tenantId: tenantB,
+      email: `assign-cashier-b-${randomUUID()}@dev.test`,
+      passwordHash,
+      role: "cashier",
+    });
+    await assignStore(tenantB, cashierBId, storeB);
+
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.setAssignedUser({ id: exchangedAsB.deviceId, userId: cashierBId });
+    expect(ownerSees?.assignedUserId).toBe(cashierBId);
+
+    await expectWrongTenantRefusal({
+      path: "device.setAssignedUser",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.setAssignedUser({ id: exchangedAsB.deviceId, userId: null }),
+    });
+
+    const stillAssigned = await withTenantScope(seam.db, tenantB, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["assigned_user_id"])
+        .where("id", "=", exchangedAsB.deviceId)
+        .executeTakeFirst(),
+    );
+    expect(stillAssigned?.assigned_user_id).toBe(cashierBId);
+
+    await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.setAssignedUser({ id: exchangedAsB.deviceId, userId: null });
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierBId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", cashierBId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", cashierBId).execute();
   });
 });

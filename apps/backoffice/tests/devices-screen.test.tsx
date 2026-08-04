@@ -48,6 +48,7 @@ afterAll(async () => {
   await ownerDb.deleteFrom("DeviceAudit").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("EnrolmentCode").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Device").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -190,6 +191,119 @@ describe("the Devices screen — as an admin", () => {
     expect(within(revokedRow).getByRole("button", { name: /^Rename/ })).toBeTruthy();
 
     await expectNoAxeViolations(container);
+  });
+
+  it("issue 17: restricts a Device to one eligible User, then clears the restriction — WCAG 2.2 AA on the dialog", async () => {
+    const deviceId = randomUUID();
+    const cashierId = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: cashierId,
+        tenant_id: tenantId,
+        email: `devices-screen-cashier-${randomUUID()}@pm.test`,
+        password_hash: passwordHash,
+        first_name: "Fay",
+        last_name: "Ibarra",
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: cashierId,
+          store_id: storeId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Device")
+        .values({
+          id: deviceId,
+          tenant_id: tenantId,
+          store_id: storeId,
+          name: "Counter 17",
+          code: "C17",
+          token_hash: "irrelevant-hash-17",
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/devices",
+    });
+    cleanup = async () => {
+      await db.destroy();
+    };
+
+    await waitFor(() => expect(screen.getByText("Counter 17")).toBeTruthy());
+    const row = screen.getByText("Counter 17").closest("tr")!;
+    // The accessible name is the action ("Restrict {name}"), same as Rename
+    // and Revoke — the visible label ("Restrict"/"Restricted") is separate.
+    fireEvent.click(within(row).getByRole("button", { name: "Restrict Counter 17" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Restrict Counter 17" })).toBeTruthy(),
+    );
+    await expectNoAxeViolations(screen.getByRole("dialog"));
+
+    fireEvent.click(screen.getByRole("combobox"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Fay Ibarra" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("option", { name: "Fay Ibarra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const updatedRow = screen.getByText("Counter 17").closest("tr")!;
+      expect(within(updatedRow).getByText("Restricted")).toBeTruthy();
+    });
+
+    const stored = await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["assigned_user_id"])
+        .where("id", "=", deviceId)
+        .executeTakeFirst(),
+    );
+    expect(stored?.assigned_user_id).toBe(cashierId);
+
+    // Clear it back to open-to-all.
+    const restrictedRow = screen.getByText("Counter 17").closest("tr")!;
+    fireEvent.click(within(restrictedRow).getByRole("button", { name: "Restrict Counter 17" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Restrict Counter 17" })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("combobox"));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Open to all" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("option", { name: "Open to all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const clearedRow = screen.getByText("Counter 17").closest("tr")!;
+      expect(within(clearedRow).getByText("Restrict")).toBeTruthy();
+    });
+
+    const clearedStored = await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["assigned_user_id"])
+        .where("id", "=", deviceId)
+        .executeTakeFirst(),
+    );
+    expect(clearedStored?.assigned_user_id).toBeNull();
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", cashierId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", cashierId).execute();
   });
 });
 

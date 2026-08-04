@@ -172,12 +172,17 @@ afterAll(async () => {
 });
 
 describe("terminal.pinSync", () => {
-  it("returns exactly the root keys storeId, syncedAt, users — no ok field", async () => {
+  it("returns exactly the root keys storeId, syncedAt, users, assignedUserId, assignedUserStatus — no ok field", async () => {
     const device = await enrolDeviceAt(storeA1, "PS0", adminA, tenantA);
     const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
 
     expect(result).not.toBeNull();
-    expect(Object.keys(result!).sort()).toStrictEqual(["storeId", "syncedAt", "users"].sort());
+    expect(Object.keys(result!).sort()).toStrictEqual(
+      ["storeId", "syncedAt", "users", "assignedUserId", "assignedUserStatus"].sort(),
+    );
+    // An open-to-all Device (issue 17's default, no data migration needed).
+    expect(result!.assignedUserId).toBeNull();
+    expect(result!.assignedUserStatus).toBeNull();
   });
 
   it("contains exactly that Store's active Users: admin plus assigned cashiers/managers, no other Store, no deactivated User", async () => {
@@ -315,3 +320,132 @@ describe("terminal.pinSync", () => {
     });
   });
 });
+
+// Issue 17: the single-employee terminal. The restriction lives entirely in
+// this payload — `assignedUserId` non-null narrows `users` server-side.
+describe("terminal.pinSync — a restricted Device", () => {
+  it("carries only the assigned User and this Store's manager-or-above, and no one else", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS6", adminA, tenantA);
+    const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
+    const assigned = await asAdmin.client.device.setAssignedUser({
+      id: device.deviceId,
+      userId: cashierA,
+    });
+    expect(assigned?.assignedUserId).toBe(cashierA);
+
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.assignedUserId).toBe(cashierA);
+    expect(result.assignedUserStatus).toBeNull();
+
+    const userIds = result.users.map((u) => u.userId).sort();
+    // adminA and managerA both qualify as canApproveOverride at this Store;
+    // cashierA is the assigned User. cashierElsewhere and deactivatedA were
+    // already excluded from the open roster and stay excluded here.
+    expect(userIds).toStrictEqual([adminA, managerA, cashierA].sort());
+    for (const user of result.users) {
+      if (user.userId === cashierA) continue;
+      expect(user.canApproveOverride).toBe(true);
+    }
+  });
+
+  it("clearing the restriction restores the full open-to-all roster on the next sync", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS7", adminA, tenantA);
+    const asAdmin = seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
+    await asAdmin.client.device.setAssignedUser({ id: device.deviceId, userId: cashierA });
+
+    const cleared = await asAdmin.client.device.setAssignedUser({
+      id: device.deviceId,
+      userId: null,
+    });
+    expect(cleared?.assignedUserId).toBeNull();
+
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+    expect(result?.assignedUserId).toBeNull();
+    expect(result?.users.map((u) => u.userId).sort()).toStrictEqual(
+      [adminA, cashierA, managerA].sort(),
+    );
+  });
+
+  it("reports 'unassigned' when the assigned User was unassigned from the Store since the last sync", async () => {
+    const device = await enrolDeviceAt(storeA1, "PS8", adminA, tenantA);
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.setAssignedUser({ id: device.deviceId, userId: cashierA });
+
+    // Un-assign cashierA from storeA1 with a closing row (issue 04's shape).
+    await ownerDb
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantA,
+        user_id: cashierA,
+        store_id: storeA1,
+        assigned: false,
+        effective_from: new Date(),
+      })
+      .execute();
+
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+    expect(result).not.toBeNull();
+    if (!result) return;
+    expect(result.assignedUserId).toBe(cashierA);
+    expect(result.assignedUserStatus).toBe("unassigned");
+    expect(result.users.map((u) => u.userId)).not.toContain(cashierA);
+
+    // Restore cashierA's assignment for any later test in this file.
+    await ownerDb
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantA,
+        user_id: cashierA,
+        store_id: storeA1,
+        assigned: true,
+        effective_from: new Date(),
+      })
+      .execute();
+    await asAdminClearAssignment(device.deviceId);
+  });
+
+  it("reports 'deactivated' when the assigned User was deactivated since the last sync", async () => {
+    const deactivatedTarget = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await seedTenantUser(ownerDb, {
+      id: deactivatedTarget,
+      tenantId: tenantA,
+      email: `pin-restrict-deactivate-${randomUUID()}@pin.test`,
+      passwordHash,
+      role: "cashier",
+    });
+    await assignStore(tenantA, deactivatedTarget, storeA1);
+
+    const device = await enrolDeviceAt(storeA1, "PS9", adminA, tenantA);
+    await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.setAssignedUser({ id: device.deviceId, userId: deactivatedTarget });
+
+    await ownerDb
+      .updateTable("User")
+      .set({ active: false })
+      .where("id", "=", deactivatedTarget)
+      .execute();
+
+    const result = await seam.actors.withBearerToken(device.token).terminal.pinSync();
+    expect(result?.assignedUserId).toBe(deactivatedTarget);
+    expect(result?.assignedUserStatus).toBe("deactivated");
+    expect(result?.users.map((u) => u.userId)).not.toContain(deactivatedTarget);
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", deactivatedTarget).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", deactivatedTarget).execute();
+    await asAdminClearAssignment(device.deviceId);
+    await ownerDb.deleteFrom("User").where("id", "=", deactivatedTarget).execute();
+  });
+});
+
+async function asAdminClearAssignment(deviceId: string) {
+  await seam.actors
+    .asTenant(tenantA, { userId: adminA, role: "admin" })
+    .client.device.setAssignedUser({ id: deviceId, userId: null });
+}

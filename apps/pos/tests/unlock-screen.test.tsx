@@ -449,3 +449,225 @@ describe("the unlock screen", () => {
     await expectNoAxeViolations(container);
   });
 });
+
+// Issue 17: the restricted unlock screen. A separate Tenant/Store/set of
+// Users, so this suite never interferes with the open-to-all fixtures above.
+describe("the restricted unlock screen", () => {
+  const restrictedTenantId = randomUUID();
+  const restrictedStoreId = randomUUID();
+  const assignedCashierId = randomUUID();
+  const managerId = randomUUID();
+  let cleanup: (() => Promise<void>) | undefined;
+
+  beforeAll(async () => {
+    const passwordHash = await passwordHashPromise;
+    const pinHash = await hashPin("482913");
+    const managerPinHash = await hashPin("135790");
+    await ownerDb
+      .insertInto("Tenant")
+      .values({ id: restrictedTenantId, name: "Restricted Tenant" })
+      .execute();
+    await ownerDb
+      .insertInto("User")
+      .values([
+        {
+          id: assignedCashierId,
+          tenant_id: restrictedTenantId,
+          email: `restricted-cashier-${randomUUID()}@unlock.test`,
+          password_hash: passwordHash,
+          first_name: "Dana",
+          last_name: "Ortiz",
+          role: "cashier",
+          pin_hash: pinHash,
+        },
+        {
+          id: managerId,
+          tenant_id: restrictedTenantId,
+          email: `restricted-manager-${randomUUID()}@unlock.test`,
+          password_hash: passwordHash,
+          first_name: "Eli",
+          last_name: "Nunez",
+          role: "manager",
+          pin_hash: managerPinHash,
+        },
+      ])
+      .execute();
+    await ownerDb
+      .insertInto("UserRole")
+      .values([
+        {
+          id: randomUUID(),
+          tenant_id: restrictedTenantId,
+          user_id: assignedCashierId,
+          role: "cashier",
+          effective_from: new Date(),
+        },
+        {
+          id: randomUUID(),
+          tenant_id: restrictedTenantId,
+          user_id: managerId,
+          role: "manager",
+          effective_from: new Date(),
+        },
+      ])
+      .execute();
+    await withTenantScope(ownerDb, restrictedTenantId, (db) =>
+      db
+        .insertInto("Store")
+        .values({ id: restrictedStoreId, tenant_id: restrictedTenantId, name: "Restricted Store" })
+        .execute(),
+    );
+    await withTenantScope(ownerDb, restrictedTenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values([
+          {
+            id: randomUUID(),
+            tenant_id: restrictedTenantId,
+            user_id: assignedCashierId,
+            store_id: restrictedStoreId,
+            assigned: true,
+            effective_from: new Date(Date.now() - 60_000),
+          },
+          {
+            id: randomUUID(),
+            tenant_id: restrictedTenantId,
+            user_id: managerId,
+            store_id: restrictedStoreId,
+            assigned: true,
+            effective_from: new Date(Date.now() - 60_000),
+          },
+        ])
+        .execute(),
+    );
+  });
+
+  afterAll(async () => {
+    await ownerDb.deleteFrom("Device").where("tenant_id", "=", restrictedTenantId).execute();
+    await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", restrictedTenantId).execute();
+    await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", restrictedTenantId).execute();
+    await ownerDb.deleteFrom("Store").where("tenant_id", "=", restrictedTenantId).execute();
+    await ownerDb.deleteFrom("User").where("tenant_id", "=", restrictedTenantId).execute();
+    await ownerDb.deleteFrom("Tenant").where("id", "=", restrictedTenantId).execute();
+  });
+
+  afterEach(async () => {
+    clearDeviceToken();
+    clearPinRoster();
+    localStorage.removeItem("deanpos.pin.throttle");
+    await cleanup?.();
+    cleanup = undefined;
+  });
+
+  async function seedRestrictedDevice() {
+    const deviceId = randomUUID();
+    const code = `R${deviceCodeCounter++}`;
+    const token = randomBytes(32).toString("base64url");
+    const tokenHash = createHash("sha256").update(Buffer.from(token, "utf8")).digest("hex");
+    await withTenantScope(ownerDb, restrictedTenantId, (db) =>
+      db
+        .insertInto("Device")
+        .values({
+          id: deviceId,
+          tenant_id: restrictedTenantId,
+          store_id: restrictedStoreId,
+          name: "Restricted Counter",
+          code,
+          token_hash: tokenHash,
+          assigned_user_id: assignedCashierId,
+        })
+        .execute(),
+    );
+    writeDeviceToken(token, {
+      deviceId,
+      name: "Restricted Counter",
+      code,
+      storeId: restrictedStoreId,
+      storeName: "Restricted Store",
+    });
+    return deviceId;
+  }
+
+  it("shows no chooser — only the assigned employee's name and the PIN pad — and unlocks with their PIN", async () => {
+    await seedRestrictedDevice();
+
+    const { container, db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Dana Ortiz")).toBeTruthy(), { timeout: 3000 });
+    // No chooser grid — the other Store User (the manager) is offered only
+    // through the separate "Manager sign-in" control, never as a button here.
+    expect(screen.queryByRole("group", { name: "Who is on the till" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Manager sign-in" })).toBeTruthy();
+
+    await expectNoAxeViolations(container);
+
+    for (const digit of "482913") {
+      fireEvent.click(screen.getByRole("button", { name: digit }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+    await waitFor(() => expect(screen.getByText("Lock")).toBeTruthy(), { timeout: 3000 });
+  });
+
+  it("the manager sign-in control unlocks as the manager, a full unlock, when the assigned employee cannot", async () => {
+    await seedRestrictedDevice();
+
+    const { db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Dana Ortiz")).toBeTruthy(), { timeout: 3000 });
+    fireEvent.click(screen.getByRole("button", { name: "Manager sign-in" }));
+
+    await waitFor(() => expect(screen.getByText("Eli Nunez")).toBeTruthy(), { timeout: 3000 });
+    fireEvent.click(screen.getByRole("button", { name: "Eli Nunez" }));
+    for (const digit of "135790") {
+      fireEvent.click(screen.getByRole("button", { name: digit }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+    await waitFor(() => expect(screen.getByText("Lock")).toBeTruthy(), { timeout: 3000 });
+  });
+
+  it("still offers manager sign-in, with a reason, when the assigned employee has been unassigned from the Store", async () => {
+    await seedRestrictedDevice();
+    // Close cashierA's assignment (issue 04's shape) so pinSync excludes them.
+    await withTenantScope(ownerDb, restrictedTenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: restrictedTenantId,
+          user_id: assignedCashierId,
+          store_id: restrictedStoreId,
+          assigned: false,
+          effective_from: new Date(),
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({ router, initialLocation: "/" });
+    cleanup = () => db.destroy();
+
+    await waitFor(
+      () => expect(screen.getByText(/is no longer assigned to this store/)).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    expect(screen.getByRole("button", { name: "Manager sign-in" })).toBeTruthy();
+
+    // Restore the assignment for other tests in this suite.
+    await withTenantScope(ownerDb, restrictedTenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: restrictedTenantId,
+          user_id: assignedCashierId,
+          store_id: restrictedStoreId,
+          assigned: true,
+          effective_from: new Date(),
+        })
+        .execute(),
+    );
+  });
+});

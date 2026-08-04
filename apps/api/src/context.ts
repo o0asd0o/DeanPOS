@@ -105,6 +105,7 @@ export const buildContextFromDeviceToken = async (
         storeId: device.store_id,
         code: device.code,
         name: device.name,
+        assignedUserId: device.assigned_user_id,
       },
     };
   });

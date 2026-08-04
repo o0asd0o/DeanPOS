@@ -148,3 +148,35 @@ manager sign-in control when the operator wants a truly single-credential till. 
 the control unconditionally, because the failure mode without it is a till that cannot be opened
 at all on the morning the assigned employee calls in sick. Making it configurable is a second
 switch and is not built._
+
+## Implementation notes
+
+Built `Device.assignedUserId` (nullable, no backfill), `device.setAssignedUser` (`admin`-only,
+validates the target is active and currently assigned to the Device's Store, refused server-side),
+and widened the two named `DeviceAudit` CHECK constraints purely additively — `DeviceAudit_field_check`
+gained `'assigned_user'`, and `DeviceAudit_name_has_old_value_check` was replaced with a predicate that
+exempts `'name'`/`'assigned_user'` from the null-old-value rule instead of only `'name'`, so every row
+either constraint already accepted is still accepted; neither can reject a previously-valid row.
+
+`terminal.pinSync` now carries `assignedUserId` and `assignedUserStatus` (`"deactivated"` |
+`"unassigned"` | `null`) alongside the already-filtered `users` array, so the restricted unlock screen
+can say why the assigned employee can't unlock even though they're absent from the roster by
+construction. `getPinRoster` filters to the assigned User plus `canApproveOverride` entries only when
+`assignedUserId` is set; `null` is byte-for-byte the pre-issue behaviour.
+
+`Unlock.tsx` drops the chooser grid in the restricted branch and adds a "Manager sign-in" control
+opening `ManagerUnlockDialog.tsx` — a full unlock (`setActingUser`), sharing the same on-device
+per-Device/per-User PIN lockout keys as the open screen. `OverridePrompt.tsx` was not touched. The
+back office gained `AssignUserDialog.tsx` (a `Restrict`/`Restricted` row action next to Rename/Revoke),
+following `RenameDialog.tsx`'s shipped shape; nothing was added to `packages/ui`.
+
+Tests: `apps/api/tests/device.test.ts` (`device.setAssignedUser` — admin-only, store-eligibility
+refusal, audit old/new value including the clear-to-`""` sentinel, wrong-tenant probe
+`[device.setAssignedUser]`), `apps/api/tests/pin-sync.test.ts` (restricted roster contents, clearing,
+both `assignedUserStatus` branches), `apps/pos/tests/unlock-screen.test.tsx` (no-chooser rendering,
+manager sign-in unlock, unassigned-employee message — WCAG 2.2 AA checked), and
+`apps/backoffice/tests/devices-screen.test.tsx` (restrict/clear round trip through the dialog, WCAG
+2.2 AA on the dialog). `apps/api/tests/wrong-tenant-probe-coverage.test.ts` passes.
+
+Gate run exactly as specified: `vp run -w codegen`, `vp check`, `vp run --no-cache -r check` (0/10
+cache hit), `vp run --no-cache -r test` (0/10 cache hit, 726 tests green — 713 baseline + 13 new).

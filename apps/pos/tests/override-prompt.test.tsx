@@ -122,6 +122,8 @@ async function seedDeviceAndRoster(approversCanApprove = true) {
         canApproveOverride: approversCanApprove,
       },
     ],
+    assignedUserId: null,
+    assignedUserStatus: null,
   });
   return deviceId;
 }

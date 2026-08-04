@@ -13,9 +13,13 @@ export type PinRosterRow = {
 // The hash-sync roster (issue 10, record 057 Q3): every active User who is
 // `admin`, or currently assigned to `storeId` — resolved through the same
 // two effective-dated resolvers issue 04 already wrote, never User.role.
+// `assignedUserId` (issue 17): non-null narrows the open-to-all roster above
+// to that one User plus whoever already qualified as `canApproveOverride` —
+// the manager-or-above sign-in path — and no one else. `null` is unchanged.
 export const getPinRoster = async (
   db: DatabaseInstance,
   storeId: string,
+  assignedUserId: string | null = null,
 ): Promise<PinRosterRow[]> => {
   const users = await db
     .selectFrom("User")
@@ -43,5 +47,6 @@ export const getPinRoster = async (
     });
   }
 
-  return roster;
+  if (assignedUserId === null) return roster;
+  return roster.filter((user) => user.userId === assignedUserId || user.canApproveOverride);
 };

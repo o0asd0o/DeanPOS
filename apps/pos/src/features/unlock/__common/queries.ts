@@ -20,12 +20,20 @@ export function usePinRoster(): PinRoster | null {
       storeId: query.data.storeId,
       syncedAt: query.data.syncedAt,
       users: query.data.users,
+      assignedUserId: query.data.assignedUserId,
+      assignedUserStatus: query.data.assignedUserStatus,
     });
   }, [query.data, identity]);
 
   if (query.data) {
     if (!identity || query.data.storeId !== identity.storeId) return null;
-    return { storeId: query.data.storeId, syncedAt: query.data.syncedAt, users: query.data.users };
+    return {
+      storeId: query.data.storeId,
+      syncedAt: query.data.syncedAt,
+      users: query.data.users,
+      assignedUserId: query.data.assignedUserId,
+      assignedUserStatus: query.data.assignedUserStatus,
+    };
   }
   if (!query.isError) return null;
 

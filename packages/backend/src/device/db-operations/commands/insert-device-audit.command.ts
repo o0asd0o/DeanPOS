@@ -9,7 +9,7 @@ export const insertDeviceAudit = (
     actorUserId: string;
     deviceId: string | null;
     enrolmentCodeId: string | null;
-    field: "code_generated" | "name" | "revoked";
+    field: "code_generated" | "name" | "revoked" | "assigned_user";
     oldValue: string | null;
     newValue: string;
   },

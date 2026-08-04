@@ -201,6 +201,9 @@ export const deviceOutputSchema = z.object({
   enrolledAt: z.date(),
   lastSeenAt: z.date(),
   revokedAt: z.date().nullable(),
+  // Issue 17: null is open-to-all, the default. Set, the unlock screen
+  // offers only this User (plus the manager sign-in control).
+  assignedUserId: z.string().nullable(),
 });
 
 // The Device short code, admin-typed (record 056 Q4): 2-4 symbols from a
@@ -240,6 +243,12 @@ export const devicePendingCodeSchema = z.object({
 
 export const deviceRenameInputSchema = z.object({ id: z.string(), name: z.string().min(1) });
 export const deviceIdInputSchema = z.object({ id: z.string() });
+
+// Issue 17: `userId: null` clears the restriction back to open-to-all.
+export const deviceSetAssignedUserInputSchema = z.object({
+  id: z.string(),
+  userId: z.string().nullable(),
+});
 
 // The terminal's own procedures (issue 09, record 056 Q6). `enrol` is
 // unauthenticated; `me`/`heartbeat` are Device-token.
@@ -293,6 +302,14 @@ export const terminalPinSyncOutputSchema = z
     storeId: z.string(),
     syncedAt: z.string(),
     users: z.array(pinRosterUserSchema),
+    // Issue 17: null is open-to-all. Set, `users` is already narrowed to the
+    // assigned User plus this Store's manager-or-above — carried separately
+    // because the assigned User may be absent from `users` (deactivated,
+    // no PIN, unassigned since the last sync) and the screen must say so.
+    assignedUserId: z.string().nullable(),
+    // Non-null only when assignedUserId is set and absent from `users` —
+    // distinguishes deactivation from unassignment for that message.
+    assignedUserStatus: z.enum(["deactivated", "unassigned"]).nullable(),
   })
   .nullable();
 
@@ -480,6 +497,10 @@ export const contract = {
     generateCode: oc.input(deviceGenerateCodeInputSchema).output(deviceGenerateCodeOutputSchema),
     rename: oc.input(deviceRenameInputSchema).output(deviceOutputSchema.nullable()),
     revoke: oc.input(deviceIdInputSchema).output(deviceOutputSchema.nullable()),
+    // Issue 17. `admin`-only, matching every other Device action.
+    setAssignedUser: oc
+      .input(deviceSetAssignedUserInputSchema)
+      .output(deviceOutputSchema.nullable()),
   },
   // The terminal's own key (issue 09, record 056 Q6) — distinct from
   // `device` above so the two principals can never be mixed in one

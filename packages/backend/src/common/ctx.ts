@@ -29,6 +29,8 @@ export type DevicePrincipal = {
   storeId: string;
   code: string;
   name: string;
+  // Issue 17: null/absent is open-to-all, the default.
+  assignedUserId?: string | null;
 };
 
 // Built once per app instance, not per request (issue 03 moves this). ADR-0008.

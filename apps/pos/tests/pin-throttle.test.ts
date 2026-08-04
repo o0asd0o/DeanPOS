@@ -177,6 +177,8 @@ describe("pin-throttle", () => {
       storeId: "throttle-store",
       syncedAt: new Date().toISOString(),
       users: [{ userId, displayName: "Ana Reyes", pinHash, canApproveOverride: false }],
+      assignedUserId: null,
+      assignedUserStatus: null,
     });
 
     // terminal.pinSync transport-fails against this database — the screen

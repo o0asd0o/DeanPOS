@@ -11,6 +11,7 @@ type DeviceOutput = {
   enrolledAt: Date;
   lastSeenAt: Date;
   revokedAt: Date | null;
+  assignedUserId: string | null;
 };
 
 // Physical `@map`ped columns to the contract's camelCase shape (issue 01's
@@ -24,4 +25,5 @@ export const toDeviceOutput = (device: Selectable<Device>): DeviceOutput => ({
   enrolledAt: device.enrolled_at,
   lastSeenAt: device.last_seen_at,
   revokedAt: device.revoked_at,
+  assignedUserId: device.assigned_user_id,
 });

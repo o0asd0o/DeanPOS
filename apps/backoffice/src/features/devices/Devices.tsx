@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Button, Sheet, SheetContent } from "ui";
 
+import { AssignUserDialog } from "./AssignUserDialog.tsx";
 import { DeviceListCard } from "./DeviceListCard.tsx";
 import { EnrolmentCodeDialog } from "./EnrolmentCodeDialog.tsx";
 import { GenerateCodeSheet } from "./GenerateCodeSheet.tsx";
@@ -15,6 +16,7 @@ import {
   useMeQuery,
   usePendingCodesQuery,
   useStoresQuery,
+  useUsersQuery,
 } from "./__common/queries.ts";
 import type { DeviceOutput, EnrolmentCode, PendingCode } from "./helpers.ts";
 
@@ -24,6 +26,7 @@ import type { DeviceOutput, EnrolmentCode, PendingCode } from "./helpers.ts";
 export function Devices() {
   const devicesQuery = useDevicesQuery();
   const storesQuery = useStoresQuery();
+  const usersQuery = useUsersQuery();
   const pendingCodesQuery = usePendingCodesQuery();
   const invalidatePendingCodes = useInvalidatePendingCodes();
   const meQuery = useMeQuery();
@@ -56,6 +59,10 @@ export function Devices() {
   const lastRevokeTarget = useRef<DeviceOutput | null>(null);
   if (revokeTarget) lastRevokeTarget.current = revokeTarget;
   const shownRevokeTarget = revokeTarget ?? lastRevokeTarget.current;
+  const [assignTarget, setAssignTarget] = useState<DeviceOutput | null>(null);
+  const lastAssignTarget = useRef<DeviceOutput | null>(null);
+  if (assignTarget) lastAssignTarget.current = assignTarget;
+  const shownAssignTarget = assignTarget ?? lastAssignTarget.current;
   const opener = useRef<HTMLElement | null>(null);
 
   const openEnrol = () => {
@@ -134,6 +141,10 @@ export function Devices() {
         onRevoke={(device) => {
           opener.current = document.activeElement as HTMLElement;
           setRevokeTarget(device);
+        }}
+        onAssign={(device) => {
+          opener.current = document.activeElement as HTMLElement;
+          setAssignTarget(device);
         }}
       />
       {/* Held shut until the Stores are in hand: the form's Store select
@@ -215,6 +226,22 @@ export function Devices() {
           onRevoked={(name) => {
             setRevokeTarget(null);
             announce(`${name} revoked`);
+          }}
+        />
+      )}
+      {shownAssignTarget && (
+        <AssignUserDialog
+          device={shownAssignTarget}
+          eligibleUsers={(usersQuery.data ?? []).filter(
+            (user) => user.active && user.storeIds.includes(shownAssignTarget.storeId),
+          )}
+          open={assignTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setAssignTarget(null);
+          }}
+          onAssigned={() => {
+            setAssignTarget(null);
+            announce("Assignment updated");
           }}
         />
       )}

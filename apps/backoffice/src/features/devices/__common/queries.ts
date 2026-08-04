@@ -16,6 +16,14 @@ export function useMeQuery() {
   return useQuery(orpc.auth.me.queryOptions());
 }
 
+// The assignment dialog's picker (issue 17) — the server independently
+// refuses a User not currently assigned to the Device's Store, so this list
+// only needs to narrow the options shown, not enforce anything.
+export function useUsersQuery() {
+  const { orpc } = useRouteContext({ from: "/_shell/devices" });
+  return useQuery(orpc.user.list.queryOptions());
+}
+
 // Same key as the list, so one poll both closes the enrolment dialog and
 // refreshes the table underneath it.
 export function useEnrolmentWatchQuery(enabled: boolean) {
@@ -71,6 +79,17 @@ export function useRenameDeviceMutation() {
     orpc.device.rename.mutationOptions({
       onSuccess: invalidate,
       meta: { success: "Renamed", error: "Couldn't rename the device" },
+    }),
+  );
+}
+
+export function useSetAssignedUserMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/devices" });
+  const invalidate = useInvalidateDevices();
+  return useMutation(
+    orpc.device.setAssignedUser.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Assignment updated", error: "Couldn't update the assignment" },
     }),
   );
 }

@@ -167,6 +167,8 @@ describe("the terminal shell's ping route, behind the unlock screen", () => {
       storeId,
       syncedAt: new Date().toISOString(),
       users: [{ userId, displayName: "Ana Reyes", pinHash, canApproveOverride: false }],
+      assignedUserId: null,
+      assignedUserStatus: null,
     });
 
     const { container, db } = renderRoute({

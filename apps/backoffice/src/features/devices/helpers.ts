@@ -9,6 +9,7 @@ export type DeviceOutput = {
   enrolledAt: Date;
   lastSeenAt: Date;
   revokedAt: Date | null;
+  assignedUserId: string | null;
 };
 
 // Mirrors `deviceGenerateCodeOutputSchema`'s success branch, and

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon } from "lucide-react";
+import { PencilIcon, PowerOffIcon, UserIcon } from "lucide-react";
 import {
   Badge,
   Button,
@@ -36,6 +36,7 @@ export function DeviceListCard({
   isAdmin,
   onRename,
   onRevoke,
+  onAssign,
 }: {
   devices: DeviceOutput[] | undefined;
   storeNameById: Map<string, string>;
@@ -46,6 +47,7 @@ export function DeviceListCard({
   isAdmin: boolean;
   onRename: (device: DeviceOutput) => void;
   onRevoke: (device: DeviceOutput) => void;
+  onAssign: (device: DeviceOutput) => void;
 }) {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
@@ -159,6 +161,16 @@ export function DeviceListCard({
                           >
                             <PencilIcon />
                             Rename
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="tap-target"
+                            aria-label={`Restrict ${device.name}`}
+                            onClick={() => onAssign(device)}
+                          >
+                            <UserIcon />
+                            {device.assignedUserId ? "Restricted" : "Restrict"}
                           </Button>
                           {!device.revokedAt && (
                             <Button
