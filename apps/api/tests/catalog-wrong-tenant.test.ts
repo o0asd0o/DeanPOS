@@ -92,6 +92,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await ownerDb.deleteFrom("Modifier").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("ModifierGroup").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Variant").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "in", [tenantA, tenantB]).execute();
@@ -496,6 +498,282 @@ describe("catalog variant wrong-tenant probes", () => {
       mode: "refusal",
       ownerSees: beforeAsB,
       otherGets: () => asA().catalog.reorderVariant({ id: variantB, direction: "down" }),
+    });
+  });
+});
+
+
+describe("catalog options wrong-tenant probes", () => {
+  it("wrong-tenant probe [catalog.listModifierGroups]: Tenant B's group never appears in A's list", async () => {
+    const createdA = await asA().catalog.createModifierGroup({
+      name: `A Size ${randomUUID().slice(0, 6)}`,
+      selectionRule: "required-one",
+    });
+    const createdB = await asB().catalog.createModifierGroup({
+      name: `B Size ${randomUUID().slice(0, 6)}`,
+      selectionRule: "required-one",
+    });
+    expect(createdA).toBeTruthy();
+    expect(createdB).toBeTruthy();
+    const listAsB = await asB().catalog.listModifierGroups();
+    const ownAsB = listAsB.find((row) => row.id === createdB!.id);
+    expect(ownAsB).toBeTruthy();
+    const listAsA = await asA().catalog.listModifierGroups();
+    expect(listAsA.map((row) => row.id)).not.toContain(createdB!.id);
+    const ownAsA = listAsA.find((row) => row.id === createdA!.id);
+    expect(ownAsA).toBeTruthy();
+    await expectWrongTenantRefusal({
+      path: "catalog.listModifierGroups",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
+  });
+
+  it("wrong-tenant probe [catalog.createModifierGroup]: Tenant A create cannot produce Tenant B's row", async () => {
+    const createdAsA = await asA().catalog.createModifierGroup({
+      name: `A Group ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const createdAsB = await asB().catalog.createModifierGroup({
+      name: `B Group ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    expect(createdAsA).toBeTruthy();
+    expect(createdAsB).toBeTruthy();
+    const listAsA = await asA().catalog.listModifierGroups();
+    expect(listAsA.map((row) => row.id)).not.toContain(createdAsB!.id);
+    await expectWrongTenantRefusal({
+      path: "catalog.createModifierGroup",
+      mode: "confined",
+      ownerSees: createdAsA,
+      otherGets: async () => createdAsB,
+      otherOwn: createdAsB,
+    });
+  });
+
+  it("wrong-tenant probe [catalog.updateModifierGroup]: Tenant A cannot update Tenant B's group", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B Upd ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const beforeAsB = await asB().catalog.updateModifierGroup({
+      id: groupB!.id,
+      name: "B Updated",
+      selectionRule: "optional-one",
+    });
+    await expectWrongTenantRefusal({
+      path: "catalog.updateModifierGroup",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () =>
+        asA().catalog.updateModifierGroup({
+          id: groupB!.id,
+          name: "Hijacked",
+          selectionRule: "optional-one",
+        }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.archiveModifierGroup]: Tenant A cannot archive Tenant B's group", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B Arch ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const beforeAsB = await asB().catalog.archiveModifierGroup({ id: groupB!.id });
+    await expectWrongTenantRefusal({
+      path: "catalog.archiveModifierGroup",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.archiveModifierGroup({ id: groupB!.id }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.reactivateModifierGroup]: Tenant A cannot reactivate Tenant B's group", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B Re ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    await asB().catalog.archiveModifierGroup({ id: groupB!.id });
+    const beforeAsB = await asB().catalog.reactivateModifierGroup({ id: groupB!.id });
+    await asB().catalog.archiveModifierGroup({ id: groupB!.id });
+    await expectWrongTenantRefusal({
+      path: "catalog.reactivateModifierGroup",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reactivateModifierGroup({ id: groupB!.id }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.reorderModifierGroup]: Tenant A cannot reorder Tenant B's group", async () => {
+    const g1 = await asB().catalog.createModifierGroup({
+      name: `B R1 ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const g2 = await asB().catalog.createModifierGroup({
+      name: `B R2 ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const beforeAsB = await asB().catalog.reorderModifierGroup({ id: g2!.id, direction: "up" });
+    await expectWrongTenantRefusal({
+      path: "catalog.reorderModifierGroup",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reorderModifierGroup({ id: g1!.id, direction: "down" }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.listModifiers]: Tenant A cannot list Tenant B's modifiers", async () => {
+    const groupA = await asA().catalog.createModifierGroup({
+      name: `A LM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const modA = await asA().catalog.createModifier({
+      groupId: groupA!.id,
+      name: "A Mod",
+      delta: { kind: "absolute", amountCentavos: 100 },
+    });
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B LM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const modB = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "B Mod",
+      delta: { kind: "absolute", amountCentavos: 100 },
+    });
+    const listAsB = await asB().catalog.listModifiers({ groupId: groupB!.id });
+    const ownAsB = listAsB.find((row) => row.id === modB!.id);
+    expect(ownAsB).toBeTruthy();
+    // Wrong-tenant group id resolves as empty list, not B's rows.
+    const listAsAWrong = await asA().catalog.listModifiers({ groupId: groupB!.id });
+    expect(listAsAWrong.map((row) => row.id)).not.toContain(modB!.id);
+    const listAsA = await asA().catalog.listModifiers({ groupId: groupA!.id });
+    const ownAsA = listAsA.find((row) => row.id === modA!.id);
+    expect(ownAsA).toBeTruthy();
+    await expectWrongTenantRefusal({
+      path: "catalog.listModifiers",
+      mode: "confined",
+      ownerSees: ownAsB,
+      otherGets: async () => ownAsA,
+      otherOwn: ownAsA,
+    });
+  });
+
+  it("wrong-tenant probe [catalog.createModifier]: Tenant A cannot create under Tenant B's group", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B CM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const createdAsB = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "Own",
+      delta: { kind: "absolute", amountCentavos: 50 },
+    });
+    const createdAsA = await asA().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "Hijack",
+      delta: { kind: "absolute", amountCentavos: 1 },
+    });
+    expect(createdAsA).toBeNull();
+    await expectWrongTenantRefusal({
+      path: "catalog.createModifier",
+      mode: "refusal",
+      ownerSees: createdAsB,
+      otherGets: async () => createdAsA,
+    });
+  });
+
+  it("wrong-tenant probe [catalog.updateModifier]: Tenant A cannot update Tenant B's modifier", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B UM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const modB = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "Up",
+      delta: { kind: "absolute", amountCentavos: 10 },
+    });
+    const beforeAsB = await asB().catalog.updateModifier({
+      id: modB!.id,
+      name: "Updated",
+      delta: { kind: "absolute", amountCentavos: 20 },
+    });
+    await expectWrongTenantRefusal({
+      path: "catalog.updateModifier",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () =>
+        asA().catalog.updateModifier({
+          id: modB!.id,
+          name: "Hijacked",
+          delta: { kind: "absolute", amountCentavos: 1 },
+        }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.archiveModifier]: Tenant A cannot archive Tenant B's modifier", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B AM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const modB = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "Arch",
+      delta: { kind: "absolute", amountCentavos: 10 },
+    });
+    const beforeAsB = await asB().catalog.archiveModifier({ id: modB!.id });
+    await expectWrongTenantRefusal({
+      path: "catalog.archiveModifier",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.archiveModifier({ id: modB!.id }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.reactivateModifier]: Tenant A cannot reactivate Tenant B's modifier", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B RM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const modB = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "Re",
+      delta: { kind: "absolute", amountCentavos: 10 },
+    });
+    await asB().catalog.archiveModifier({ id: modB!.id });
+    const beforeAsB = await asB().catalog.reactivateModifier({ id: modB!.id });
+    await asB().catalog.archiveModifier({ id: modB!.id });
+    await expectWrongTenantRefusal({
+      path: "catalog.reactivateModifier",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reactivateModifier({ id: modB!.id }),
+    });
+  });
+
+  it("wrong-tenant probe [catalog.reorderModifier]: Tenant A cannot reorder Tenant B's modifier", async () => {
+    const groupB = await asB().catalog.createModifierGroup({
+      name: `B ROM ${randomUUID().slice(0, 6)}`,
+      selectionRule: "optional-one",
+    });
+    const m1 = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "M1",
+      delta: { kind: "absolute", amountCentavos: 10 },
+    });
+    const m2 = await asB().catalog.createModifier({
+      groupId: groupB!.id,
+      name: "M2",
+      delta: { kind: "absolute", amountCentavos: 20 },
+    });
+    const beforeAsB = await asB().catalog.reorderModifier({ id: m2!.id, direction: "up" });
+    await expectWrongTenantRefusal({
+      path: "catalog.reorderModifier",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.reorderModifier({ id: m1!.id, direction: "down" }),
     });
   });
 });

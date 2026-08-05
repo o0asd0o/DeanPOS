@@ -2,19 +2,27 @@ import { implement } from "@orpc/server";
 import type { Ctx } from "backend/src/common/ctx.ts";
 import { handler as archiveCategoryHandler } from "backend/src/catalog/handlers/archive-category.ts";
 import { handler as archiveMenuItemHandler } from "backend/src/catalog/handlers/archive-menu-item.ts";
+import { handler as archiveModifierHandler } from "backend/src/catalog/handlers/archive-modifier.ts";
+import { handler as archiveModifierGroupHandler } from "backend/src/catalog/handlers/archive-modifier-group.ts";
 import { handler as archiveVariantHandler } from "backend/src/catalog/handlers/archive-variant.ts";
 import { handler as catalogVersionHandler } from "backend/src/catalog/handlers/catalog-version.ts";
 import { handler as createCategoryHandler } from "backend/src/catalog/handlers/create-category.ts";
 import { handler as createMenuItemHandler } from "backend/src/catalog/handlers/create-menu-item.ts";
+import { handler as createModifierHandler } from "backend/src/catalog/handlers/create-modifier.ts";
+import { handler as createModifierGroupHandler } from "backend/src/catalog/handlers/create-modifier-group.ts";
 import { handler as createVariantHandler } from "backend/src/catalog/handlers/create-variant.ts";
 import { handler as getMenuItemHandler } from "backend/src/catalog/handlers/get-menu-item.ts";
 import { handler as getVariantHandler } from "backend/src/catalog/handlers/get-variant.ts";
 import { handler as listCategoriesHandler } from "backend/src/catalog/handlers/list-categories.ts";
 import { handler as listMenuItemsHandler } from "backend/src/catalog/handlers/list-menu-items.ts";
+import { handler as listModifierGroupsHandler } from "backend/src/catalog/handlers/list-modifier-groups.ts";
+import { handler as listModifiersHandler } from "backend/src/catalog/handlers/list-modifiers.ts";
 import { handler as listVariantsHandler } from "backend/src/catalog/handlers/list-variants.ts";
 import { handler as moveMenuItemHandler } from "backend/src/catalog/handlers/move-menu-item.ts";
 import { handler as reactivateCategoryHandler } from "backend/src/catalog/handlers/reactivate-category.ts";
 import { handler as reactivateMenuItemHandler } from "backend/src/catalog/handlers/reactivate-menu-item.ts";
+import { handler as reactivateModifierHandler } from "backend/src/catalog/handlers/reactivate-modifier.ts";
+import { handler as reactivateModifierGroupHandler } from "backend/src/catalog/handlers/reactivate-modifier-group.ts";
 import { handler as reactivateVariantHandler } from "backend/src/catalog/handlers/reactivate-variant.ts";
 import { handler as readCatalogHandler } from "backend/src/catalog/handlers/read-catalog.ts";
 import { handler as renameCategoryHandler } from "backend/src/catalog/handlers/rename-category.ts";
@@ -22,8 +30,12 @@ import { handler as renameMenuItemHandler } from "backend/src/catalog/handlers/r
 import { handler as renameVariantHandler } from "backend/src/catalog/handlers/rename-variant.ts";
 import { handler as reorderCategoryHandler } from "backend/src/catalog/handlers/reorder-category.ts";
 import { handler as reorderMenuItemHandler } from "backend/src/catalog/handlers/reorder-menu-item.ts";
+import { handler as reorderModifierHandler } from "backend/src/catalog/handlers/reorder-modifier.ts";
+import { handler as reorderModifierGroupHandler } from "backend/src/catalog/handlers/reorder-modifier-group.ts";
 import { handler as reorderVariantHandler } from "backend/src/catalog/handlers/reorder-variant.ts";
 import { handler as setVariantPriceHandler } from "backend/src/catalog/handlers/set-variant-price.ts";
+import { handler as updateModifierHandler } from "backend/src/catalog/handlers/update-modifier.ts";
+import { handler as updateModifierGroupHandler } from "backend/src/catalog/handlers/update-modifier-group.ts";
 import { contract } from "contract/src/index.ts";
 
 // Only transport-aware code for `catalog.*` (ADR-0008 rule 5).
@@ -94,6 +106,42 @@ export const catalogReactivateVariantRoute = os.catalog.reactivateVariant.handle
 );
 export const catalogReorderVariantRoute = os.catalog.reorderVariant.handler(({ context, input }) =>
   reorderVariantHandler({ ctx: context, input }),
+);
+export const catalogListModifierGroupsRoute = os.catalog.listModifierGroups.handler(({ context }) =>
+  listModifierGroupsHandler({ ctx: context, input: undefined }),
+);
+export const catalogCreateModifierGroupRoute = os.catalog.createModifierGroup.handler(
+  ({ context, input }) => createModifierGroupHandler({ ctx: context, input }),
+);
+export const catalogUpdateModifierGroupRoute = os.catalog.updateModifierGroup.handler(
+  ({ context, input }) => updateModifierGroupHandler({ ctx: context, input }),
+);
+export const catalogArchiveModifierGroupRoute = os.catalog.archiveModifierGroup.handler(
+  ({ context, input }) => archiveModifierGroupHandler({ ctx: context, input }),
+);
+export const catalogReactivateModifierGroupRoute = os.catalog.reactivateModifierGroup.handler(
+  ({ context, input }) => reactivateModifierGroupHandler({ ctx: context, input }),
+);
+export const catalogReorderModifierGroupRoute = os.catalog.reorderModifierGroup.handler(
+  ({ context, input }) => reorderModifierGroupHandler({ ctx: context, input }),
+);
+export const catalogListModifiersRoute = os.catalog.listModifiers.handler(({ context, input }) =>
+  listModifiersHandler({ ctx: context, input }),
+);
+export const catalogCreateModifierRoute = os.catalog.createModifier.handler(({ context, input }) =>
+  createModifierHandler({ ctx: context, input }),
+);
+export const catalogUpdateModifierRoute = os.catalog.updateModifier.handler(({ context, input }) =>
+  updateModifierHandler({ ctx: context, input }),
+);
+export const catalogArchiveModifierRoute = os.catalog.archiveModifier.handler(({ context, input }) =>
+  archiveModifierHandler({ ctx: context, input }),
+);
+export const catalogReactivateModifierRoute = os.catalog.reactivateModifier.handler(
+  ({ context, input }) => reactivateModifierHandler({ ctx: context, input }),
+);
+export const catalogReorderModifierRoute = os.catalog.reorderModifier.handler(({ context, input }) =>
+  reorderModifierHandler({ ctx: context, input }),
 );
 export const catalogReadRoute = os.catalog.read.handler(({ context, input }) =>
   readCatalogHandler({ ctx: context, input }),

@@ -3,10 +3,11 @@ import { toast } from "sonner";
 
 // Every mutation reports its outcome, from the cache rather than from the
 // call site — a new mutation is loud by default, and `meta` only swaps the
-// copy. There is no opt-out on purpose: silence is the bug this prevents.
+// copy. `silent: true` is the deliberate opt-out for screens that announce
+// through record 038's live regions instead (catalog Options, Direction §5).
 declare module "@tanstack/react-query" {
   interface Register {
-    mutationMeta: { success?: string; error?: string };
+    mutationMeta: { success?: string; error?: string; silent?: boolean };
   }
 }
 
@@ -38,10 +39,12 @@ export function createQueryClient(config?: QueryClientConfig): QueryClient {
     },
     mutationCache: new MutationCache({
       onSuccess: (data, _variables, _context, mutation) => {
+        if (mutation.meta?.silent) return;
         if (isRefusal(data)) toast.error(mutation.meta?.error ?? DEFAULT_ERROR);
         else toast.success(mutation.meta?.success ?? DEFAULT_SUCCESS);
       },
       onError: (_error, _variables, _context, mutation) => {
+        if (mutation.meta?.silent) return;
         toast.error(mutation.meta?.error ?? DEFAULT_ERROR);
       },
     }),

@@ -92,7 +92,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         to: "/catalog",
         minRole: "manager",
       },
-      { label: "Add-ons", icon: PuzzleIcon, to: "/add-ons", minRole: "admin" },
+      { label: "Options", icon: PuzzleIcon, to: "/add-ons", minRole: "manager" },
       {
         label: "Discounts",
         icon: TagsIcon,

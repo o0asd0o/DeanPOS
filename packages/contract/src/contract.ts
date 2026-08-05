@@ -269,6 +269,73 @@ export const catalogVersionOutputSchema = z.object({
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
+
+export const catalogSelectionRuleSchema = z.enum(["required-one", "optional-one", "many"]);
+export const catalogDeltaKindSchema = z.enum(["absolute", "multiplier"]);
+
+export const catalogDeltaSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("absolute"),
+    amountCentavos: z.number().int().min(-100_000).max(100_000),
+  }),
+  z.object({
+    kind: z.literal("multiplier"),
+    perMille: z.number().int().min(1).max(10_000),
+  }),
+]);
+
+export const modifierOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  groupId: z.string(),
+  name: z.string(),
+  delta: catalogDeltaSchema,
+  sortOrder: z.number().int(),
+  archivedAt: z.date().nullable(),
+  createdAt: z.date(),
+});
+
+export const modifierGroupOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  selectionRule: catalogSelectionRuleSchema,
+  maximum: z.number().int().positive().nullable(),
+  defaultModifierId: z.string().nullable(),
+  sortOrder: z.number().int(),
+  archivedAt: z.date().nullable(),
+  createdAt: z.date(),
+  // Query-sourced count of Variant links. Zero until issue 04 builds linking.
+  linkedToCount: z.number().int().nonnegative(),
+  modifiers: z.array(modifierOutputSchema),
+});
+
+export const catalogModifierGroupCreateInputSchema = z.object({
+  name: catalogNameSchema,
+  selectionRule: catalogSelectionRuleSchema,
+  maximum: z.number().int().positive().nullable().optional(),
+});
+export const catalogModifierGroupUpdateInputSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+  selectionRule: catalogSelectionRuleSchema,
+  maximum: z.number().int().positive().nullable().optional(),
+  defaultModifierId: z.string().nullable().optional(),
+});
+export const catalogModifierCreateInputSchema = z.object({
+  groupId: z.string(),
+  name: catalogNameSchema,
+  delta: catalogDeltaSchema,
+});
+export const catalogModifierUpdateInputSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+  delta: catalogDeltaSchema,
+});
+export const catalogListModifiersInputSchema = z.object({
+  groupId: z.string(),
+});
+
 // The Tenant-default row for a method, admin-only (issue 14). `image` carries
 // a data URL for the editor's preview and the hash triple the audit stores —
 // never a separate endpoint that could commit outside the one Save.
@@ -596,6 +663,30 @@ export const contract = {
     archiveVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
     reactivateVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
     reorderVariant: oc.input(catalogReorderInputSchema).output(variantOutputSchema.nullable()),
+    listModifierGroups: oc.input(z.void()).output(z.array(modifierGroupOutputSchema)),
+    createModifierGroup: oc
+      .input(catalogModifierGroupCreateInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    updateModifierGroup: oc
+      .input(catalogModifierGroupUpdateInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    archiveModifierGroup: oc
+      .input(catalogEntityIdInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    reactivateModifierGroup: oc
+      .input(catalogEntityIdInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    reorderModifierGroup: oc
+      .input(catalogReorderInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    listModifiers: oc.input(catalogListModifiersInputSchema).output(z.array(modifierOutputSchema)),
+    createModifier: oc.input(catalogModifierCreateInputSchema).output(modifierOutputSchema.nullable()),
+    updateModifier: oc.input(catalogModifierUpdateInputSchema).output(modifierOutputSchema.nullable()),
+    archiveModifier: oc.input(catalogEntityIdInputSchema).output(modifierOutputSchema.nullable()),
+    reactivateModifier: oc
+      .input(catalogEntityIdInputSchema)
+      .output(modifierOutputSchema.nullable()),
+    reorderModifier: oc.input(catalogReorderInputSchema).output(modifierOutputSchema.nullable()),
     read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
     version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),
   },

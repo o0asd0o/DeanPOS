@@ -21,6 +21,7 @@
     "prisma-kysely": "3.1.1",
     "tsconfig": "workspace:*",
     "typescript": "^7.0.2",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "fast-check": "catalog:"
   }
 }

@@ -47,6 +47,8 @@ model Tenant {
   categories                            Category[]
   menuItems                             MenuItem[]
   variants                              Variant[]
+  modifierGroups                        ModifierGroup[]
+  modifiers                             Modifier[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -301,6 +303,49 @@ model Variant {
   @@unique([tenantId, id])
   @@index([tenantId])
   @@index([tenantId, menuItemId])
+}
+
+// Tenant-level Options library (catalog issue 03, approach B). Groups are not
+// owned by a MenuItem; linking to Variants is issue 04.
+model ModifierGroup {
+  id                String     @id
+  tenantId          String     @map("tenant_id")
+  name              String
+  // required-one | optional-one | many — CHECK in migration.
+  selectionRule     String     @map("selection_rule")
+  // Only meaningful for `many`; CHECK refuses many + maximum 0.
+  maximum           Int?
+  defaultModifierId String?    @map("default_modifier_id")
+  sortOrder         Int        @map("sort_order")
+  archivedAt        DateTime?  @map("archived_at")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  tenant            Tenant     @relation(fields: [tenantId], references: [id])
+  modifiers         Modifier[]
+  defaultModifier   Modifier?  @relation("ModifierGroupDefault", fields: [tenantId, defaultModifierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+model Modifier {
+  id                   String         @id
+  tenantId             String         @map("tenant_id")
+  groupId              String         @map("group_id")
+  name                 String
+  // absolute | multiplier — stored discriminator, never inferred (ADR-0005).
+  deltaKind            String         @map("delta_kind")
+  // absolute: centavos; multiplier: per-mille integer. Never a float.
+  deltaValue           Int            @map("delta_value")
+  sortOrder            Int            @map("sort_order")
+  archivedAt           DateTime?      @map("archived_at")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  tenant               Tenant         @relation(fields: [tenantId], references: [id])
+  group                ModifierGroup  @relation(fields: [tenantId, groupId], references: [tenantId, id])
+  defaultForGroups     ModifierGroup[] @relation("ModifierGroupDefault")
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, groupId])
 }
 
 // Append-only (record 054 Q1). `storeId` null is a change to the method
