@@ -31,17 +31,21 @@ export function ModifierForm({
   const updateModifier = useUpdateModifierMutation();
   const saving = createModifier.isPending || updateModifier.isPending;
   const [formError, setFormError] = useState<string | null>(null);
-  const [deltaKind, setDeltaKind] = useState<DeltaKind>(modifier?.delta.kind ?? "absolute");
-  const [deltaValue, setDeltaValue] = useState(() => {
-    if (!modifier) return "";
-    return modifier.delta.kind === "absolute"
-      ? absoluteToEditorString(modifier.delta.amountCentavos)
-      : perMilleToEditorString(modifier.delta.perMille);
-  });
   const [deltaError, setDeltaError] = useState<string | null>(null);
 
   const form = useForm({
-    defaultValues: { name: modifier?.name ?? "" },
+    defaultValues: {
+      name: modifier?.name ?? "",
+      deltaKind: (modifier?.delta.kind ?? "absolute") as DeltaKind,
+      absoluteValue:
+        modifier?.delta.kind === "absolute"
+          ? absoluteToEditorString(modifier.delta.amountCentavos)
+          : "",
+      multiplierValue:
+        modifier?.delta.kind === "multiplier"
+          ? perMilleToEditorString(modifier.delta.perMille)
+          : "",
+    },
     onSubmit: async ({ value }) => {
       setFormError(null);
       setDeltaError(null);
@@ -50,8 +54,8 @@ export function ModifierForm({
         | { kind: "absolute"; amountCentavos: number }
         | { kind: "multiplier"; perMille: number };
 
-      if (deltaKind === "absolute") {
-        const parsed = parseAbsoluteDeltaInput(deltaValue);
+      if (value.deltaKind === "absolute") {
+        const parsed = parseAbsoluteDeltaInput(value.absoluteValue);
         if (!parsed.ok) {
           setDeltaError("Enter an amount with up to two decimal places.");
           return;
@@ -62,7 +66,7 @@ export function ModifierForm({
         }
         delta = { kind: "absolute", amountCentavos: parsed.value };
       } else {
-        const parsed = parseMultiplierRateInput(deltaValue);
+        const parsed = parseMultiplierRateInput(value.multiplierValue);
         if (!parsed.ok) {
           setDeltaError("Enter a rate with up to three decimal places (e.g. 0.5).");
           return;
@@ -119,23 +123,32 @@ export function ModifierForm({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               autoComplete="off"
+              placeholder="e.g. Extra Cheese"
             />
           </div>
         )}
       </form.Field>
-      <DeltaField
-        kind={deltaKind}
-        value={deltaValue}
-        onKindChange={(k) => {
-          setDeltaKind(k);
-          setDeltaError(null);
-        }}
-        onValueChange={(v) => {
-          setDeltaValue(v);
-          setDeltaError(null);
-        }}
-        error={deltaError}
-      />
+      <form.Field name="deltaKind">
+        {(kindField) => (
+          <form.Field name={kindField.state.value === "absolute" ? "absoluteValue" : "multiplierValue"}>
+            {(valueField) => (
+              <DeltaField
+                kind={kindField.state.value}
+                value={valueField.state.value}
+                onKindChange={(k) => {
+                  kindField.handleChange(k);
+                  setDeltaError(null);
+                }}
+                onValueChange={(v) => {
+                  valueField.handleChange(v);
+                  setDeltaError(null);
+                }}
+                error={deltaError}
+              />
+            )}
+          </form.Field>
+        )}
+      </form.Field>
     </SheetForm>
   );
 }

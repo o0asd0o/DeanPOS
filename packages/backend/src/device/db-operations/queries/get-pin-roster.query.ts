@@ -38,15 +38,20 @@ export const getPinRoster = async (
 
     roster.push({
       userId: user.id,
+
       // A provisioned tenant owner and every pre-name row carry '' for both
       // names (20260803120000_employee_names) — a blank button is unusable,
       // and the payload deliberately never carries the email to fall back on.
       displayName: `${user.first_name} ${user.last_name}`.trim() || "Unknown",
       pinHash: user.pin_hash,
-      canApproveOverride: currentRole !== undefined && hasAtLeastRole(currentRole.role, "manager"),
+      canApproveOverride:
+        currentRole !== undefined &&
+        hasAtLeastRole(currentRole.role, "manager"),
     });
   }
 
   if (assignedUserId === null) return roster;
-  return roster.filter((user) => user.userId === assignedUserId || user.canApproveOverride);
+  return roster.filter(
+    (user) => user.userId === assignedUserId || user.canApproveOverride,
+  );
 };

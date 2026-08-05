@@ -1,5 +1,7 @@
 import { Input } from "ui";
 
+import { MoneyInput } from "@/components/MoneyInput.tsx";
+
 export type DeltaKind = "absolute" | "multiplier";
 
 /**
@@ -19,51 +21,68 @@ export function DeltaField({
   onValueChange: (value: string) => void;
   error?: string | null;
 }) {
-  const affix = kind === "absolute" ? "+₱" : "×";
   const valueId = "modifier-delta-value";
 
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-sm font-medium">Price adjustment</legend>
-      <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Adjustment type">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="delta-kind"
-            value="absolute"
-            checked={kind === "absolute"}
-            onChange={() => onKindChange("absolute")}
-          />
-          Absolute amount
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="delta-kind"
-            value="multiplier"
-            checked={kind === "multiplier"}
-            onChange={() => onKindChange("multiplier")}
-          />
-          Multiplier
-        </label>
+      <legend className="mb-1">Price adjustment</legend>
+      <div className="flex gap-2" role="radiogroup" aria-label="Adjustment type">
+        {(["absolute", "multiplier"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={kind === k}
+            onClick={() => onKindChange(k)}
+            className={[
+              "flex flex-1 items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors",
+              kind === k
+                ? "border-primary bg-primary/5 text-primary"
+                : "border-border bg-card text-foreground hover:bg-accent",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                kind === k ? "border-primary" : "border-muted-foreground",
+              ].join(" ")}
+            >
+              {kind === k && <span className="size-2 rounded-full bg-primary" />}
+            </span>
+            {k === "absolute" ? "Absolute amount" : "Multiplier"}
+          </button>
+        ))}
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={valueId}>{kind === "absolute" ? "Amount" : "Rate"}</label>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground tabular-nums" aria-hidden="true">
-            {affix}
-          </span>
-          <Input
+        <label htmlFor={valueId}>{kind === "absolute" ? "Amount (Additional)" : "Rate"}</label>
+        {kind === "absolute" ? (
+          <MoneyInput
             id={valueId}
+            name="delta-amount"
             value={value}
-            onChange={(event) => onValueChange(event.target.value)}
-            inputMode="decimal"
-            autoComplete="off"
+            onChange={onValueChange}
             aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "delta-value-error" : undefined}
-            className="tabular-nums"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-muted-foreground"
+            >
+              ×
+            </span>
+            <Input
+              id={valueId}
+              value={value}
+              onChange={(event) => onValueChange(event.target.value)}
+              inputMode="decimal"
+              autoComplete="off"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "delta-value-error" : undefined}
+              className="pl-8 tabular-nums"
+            />
+          </div>
+        )}
         {error ? (
           <p id="delta-value-error" role="alert" className="text-sm text-destructive">
             {error}

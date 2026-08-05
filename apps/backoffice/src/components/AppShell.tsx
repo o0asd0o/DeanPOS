@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Outlet } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Outlet, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { MenuIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger, Sidebar, SidebarProvider } from "ui";
 
@@ -12,6 +13,12 @@ import { SidebarBrand } from "./SidebarBrand.tsx";
 // where both mocks draw it; landmark count: .scratch/decisions/021.
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
+  const { orpc } = useRouteContext({ from: "/_shell" });
+  const navigate = useNavigate();
+  const { data: me } = useQuery({ ...orpc.auth.me.queryOptions(), refetchInterval: 60_000 });
+  useEffect(() => {
+    if (me && !me.authenticated) void navigate({ to: "/login" });
+  }, [me, navigate]);
   // Held open briefly so the tapped row reads as selected before the drawer
   // slides away. This Sheet is the mobile nav; the sidebar's own `openMobile`
   // is unused here, both Sidebars being `collapsible="none"`.
