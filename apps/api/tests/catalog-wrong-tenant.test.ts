@@ -79,10 +79,12 @@ beforeAll(async () => {
   const createdItemA = await clientA.catalog.createMenuItem({
     categoryId: categoryA,
     name: "A Adobo",
+    priceCentavos: 10000,
   });
   const createdItemB = await clientB.catalog.createMenuItem({
     categoryId: categoryB,
     name: "B Adobo",
+    priceCentavos: 10000,
   });
   itemA = createdItemA!.id;
   itemB = createdItemB!.id;
@@ -94,6 +96,7 @@ beforeAll(async () => {
   const extraItemB = await clientB.catalog.createMenuItem({
     categoryId: categoryB,
     name: "B Archive Item",
+    priceCentavos: 10000,
   });
   archivedItemB = extraItemB!.id;
   await clientB.catalog.archiveMenuItem({ id: archivedItemB });
@@ -234,6 +237,7 @@ describe("catalog wrong-tenant probes", () => {
     const createdAsB = await asB().catalog.createMenuItem({
       categoryId: categoryB,
       name: "B Create Probe",
+      priceCentavos: 10000,
     });
     expect(createdAsB).toBeTruthy();
 
@@ -242,7 +246,11 @@ describe("catalog wrong-tenant probes", () => {
       mode: "refusal",
       ownerSees: createdAsB,
       otherGets: () =>
-        asA().catalog.createMenuItem({ categoryId: categoryB, name: "Should Not Exist" }),
+        asA().catalog.createMenuItem({
+          categoryId: categoryB,
+          name: "Should Not Exist",
+          priceCentavos: 10000,
+        }),
     });
   });
 
@@ -279,6 +287,7 @@ describe("catalog wrong-tenant probes", () => {
     const target = await asB().catalog.createMenuItem({
       categoryId: categoryB,
       name: "B Archive Item Probe",
+      priceCentavos: 10000,
     });
     const beforeAsB = await asB().catalog.archiveMenuItem({ id: target!.id });
     expect(beforeAsB?.archivedAt).not.toBeNull();
@@ -308,6 +317,7 @@ describe("catalog wrong-tenant probes", () => {
     const second = await asB().catalog.createMenuItem({
       categoryId: categoryB,
       name: "B Reorder Peer",
+      priceCentavos: 10000,
     });
     expect(second).toBeTruthy();
     const beforeAsB = await asB().catalog.reorderMenuItem({ id: itemB, direction: "down" });

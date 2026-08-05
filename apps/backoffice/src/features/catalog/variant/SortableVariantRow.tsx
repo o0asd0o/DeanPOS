@@ -1,56 +1,51 @@
-import { ArchiveIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { Badge, Button, TableCell, TableRow } from "ui";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ArchiveIcon, GripVerticalIcon } from "lucide-react";
+import { Badge, Button, cn, TableCell, TableRow } from "ui";
 
 import { formatCentavos, type VariantOutput } from "@/features/catalog/helpers.ts";
 
-export function VariantRow({
+export function SortableVariantRow({
   variant,
-  index,
-  total,
-  reordering,
+  disabled,
   onEdit,
   onArchive,
   onReactivate,
-  onMove,
 }: {
   variant: VariantOutput;
-  index: number;
-  total: number;
-  reordering: boolean;
+  disabled: boolean;
   onEdit: (variant: VariantOutput) => void;
   onArchive: (variant: VariantOutput) => void;
-  onReactivate: (variant: VariantOutput) => void;
-  onMove: (variant: VariantOutput, direction: "up" | "down") => void;
+  onReactivate?: (variant: VariantOutput) => void;
 }) {
   const active = variant.archivedAt === null;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: variant.id,
+    disabled: disabled || !active,
+  });
+
   return (
-    <TableRow>
-      <TableCell className="w-24">
+    <TableRow
+      ref={setNodeRef}
+      // design-exempt: dnd-kit needs live transform and transition while dragging
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(isDragging && "relative z-10 bg-background shadow-md")}
+    >
+      <TableCell className="w-10">
         {active ? (
-          <div className="flex gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="tap-target"
-              aria-label={`Move variant ${variant.name} up`}
-              disabled={reordering || index === 0}
-              onClick={() => onMove(variant, "up")}
-            >
-              <ChevronUpIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="tap-target"
-              aria-label={`Move variant ${variant.name} down`}
-              disabled={reordering || index >= total - 1}
-              onClick={() => onMove(variant, "down")}
-            >
-              <ChevronDownIcon aria-hidden="true" />
-            </Button>
-          </div>
+          <button
+            type="button"
+            className="tap-target inline-flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={`Drag variant ${variant.name}`}
+            disabled={disabled}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVerticalIcon aria-hidden="true" className="size-4" />
+          </button>
         ) : null}
       </TableCell>
       <TableCell className="font-medium">{variant.name}</TableCell>
@@ -87,7 +82,7 @@ export function VariantRow({
                 <ArchiveIcon aria-hidden="true" />
               </Button>
             </>
-          ) : (
+          ) : onReactivate ? (
             <Button
               type="button"
               variant="outline"
@@ -97,7 +92,7 @@ export function VariantRow({
             >
               Reactivate
             </Button>
-          )}
+          ) : null}
         </div>
       </TableCell>
     </TableRow>

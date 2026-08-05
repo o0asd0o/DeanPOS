@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { CheckIcon, XIcon } from "lucide-react";
 import { Button, Input, useSubmitGate } from "ui";
 
+import { MoneyInput } from "@/components/MoneyInput.tsx";
 import { SheetForm } from "@/components/SheetForm.tsx";
 import {
   centavosToEditorString,
@@ -89,28 +90,18 @@ export function VariantEditorSheet({
         {(field) => (
           <div className="flex flex-col gap-2">
             <label htmlFor="variant-price">Price</label>
-            <div className="flex items-center gap-2">
-              <span aria-hidden="true" className="text-muted-foreground">
-                ₱
-              </span>
-              <Input
-                id="variant-price"
-                name={field.name}
-                inputMode="decimal"
-                placeholder="120.00"
-                required
-                aria-invalid={priceError !== null}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => {
-                  setPriceError(null);
-                  field.handleChange(event.target.value);
-                }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Pesos and up to two decimal places. Paste with commas is fine.
-            </p>
+            <MoneyInput
+              id="variant-price"
+              name={field.name}
+              required
+              aria-invalid={priceError !== null}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(v) => {
+                setPriceError(null);
+                field.handleChange(v);
+              }}
+            />
           </div>
         )}
       </form.Field>

@@ -7,6 +7,7 @@ export const insertMenuItem = (
     tenantId: string;
     categoryId: string;
     name: string;
+    priceCentavos: number;
     sortOrder: number;
   },
 ) =>
@@ -17,6 +18,7 @@ export const insertMenuItem = (
       tenant_id: values.tenantId,
       category_id: values.categoryId,
       name: values.name,
+      price_centavos: values.priceCentavos,
       sort_order: values.sortOrder,
     })
     .returningAll()

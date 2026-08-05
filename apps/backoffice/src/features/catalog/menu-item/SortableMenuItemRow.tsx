@@ -2,9 +2,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Link } from "@tanstack/react-router";
 import { ArchiveIcon, GripVerticalIcon } from "lucide-react";
-import { Badge, Button, cn, TableCell, TableRow } from "ui";
+import { Button, cn, TableCell, TableRow } from "ui";
 
-import type { MenuItemOutput } from "@/features/catalog/helpers.ts";
+import { formatCentavos, type MenuItemOutput } from "@/features/catalog/helpers.ts";
 
 export function SortableMenuItemRow({
   item,
@@ -51,18 +51,12 @@ export function SortableMenuItemRow({
           {item.name}
         </Link>
       </TableCell>
-      <TableCell>
-        {item.sellable ? (
-          <Badge variant="success">Sellable</Badge>
-        ) : (
-          <Badge variant="warning">Not sellable — no variant</Badge>
-        )}
-      </TableCell>
+      <TableCell className="tabular-nums">{formatCentavos(item.priceCentavos)}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
           <Button variant="outline" size="sm" className="tap-target" asChild>
             <Link to="/catalog/$id" params={{ id: item.id }}>
-              {item.sellable ? "Edit" : "Add a variant"}
+              Edit
             </Link>
           </Button>
           <Button

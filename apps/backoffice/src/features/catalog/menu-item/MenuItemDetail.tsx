@@ -1,13 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useRouteContext } from "@tanstack/react-router";
-import { ArrowLeftIcon, CheckIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import {
+  Badge,
   Button,
   Card,
   CardContent,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   Table,
@@ -19,9 +40,11 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { MoneyInput } from "@/components/MoneyInput.tsx";
 import {
   useMoveMenuItemOnDetailMutation,
   useRenameMenuItemOnDetailMutation,
+  useSetMenuItemPriceOnDetailMutation,
 } from "./__common/queries.ts";
 import {
   useArchiveVariantMutation,
@@ -32,9 +55,14 @@ import {
   useSetVariantPriceMutation,
 } from "@/features/catalog/variant/__common/queries.ts";
 import { ArchiveVariantDialog } from "@/features/catalog/variant/ArchiveVariantDialog.tsx";
+import {
+  centavosToEditorString,
+  parsePriceInput,
+  reorderSteps,
+  type VariantOutput,
+} from "@/features/catalog/helpers.ts";
+import { SortableVariantRow } from "@/features/catalog/variant/SortableVariantRow.tsx";
 import { VariantEditorSheet } from "@/features/catalog/variant/VariantEditorSheet.tsx";
-import { VariantRow } from "@/features/catalog/variant/VariantRow.tsx";
-import type { VariantOutput } from "@/features/catalog/helpers.ts";
 
 const NAME_MAX = 60;
 
@@ -68,6 +96,7 @@ export function MenuItemDetail() {
   const reorderVariant = useReorderVariantMutation(id);
   const renameMenuItem = useRenameMenuItemOnDetailMutation(id);
   const moveMenuItem = useMoveMenuItemOnDetailMutation(id);
+  const setMenuItemPrice = useSetMenuItemPriceOnDetailMutation(id);
 
   const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
     text: "",
@@ -86,9 +115,12 @@ export function MenuItemDetail() {
   const [itemFailed, setItemFailed] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<VariantOutput | null>(null);
   const [archiveFailed, setArchiveFailed] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
-  const itemBusy = renameMenuItem.isPending || moveMenuItem.isPending;
+  const itemBusy = renameMenuItem.isPending || moveMenuItem.isPending || setMenuItemPrice.isPending;
   const variantBusy =
     createVariant.isPending || renameVariant.isPending || setVariantPrice.isPending;
   const reordering = reorderVariant.isPending;
@@ -96,6 +128,7 @@ export function MenuItemDetail() {
   const menuItem = menuItemQuery.data ?? null;
   const categories = categoriesQuery.data ?? [];
   const activeCategories = categories.filter((category) => category.archivedAt === null);
+  const categoryName = categories.find((c) => c.id === menuItem?.categoryId)?.name ?? "Unknown";
 
   const variants = useMemo(() => {
     const rows = variantsQuery.data ?? [];
@@ -106,17 +139,33 @@ export function MenuItemDetail() {
     });
   }, [variantsQuery.data]);
   const activeVariants = variants.filter((row) => row.archivedAt === null);
+  const [orderedVariants, setOrderedVariants] = useState<VariantOutput[]>([]);
+  useEffect(() => {
+    setOrderedVariants(activeVariants);
+  }, [variantsQuery.data]);
+  const archivedVariants = variants.filter((row) => row.archivedAt !== null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const form = useForm({
-    defaultValues: {
-      name: "",
-      categoryId: "",
-    },
+    defaultValues: { name: "", price: "" },
     onSubmit: async ({ value }) => {
       if (!menuItem) return;
       const name = value.name.trim();
       if (name.length < 1 || name.length > NAME_MAX) return;
-      if (!value.categoryId) return;
+      const parsed = parsePriceInput(value.price);
+      if (!parsed.ok) {
+        setPriceError("Enter pesos and centavos, like 120.00");
+        return;
+      }
+      if (parsed.value < 0) {
+        setPriceError("Price cannot be negative");
+        return;
+      }
+      setPriceError(null);
       setItemFailed(false);
       if (name !== menuItem.name) {
         const renamed = await renameMenuItem.mutateAsync({ id: menuItem.id, name });
@@ -125,12 +174,12 @@ export function MenuItemDetail() {
           return;
         }
       }
-      if (value.categoryId !== menuItem.categoryId) {
-        const moved = await moveMenuItem.mutateAsync({
+      if (parsed.value !== menuItem.priceCentavos) {
+        const priced = await setMenuItemPrice.mutateAsync({
           id: menuItem.id,
-          categoryId: value.categoryId,
+          priceCentavos: parsed.value,
         });
-        if (!moved) {
+        if (!priced) {
           setItemFailed(true);
           return;
         }
@@ -143,10 +192,28 @@ export function MenuItemDetail() {
   useEffect(() => {
     if (!menuItem) return;
     form.setFieldValue("name", menuItem.name);
-    form.setFieldValue("categoryId", menuItem.categoryId);
-  }, [menuItem?.id, menuItem?.name, menuItem?.categoryId]);
+    form.setFieldValue("price", centavosToEditorString(menuItem.priceCentavos));
+  }, [menuItem?.id, menuItem?.name, menuItem?.priceCentavos]);
 
   const gate = useSubmitGate(form, { busy: itemBusy });
+
+  const handleCategorySave = async () => {
+    if (!menuItem || !pendingCategoryId || pendingCategoryId === menuItem.categoryId) {
+      setEditingCategory(false);
+      setPendingCategoryId(null);
+      return;
+    }
+    const moved = await moveMenuItem.mutateAsync({
+      id: menuItem.id,
+      categoryId: pendingCategoryId,
+    });
+    if (moved) {
+      announce("Category changed");
+      void versionQuery.refetch();
+    }
+    setEditingCategory(false);
+    setPendingCategoryId(null);
+  };
 
   const openCreateVariant = () => {
     opener.current = document.activeElement as HTMLElement;
@@ -224,11 +291,24 @@ export function MenuItemDetail() {
     void versionQuery.refetch();
   };
 
-  const handleMove = async (variant: VariantOutput, direction: "up" | "down") => {
-    if (reordering) return;
-    const result = await reorderVariant.mutateAsync({ id: variant.id, direction });
-    if (!result) return;
+  const handleReorder = async (variantId: string, fromIndex: number, toIndex: number) => {
+    const plan = reorderSteps(fromIndex, toIndex);
+    if (!plan || reordering) return;
+    for (let step = 0; step < plan.steps; step += 1) {
+      const result = await reorderVariant.mutateAsync({ id: variantId, direction: plan.direction });
+      if (!result) break;
+    }
     announce("Variant reordered");
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || reordering) return;
+    const fromIndex = orderedVariants.findIndex((v) => v.id === active.id);
+    const toIndex = orderedVariants.findIndex((v) => v.id === over.id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    setOrderedVariants((rows) => arrayMove(rows, fromIndex, toIndex));
+    void handleReorder(String(active.id), fromIndex, toIndex);
   };
 
   if (menuItemQuery.isPending || variantsQuery.isPending) {
@@ -270,9 +350,67 @@ export function MenuItemDetail() {
               Catalog
             </Link>
           </Button>
-          <h1 className="text-xl font-semibold">{menuItem.name}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold">{menuItem.name}</h1>
+            {editingCategory ? (
+              <div className="flex items-center gap-1">
+                <Select
+                  value={pendingCategoryId ?? menuItem.categoryId}
+                  onValueChange={setPendingCategoryId}
+                >
+                  <SelectTrigger size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Save category"
+                  disabled={moveMenuItem.isPending}
+                  onClick={handleCategorySave}
+                >
+                  <CheckIcon aria-hidden="true" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Cancel"
+                  onClick={() => {
+                    setEditingCategory(false);
+                    setPendingCategoryId(null);
+                  }}
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="group inline-flex items-center gap-1"
+                onClick={() => {
+                  setPendingCategoryId(menuItem.categoryId);
+                  setEditingCategory(true);
+                }}
+              >
+                <Badge variant="secondary">{categoryName}</Badge>
+                <PencilIcon
+                  aria-hidden="true"
+                  className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                />
+              </button>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
-            Variants carry the price. A menu item without an active variant is not sellable.
+            Variants are optional sizes or options that override the base price.
           </p>
         </div>
       </div>
@@ -303,28 +441,33 @@ export function MenuItemDetail() {
                 </div>
               )}
             </form.Field>
-            <form.Field name="categoryId">
+            <form.Field name="price">
               {(field) => (
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="menu-item-detail-category">Category</label>
-                  <select
-                    id="menu-item-detail-category"
+                  <label htmlFor="menu-item-detail-price">Price</label>
+                  <MoneyInput
+                    id="menu-item-detail-price"
                     name={field.name}
                     required
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    aria-invalid={priceError !== null}
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  >
-                    {activeCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => {
+                      setPriceError(null);
+                      field.handleChange(v);
+                    }}
+                  />
                 </div>
               )}
             </form.Field>
+            {priceError && (
+              <div
+                role="alert"
+                className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
+              >
+                {priceError}
+              </div>
+            )}
             {itemFailed && (
               <div
                 role="alert"
@@ -333,12 +476,7 @@ export function MenuItemDetail() {
                 Couldn&rsquo;t save the menu item
               </div>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground tabular-nums" role="status">
-                {versionQuery.data?.version
-                  ? `Catalog version ${versionQuery.data.version.slice(0, 12)}…`
-                  : "Catalog version —"}
-              </p>
+            <div className="flex justify-end">
               <Button type="submit" aria-disabled={gate.blocked}>
                 <CheckIcon />
                 {itemBusy ? "Saving…" : "Save"}
@@ -354,7 +492,7 @@ export function MenuItemDetail() {
             <div>
               <h2 className="text-lg font-semibold">Variants</h2>
               <p className="text-sm text-muted-foreground">
-                Each variant is a sellable price form of this item.
+                Optional sizes or options with their own prices.
               </p>
             </div>
             <Button type="button" onClick={openCreateVariant}>
@@ -370,42 +508,56 @@ export function MenuItemDetail() {
             />
           ) : variants.length === 0 ? (
             <p role="status" className="text-muted-foreground">
-              No variants yet. Add one to make this item sellable.
+              No variants yet.
             </p>
           ) : (
-            <div className="overflow-x-auto py-1">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-24">
-                      <span className="sr-only">Reorder</span>
-                    </TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {variants.map((variant) => {
-                    const activeIndex = activeVariants.findIndex((row) => row.id === variant.id);
-                    return (
-                      <VariantRow
-                        key={variant.id}
-                        variant={variant}
-                        index={activeIndex}
-                        total={activeVariants.length}
-                        reordering={reordering}
-                        onEdit={openEditVariant}
-                        onArchive={setArchiveTarget}
-                        onReactivate={handleReactivate}
-                        onMove={handleMove}
-                      />
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={orderedVariants.map((v) => v.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="overflow-x-auto py-1">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
+                          <span className="sr-only">Reorder</span>
+                        </TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderedVariants.map((variant) => (
+                        <SortableVariantRow
+                          key={variant.id}
+                          variant={variant}
+                          disabled={reordering || orderedVariants.length < 2}
+                          onEdit={openEditVariant}
+                          onArchive={setArchiveTarget}
+                        />
+                      ))}
+                      {archivedVariants.map((variant) => (
+                        <SortableVariantRow
+                          key={variant.id}
+                          variant={variant}
+                          disabled
+                          onEdit={openEditVariant}
+                          onArchive={setArchiveTarget}
+                          onReactivate={handleReactivate}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </CardContent>
       </Card>
@@ -417,7 +569,11 @@ export function MenuItemDetail() {
         }}
         modal={false}
       >
-        <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetContent
+          side="right"
+          showCloseButton={false}
+          className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
+        >
           <VariantEditorSheet
             key={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant.id : "create"}
             variant={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant : null}

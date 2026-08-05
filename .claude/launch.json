@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backoffice",
+      "url": "http://localhost:6004",
+      "port": 6004
+    }
+  ]
+}

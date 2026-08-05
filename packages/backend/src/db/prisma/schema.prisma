@@ -269,25 +269,25 @@ model Category {
   @@index([tenantId])
 }
 
-// A MenuItem has no price and is not sellable until it owns a Variant.
 model MenuItem {
-  id         String    @id
-  tenantId   String    @map("tenant_id")
-  categoryId String    @map("category_id")
-  name       String
-  sortOrder  Int       @map("sort_order")
-  archivedAt DateTime? @map("archived_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  category   Category  @relation(fields: [tenantId, categoryId], references: [tenantId, id])
-  variants   Variant[]
+  id            String    @id
+  tenantId      String    @map("tenant_id")
+  categoryId    String    @map("category_id")
+  name          String
+  priceCentavos Int       @map("price_centavos")
+  sortOrder     Int       @map("sort_order")
+  archivedAt    DateTime? @map("archived_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  category      Category  @relation(fields: [tenantId, categoryId], references: [tenantId, id])
+  variants      Variant[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
   @@index([tenantId, categoryId])
 }
 
-// Price lives only on Variant (ADR-0005). Composite unique for issue 07 availability FK.
+// Variant price overrides the MenuItem base price. Composite unique for issue 07 availability FK.
 model Variant {
   id             String    @id
   tenantId       String    @map("tenant_id")

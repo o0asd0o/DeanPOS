@@ -15,12 +15,18 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { PlusIcon, ArchiveIcon } from "lucide-react";
 import {
-  Badge,
+  PlusIcon,
+  ArchiveIcon,
+  FolderOpenIcon,
+  SearchXIcon,
+  UtensilsCrossedIcon,
+} from "lucide-react";
+import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -34,14 +40,18 @@ import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { useTableView } from "@/lib/table.ts";
-import type { CategoryOutput, MenuItemOutput } from "@/features/catalog/helpers.ts";
+import {
+  formatCentavos,
+  type CategoryOutput,
+  type MenuItemOutput,
+} from "@/features/catalog/helpers.ts";
 import { SortableMenuItemRow } from "./SortableMenuItemRow.tsx";
 
-type SortKey = "name" | "status";
+type SortKey = "name" | "price";
 
 const SORT_VALUES: Record<SortKey, (item: MenuItemOutput) => string | number> = {
   name: (item) => item.name.toLowerCase(),
-  status: (item) => (item.archivedAt ? 1 : 0),
+  price: (item) => item.priceCentavos,
 };
 
 export function MenuItemListCard({
@@ -126,16 +136,20 @@ export function MenuItemListCard({
     if (isError) return <ErrorState onRetry={refetch} isFetching={isFetching} />;
     if (!category) {
       return (
-        <p role="status" className="text-muted-foreground">
-          Select a category
-        </p>
+        <EmptyState
+          icon={<FolderOpenIcon aria-hidden="true" />}
+          title="Select a category"
+          description="Pick a category on the left to see the menu items filed under it."
+        />
       );
     }
     if (inCategory.length === 0) {
       return (
-        <p role="status" className="text-muted-foreground">
-          No menu items yet
-        </p>
+        <EmptyState
+          icon={<UtensilsCrossedIcon aria-hidden="true" />}
+          title="No menu items yet"
+          description="Add the first item in this category and set its price. Items stay drafts until they have a variant."
+        />
       );
     }
 
@@ -154,7 +168,7 @@ export function MenuItemListCard({
                       <span className="sr-only">Reorder</span>
                     </TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Price</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -187,8 +201,8 @@ export function MenuItemListCard({
                   </button>
                 </TableHead>
                 <TableHead>
-                  <button type="button" onClick={() => table.sortBy("status")}>
-                    Status
+                  <button type="button" onClick={() => table.sortBy("price")}>
+                    Price
                   </button>
                 </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -212,14 +226,8 @@ export function MenuItemListCard({
                         </Link>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {archived ? (
-                        <Badge variant="secondary">Archived</Badge>
-                      ) : item.sellable ? (
-                        <Badge variant="success">Sellable</Badge>
-                      ) : (
-                        <Badge variant="warning">Not sellable — no variant</Badge>
-                      )}
+                    <TableCell className="tabular-nums">
+                      {archived ? "—" : formatCentavos(item.priceCentavos)}
                     </TableCell>
                     <TableCell className="text-right">
                       {archived ? (
@@ -235,7 +243,7 @@ export function MenuItemListCard({
                         <div className="flex justify-end gap-1">
                           <Button variant="outline" size="sm" className="tap-target" asChild>
                             <Link to="/catalog/$id" params={{ id: item.id }}>
-                              {item.sellable ? "Edit" : "Add a variant"}
+                              Edit
                             </Link>
                           </Button>
                           <Button
@@ -257,6 +265,13 @@ export function MenuItemListCard({
             </TableBody>
           </Table>
         </div>
+        {table.rows.length === 0 && (
+          <EmptyState
+            icon={<SearchXIcon aria-hidden="true" />}
+            title="No menu items match these filters"
+            description="Try another status, or clear the search."
+          />
+        )}
         <TablePagination
           page={table.page}
           pageCount={table.pageCount}
@@ -273,9 +288,7 @@ export function MenuItemListCard({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">{category ? category.name : "Menu items"}</h2>
-            <p className="text-sm text-muted-foreground">
-              Drafts stay here until a variant makes them sellable.
-            </p>
+            <p className="text-sm text-muted-foreground">Add items and set their prices.</p>
           </div>
           {category && category.archivedAt === null && (
             <Button onClick={onAdd} className="tap-target">

@@ -61,6 +61,7 @@ beforeAll(async () => {
       category_id: categoryId,
       name: "Adobo",
       sort_order: 0,
+      price_centavos: 10000,
     })
     .execute();
 });

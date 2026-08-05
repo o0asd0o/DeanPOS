@@ -194,7 +194,7 @@ export const categoryOutputSchema = z.object({
 
 export const menuItemOutputSchema = categoryOutputSchema.extend({
   categoryId: z.string(),
-  sellable: z.boolean(),
+  priceCentavos: z.number().int(),
 });
 
 export const variantOutputSchema = z.object({
@@ -220,6 +220,7 @@ export const catalogReadMenuItemSchema = z.object({
   tenantId: z.string(),
   categoryId: z.string(),
   name: z.string(),
+  priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
   variants: z.array(catalogReadVariantSchema),
 });
@@ -234,6 +235,11 @@ export const catalogCategoryRenameInputSchema = z.object({
 export const catalogMenuItemCreateInputSchema = z.object({
   categoryId: z.string(),
   name: catalogNameSchema,
+  priceCentavos: z.number().int(),
+});
+export const catalogMenuItemSetPriceInputSchema = z.object({
+  id: z.string(),
+  priceCentavos: z.number().int(),
 });
 export const catalogMenuItemRenameInputSchema = z.object({
   id: z.string(),
@@ -649,6 +655,9 @@ export const contract = {
       .input(catalogMenuItemRenameInputSchema)
       .output(menuItemOutputSchema.nullable()),
     moveMenuItem: oc.input(catalogMenuItemMoveInputSchema).output(menuItemOutputSchema.nullable()),
+    setMenuItemPrice: oc
+      .input(catalogMenuItemSetPriceInputSchema)
+      .output(menuItemOutputSchema.nullable()),
     archiveMenuItem: oc.input(catalogEntityIdInputSchema).output(menuItemOutputSchema.nullable()),
     reactivateMenuItem: oc
       .input(catalogEntityIdInputSchema)

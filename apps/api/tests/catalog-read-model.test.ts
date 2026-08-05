@@ -51,6 +51,7 @@ describe("catalog.read", () => {
     const item = await client.catalog.createMenuItem({
       categoryId: category!.id,
       name: "Adobo",
+      priceCentavos: 10000,
     });
 
     const read = await client.catalog.read({ storeId });

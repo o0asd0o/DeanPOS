@@ -29,6 +29,7 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
       tenantId,
       categoryId: input.categoryId,
       name: input.name,
+      priceCentavos: input.priceCentavos,
       sortOrder,
     });
   });

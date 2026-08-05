@@ -36,7 +36,11 @@ forever.
 
 **Pricing tree**
 
-- Price lives on the **Variant**. A MenuItem has no price and is not sellable.
+- ~~Price lives on the **Variant**. A MenuItem has no price and is not sellable.~~
+  **Amended 2026-08-05:** Price lives on the **MenuItem** (`price_centavos`). A MenuItem
+  is sellable immediately upon creation. **Variants** are optional sizes/options whose
+  price **overrides** the base MenuItem price when present. This follows the Loyverse
+  model: items are ready to sell from creation; variants come after.
 - A **Modifier** or **Add-on** carries a typed **Delta**: `absolute` (±centavos) or
   `multiplier` (×rate). The type is a stored field, never inferred from the value.
 

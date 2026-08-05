@@ -18,6 +18,7 @@ type ReadOutput = {
     tenantId: string;
     categoryId: string;
     name: string;
+    priceCentavos: number;
     sortOrder: number;
     variants: {
       id: string;
@@ -51,6 +52,7 @@ export const handler: Handler<Input, ReadOutput> = async ({ ctx, input }) => {
           tenantId: item.tenant_id,
           categoryId: item.category_id,
           name: item.name,
+          priceCentavos: item.price_centavos,
           sortOrder: item.sort_order,
           variants: variants.map((variant) => ({
             id: variant.id,

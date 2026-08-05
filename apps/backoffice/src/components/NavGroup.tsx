@@ -43,7 +43,7 @@ export function NavGroup({
         <SidebarMenu aria-labelledby={label ? headingId : undefined}>
           {items.map(({ label: item, icon: Icon, to }) => (
             <SidebarMenuItem key={item}>
-              <SidebarMenuButton asChild isActive={Boolean(matchRoute({ to }))}>
+              <SidebarMenuButton asChild isActive={Boolean(matchRoute({ to, fuzzy: true }))}>
                 <Link to={to} onClick={onNavigate}>
                   <Icon aria-hidden="true" />
                   <span>{item}</span>

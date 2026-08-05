@@ -12,7 +12,7 @@ export type CategoryOutput = {
 
 export type MenuItemOutput = CategoryOutput & {
   categoryId: string;
-  sellable: boolean;
+  priceCentavos: number;
 };
 
 export type VariantOutput = {

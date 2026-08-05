@@ -44,6 +44,17 @@ export function useMoveMenuItemMutation() {
   );
 }
 
+export function useSetMenuItemPriceMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog" });
+  const invalidate = useInvalidateCatalog();
+  return useMutation(
+    orpc.catalog.setMenuItemPrice.mutationOptions({
+      onSuccess: invalidate,
+      meta: { success: "Price updated", error: "Couldn't update the price" },
+    }),
+  );
+}
+
 export function useArchiveMenuItemMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/catalog" });
   const invalidate = useInvalidateCatalog();
@@ -95,6 +106,17 @@ export function useMoveMenuItemOnDetailMutation(menuItemId: string) {
     orpc.catalog.moveMenuItem.mutationOptions({
       onSuccess: invalidate,
       meta: { error: "Couldn't save the menu item" },
+    }),
+  );
+}
+
+export function useSetMenuItemPriceOnDetailMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateMenuItemEditor(menuItemId);
+  return useMutation(
+    orpc.catalog.setMenuItemPrice.mutationOptions({
+      onSuccess: invalidate,
+      meta: { error: "Couldn't update the price" },
     }),
   );
 }

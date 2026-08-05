@@ -11,13 +11,13 @@ export const toCategoryOutput = (category: Selectable<Category>) => ({
   createdAt: category.created_at,
 });
 
-export const toMenuItemOutput = (menuItem: Selectable<MenuItem>, sellable = false) => ({
+export const toMenuItemOutput = (menuItem: Selectable<MenuItem>) => ({
   id: menuItem.id,
   tenantId: menuItem.tenant_id,
   name: menuItem.name,
+  priceCentavos: menuItem.price_centavos,
   sortOrder: menuItem.sort_order,
   archivedAt: menuItem.archived_at,
   createdAt: menuItem.created_at,
   categoryId: menuItem.category_id,
-  sellable,
 });

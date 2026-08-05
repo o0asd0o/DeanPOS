@@ -19,6 +19,7 @@ import { handler as listModifierGroupsHandler } from "backend/src/modifier-group
 import { handler as listModifiersHandler } from "backend/src/modifier/handlers/list-modifiers.ts";
 import { handler as listVariantsHandler } from "backend/src/variant/handlers/list-variants.ts";
 import { handler as moveMenuItemHandler } from "backend/src/catalog/handlers/move-menu-item.ts";
+import { handler as setMenuItemPriceHandler } from "backend/src/catalog/handlers/set-menu-item-price.ts";
 import { handler as reactivateCategoryHandler } from "backend/src/catalog/handlers/reactivate-category.ts";
 import { handler as reactivateMenuItemHandler } from "backend/src/catalog/handlers/reactivate-menu-item.ts";
 import { handler as reactivateModifierHandler } from "backend/src/modifier/handlers/reactivate-modifier.ts";
@@ -79,6 +80,9 @@ export const catalogRenameMenuItemRoute = os.catalog.renameMenuItem.handler(({ c
 );
 export const catalogMoveMenuItemRoute = os.catalog.moveMenuItem.handler(({ context, input }) =>
   moveMenuItemHandler({ ctx: context, input }),
+);
+export const catalogSetMenuItemPriceRoute = os.catalog.setMenuItemPrice.handler(
+  ({ context, input }) => setMenuItemPriceHandler({ ctx: context, input }),
 );
 export const catalogArchiveMenuItemRoute = os.catalog.archiveMenuItem.handler(
   ({ context, input }) => archiveMenuItemHandler({ ctx: context, input }),

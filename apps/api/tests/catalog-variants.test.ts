@@ -72,12 +72,13 @@ async function seedItem(name = "Adobo") {
   const item = await client.catalog.createMenuItem({
     categoryId: category!.id,
     name,
+    priceCentavos: 10000,
   });
   return { client, category: category!, item: item! };
 }
 
 describe("catalog variants + archive cascade (read model)", () => {
-  it("includes a Variant price on the read model and marks the MenuItem sellable", async () => {
+  it("includes a Variant price on the read model and the MenuItem base price", async () => {
     const { client, item } = await seedItem("Sinigang");
     const created = await client.catalog.createVariant({
       menuItemId: item.id,
@@ -88,7 +89,7 @@ describe("catalog variants + archive cascade (read model)", () => {
     expect(Number.isInteger(created?.priceCentavos)).toBe(true);
 
     const listed = await client.catalog.listMenuItems();
-    expect(listed.find((row) => row.id === item.id)?.sellable).toBe(true);
+    expect(listed.find((row) => row.id === item.id)?.priceCentavos).toBe(10000);
 
     const read = await client.catalog.read({ storeId });
     const onRead = read.menuItems.find((row) => row.id === item.id);
@@ -169,10 +170,12 @@ describe("catalog variants + archive cascade (read model)", () => {
     const kept = await client.catalog.createMenuItem({
       categoryId: category!.id,
       name: "Kept",
+      priceCentavos: 10000,
     });
     const selfArchived = await client.catalog.createMenuItem({
       categoryId: category!.id,
       name: "Self archived",
+      priceCentavos: 10000,
     });
     await client.catalog.createVariant({
       menuItemId: kept!.id,
