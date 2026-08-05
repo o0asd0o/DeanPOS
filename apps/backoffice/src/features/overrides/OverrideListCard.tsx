@@ -1,6 +1,8 @@
+import { ShieldCheckIcon } from "lucide-react";
 import {
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -50,7 +52,11 @@ export function OverrideListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !overrides || overrides.length === 0 ? (
-          <p className="text-foreground">No overrides to show</p>
+          <EmptyState
+            icon={<ShieldCheckIcon aria-hidden="true" />}
+            title="No overrides to show"
+            description="Manager approvals taken at the till land here — voids, refunds, price overrides and drawer variances."
+          />
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Overrides">

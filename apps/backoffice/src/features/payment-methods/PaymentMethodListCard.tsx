@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
+import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -201,9 +202,11 @@ export function PaymentMethodListCard({
               </TableBody>
             </Table>
             {visible.length === 0 && (
-              <p role="status" className="py-6 text-center text-muted-foreground">
-                No payment methods match these filters
-              </p>
+              <EmptyState
+                icon={<SearchXIcon aria-hidden="true" />}
+                title="No payment methods match these filters"
+                description="Try another status, or clear the search."
+              />
             )}
             <TablePagination
               page={table.page}

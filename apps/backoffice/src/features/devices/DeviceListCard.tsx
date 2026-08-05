@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon, UserIcon } from "lucide-react";
+import {
+  MonitorSmartphoneIcon,
+  PencilIcon,
+  PowerOffIcon,
+  SearchXIcon,
+  UserIcon,
+} from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -90,14 +97,14 @@ export function DeviceListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !devices || devices.length === 0 ? (
-          <>
-            <p className="text-foreground">No devices yet</p>
-            {isAdmin && (
-              <p className="text-foreground">
-                Enrol a terminal to start taking sales at the till. Use Enrol a device above.
-              </p>
-            )}
-          </>
+          <EmptyState
+            icon={<MonitorSmartphoneIcon aria-hidden="true" />}
+            title="No devices yet"
+            description={
+              isAdmin &&
+              "Enrol a terminal to start taking sales at the till. Use Enrol a device above."
+            }
+          />
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Devices">
@@ -193,9 +200,11 @@ export function DeviceListCard({
               </TableBody>
             </Table>
             {visible.length === 0 && (
-              <p role="status" className="py-6 text-center text-muted-foreground">
-                No devices match these filters
-              </p>
+              <EmptyState
+                icon={<SearchXIcon aria-hidden="true" />}
+                title="No devices match these filters"
+                description="Try another status, or clear the search."
+              />
             )}
             <TablePagination
               page={table.page}

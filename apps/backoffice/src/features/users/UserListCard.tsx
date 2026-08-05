@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
+import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -115,7 +116,11 @@ export function UserListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !users || users.length === 0 ? (
-          <p className="text-foreground">No employees to show</p>
+          <EmptyState
+            icon={<UsersIcon aria-hidden="true" />}
+            title="No employees to show"
+            description="Invite someone to give them a back office sign-in and a till PIN."
+          />
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Employees">
@@ -212,9 +217,11 @@ export function UserListCard({
               </TableBody>
             </Table>
             {visible.length === 0 && (
-              <p role="status" className="py-6 text-center text-muted-foreground">
-                No employees match these filters
-              </p>
+              <EmptyState
+                icon={<SearchXIcon aria-hidden="true" />}
+                title="No employees match these filters"
+                description="Try another status, or clear the search."
+              />
             )}
             <TablePagination
               page={table.page}

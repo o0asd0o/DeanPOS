@@ -46,6 +46,7 @@ export {
 } from "./components/card.tsx";
 export { Alert, AlertTitle, AlertDescription } from "./components/alert.tsx";
 export { Badge, badgeVariants } from "./components/badge.tsx";
+export { EmptyState } from "./components/empty-state.tsx";
 export {
   Dialog,
   DialogTrigger,

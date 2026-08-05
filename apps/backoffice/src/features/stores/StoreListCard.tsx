@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
+import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon, StoreIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -96,15 +97,14 @@ export function StoreListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !stores || stores.length === 0 ? (
-          <>
-            <p className="text-foreground">No stores yet</p>
-            {isAdmin && (
-              <p className="text-foreground">
-                A store is one outlet — its own sales, its own devices, and its own table labels.
-                Use Add store above to create the first one.
-              </p>
-            )}
-          </>
+          <EmptyState
+            icon={<StoreIcon aria-hidden="true" />}
+            title="No stores yet"
+            description={
+              isAdmin &&
+              "A store is one outlet — its own sales, its own devices, and its own table labels. Use Add store above to create the first one."
+            }
+          />
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Stores">
@@ -203,9 +203,11 @@ export function StoreListCard({
               </TableBody>
             </Table>
             {visible.length === 0 && (
-              <p role="status" className="py-6 text-center text-muted-foreground">
-                No stores match these filters
-              </p>
+              <EmptyState
+                icon={<SearchXIcon aria-hidden="true" />}
+                title="No stores match these filters"
+                description="Try another status, or clear the search."
+              />
             )}
             <TablePagination
               page={table.page}
