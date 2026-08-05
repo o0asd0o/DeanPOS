@@ -1,4 +1,11 @@
-import { ChevronDownIcon, ChevronUpIcon, PencilIcon, PlusIcon, PowerOffIcon, RotateCcwIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PencilIcon,
+  PlusIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Badge,
@@ -19,10 +26,7 @@ import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { useTableView } from "@/lib/table.ts";
 
-import {
-  useReorderModifierGroupMutation,
-  useReorderModifierMutation,
-} from "./__common/queries.ts";
+import { useReorderModifierGroupMutation, useReorderModifierMutation } from "./__common/queries.ts";
 import {
   formatDelta,
   type ModifierGroupOutput,
@@ -122,10 +126,16 @@ export function ModifierGroupListCard({
                     Rule
                   </TableHead>
                   <TableHead>Modifiers</TableHead>
-                  <TableHead sorted={table.sortedBy("linked")} onSort={() => table.sortBy("linked")}>
+                  <TableHead
+                    sorted={table.sortedBy("linked")}
+                    onSort={() => table.sortBy("linked")}
+                  >
                     Linked to
                   </TableHead>
-                  <TableHead sorted={table.sortedBy("status")} onSort={() => table.sortBy("status")}>
+                  <TableHead
+                    sorted={table.sortedBy("status")}
+                    onSort={() => table.sortBy("status")}
+                  >
                     Status
                   </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -182,7 +192,8 @@ export function ModifierGroupListCard({
                                       className="size-7"
                                       aria-label={`Move ${mod.name} down in ${group.name}`}
                                       disabled={
-                                        modIndex === activeMods.length - 1 || reorderModifier.isPending
+                                        modIndex === activeMods.length - 1 ||
+                                        reorderModifier.isPending
                                       }
                                       onClick={() =>
                                         void reorderModifier.mutateAsync({

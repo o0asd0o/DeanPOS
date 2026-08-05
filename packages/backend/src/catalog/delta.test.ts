@@ -15,9 +15,9 @@ import {
 
 describe("validateDeltaConfig — absolute", () => {
   it("accepts the inclusive ±100_000 centavos bounds", () => {
-    expect(validateDeltaConfig({ kind: "absolute", amountCentavos: ABSOLUTE_DELTA_MAX_CENTAVOS }).ok).toBe(
-      true,
-    );
+    expect(
+      validateDeltaConfig({ kind: "absolute", amountCentavos: ABSOLUTE_DELTA_MAX_CENTAVOS }).ok,
+    ).toBe(true);
     expect(
       validateDeltaConfig({ kind: "absolute", amountCentavos: -ABSOLUTE_DELTA_MAX_CENTAVOS }).ok,
     ).toBe(true);
@@ -90,27 +90,30 @@ describe("rateStringToPerMille — three decimal places max", () => {
 describe("validateDeltaConfig property — pure against foundation money", () => {
   it("every accepted absolute Delta round-trips through storage and applyDelta stays integer Millicentavos", () => {
     fc.assert(
-      fc.property(fc.integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS }), (amount) => {
-        const configured = validateDeltaConfig({ kind: "absolute", amountCentavos: amount });
-        expect(configured.ok).toBe(true);
-        if (!configured.ok) return;
+      fc.property(
+        fc.integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS }),
+        (amount) => {
+          const configured = validateDeltaConfig({ kind: "absolute", amountCentavos: amount });
+          expect(configured.ok).toBe(true);
+          if (!configured.ok) return;
 
-        const stored = deltaToStored(configured.delta);
-        expect(stored.kind).toBe("absolute");
-        expect(Number.isInteger(stored.value)).toBe(true);
+          const stored = deltaToStored(configured.delta);
+          expect(stored.kind).toBe("absolute");
+          expect(Number.isInteger(stored.value)).toBe(true);
 
-        const restored = deltaFromStored(stored.kind, stored.value);
-        expect(restored.ok).toBe(true);
-        if (!restored.ok) return;
-        expect(restored.delta).toEqual(configured.delta);
+          const restored = deltaFromStored(stored.kind, stored.value);
+          expect(restored.ok).toBe(true);
+          if (!restored.ok) return;
+          expect(restored.delta).toEqual(configured.delta);
 
-        const price = 12_100 as Centavos;
-        const millicentavos = applyDelta(price, restored.delta);
-        expect(Number.isInteger(millicentavos)).toBe(true);
-        // Do not round at the modifier — only at line total.
-        const rounded = roundLineTotal(millicentavos as Millicentavos);
-        expect(Number.isInteger(rounded)).toBe(true);
-      }),
+          const price = 12_100 as Centavos;
+          const millicentavos = applyDelta(price, restored.delta);
+          expect(Number.isInteger(millicentavos)).toBe(true);
+          // Do not round at the modifier — only at line total.
+          const rounded = roundLineTotal(millicentavos as Millicentavos);
+          expect(Number.isInteger(rounded)).toBe(true);
+        },
+      ),
     );
   });
 
@@ -139,8 +142,14 @@ describe("validateDeltaConfig property — pure against foundation money", () =>
     fc.assert(
       fc.property(
         fc.oneof(
-          fc.integer({ min: ABSOLUTE_DELTA_MAX_CENTAVOS + 1, max: ABSOLUTE_DELTA_MAX_CENTAVOS + 10_000 }),
-          fc.integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS - 10_000, max: -ABSOLUTE_DELTA_MAX_CENTAVOS - 1 }),
+          fc.integer({
+            min: ABSOLUTE_DELTA_MAX_CENTAVOS + 1,
+            max: ABSOLUTE_DELTA_MAX_CENTAVOS + 10_000,
+          }),
+          fc.integer({
+            min: -ABSOLUTE_DELTA_MAX_CENTAVOS - 10_000,
+            max: -ABSOLUTE_DELTA_MAX_CENTAVOS - 1,
+          }),
         ),
         (amount) => {
           expect(validateDeltaConfig({ kind: "absolute", amountCentavos: amount }).ok).toBe(false);
@@ -164,9 +173,14 @@ describe("validateDeltaConfig property — pure against foundation money", () =>
 
   it("accepted deltas never introduce a float on the wire shape (stored value is int)", () => {
     const deltaArb = fc.oneof(
-      fc.integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS }).map(
-        (amountCentavos): Delta => ({ kind: "absolute", amountCentavos: amountCentavos as Centavos }),
-      ),
+      fc
+        .integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS })
+        .map(
+          (amountCentavos): Delta => ({
+            kind: "absolute",
+            amountCentavos: amountCentavos as Centavos,
+          }),
+        ),
       fc
         .integer({ min: MULTIPLIER_PER_MILLE_MIN, max: MULTIPLIER_PER_MILLE_MAX })
         .map((perMille): Delta => ({ kind: "multiplier", perMille: perMille as PerMille })),

@@ -14,7 +14,10 @@ export const inputSchema = catalogModifierGroupUpdateInputSchema;
 type Input = z.infer<typeof inputSchema>;
 type Output = ReturnType<typeof toModifierGroupOutput>;
 
-function normalizeMaximum(selectionRule: Input["selectionRule"], maximum: number | null | undefined) {
+function normalizeMaximum(
+  selectionRule: Input["selectionRule"],
+  maximum: number | null | undefined,
+) {
   if (selectionRule !== "many") return null;
   return maximum === undefined ? null : maximum;
 }

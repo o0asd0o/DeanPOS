@@ -134,14 +134,14 @@ export const catalogCreateModifierRoute = os.catalog.createModifier.handler(({ c
 export const catalogUpdateModifierRoute = os.catalog.updateModifier.handler(({ context, input }) =>
   updateModifierHandler({ ctx: context, input }),
 );
-export const catalogArchiveModifierRoute = os.catalog.archiveModifier.handler(({ context, input }) =>
-  archiveModifierHandler({ ctx: context, input }),
+export const catalogArchiveModifierRoute = os.catalog.archiveModifier.handler(
+  ({ context, input }) => archiveModifierHandler({ ctx: context, input }),
 );
 export const catalogReactivateModifierRoute = os.catalog.reactivateModifier.handler(
   ({ context, input }) => reactivateModifierHandler({ ctx: context, input }),
 );
-export const catalogReorderModifierRoute = os.catalog.reorderModifier.handler(({ context, input }) =>
-  reorderModifierHandler({ ctx: context, input }),
+export const catalogReorderModifierRoute = os.catalog.reorderModifier.handler(
+  ({ context, input }) => reorderModifierHandler({ ctx: context, input }),
 );
 export const catalogReadRoute = os.catalog.read.handler(({ context, input }) =>
   readCatalogHandler({ ctx: context, input }),

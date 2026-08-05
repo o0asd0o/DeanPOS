@@ -269,7 +269,6 @@ export const catalogVersionOutputSchema = z.object({
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
-
 export const catalogSelectionRuleSchema = z.enum(["required-one", "optional-one", "many"]);
 export const catalogDeltaKindSchema = z.enum(["absolute", "multiplier"]);
 
@@ -680,8 +679,12 @@ export const contract = {
       .input(catalogReorderInputSchema)
       .output(modifierGroupOutputSchema.nullable()),
     listModifiers: oc.input(catalogListModifiersInputSchema).output(z.array(modifierOutputSchema)),
-    createModifier: oc.input(catalogModifierCreateInputSchema).output(modifierOutputSchema.nullable()),
-    updateModifier: oc.input(catalogModifierUpdateInputSchema).output(modifierOutputSchema.nullable()),
+    createModifier: oc
+      .input(catalogModifierCreateInputSchema)
+      .output(modifierOutputSchema.nullable()),
+    updateModifier: oc
+      .input(catalogModifierUpdateInputSchema)
+      .output(modifierOutputSchema.nullable()),
     archiveModifier: oc.input(catalogEntityIdInputSchema).output(modifierOutputSchema.nullable()),
     reactivateModifier: oc
       .input(catalogEntityIdInputSchema)

@@ -47,7 +47,10 @@ export type MultiplierRateStringInput = {
   readonly rate: string;
 };
 
-export type DeltaConfigInput = AbsoluteDeltaInput | MultiplierDeltaInput | MultiplierRateStringInput;
+export type DeltaConfigInput =
+  | AbsoluteDeltaInput
+  | MultiplierDeltaInput
+  | MultiplierRateStringInput;
 
 const RATE_STRING = /^(-?)(\d+)(?:\.(\d+))?$/;
 

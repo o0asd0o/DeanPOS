@@ -502,7 +502,6 @@ describe("catalog variant wrong-tenant probes", () => {
   });
 });
 
-
 describe("catalog options wrong-tenant probes", () => {
   it("wrong-tenant probe [catalog.listModifierGroups]: Tenant B's group never appears in A's list", async () => {
     const createdA = await asA().catalog.createModifierGroup({

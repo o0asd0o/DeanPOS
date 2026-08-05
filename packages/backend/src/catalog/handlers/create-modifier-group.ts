@@ -16,7 +16,10 @@ export const inputSchema = catalogModifierGroupCreateInputSchema;
 type Input = z.infer<typeof inputSchema>;
 type Output = ReturnType<typeof toModifierGroupOutput>;
 
-function normalizeMaximum(selectionRule: Input["selectionRule"], maximum: number | null | undefined) {
+function normalizeMaximum(
+  selectionRule: Input["selectionRule"],
+  maximum: number | null | undefined,
+) {
   if (selectionRule !== "many") return null;
   return maximum ?? null;
 }
@@ -34,10 +37,7 @@ export const handler: Handler<Input, Output | null> = async ({ ctx, input }) => 
     const row = await withTenantScope(ctx.db, tenantId, async (db) => {
       const existing = await findActiveModifierGroupByName(db, input.name);
       if (existing) {
-        if (
-          existing.selection_rule === input.selectionRule &&
-          existing.maximum === maximum
-        ) {
+        if (existing.selection_rule === input.selectionRule && existing.maximum === maximum) {
           return getModifierGroup(db, existing.id);
         }
         return null;

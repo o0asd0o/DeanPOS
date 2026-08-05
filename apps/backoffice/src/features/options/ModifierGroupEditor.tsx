@@ -74,7 +74,8 @@ function GroupForm({
   const form = useForm({
     defaultValues: {
       name: group?.name ?? "",
-      selectionRule: group?.selectionRule ?? ("required-one" as ModifierGroupOutput["selectionRule"]),
+      selectionRule:
+        group?.selectionRule ?? ("required-one" as ModifierGroupOutput["selectionRule"]),
       maximum: group?.maximum?.toString() ?? "",
       defaultModifierId: group?.defaultModifierId ?? "",
     },
@@ -82,11 +83,7 @@ function GroupForm({
       setFormError(null);
       const maximumRaw = value.maximum.trim();
       const maximum =
-        value.selectionRule === "many"
-          ? maximumRaw === ""
-            ? null
-            : Number(maximumRaw)
-          : null;
+        value.selectionRule === "many" ? (maximumRaw === "" ? null : Number(maximumRaw)) : null;
       if (value.selectionRule === "many" && maximum !== null) {
         if (!Number.isInteger(maximum) || maximum <= 0) {
           setFormError("Maximum must be a whole number greater than zero.");
@@ -160,9 +157,7 @@ function GroupForm({
             <label htmlFor="group-rule">Selection rule</label>
             <Select
               value={field.state.value}
-              onValueChange={(v) =>
-                field.handleChange(v as ModifierGroupOutput["selectionRule"])
-              }
+              onValueChange={(v) => field.handleChange(v as ModifierGroupOutput["selectionRule"])}
             >
               <SelectTrigger id="group-rule" className="w-full">
                 <SelectValue />
