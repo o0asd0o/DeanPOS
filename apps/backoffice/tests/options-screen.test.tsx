@@ -110,7 +110,7 @@ describe("the Options screen", () => {
     );
 
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Half" } });
-    fireEvent.click(screen.getByLabelText("Multiplier"));
+    fireEvent.click(screen.getByRole("radio", { name: "Multiplier" }));
     expect(screen.getByText("×")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Rate"), { target: { value: "0.5" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

@@ -44,14 +44,10 @@ export const getPinRoster = async (
       // and the payload deliberately never carries the email to fall back on.
       displayName: `${user.first_name} ${user.last_name}`.trim() || "Unknown",
       pinHash: user.pin_hash,
-      canApproveOverride:
-        currentRole !== undefined &&
-        hasAtLeastRole(currentRole.role, "manager"),
+      canApproveOverride: currentRole !== undefined && hasAtLeastRole(currentRole.role, "manager"),
     });
   }
 
   if (assignedUserId === null) return roster;
-  return roster.filter(
-    (user) => user.userId === assignedUserId || user.canApproveOverride,
-  );
+  return roster.filter((user) => user.userId === assignedUserId || user.canApproveOverride);
 };

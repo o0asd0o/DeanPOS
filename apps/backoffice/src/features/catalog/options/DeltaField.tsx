@@ -1,4 +1,4 @@
-import { Input } from "ui";
+import { cn, Input } from "ui";
 
 import { MoneyInput } from "@/components/MoneyInput.tsx";
 
@@ -34,18 +34,18 @@ export function DeltaField({
             role="radio"
             aria-checked={kind === k}
             onClick={() => onKindChange(k)}
-            className={[
+            className={cn(
               "flex flex-1 items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors",
               kind === k
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-border bg-card text-foreground hover:bg-accent",
-            ].join(" ")}
+            )}
           >
             <span
-              className={[
+              className={cn(
                 "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
                 kind === k ? "border-primary" : "border-muted-foreground",
-              ].join(" ")}
+              )}
             >
               {kind === k && <span className="size-2 rounded-full bg-primary" />}
             </span>

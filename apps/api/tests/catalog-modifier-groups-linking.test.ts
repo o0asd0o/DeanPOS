@@ -67,28 +67,38 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await ownerDb.deleteFrom("VariantModifierGroup").where("tenant_id", "in", [tenantId, tenantBId]).execute();
+  await ownerDb
+    .deleteFrom("VariantModifierGroup")
+    .where("tenant_id", "in", [tenantId, tenantBId])
+    .execute();
   // Null out default_modifier_id before deleting Modifiers (FK RESTRICT).
-  await ownerDb.updateTable("ModifierGroup").set({ default_modifier_id: null }).where("tenant_id", "in", [tenantId, tenantBId]).execute();
+  await ownerDb
+    .updateTable("ModifierGroup")
+    .set({ default_modifier_id: null })
+    .where("tenant_id", "in", [tenantId, tenantBId])
+    .execute();
   await ownerDb.deleteFrom("Modifier").where("tenant_id", "in", [tenantId, tenantBId]).execute();
-  await ownerDb.deleteFrom("ModifierGroup").where("tenant_id", "in", [tenantId, tenantBId]).execute();
+  await ownerDb
+    .deleteFrom("ModifierGroup")
+    .where("tenant_id", "in", [tenantId, tenantBId])
+    .execute();
   await ownerDb.deleteFrom("Variant").where("tenant_id", "in", [tenantId, tenantBId]).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "in", [tenantId, tenantBId]).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "in", [tenantId, tenantBId]).execute();
   await ownerDb.deleteFrom("Store").where("id", "=", storeId).execute();
-  await ownerDb.deleteFrom("User").where("id", "in", [adminId, adminBId, managerId, cashierId]).execute();
+  await ownerDb
+    .deleteFrom("User")
+    .where("id", "in", [adminId, adminBId, managerId, cashierId])
+    .execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantId, tenantBId]).execute();
   await ownerDb.destroy();
   await seam.db.destroy();
 });
 
 const asAdmin = () => seam.actors.asTenant(tenantId, { userId: adminId, role: "admin" }).client;
-const asManager = () =>
-  seam.actors.asTenant(tenantId, { userId: managerId, role: "manager" }).client;
 const asCashier = () =>
   seam.actors.asTenant(tenantId, { userId: cashierId, role: "cashier" }).client;
-const asAdminB = () =>
-  seam.actors.asTenant(tenantBId, { userId: adminBId, role: "admin" }).client;
+const asAdminB = () => seam.actors.asTenant(tenantBId, { userId: adminBId, role: "admin" }).client;
 
 async function seedVariant(price = 50_000) {
   const client = asAdmin();
@@ -217,7 +227,10 @@ describe("negative-price guard — all three directions", () => {
 
     // 10_000 + (-8_000) = 2_000 ≥ 0 → still safe. Price can stay at 10_000.
     // Lower to 8_000: 8_000 + (-8_000) = 0 → boundary, still OK.
-    const okAtBoundary = await client.catalog.setVariantPrice({ id: variant.id, priceCentavos: 8_000 });
+    const okAtBoundary = await client.catalog.setVariantPrice({
+      id: variant.id,
+      priceCentavos: 8_000,
+    });
     expect(okAtBoundary).toBeTruthy();
 
     // Lower to 7_999: 7_999 + (-8_000) = -1 < 0 → guard blocks.
@@ -491,9 +504,9 @@ describe("cashier cannot mutate link operations", () => {
     ).toStrictEqual({ ok: false });
 
     // listLinkedModifierGroups: cashier returns empty list (not null)
-    expect(
-      (await cashier.catalog.listLinkedModifierGroups({ variantId: variant.id })).length,
-    ).toBe(0);
+    expect((await cashier.catalog.listLinkedModifierGroups({ variantId: variant.id })).length).toBe(
+      0,
+    );
   });
 });
 
@@ -507,7 +520,9 @@ describe("wrong-tenant probes — link procedures", () => {
     const cA = asAdmin();
     const cB = asAdminB();
 
-    const catA = await cA.catalog.createCategory({ name: `Probe Cat A ${randomUUID().slice(0, 4)}` });
+    const catA = await cA.catalog.createCategory({
+      name: `Probe Cat A ${randomUUID().slice(0, 4)}`,
+    });
     const itemA = await cA.catalog.createMenuItem({
       categoryId: catA!.id,
       name: "Probe Item A",
@@ -520,7 +535,9 @@ describe("wrong-tenant probes — link procedures", () => {
     });
     variantA = vA!.id;
 
-    const catB = await cB.catalog.createCategory({ name: `Probe Cat B ${randomUUID().slice(0, 4)}` });
+    const catB = await cB.catalog.createCategory({
+      name: `Probe Cat B ${randomUUID().slice(0, 4)}`,
+    });
     const itemB = await cB.catalog.createMenuItem({
       categoryId: catB!.id,
       name: "Probe Item B",

@@ -16,11 +16,7 @@ export const listLinkedModifierGroupsForVariant = (db: DatabaseInstance, variant
           AND v.archived_at IS NULL
       )`.as("linked_to_count"),
     )
-    .innerJoin(
-      "VariantModifierGroup",
-      "VariantModifierGroup.modifier_group_id",
-      "ModifierGroup.id",
-    )
+    .innerJoin("VariantModifierGroup", "VariantModifierGroup.modifier_group_id", "ModifierGroup.id")
     .where("VariantModifierGroup.variant_id", "=", variantId)
     .orderBy("ModifierGroup.sort_order")
     .orderBy("ModifierGroup.id")

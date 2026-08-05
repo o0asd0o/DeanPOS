@@ -146,8 +146,11 @@ describe("direction prohibition 8: no creation control for modifier groups in it
     const walk = (dir: string) => {
       for (const name of readdirSync(dir)) {
         const path = join(dir, name);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (/\.(tsx?|jsx?)$/.test(name)) files.push(path);
+        if (statSync(path).isDirectory()) {
+          // Options library owns group creation — exclude it.
+          if (name === "options") continue;
+          walk(path);
+        } else if (/\.(tsx?|jsx?)$/.test(name)) files.push(path);
       }
     };
     walk(root);
@@ -200,11 +203,10 @@ describe("the MenuItem editor route", () => {
         expect(screen.getByRole("heading", { name: "New variant" })).toBeTruthy(),
       );
 
-      const price = screen.getByLabelText("Price");
-      expect(price.getAttribute("inputMode") || (price as HTMLInputElement).inputMode).toMatch(
-        /decimal/,
-      );
-      expect((price as HTMLInputElement).type).not.toBe("number");
+      const price = document.getElementById("variant-price") as HTMLInputElement;
+      expect(price).toBeTruthy();
+      expect(price.getAttribute("inputMode") || price.inputMode).toMatch(/decimal/);
+      expect(price.type).not.toBe("number");
 
       const variantName = document.getElementById("variant-name") as HTMLInputElement;
       expect(variantName).toBeTruthy();

@@ -20,10 +20,7 @@ export class NegativeEffectivePriceError extends Error {
  * (selecting the minimum absolute Delta across non-archived Modifiers).
  * Multipliers cannot produce a negative price on their own (min per-mille is 1).
  */
-export async function guardEffectivePrice(
-  db: DatabaseInstance,
-  variantId: string,
-): Promise<void> {
+export async function guardEffectivePrice(db: DatabaseInstance, variantId: string): Promise<void> {
   const variant = await db
     .selectFrom("Variant")
     .select(["price_centavos"])

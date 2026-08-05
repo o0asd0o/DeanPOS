@@ -1,4 +1,4 @@
-import { catalogReadInputSchema } from "contract/src/contract.ts";
+import { catalogReadInputSchema, type catalogReadOutputSchema } from "contract/src/contract.ts";
 import type { z } from "zod";
 
 import type { Handler } from "../../common/handler.ts";
@@ -14,12 +14,9 @@ import { deltaFromStored } from "../../modifier/delta.ts";
 
 export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
+type Output = z.infer<typeof catalogReadOutputSchema>;
 
-export const handler: Handler<Input, {
-  categories: ReturnType<typeof toCategoryOutput>[];
-  menuItems: object[];
-  version: string;
-}> = async ({ ctx, input }) => {
+export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
   const tenantId =
     ctx.kind === "tenant"
       ? ctx.principal.tenantId
