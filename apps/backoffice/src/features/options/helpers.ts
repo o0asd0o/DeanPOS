@@ -1,7 +1,5 @@
 import { parseCentavos, type ParseCentavosResult } from "schemas/src/money.ts";
 
-import { centavosToEditorString, formatCentavos } from "../catalog/helpers.ts";
-
 export type DeltaOutput =
   | { kind: "absolute"; amountCentavos: number }
   | { kind: "multiplier"; perMille: number };
@@ -37,13 +35,29 @@ export const SELECTION_RULE_LABEL: Record<ModifierGroupOutput["selectionRule"], 
   many: "Many",
 };
 
+// Same integer-only formatter as catalog (Direction prohibition 9) — kept local
+// so this feature does not climb into another feature directory.
+export function formatCentavos(centavos: number): string {
+  const negative = centavos < 0;
+  const abs = Math.abs(centavos);
+  const fraction = abs % 100;
+  const whole = (abs - fraction) / 100;
+  const wholeGrouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${negative ? "-" : ""}₱${wholeGrouped}.${fraction.toString().padStart(2, "0")}`;
+}
+
+export function centavosToEditorString(centavos: number): string {
+  const abs = Math.abs(centavos);
+  const fraction = abs % 100;
+  const whole = (abs - fraction) / 100;
+  return `${centavos < 0 ? "-" : ""}${whole}.${fraction.toString().padStart(2, "0")}`;
+}
+
 export function formatDelta(delta: DeltaOutput): string {
   if (delta.kind === "absolute") {
-    // formatCentavos already includes ₱
     const formatted = formatCentavos(delta.amountCentavos);
     return delta.amountCentavos >= 0 ? `+${formatted}` : formatted;
   }
-  // per-mille → display rate with up to 3 decimals, no float arithmetic beyond int ops
   const whole = Math.trunc(delta.perMille / 1000);
   const frac = delta.perMille % 1000;
   if (frac === 0) return `×${whole}`;
@@ -62,7 +76,6 @@ export function absoluteToEditorString(amountCentavos: number): string {
   return centavosToEditorString(amountCentavos);
 }
 
-/** Parse absolute peso input (no type=number). */
 export function parseAbsoluteDeltaInput(raw: string): ParseCentavosResult {
   const stripped = raw
     .trim()
@@ -72,10 +85,6 @@ export function parseAbsoluteDeltaInput(raw: string): ParseCentavosResult {
   return parseCentavos(stripped);
 }
 
-/**
- * Parse multiplier rate string into per-mille. >3 fractional digits rejected.
- * Integer-only; no float.
- */
 export function parseMultiplierRateInput(
   raw: string,
 ): { ok: true; perMille: number } | { ok: false } {
@@ -88,5 +97,3 @@ export function parseMultiplierRateInput(
   if (!Number.isSafeInteger(perMille) || perMille < 1 || perMille > 10_000) return { ok: false };
   return { ok: true, perMille };
 }
-
-export { formatCentavos };
