@@ -3,7 +3,7 @@ import { z } from "zod";
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
-import { countActiveVariantsByMenuItem } from "../db-operations/queries/count-active-variants-by-menu-item.query.ts";
+import { countActiveVariantsByMenuItem } from "../../variant/db-operations/queries/count-active-variants-by-menu-item.query.ts";
 import { getMenuItem } from "../db-operations/queries/get-menu-item.query.ts";
 import { toMenuItemOutput } from "../helpers.ts";
 

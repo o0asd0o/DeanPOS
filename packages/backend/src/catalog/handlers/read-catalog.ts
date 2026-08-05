@@ -5,7 +5,7 @@ import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { catalogVersion } from "../db-operations/queries/catalog-version.query.ts";
 import { listActiveCategories } from "../db-operations/queries/list-active-categories.query.ts";
-import { listActiveVariantsForMenuItem } from "../db-operations/queries/list-active-variants-for-menu-item.query.ts";
+import { listActiveVariantsForMenuItem } from "../../variant/db-operations/queries/list-active-variants-for-menu-item.query.ts";
 import { listSellableMenuItems } from "../db-operations/queries/list-sellable-menu-items.query.ts";
 import { toCategoryOutput } from "../helpers.ts";
 

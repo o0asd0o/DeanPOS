@@ -1,7 +1,7 @@
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
-import { countActiveVariantsByMenuItem } from "../db-operations/queries/count-active-variants-by-menu-item.query.ts";
+import { countActiveVariantsByMenuItem } from "../../variant/db-operations/queries/count-active-variants-by-menu-item.query.ts";
 import { listMenuItems } from "../db-operations/queries/list-menu-items.query.ts";
 import { toMenuItemOutput } from "../helpers.ts";
 

@@ -1,6 +1,6 @@
 # 03 — The Options library: ModifierGroups, Modifiers, and the Delta
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build

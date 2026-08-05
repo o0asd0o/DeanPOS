@@ -134,9 +134,7 @@ describe("one money formatter on catalog surfaces", () => {
     }
     expect(offenders).toStrictEqual([]);
     expect(files.some((file) => file.endsWith("helpers.ts"))).toBe(true);
-    expect(readFileSync(join(root, "helpers.ts"), "utf8")).toMatch(
-      /export function formatCentavos/,
-    );
+    expect(readFileSync(join(root, "helpers.ts"), "utf8")).toMatch(/export\b.*\bformatCentavos\b/);
   });
 });
 

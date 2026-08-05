@@ -14,6 +14,7 @@ const tenantA = randomUUID();
 const tenantB = randomUUID();
 const adminA = randomUUID();
 const adminB = randomUUID();
+const cashierA = randomUUID();
 const storeA = randomUUID();
 const storeB = randomUUID();
 
@@ -49,6 +50,13 @@ beforeAll(async () => {
         email: `catalog-b-${randomUUID()}@test.local`,
         password_hash: passwordHash,
         role: "admin",
+      },
+      {
+        id: cashierA,
+        tenant_id: tenantA,
+        email: `catalog-cashier-${randomUUID()}@test.local`,
+        password_hash: passwordHash,
+        role: "cashier",
       },
     ])
     .execute();
@@ -98,7 +106,7 @@ afterAll(async () => {
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Store").where("id", "in", [storeA, storeB]).execute();
-  await ownerDb.deleteFrom("User").where("id", "in", [adminA, adminB]).execute();
+  await ownerDb.deleteFrom("User").where("id", "in", [adminA, adminB, cashierA]).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantA, tenantB]).execute();
   await ownerDb.destroy();
   await seam.db.destroy();
@@ -106,6 +114,8 @@ afterAll(async () => {
 
 const asA = () => seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client;
 const asB = () => seam.actors.asTenant(tenantB, { userId: adminB, role: "admin" }).client;
+const asCashierA = () =>
+  seam.actors.asTenant(tenantA, { userId: cashierA, role: "cashier" }).client;
 
 describe("catalog wrong-tenant probes", () => {
   it("wrong-tenant probe [catalog.listCategories]: Tenant B's category is readable as B, never in A's list", async () => {
@@ -774,5 +784,59 @@ describe("catalog options wrong-tenant probes", () => {
       ownerSees: beforeAsB,
       otherGets: () => asA().catalog.reorderModifier({ id: m1!.id, direction: "down" }),
     });
+  });
+});
+
+describe("catalog options cashier refusal", () => {
+  it("cashier cannot mutate modifier groups or modifiers", async () => {
+    const groupA = await asA().catalog.createModifierGroup({
+      name: `A Cash ${randomUUID().slice(0, 6)}`,
+      selectionRule: "required-one",
+    });
+    expect(groupA).toBeTruthy();
+    const modA = await asA().catalog.createModifier({
+      groupId: groupA!.id,
+      name: "A Mod Cash",
+      delta: { kind: "absolute", amountCentavos: 100 },
+    });
+    expect(modA).toBeTruthy();
+
+    expect(
+      await asCashierA().catalog.createModifierGroup({
+        name: "Should Fail",
+        selectionRule: "required-one",
+      }),
+    ).toBeNull();
+    expect(
+      await asCashierA().catalog.updateModifierGroup({
+        id: groupA!.id,
+        name: "Hijacked",
+        selectionRule: "required-one",
+      }),
+    ).toBeNull();
+    expect(await asCashierA().catalog.archiveModifierGroup({ id: groupA!.id })).toBeNull();
+    expect(await asCashierA().catalog.reactivateModifierGroup({ id: groupA!.id })).toBeNull();
+    expect(
+      await asCashierA().catalog.reorderModifierGroup({ id: groupA!.id, direction: "up" }),
+    ).toBeNull();
+    expect(
+      await asCashierA().catalog.createModifier({
+        groupId: groupA!.id,
+        name: "Should Fail",
+        delta: { kind: "absolute", amountCentavos: 1 },
+      }),
+    ).toBeNull();
+    expect(
+      await asCashierA().catalog.updateModifier({
+        id: modA!.id,
+        name: "Hijacked",
+        delta: { kind: "absolute", amountCentavos: 1 },
+      }),
+    ).toBeNull();
+    expect(await asCashierA().catalog.archiveModifier({ id: modA!.id })).toBeNull();
+    expect(await asCashierA().catalog.reactivateModifier({ id: modA!.id })).toBeNull();
+    expect(
+      await asCashierA().catalog.reorderModifier({ id: modA!.id, direction: "up" }),
+    ).toBeNull();
   });
 });

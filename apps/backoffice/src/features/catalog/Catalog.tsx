@@ -1,20 +1,22 @@
 import { useRef, useState } from "react";
 import { Sheet, SheetContent } from "ui";
 
-import { ArchiveCategoryDialog } from "./ArchiveCategoryDialog.tsx";
-import { ArchiveMenuItemDialog } from "./ArchiveMenuItemDialog.tsx";
-import { CategoryEditor } from "./CategoryEditor.tsx";
-import { CategoryRail } from "./CategoryRail.tsx";
-import { MenuItemEditor } from "./MenuItemEditor.tsx";
-import { MenuItemListCard } from "./MenuItemListCard.tsx";
+import { ArchiveCategoryDialog } from "./category/ArchiveCategoryDialog.tsx";
+import { CategoryEditor } from "./category/CategoryEditor.tsx";
+import { CategoryRail } from "./category/CategoryRail.tsx";
 import {
   useCategoriesQuery,
-  useMenuItemsQuery,
   useReactivateCategoryMutation,
-  useReactivateMenuItemMutation,
   useReorderCategoryMutation,
+} from "./category/__common/queries.ts";
+import { ArchiveMenuItemDialog } from "./menu-item/ArchiveMenuItemDialog.tsx";
+import { MenuItemEditor } from "./menu-item/MenuItemEditor.tsx";
+import { MenuItemListCard } from "./menu-item/MenuItemListCard.tsx";
+import {
+  useMenuItemsQuery,
+  useReactivateMenuItemMutation,
   useReorderMenuItemMutation,
-} from "./__common/queries.ts";
+} from "./menu-item/__common/queries.ts";
 import type { CategoryOutput, MenuItemOutput } from "./helpers.ts";
 import { reorderSteps } from "./helpers.ts";
 
