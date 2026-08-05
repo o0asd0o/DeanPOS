@@ -7,7 +7,6 @@ import {
   useMeQuery,
   useModifierGroupsQuery,
   useReactivateModifierGroupMutation,
-  useReactivateModifierMutation,
 } from "./__common/queries.ts";
 import type { ModifierGroupOutput, ModifierOutput } from "./helpers.ts";
 import { ModifierGroupEditor } from "./ModifierGroupEditor.tsx";
@@ -43,7 +42,6 @@ export function Options() {
   const archiveGroup = useArchiveModifierGroupMutation();
   const reactivateGroup = useReactivateModifierGroupMutation();
   const archiveModifier = useArchiveModifierMutation();
-  const reactivateModifier = useReactivateModifierMutation();
 
   const openCreateGroup = () => {
     opener.current = document.activeElement as HTMLElement;
@@ -129,15 +127,6 @@ export function Options() {
             return;
           }
           announce(`${modifier.name} archived`);
-        }}
-        onReactivateModifier={async (modifier) => {
-          setInlineError(null);
-          const result = await reactivateModifier.mutateAsync({ id: modifier.id });
-          if (!result) {
-            setInlineError("Couldn't reactivate the modifier.");
-            return;
-          }
-          announce(`${modifier.name} reactivated`);
         }}
         inlineError={inlineError}
       />

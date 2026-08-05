@@ -57,7 +57,6 @@ export function ModifierGroupListCard({
   onAddModifier,
   onEditModifier,
   onArchiveModifier,
-  onReactivateModifier,
   inlineError,
 }: {
   groups: ModifierGroupOutput[] | undefined;
@@ -73,7 +72,6 @@ export function ModifierGroupListCard({
   onAddModifier: (group: ModifierGroupOutput) => void;
   onEditModifier: (group: ModifierGroupOutput, modifier: ModifierOutput) => void;
   onArchiveModifier: (modifier: ModifierOutput) => void;
-  onReactivateModifier: (modifier: ModifierOutput) => void;
   inlineError: string | null;
 }) {
   const [status, setStatus] = useState<StatusFilter>("all");

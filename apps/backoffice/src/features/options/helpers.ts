@@ -39,7 +39,6 @@ export const SELECTION_RULE_LABEL: Record<ModifierGroupOutput["selectionRule"], 
 
 export function formatDelta(delta: DeltaOutput): string {
   if (delta.kind === "absolute") {
-    const sign = delta.amountCentavos >= 0 ? "+" : "";
     // formatCentavos already includes ₱
     const formatted = formatCentavos(delta.amountCentavos);
     return delta.amountCentavos >= 0 ? `+${formatted}` : formatted;

@@ -173,14 +173,12 @@ describe("validateDeltaConfig property — pure against foundation money", () =>
 
   it("accepted deltas never introduce a float on the wire shape (stored value is int)", () => {
     const deltaArb = fc.oneof(
-      fc
-        .integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS })
-        .map(
-          (amountCentavos): Delta => ({
-            kind: "absolute",
-            amountCentavos: amountCentavos as Centavos,
-          }),
-        ),
+      fc.integer({ min: -ABSOLUTE_DELTA_MAX_CENTAVOS, max: ABSOLUTE_DELTA_MAX_CENTAVOS }).map(
+        (amountCentavos): Delta => ({
+          kind: "absolute",
+          amountCentavos: amountCentavos as Centavos,
+        }),
+      ),
       fc
         .integer({ min: MULTIPLIER_PER_MILLE_MIN, max: MULTIPLIER_PER_MILLE_MAX })
         .map((perMille): Delta => ({ kind: "multiplier", perMille: perMille as PerMille })),
