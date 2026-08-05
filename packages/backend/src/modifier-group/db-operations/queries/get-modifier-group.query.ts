@@ -2,7 +2,6 @@ import { sql } from "kysely";
 
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-// ponytail: WHERE false → structural zero until issue 04 adds the linking table.
 export const getModifierGroup = (db: DatabaseInstance, id: string) =>
   db
     .selectFrom("ModifierGroup")
@@ -10,9 +9,10 @@ export const getModifierGroup = (db: DatabaseInstance, id: string) =>
     .select(
       sql<number>`(
         SELECT COUNT(*)::int
-        FROM "ModifierGroup" AS _link
-        WHERE false
-          AND _link.id = "ModifierGroup".id
+        FROM "VariantModifierGroup" vmg
+        JOIN "Variant" v ON v.tenant_id = vmg.tenant_id AND v.id = vmg.variant_id
+        WHERE vmg.modifier_group_id = "ModifierGroup".id
+          AND v.archived_at IS NULL
       )`.as("linked_to_count"),
     )
     .where("id", "=", id)

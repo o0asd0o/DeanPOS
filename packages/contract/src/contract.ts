@@ -208,11 +208,45 @@ export const variantOutputSchema = z.object({
   createdAt: z.date(),
 });
 
+// Delta and selection rule schemas used by both the read model and the Options library.
+export const catalogSelectionRuleSchema = z.enum(["required-one", "optional-one", "many"]);
+export const catalogDeltaKindSchema = z.enum(["absolute", "multiplier"]);
+export const catalogDeltaSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("absolute"),
+    amountCentavos: z.number().int().min(-100_000).max(100_000),
+  }),
+  z.object({
+    kind: z.literal("multiplier"),
+    perMille: z.number().int().min(1).max(10_000),
+  }),
+]);
+
+// Slim modifier shape for the read model — only what the terminal needs.
+export const catalogReadModifierSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  delta: catalogDeltaSchema,
+  sortOrder: z.number().int(),
+});
+
+// Group shape embedded in each variant's read model (decision 073: ordered by library sort_order).
+export const catalogReadModifierGroupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  selectionRule: catalogSelectionRuleSchema,
+  maximum: z.number().int().positive().nullable(),
+  defaultModifierId: z.string().nullable(),
+  sortOrder: z.number().int(),
+  modifiers: z.array(catalogReadModifierSchema),
+});
+
 export const catalogReadVariantSchema = z.object({
   id: z.string(),
   name: z.string(),
   priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
+  modifierGroups: z.array(catalogReadModifierGroupSchema),
 });
 
 export const catalogReadMenuItemSchema = z.object({
@@ -275,20 +309,6 @@ export const catalogVersionOutputSchema = z.object({
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
-export const catalogSelectionRuleSchema = z.enum(["required-one", "optional-one", "many"]);
-export const catalogDeltaKindSchema = z.enum(["absolute", "multiplier"]);
-
-export const catalogDeltaSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("absolute"),
-    amountCentavos: z.number().int().min(-100_000).max(100_000),
-  }),
-  z.object({
-    kind: z.literal("multiplier"),
-    perMille: z.number().int().min(1).max(10_000),
-  }),
-]);
-
 export const modifierOutputSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -339,6 +359,13 @@ export const catalogModifierUpdateInputSchema = z.object({
 });
 export const catalogListModifiersInputSchema = z.object({
   groupId: z.string(),
+});
+export const catalogVariantModifierGroupInputSchema = z.object({
+  variantId: z.string(),
+  modifierGroupId: z.string(),
+});
+export const catalogListLinkedModifierGroupsInputSchema = z.object({
+  variantId: z.string(),
 });
 
 // The Tenant-default row for a method, admin-only (issue 14). `image` carries
@@ -699,6 +726,15 @@ export const contract = {
       .input(catalogEntityIdInputSchema)
       .output(modifierOutputSchema.nullable()),
     reorderModifier: oc.input(catalogReorderInputSchema).output(modifierOutputSchema.nullable()),
+    linkModifierGroup: oc
+      .input(catalogVariantModifierGroupInputSchema)
+      .output(modifierGroupOutputSchema.nullable()),
+    unlinkModifierGroup: oc
+      .input(catalogVariantModifierGroupInputSchema)
+      .output(z.object({ ok: z.boolean() })),
+    listLinkedModifierGroups: oc
+      .input(catalogListLinkedModifierGroupsInputSchema)
+      .output(z.array(modifierGroupOutputSchema)),
     read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
     version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),
   },

@@ -2,8 +2,6 @@ import { sql } from "kysely";
 
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-// ponytail: WHERE false → structural zero until issue 04 adds the linking table.
-// Drop the false predicate and point the subselect at the real table then.
 export const listModifierGroups = (db: DatabaseInstance) =>
   db
     .selectFrom("ModifierGroup")
@@ -11,9 +9,10 @@ export const listModifierGroups = (db: DatabaseInstance) =>
     .select(
       sql<number>`(
         SELECT COUNT(*)::int
-        FROM "ModifierGroup" AS _link
-        WHERE false
-          AND _link.id = "ModifierGroup".id
+        FROM "VariantModifierGroup" vmg
+        JOIN "Variant" v ON v.tenant_id = vmg.tenant_id AND v.id = vmg.variant_id
+        WHERE vmg.modifier_group_id = "ModifierGroup".id
+          AND v.archived_at IS NULL
       )`.as("linked_to_count"),
     )
     .orderBy("sort_order")

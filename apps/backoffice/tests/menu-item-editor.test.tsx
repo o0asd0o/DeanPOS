@@ -139,6 +139,36 @@ describe("one money formatter on catalog surfaces", () => {
   });
 });
 
+describe("direction prohibition 8: no creation control for modifier groups in item editor", () => {
+  it("grep-proves no '+ Add modifier group' or createModifierGroup call appears in the Variant editor", () => {
+    const root = join(process.cwd(), "src/features/catalog");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.(tsx?|jsx?)$/.test(name)) files.push(path);
+      }
+    };
+    walk(root);
+
+    const forbidden = [/createModifierGroup/, /Add modifier group/i, /add-modifier-group/i];
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      for (const pattern of forbidden) {
+        if (pattern.test(source)) offenders.push(`${file}: ${pattern}`);
+      }
+    }
+    expect(
+      offenders,
+      "Prohibition 8: the Variant editor must not expose a creation control for ModifierGroups. " +
+        "Found:\n" +
+        offenders.join("\n"),
+    ).toStrictEqual([]);
+  });
+});
+
 describe("the MenuItem editor route", () => {
   let cleanup: (() => Promise<void>) | undefined;
 

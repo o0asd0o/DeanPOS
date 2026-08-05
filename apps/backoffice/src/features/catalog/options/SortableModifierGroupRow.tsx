@@ -12,7 +12,12 @@ import {
 } from "lucide-react";
 import { Badge, Button, cn, TableCell, TableRow } from "ui";
 
-import { formatDelta, type ModifierGroupOutput, type ModifierOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
+import {
+  formatDelta,
+  type ModifierGroupOutput,
+  type ModifierOutput,
+  SELECTION_RULE_LABEL,
+} from "./helpers.ts";
 import { useReorderModifierMutation } from "./__common/queries.ts";
 
 export function SortableModifierGroupRow({
@@ -81,7 +86,9 @@ export function SortableModifierGroupRow({
               <li key={mod.id} className="flex flex-wrap items-center gap-2">
                 <span>
                   {mod.name}{" "}
-                  <span className="tabular-nums text-muted-foreground">{formatDelta(mod.delta)}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatDelta(mod.delta)}
+                  </span>
                 </span>
                 {canMutate && !group.archivedAt ? (
                   <span className="inline-flex items-center gap-0.5">
@@ -92,7 +99,9 @@ export function SortableModifierGroupRow({
                       className="size-7"
                       aria-label={`Move ${mod.name} up in ${group.name}`}
                       disabled={modIndex === 0 || reorderModifier.isPending}
-                      onClick={() => void reorderModifier.mutateAsync({ id: mod.id, direction: "up" })}
+                      onClick={() =>
+                        void reorderModifier.mutateAsync({ id: mod.id, direction: "up" })
+                      }
                     >
                       <ChevronUpIcon />
                     </Button>
@@ -103,7 +112,9 @@ export function SortableModifierGroupRow({
                       className="size-7"
                       aria-label={`Move ${mod.name} down in ${group.name}`}
                       disabled={modIndex === activeMods.length - 1 || reorderModifier.isPending}
-                      onClick={() => void reorderModifier.mutateAsync({ id: mod.id, direction: "down" })}
+                      onClick={() =>
+                        void reorderModifier.mutateAsync({ id: mod.id, direction: "down" })
+                      }
                     >
                       <ChevronDownIcon />
                     </Button>
@@ -148,10 +159,20 @@ export function SortableModifierGroupRow({
           <div className="inline-flex flex-wrap items-center justify-end gap-1">
             {!group.archivedAt ? (
               <>
-                <Button type="button" size="sm" variant="outline" onClick={() => onEditGroup(group)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEditGroup(group)}
+                >
                   Edit
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => onAddModifier(group)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onAddModifier(group)}
+                >
                   <PlusIcon />
                   Modifier
                 </Button>
@@ -167,7 +188,12 @@ export function SortableModifierGroupRow({
                 </Button>
               </>
             ) : (
-              <Button type="button" size="sm" variant="ghost" onClick={() => onReactivateGroup(group)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => onReactivateGroup(group)}
+              >
                 <RotateCcwIcon />
                 Reactivate
               </Button>

@@ -99,6 +99,7 @@ describe("catalog variants + archive cascade (read model)", () => {
         name: "Regular",
         priceCentavos: 12_000,
         sortOrder: 0,
+        modifierGroups: [],
       },
     ]);
   });

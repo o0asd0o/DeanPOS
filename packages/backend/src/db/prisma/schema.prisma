@@ -49,6 +49,7 @@ model Tenant {
   variants                              Variant[]
   modifierGroups                        ModifierGroup[]
   modifiers                             Modifier[]
+  variantModifierGroups                 VariantModifierGroup[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -297,8 +298,9 @@ model Variant {
   sortOrder      Int       @map("sort_order")
   archivedAt     DateTime? @map("archived_at")
   createdAt      DateTime  @default(now()) @map("created_at")
-  tenant         Tenant    @relation(fields: [tenantId], references: [id])
-  menuItem       MenuItem  @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id])
+  menuItem              MenuItem               @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+  variantModifierGroups VariantModifierGroup[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -319,9 +321,10 @@ model ModifierGroup {
   sortOrder         Int        @map("sort_order")
   archivedAt        DateTime?  @map("archived_at")
   createdAt         DateTime   @default(now()) @map("created_at")
-  tenant            Tenant     @relation(fields: [tenantId], references: [id])
-  modifiers         Modifier[]
-  defaultModifier   Modifier?  @relation("ModifierGroupDefault", fields: [tenantId, defaultModifierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id])
+  modifiers             Modifier[]
+  defaultModifier       Modifier?              @relation("ModifierGroupDefault", fields: [tenantId, defaultModifierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  variantModifierGroups VariantModifierGroup[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -346,6 +349,25 @@ model Modifier {
   @@unique([tenantId, id])
   @@index([tenantId])
   @@index([tenantId, groupId])
+}
+
+// Link joining Variant to ModifierGroup (catalog issue 04, approach B).
+// No sort_position column — display order is ModifierGroup.sort_order (decision 073).
+model VariantModifierGroup {
+  id              String        @id
+  tenantId        String        @map("tenant_id")
+  variantId       String        @map("variant_id")
+  modifierGroupId String        @map("modifier_group_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  variant         Variant       @relation(fields: [tenantId, variantId], references: [tenantId, id])
+  modifierGroup   ModifierGroup @relation(fields: [tenantId, modifierGroupId], references: [tenantId, id])
+
+  @@unique([tenantId, variantId, modifierGroupId])
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, variantId])
+  @@index([tenantId, modifierGroupId])
 }
 
 // Append-only (record 054 Q1). `storeId` null is a change to the method

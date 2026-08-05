@@ -130,7 +130,9 @@ export function ModifierForm({
       </form.Field>
       <form.Field name="deltaKind">
         {(kindField) => (
-          <form.Field name={kindField.state.value === "absolute" ? "absoluteValue" : "multiplierValue"}>
+          <form.Field
+            name={kindField.state.value === "absolute" ? "absoluteValue" : "multiplierValue"}
+          >
             {(valueField) => (
               <DeltaField
                 kind={kindField.state.value}

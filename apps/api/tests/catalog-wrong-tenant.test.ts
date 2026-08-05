@@ -266,6 +266,18 @@ describe("catalog wrong-tenant probes", () => {
     });
   });
 
+  it("wrong-tenant probe [catalog.setMenuItemPrice]: Tenant A cannot reprice Tenant B's item", async () => {
+    const beforeAsB = await asB().catalog.setMenuItemPrice({ id: itemB, priceCentavos: 11_000 });
+    await expectWrongTenantRefusal({
+      path: "catalog.setMenuItemPrice",
+      mode: "refusal",
+      ownerSees: beforeAsB,
+      otherGets: () => asA().catalog.setMenuItemPrice({ id: itemB, priceCentavos: 1 }),
+    });
+    const after = await asB().catalog.getMenuItem({ id: itemB });
+    expect(after?.priceCentavos).toBe(11_000);
+  });
+
   it("wrong-tenant probe [catalog.moveMenuItem]: Tenant A cannot move Tenant B's item", async () => {
     const otherCategoryB = await asB().catalog.createCategory({ name: "B Move Target" });
     const beforeAsB = await asB().catalog.moveMenuItem({

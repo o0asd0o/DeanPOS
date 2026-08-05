@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
+import { guardEffectivePrice } from "../../catalog/guard-effective-price.ts";
 import { updateVariantPrice } from "../db-operations/commands/update-variant-price.command.ts";
 import { getVariant } from "../db-operations/queries/get-variant.query.ts";
 import { toVariantOutput } from "../helpers.ts";
@@ -17,11 +18,19 @@ export const handler: Handler<Input, VariantOutput | null> = async ({ ctx, input
   const { tenantId, role } = ctx.principal;
   if (!hasAtLeastRole(role, "manager")) return null;
 
-  const row = await withTenantScope(ctx.db, tenantId, async (db) => {
-    const current = await getVariant(db, input.id);
-    if (!current || current.archived_at) return null;
-    if (current.price_centavos === input.priceCentavos) return current;
-    return updateVariantPrice(db, input.id, input.priceCentavos);
-  });
-  return row ? toVariantOutput(row) : null;
+  try {
+    const row = await withTenantScope(ctx.db, tenantId, async (db) => {
+      const current = await getVariant(db, input.id);
+      if (!current || current.archived_at) return null;
+      if (current.price_centavos === input.priceCentavos) return current;
+      const updated = await updateVariantPrice(db, input.id, input.priceCentavos);
+      if (!updated) return null;
+      // Guard runs after price is updated so it sees the new price (direction 1).
+      await guardEffectivePrice(db, input.id);
+      return updated;
+    });
+    return row ? toVariantOutput(row) : null;
+  } catch {
+    return null;
+  }
 };

@@ -7,6 +7,10 @@ import { setModifierArchived } from "../db-operations/commands/set-modifier-arch
 import { updateModifierGroup } from "../../modifier-group/db-operations/commands/update-modifier-group.command.ts";
 import { getModifier } from "../db-operations/queries/get-modifier.query.ts";
 import { getModifierGroup } from "../../modifier-group/db-operations/queries/get-modifier-group.query.ts";
+import { listActiveModifiersForGroup } from "../db-operations/queries/list-modifiers-for-group.query.ts";
+import { listLinkedVariantIdsForGroup } from "../../catalog/db-operations/queries/list-linked-modifier-groups.query.ts";
+import { deleteAllLinksForGroup } from "../../catalog/db-operations/commands/delete-variant-modifier-group.command.ts";
+import { setVariantArchived } from "../../variant/db-operations/commands/set-variant-archived.command.ts";
 import { toModifierOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({ id: z.string() });
@@ -34,7 +38,23 @@ export const handler: Handler<Input, Output | null> = async ({ ctx, input }) => 
         });
       }
 
-      return setModifierArchived(db, input.id, new Date());
+      const archived = await setModifierArchived(db, input.id, new Date());
+
+      // PRD cascade: archiving the last active Modifier of a required-one group
+      // makes its Variants unsellable — archive them and remove links.
+      if (group?.selection_rule === "required-one") {
+        const remaining = await listActiveModifiersForGroup(db, current.group_id);
+        // The modifier is now archived, so remaining should not include it.
+        if (remaining.filter((m) => m.id !== input.id).length === 0) {
+          const links = await listLinkedVariantIdsForGroup(db, current.group_id);
+          for (const link of links) {
+            await setVariantArchived(db, link.variant_id, new Date());
+          }
+          await deleteAllLinksForGroup(db, current.group_id);
+        }
+      }
+
+      return archived;
     });
     return row ? toModifierOutput(row) : null;
   } catch {

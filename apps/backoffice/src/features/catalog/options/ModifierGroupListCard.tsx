@@ -138,7 +138,10 @@ export function ModifierGroupListCard({
     if (!plan) return;
     setOrdered((rows) => arrayMove(rows, fromIndex, toIndex));
     for (let step = 0; step < plan.steps; step += 1) {
-      const result = await reorderGroup.mutateAsync({ id: String(active.id), direction: plan.direction });
+      const result = await reorderGroup.mutateAsync({
+        id: String(active.id),
+        direction: plan.direction,
+      });
       if (!result) break;
     }
   };
@@ -168,8 +171,15 @@ export function ModifierGroupListCard({
         ) : !canDrag && table.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
         ) : canDrag ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={ordered.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={ordered.map((g) => g.id)}
+              strategy={verticalListSortingStrategy}
+            >
               <div className="overflow-x-auto py-1">
                 <Table aria-label="Modifier groups">
                   <TableHeader>
