@@ -96,6 +96,11 @@ export function GroupForm({
         </>
       }
     >
+      {group && group.linkedToCount > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Linked to {group.linkedToCount} {group.linkedToCount === 1 ? "variant" : "variants"}
+        </p>
+      ) : null}
       {formError ? (
         <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
           {formError}

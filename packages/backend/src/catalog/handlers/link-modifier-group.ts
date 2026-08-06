@@ -10,7 +10,7 @@ import { getModifierGroup } from "../../modifier-group/db-operations/queries/get
 import { toModifierGroupOutput } from "../../modifier-group/helpers.ts";
 import { listModifiersForGroup } from "../../modifier/db-operations/queries/list-modifiers-for-group.query.ts";
 import { getVariant } from "../../variant/db-operations/queries/get-variant.query.ts";
-import { guardEffectivePrice } from "../guard-effective-price.ts";
+import { guardEffectivePrice, NegativeEffectivePriceError } from "../guard-effective-price.ts";
 import { insertVariantModifierGroup } from "../db-operations/commands/insert-variant-modifier-group.command.ts";
 
 export const inputSchema = catalogVariantModifierGroupInputSchema;
@@ -32,8 +32,6 @@ export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput> | 
       const group = await getModifierGroup(db, input.modifierGroupId);
       if (!group || group.archived_at) return null;
 
-      // Security criterion 5: both belong to this tenant (enforced via RLS + composite FK).
-      // Link already exists? Return the group as-is (idempotent, scenario 24).
       const existing = await db
         .selectFrom("VariantModifierGroup")
         .select("id")
@@ -51,7 +49,6 @@ export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput> | 
         );
       }
 
-      // Guard: reject if linking this group would allow a negative effective price.
       await guardEffectivePrice(db, input.variantId);
 
       const updated = await getModifierGroup(db, input.modifierGroupId);
@@ -59,7 +56,8 @@ export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput> | 
       const modifiers = await listModifiersForGroup(db, updated.id);
       return toModifierGroupOutput(updated, modifiers, updated.linked_to_count);
     });
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof NegativeEffectivePriceError) return null;
+    throw err;
   }
 };

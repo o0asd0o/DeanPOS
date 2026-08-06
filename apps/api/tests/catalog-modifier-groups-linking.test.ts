@@ -329,6 +329,14 @@ describe("archive cascade", () => {
 
     const after = await client.catalog.getVariant({ id: variant.id });
     expect(after?.archivedAt).not.toBeNull();
+
+    const linkRows = await ownerDb
+      .selectFrom("VariantModifierGroup")
+      .select("id")
+      .where("variant_id", "=", variant.id)
+      .where("modifier_group_id", "=", group!.id)
+      .execute();
+    expect(linkRows).toHaveLength(0);
   });
 
   it("archiving an optional-one ModifierGroup does NOT archive linked Variants", async () => {
