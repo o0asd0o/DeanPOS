@@ -1,6 +1,6 @@
 # 04 — Linking ModifierGroups to Variants, and the negative-price guard
 
-**Status:** ready-for-agent
+**Status:** closed
 **Category:** feature
 
 ## What to build
