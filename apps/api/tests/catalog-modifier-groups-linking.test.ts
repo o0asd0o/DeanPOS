@@ -68,7 +68,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await ownerDb
-    .deleteFrom("VariantModifierGroup")
+    .deleteFrom("MenuItemModifierGroup")
     .where("tenant_id", "in", [tenantId, tenantBId])
     .execute();
   // Null out default_modifier_id before deleting Modifiers (FK RESTRICT).
@@ -100,7 +100,7 @@ const asCashier = () =>
   seam.actors.asTenant(tenantId, { userId: cashierId, role: "cashier" }).client;
 const asAdminB = () => seam.actors.asTenant(tenantBId, { userId: adminBId, role: "admin" }).client;
 
-async function seedVariant(price = 50_000) {
+async function seedItem(price = 50_000) {
   const client = asAdmin();
   const category = await client.catalog.createCategory({
     name: `Cat ${randomUUID().slice(0, 6)}`,
@@ -110,12 +110,7 @@ async function seedVariant(price = 50_000) {
     name: `Item ${randomUUID().slice(0, 6)}`,
     priceCentavos: price,
   });
-  const variant = await client.catalog.createVariant({
-    menuItemId: item!.id,
-    name: "Regular",
-    priceCentavos: price,
-  });
-  return { client, variant: variant!, item: item! };
+  return { client, item: item! };
 }
 
 async function seedGroup(opts?: { rule?: "required-one" | "optional-one" | "many" }) {
@@ -128,46 +123,52 @@ async function seedGroup(opts?: { rule?: "required-one" | "optional-one" | "many
 }
 
 describe("link / unlink / list", () => {
-  it("links a group to a variant; listLinkedModifierGroups returns it", async () => {
-    const { variant } = await seedVariant();
+  it("links a group to an item; listLinkedModifierGroupsForMenuItem returns it", async () => {
+    const { item } = await seedItem();
     const { group } = await seedGroup();
     const client = asAdmin();
 
-    const result = await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    const result = await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
     expect(result).toBeTruthy();
     expect(result!.id).toBe(group.id);
 
-    const linked = await client.catalog.listLinkedModifierGroups({ variantId: variant.id });
+    const linked = await client.catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: item.id,
+    });
     expect(linked.map((g) => g.id)).toContain(group.id);
   });
 
   it("unlinks a group; it disappears from the list", async () => {
-    const { variant } = await seedVariant();
+    const { item } = await seedItem();
     const { group } = await seedGroup();
     const client = asAdmin();
 
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
-    const before = await client.catalog.listLinkedModifierGroups({ variantId: variant.id });
+    const before = await client.catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: item.id,
+    });
     expect(before.map((g) => g.id)).toContain(group.id);
 
-    const result = await client.catalog.unlinkModifierGroup({
-      variantId: variant.id,
+    const result = await client.catalog.unlinkModifierGroupFromMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
     expect(result).toStrictEqual({ ok: true });
 
-    const after = await client.catalog.listLinkedModifierGroups({ variantId: variant.id });
+    const after = await client.catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: item.id,
+    });
     expect(after.map((g) => g.id)).not.toContain(group.id);
   });
 
-  it("listLinkedModifierGroups orders by sort_order (decision 073)", async () => {
-    const { variant } = await seedVariant();
+  it("listLinkedModifierGroupsForMenuItem orders by sort_order (decision 073)", async () => {
+    const { item } = await seedItem();
     const client = asAdmin();
 
     const g1 = await client.catalog.createModifierGroup({
@@ -178,69 +179,84 @@ describe("link / unlink / list", () => {
       name: `G2 ${randomUUID().slice(0, 4)}`,
       selectionRule: "optional-one",
     });
-    // g1 was created first (lower sort_order), g2 second.
-    await client.catalog.linkModifierGroup({ variantId: variant.id, modifierGroupId: g2!.id });
-    await client.catalog.linkModifierGroup({ variantId: variant.id, modifierGroupId: g1!.id });
+    // g1 created first → lower sort_order.
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
+      modifierGroupId: g2!.id,
+    });
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
+      modifierGroupId: g1!.id,
+    });
 
-    const linked = await client.catalog.listLinkedModifierGroups({ variantId: variant.id });
+    const linked = await client.catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: item.id,
+    });
     const ids = linked.map((g) => g.id);
     expect(ids.indexOf(g1!.id)).toBeLessThan(ids.indexOf(g2!.id));
   });
 
   it("scenario 24: linking the same group twice is idempotent", async () => {
-    const { variant } = await seedVariant();
+    const { item } = await seedItem();
     const { group } = await seedGroup();
     const client = asAdmin();
 
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
-    // Second call must not throw.
-    const second = await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    const second = await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
     expect(second).toBeTruthy();
 
-    const linked = await client.catalog.listLinkedModifierGroups({ variantId: variant.id });
+    const linked = await client.catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: item.id,
+    });
     expect(linked.filter((g) => g.id === group.id).length).toBe(1);
   });
 });
 
 describe("negative-price guard — all three directions", () => {
-  it("direction 1: setVariantPrice blocked when it would go negative via a linked absolute delta", async () => {
+  it("direction 1: setVariantPrice blocked when it would go negative via an item-linked absolute delta", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(10_000);
+    const { item } = await seedItem(10_000);
+    const variant = await client.catalog.createVariant({
+      menuItemId: item.id,
+      name: "Regular",
+      priceCentavos: 10_000,
+    });
     const { group } = await seedGroup({ rule: "required-one" });
 
-    // Modifier: -8_000 absolute.
     await client.catalog.createModifier({
       groupId: group.id,
       name: "Discount",
       delta: { kind: "absolute", amountCentavos: -8_000 },
     });
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
 
-    // 10_000 + (-8_000) = 2_000 ≥ 0 → still safe. Price can stay at 10_000.
-    // Lower to 8_000: 8_000 + (-8_000) = 0 → boundary, still OK.
+    // 8_000 + (-8_000) = 0 → boundary, still OK.
     const okAtBoundary = await client.catalog.setVariantPrice({
-      id: variant.id,
+      id: variant!.id,
       priceCentavos: 8_000,
     });
     expect(okAtBoundary).toBeTruthy();
 
-    // Lower to 7_999: 7_999 + (-8_000) = -1 < 0 → guard blocks.
-    const blocked = await client.catalog.setVariantPrice({ id: variant.id, priceCentavos: 7_999 });
+    // 7_999 + (-8_000) = -1 → guard blocks.
+    const blocked = await client.catalog.setVariantPrice({
+      id: variant!.id,
+      priceCentavos: 7_999,
+    });
     expect(blocked).toBeNull();
   });
 
-  it("direction 2: linkModifierGroup blocked when variant price is too low", async () => {
+  it("direction 2: linkModifierGroupToMenuItem blocked when item price is too low", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(1_000);
+    const { item } = await seedItem(1_000);
     const { group } = await seedGroup({ rule: "required-one" });
 
     await client.catalog.createModifier({
@@ -249,9 +265,9 @@ describe("negative-price guard — all three directions", () => {
       delta: { kind: "absolute", amountCentavos: -5_000 },
     });
 
-    // 1_000 + (-5_000) = -4_000 — guard must block the link.
-    const blocked = await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    // 1_000 + (-5_000) = -4_000 → guard must block.
+    const blocked = await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
     expect(blocked).toBeNull();
@@ -259,7 +275,7 @@ describe("negative-price guard — all three directions", () => {
 
   it("direction 3: updateModifier blocked when new delta would make effective price negative", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(10_000);
+    const { item } = await seedItem(10_000);
     const { group } = await seedGroup({ rule: "required-one" });
 
     const mod = await client.catalog.createModifier({
@@ -267,12 +283,12 @@ describe("negative-price guard — all three directions", () => {
       name: "Small Disc",
       delta: { kind: "absolute", amountCentavos: -1_000 },
     });
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group.id,
     });
 
-    // Changing to -15_000 → 10_000 + (-15_000) = -5_000 → blocked.
+    // -15_000 → 10_000 + (-15_000) = -5_000 → blocked.
     const blocked = await client.catalog.updateModifier({
       id: mod!.id,
       name: "Big Disc",
@@ -282,20 +298,20 @@ describe("negative-price guard — all three directions", () => {
   });
 });
 
-describe("linkedToCount excludes archived Variants (scenario 26)", () => {
-  it("count drops when a linked Variant is archived", async () => {
+describe("linkedToCount excludes archived Items (scenario 26)", () => {
+  it("count drops when a linked Item is archived", async () => {
     const client = asAdmin();
     const { group } = await seedGroup();
 
-    const { variant: v1 } = await seedVariant(20_000);
-    const { variant: v2 } = await seedVariant(20_000);
+    const { item: i1 } = await seedItem(20_000);
+    const { item: i2 } = await seedItem(20_000);
 
-    await client.catalog.linkModifierGroup({
-      variantId: v1.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: i1.id,
       modifierGroupId: group.id,
     });
-    await client.catalog.linkModifierGroup({
-      variantId: v2.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: i2.id,
       modifierGroupId: group.id,
     });
 
@@ -303,7 +319,7 @@ describe("linkedToCount excludes archived Variants (scenario 26)", () => {
     const row = before.find((g) => g.id === group.id);
     expect(row?.linkedToCount).toBe(2);
 
-    await client.catalog.archiveVariant({ id: v2.id });
+    await client.catalog.archiveMenuItem({ id: i2.id });
 
     const after = await client.catalog.listModifierGroups();
     const rowAfter = after.find((g) => g.id === group.id);
@@ -312,55 +328,55 @@ describe("linkedToCount excludes archived Variants (scenario 26)", () => {
 });
 
 describe("archive cascade", () => {
-  it("archiving a required-one ModifierGroup archives linked Variants", async () => {
+  it("archiving a required-one ModifierGroup archives linked Items", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(20_000);
+    const { item } = await seedItem(20_000);
     const group = await client.catalog.createModifierGroup({
       name: `Required ${randomUUID().slice(0, 6)}`,
       selectionRule: "required-one",
     });
 
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group!.id,
     });
 
     await client.catalog.archiveModifierGroup({ id: group!.id });
 
-    const after = await client.catalog.getVariant({ id: variant.id });
+    const after = await client.catalog.getMenuItem({ id: item.id });
     expect(after?.archivedAt).not.toBeNull();
 
     const linkRows = await ownerDb
-      .selectFrom("VariantModifierGroup")
+      .selectFrom("MenuItemModifierGroup")
       .select("id")
-      .where("variant_id", "=", variant.id)
+      .where("menu_item_id", "=", item.id)
       .where("modifier_group_id", "=", group!.id)
       .execute();
     expect(linkRows).toHaveLength(0);
   });
 
-  it("archiving an optional-one ModifierGroup does NOT archive linked Variants", async () => {
+  it("archiving an optional-one ModifierGroup does NOT archive linked Items", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(20_000);
+    const { item } = await seedItem(20_000);
     const group = await client.catalog.createModifierGroup({
       name: `Optional ${randomUUID().slice(0, 6)}`,
       selectionRule: "optional-one",
     });
 
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group!.id,
     });
 
     await client.catalog.archiveModifierGroup({ id: group!.id });
 
-    const after = await client.catalog.getVariant({ id: variant.id });
+    const after = await client.catalog.getMenuItem({ id: item.id });
     expect(after?.archivedAt).toBeNull();
   });
 
-  it("scenario 4: archiving the last active Modifier of a required-one group archives linked Variants", async () => {
+  it("scenario 4: archiving the last active Modifier of a required-one group archives linked Items", async () => {
     const client = asAdmin();
-    const { variant } = await seedVariant(20_000);
+    const { item } = await seedItem(20_000);
     const group = await client.catalog.createModifierGroup({
       name: `LastMod ${randomUUID().slice(0, 6)}`,
       selectionRule: "required-one",
@@ -371,15 +387,14 @@ describe("archive cascade", () => {
       delta: { kind: "absolute", amountCentavos: 0 },
     });
 
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group!.id,
     });
 
-    // Archiving the only modifier → group becomes unsatisfiable → Variants must leave.
     await client.catalog.archiveModifier({ id: mod!.id });
 
-    const after = await client.catalog.getVariant({ id: variant.id });
+    const after = await client.catalog.getMenuItem({ id: item.id });
     expect(after?.archivedAt).not.toBeNull();
   });
 });
@@ -392,8 +407,6 @@ describe("scenario 2: concurrency — last-writer-wins", () => {
       selectionRule: "required-one",
     });
 
-    // Two concurrent edits — in practice both run sequentially here; the
-    // last write wins (decision 074: last-writer-wins, no optimistic locking).
     await client.catalog.updateModifierGroup({
       id: group!.id,
       name: "Writer A",
@@ -411,10 +424,10 @@ describe("scenario 2: concurrency — last-writer-wins", () => {
   });
 });
 
-describe("read model carries modifier groups, modifiers, and defaults", () => {
-  it("groups and modifiers appear on linked variants in the read model (AC 10)", async () => {
+describe("read model carries modifier groups on items (decision 076)", () => {
+  it("groups and modifiers appear on the item in the read model", async () => {
     const client = asAdmin();
-    const { variant, item } = await seedVariant(30_000);
+    const { item } = await seedItem(30_000);
 
     const group = await client.catalog.createModifierGroup({
       name: `ReadTest ${randomUUID().slice(0, 6)}`,
@@ -431,16 +444,15 @@ describe("read model carries modifier groups, modifiers, and defaults", () => {
       selectionRule: "required-one",
       defaultModifierId: mod!.id,
     });
-    await client.catalog.linkModifierGroup({
-      variantId: variant.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
       modifierGroupId: group!.id,
     });
 
     const read = await client.catalog.read({ storeId });
     const onRead = read.menuItems.find((mi) => mi.id === item.id);
-    const variantOnRead = onRead?.variants.find((v) => v.id === variant.id);
-    expect(variantOnRead?.modifierGroups.length).toBe(1);
-    const grp = variantOnRead?.modifierGroups[0]!;
+    expect(onRead?.modifierGroups.length).toBe(1);
+    const grp = onRead?.modifierGroups[0]!;
     expect(grp.id).toBe(group!.id);
     expect(grp.selectionRule).toBe("required-one");
     expect(grp.defaultModifierId).toBe(mod!.id);
@@ -449,21 +461,44 @@ describe("read model carries modifier groups, modifiers, and defaults", () => {
     expect(grp.modifiers[0]!.delta).toStrictEqual({ kind: "multiplier", perMille: 500 });
   });
 
-  it("shared group update propagates to all linked variants in the read model", async () => {
+  it("variants carry no modifierGroups — they inherit from the item", async () => {
     const client = asAdmin();
-    const { variant: v1, item: item1 } = await seedVariant(20_000);
-    const { variant: v2, item: item2 } = await seedVariant(20_000);
+    const { item } = await seedItem(20_000);
+    const variant = await client.catalog.createVariant({
+      menuItemId: item.id,
+      name: "Large",
+      priceCentavos: 25_000,
+    });
+    const { group } = await seedGroup();
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
+      modifierGroupId: group.id,
+    });
+
+    const read = await client.catalog.read({ storeId });
+    const onRead = read.menuItems.find((mi) => mi.id === item.id);
+    const variantOnRead = onRead?.variants.find((v) => v.id === variant!.id);
+    // Variants have no modifierGroups key in the contract (decision 076).
+    expect(onRead?.modifierGroups.length).toBe(1);
+    expect(variantOnRead).toBeDefined();
+    expect((variantOnRead as Record<string, unknown>)["modifierGroups"]).toBeUndefined();
+  });
+
+  it("shared group update propagates to all linked items in the read model", async () => {
+    const client = asAdmin();
+    const { item: item1 } = await seedItem(20_000);
+    const { item: item2 } = await seedItem(20_000);
 
     const group = await client.catalog.createModifierGroup({
       name: `Shared ${randomUUID().slice(0, 6)}`,
       selectionRule: "optional-one",
     });
-    await client.catalog.linkModifierGroup({
-      variantId: v1.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item1.id,
       modifierGroupId: group!.id,
     });
-    await client.catalog.linkModifierGroup({
-      variantId: v2.id,
+    await client.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item2.id,
       modifierGroupId: group!.id,
     });
 
@@ -474,53 +509,51 @@ describe("read model carries modifier groups, modifiers, and defaults", () => {
     });
 
     const read = await client.catalog.read({ storeId });
-    const find = (itemId: string, variantId: string) =>
-      read.menuItems
-        .find((mi) => mi.id === itemId)
-        ?.variants.find((v) => v.id === variantId)
-        ?.modifierGroups.find((g) => g.id === group!.id);
+    const find = (itemId: string) =>
+      read.menuItems.find((mi) => mi.id === itemId)?.modifierGroups.find((g) => g.id === group!.id);
 
-    expect(find(item1.id, v1.id)?.name).toBe("Renamed Shared");
-    expect(find(item2.id, v2.id)?.name).toBe("Renamed Shared");
+    expect(find(item1.id)?.name).toBe("Renamed Shared");
+    expect(find(item2.id)?.name).toBe("Renamed Shared");
   });
 });
 
 describe("cashier cannot mutate link operations", () => {
-  it("cashier cannot link or unlink modifier groups", async () => {
+  it("cashier cannot link or unlink modifier groups to items", async () => {
     const admin = asAdmin();
-    const { variant } = await seedVariant(20_000);
+    const { item } = await seedItem(20_000);
     const { group } = await seedGroup();
     const cashier = asCashier();
 
-    // linkModifierGroup: cashier role returns null (no role)
     expect(
-      await cashier.catalog.linkModifierGroup({
-        variantId: variant.id,
+      await cashier.catalog.linkModifierGroupToMenuItem({
+        menuItemId: item.id,
         modifierGroupId: group.id,
       }),
     ).toBeNull();
 
-    // Link it as admin first so unlink has something to refuse.
-    await admin.catalog.linkModifierGroup({ variantId: variant.id, modifierGroupId: group.id });
+    await admin.catalog.linkModifierGroupToMenuItem({
+      menuItemId: item.id,
+      modifierGroupId: group.id,
+    });
 
-    // unlinkModifierGroup: contract output is { ok: boolean }, cashier gets { ok: false }
     expect(
-      await cashier.catalog.unlinkModifierGroup({
-        variantId: variant.id,
+      await cashier.catalog.unlinkModifierGroupFromMenuItem({
+        menuItemId: item.id,
         modifierGroupId: group.id,
       }),
     ).toStrictEqual({ ok: false });
 
-    // listLinkedModifierGroups: cashier returns empty list (not null)
-    expect((await cashier.catalog.listLinkedModifierGroups({ variantId: variant.id })).length).toBe(
-      0,
-    );
+    expect(
+      (
+        await cashier.catalog.listLinkedModifierGroupsForMenuItem({ menuItemId: item.id })
+      ).length,
+    ).toBe(0);
   });
 });
 
 describe("wrong-tenant probes — link procedures", () => {
-  let variantA: string;
-  let variantB: string;
+  let itemA: string;
+  let itemB: string;
   let groupA: string;
   let groupB: string;
 
@@ -531,32 +564,22 @@ describe("wrong-tenant probes — link procedures", () => {
     const catA = await cA.catalog.createCategory({
       name: `Probe Cat A ${randomUUID().slice(0, 4)}`,
     });
-    const itemA = await cA.catalog.createMenuItem({
+    const miA = await cA.catalog.createMenuItem({
       categoryId: catA!.id,
       name: "Probe Item A",
       priceCentavos: 20_000,
     });
-    const vA = await cA.catalog.createVariant({
-      menuItemId: itemA!.id,
-      name: "Probe Var A",
-      priceCentavos: 20_000,
-    });
-    variantA = vA!.id;
+    itemA = miA!.id;
 
     const catB = await cB.catalog.createCategory({
       name: `Probe Cat B ${randomUUID().slice(0, 4)}`,
     });
-    const itemB = await cB.catalog.createMenuItem({
+    const miB = await cB.catalog.createMenuItem({
       categoryId: catB!.id,
       name: "Probe Item B",
       priceCentavos: 20_000,
     });
-    const vB = await cB.catalog.createVariant({
-      menuItemId: itemB!.id,
-      name: "Probe Var B",
-      priceCentavos: 20_000,
-    });
-    variantB = vB!.id;
+    itemB = miB!.id;
 
     const gA = await cA.catalog.createModifierGroup({
       name: `Probe Group A ${randomUUID().slice(0, 4)}`,
@@ -570,58 +593,66 @@ describe("wrong-tenant probes — link procedures", () => {
     });
     groupB = gB!.id;
 
-    // Pre-link both so probes always have non-empty ownerSees / otherOwn.
-    await cA.catalog.linkModifierGroup({ variantId: variantA, modifierGroupId: groupA });
-    await cB.catalog.linkModifierGroup({ variantId: variantB, modifierGroupId: groupB });
+    await cA.catalog.linkModifierGroupToMenuItem({ menuItemId: itemA, modifierGroupId: groupA });
+    await cB.catalog.linkModifierGroupToMenuItem({ menuItemId: itemB, modifierGroupId: groupB });
   });
 
-  it("wrong-tenant probe [catalog.linkModifierGroup]: Tenant A cannot link Tenant B's group to Tenant B's variant", async () => {
-    // Owner re-links (idempotent) to produce a non-empty ownerSees.
-    const ownerSees = await asAdminB().catalog.linkModifierGroup({
-      variantId: variantB,
+  it("wrong-tenant probe [catalog.linkModifierGroupToMenuItem]: Tenant A cannot link Tenant B's group to Tenant B's item", async () => {
+    const ownerSees = await asAdminB().catalog.linkModifierGroupToMenuItem({
+      menuItemId: itemB,
       modifierGroupId: groupB,
     });
     expect(ownerSees).toBeTruthy();
 
     await expectWrongTenantRefusal({
-      path: "catalog.linkModifierGroup",
+      path: "catalog.linkModifierGroupToMenuItem",
       mode: "refusal",
       ownerSees,
       otherGets: () =>
-        asAdmin().catalog.linkModifierGroup({ variantId: variantB, modifierGroupId: groupB }),
+        asAdmin().catalog.linkModifierGroupToMenuItem({
+          menuItemId: itemB,
+          modifierGroupId: groupB,
+        }),
     });
   });
 
-  it("wrong-tenant probe [catalog.unlinkModifierGroup]: Tenant A cannot unlink Tenant B's link", async () => {
-    // Use A's own link so ownerSees is { ok: true } (not a refusal shape).
-    const ownerSees = await asAdmin().catalog.unlinkModifierGroup({
-      variantId: variantA,
+  it("wrong-tenant probe [catalog.unlinkModifierGroupFromMenuItem]: Tenant A cannot unlink Tenant B's link", async () => {
+    const ownerSees = await asAdmin().catalog.unlinkModifierGroupFromMenuItem({
+      menuItemId: itemA,
       modifierGroupId: groupA,
     });
     expect(ownerSees).toStrictEqual({ ok: true });
 
-    // Re-link A so we leave state clean.
-    await asAdmin().catalog.linkModifierGroup({ variantId: variantA, modifierGroupId: groupA });
+    await asAdmin().catalog.linkModifierGroupToMenuItem({
+      menuItemId: itemA,
+      modifierGroupId: groupA,
+    });
 
     await expectWrongTenantRefusal({
-      path: "catalog.unlinkModifierGroup",
+      path: "catalog.unlinkModifierGroupFromMenuItem",
       mode: "refusal",
       ownerSees,
       otherGets: () =>
-        asAdminB().catalog.unlinkModifierGroup({ variantId: variantA, modifierGroupId: groupA }),
+        asAdminB().catalog.unlinkModifierGroupFromMenuItem({
+          menuItemId: itemA,
+          modifierGroupId: groupA,
+        }),
     });
   });
 
-  it("wrong-tenant probe [catalog.listLinkedModifierGroups]: Tenant A cannot see Tenant B's linked groups", async () => {
-    // Both tenants have linked groups (set up in beforeAll), so neither list is empty.
-    const ownAsB = await asAdminB().catalog.listLinkedModifierGroups({ variantId: variantB });
+  it("wrong-tenant probe [catalog.listLinkedModifierGroupsForMenuItem]: Tenant A cannot see Tenant B's linked groups", async () => {
+    const ownAsB = await asAdminB().catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: itemB,
+    });
     expect(ownAsB.length).toBeGreaterThan(0);
 
-    const ownAsA = await asAdmin().catalog.listLinkedModifierGroups({ variantId: variantA });
+    const ownAsA = await asAdmin().catalog.listLinkedModifierGroupsForMenuItem({
+      menuItemId: itemA,
+    });
     expect(ownAsA.length).toBeGreaterThan(0);
 
     await expectWrongTenantRefusal({
-      path: "catalog.listLinkedModifierGroups",
+      path: "catalog.listLinkedModifierGroupsForMenuItem",
       mode: "confined",
       ownerSees: ownAsB,
       otherGets: async () => ownAsA,

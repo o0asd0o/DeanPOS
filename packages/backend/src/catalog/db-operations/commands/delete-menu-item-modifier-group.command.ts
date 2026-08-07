@@ -1,20 +1,20 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-export const deleteVariantModifierGroup = (
+export const deleteMenuItemModifierGroup = (
   db: DatabaseInstance,
-  variantId: string,
+  menuItemId: string,
   modifierGroupId: string,
 ) =>
   db
-    .deleteFrom("VariantModifierGroup")
-    .where("variant_id", "=", variantId)
+    .deleteFrom("MenuItemModifierGroup")
+    .where("menu_item_id", "=", menuItemId)
     .where("modifier_group_id", "=", modifierGroupId)
     .returningAll()
     .executeTakeFirst();
 
-export const deleteAllLinksForGroup = (db: DatabaseInstance, modifierGroupId: string) =>
+export const deleteAllMenuItemLinksForGroup = (db: DatabaseInstance, modifierGroupId: string) =>
   db
-    .deleteFrom("VariantModifierGroup")
+    .deleteFrom("MenuItemModifierGroup")
     .where("modifier_group_id", "=", modifierGroupId)
     .returningAll()
     .execute();

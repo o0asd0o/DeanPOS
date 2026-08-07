@@ -1,4 +1,4 @@
-import { catalogListLinkedModifierGroupsInputSchema } from "contract/src/contract.ts";
+import { catalogListLinkedModifierGroupsForItemInputSchema } from "contract/src/contract.ts";
 import type { z } from "zod";
 
 import { hasAtLeastRole } from "../../common/authorize.ts";
@@ -6,9 +6,9 @@ import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { toModifierGroupOutput } from "../../modifier-group/helpers.ts";
 import { listModifiersForGroup } from "../../modifier/db-operations/queries/list-modifiers-for-group.query.ts";
-import { listLinkedModifierGroupsForVariant } from "../db-operations/queries/list-linked-modifier-groups.query.ts";
+import { listLinkedModifierGroupsForItem } from "../db-operations/queries/list-linked-modifier-groups-for-item.query.ts";
 
-export const inputSchema = catalogListLinkedModifierGroupsInputSchema;
+export const inputSchema = catalogListLinkedModifierGroupsForItemInputSchema;
 type Input = z.infer<typeof inputSchema>;
 
 export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput>[]> = async ({
@@ -20,7 +20,7 @@ export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput>[]>
   if (!hasAtLeastRole(role, "manager")) return [];
 
   return withTenantScope(ctx.db, tenantId, async (db) => {
-    const groups = await listLinkedModifierGroupsForVariant(db, input.variantId);
+    const groups = await listLinkedModifierGroupsForItem(db, input.menuItemId);
     return Promise.all(
       groups.map(async (group) => {
         const modifiers = await listModifiersForGroup(db, group.id);

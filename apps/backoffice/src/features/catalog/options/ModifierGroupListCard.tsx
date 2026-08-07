@@ -15,11 +15,6 @@ import {
 } from "@dnd-kit/sortable";
 import {
   ArchiveIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  PencilIcon,
-  PlusIcon,
-  PowerOffIcon,
   RotateCcwIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -43,11 +38,9 @@ import { TablePagination } from "@/components/TablePagination.tsx";
 import { reorderSteps } from "@/features/catalog/helpers.ts";
 import { useTableView } from "@/lib/table.ts";
 
-import { useReorderModifierGroupMutation, useReorderModifierMutation } from "./__common/queries.ts";
+import { useReorderModifierGroupMutation } from "./__common/queries.ts";
 import {
-  formatDelta,
   type ModifierGroupOutput,
-  type ModifierOutput,
   SELECTION_RULE_LABEL,
 } from "./helpers.ts";
 import { SortableModifierGroupRow } from "./SortableModifierGroupRow.tsx";
@@ -72,9 +65,7 @@ export function ModifierGroupListCard({
   onEditGroup,
   onArchiveGroup,
   onReactivateGroup,
-  onAddModifier,
-  onEditModifier,
-  onArchiveModifier,
+  onOpenModifiers,
   inlineError,
 }: {
   groups: ModifierGroupOutput[] | undefined;
@@ -87,15 +78,12 @@ export function ModifierGroupListCard({
   onEditGroup: (group: ModifierGroupOutput) => void;
   onArchiveGroup: (group: ModifierGroupOutput) => void;
   onReactivateGroup: (group: ModifierGroupOutput) => void;
-  onAddModifier: (group: ModifierGroupOutput) => void;
-  onEditModifier: (group: ModifierGroupOutput, modifier: ModifierOutput) => void;
-  onArchiveModifier: (modifier: ModifierOutput) => void;
+  onOpenModifiers: (group: ModifierGroupOutput) => void;
   inlineError: string | null;
 }) {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
   const reorderGroup = useReorderModifierGroupMutation();
-  const reorderModifier = useReorderModifierMutation();
 
   const term = query.trim().toLowerCase();
   const canDrag = status === "all" && term === "";
@@ -206,9 +194,7 @@ export function ModifierGroupListCard({
                         onEditGroup={onEditGroup}
                         onArchiveGroup={onArchiveGroup}
                         onReactivateGroup={onReactivateGroup}
-                        onAddModifier={onAddModifier}
-                        onEditModifier={onEditModifier}
-                        onArchiveModifier={onArchiveModifier}
+                        onOpenModifiers={onOpenModifiers}
                       />
                     ))}
                   </TableBody>
@@ -244,11 +230,8 @@ export function ModifierGroupListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {table.rows.map((group, index) => {
-                  const activeMods = group.modifiers
-                    .filter((m) => !m.archivedAt)
-                    .slice()
-                    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+                {table.rows.map((group) => {
+                  const activeModCount = group.modifiers.filter((m) => !m.archivedAt).length;
                   return (
                     <TableRow
                       key={group.id}
@@ -257,82 +240,15 @@ export function ModifierGroupListCard({
                       <TableCell className="font-medium">{group.name}</TableCell>
                       <TableCell>{SELECTION_RULE_LABEL[group.selectionRule]}</TableCell>
                       <TableCell>
-                        <ul className="flex flex-col gap-1 text-sm">
-                          {activeMods.length === 0 ? (
-                            <li className="text-muted-foreground">None</li>
-                          ) : (
-                            activeMods.map((mod, modIndex) => (
-                              <li key={mod.id} className="flex flex-wrap items-center gap-2">
-                                <span>
-                                  {mod.name}{" "}
-                                  <span className="tabular-nums text-muted-foreground">
-                                    {formatDelta(mod.delta)}
-                                  </span>
-                                </span>
-                                {canMutate && !group.archivedAt ? (
-                                  <span className="inline-flex items-center gap-0.5">
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7"
-                                      aria-label={`Move ${mod.name} up in ${group.name}`}
-                                      disabled={modIndex === 0 || reorderModifier.isPending}
-                                      onClick={() =>
-                                        void reorderModifier.mutateAsync({
-                                          id: mod.id,
-                                          direction: "up",
-                                        })
-                                      }
-                                    >
-                                      <ChevronUpIcon />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7"
-                                      aria-label={`Move ${mod.name} down in ${group.name}`}
-                                      disabled={
-                                        modIndex === activeMods.length - 1 ||
-                                        reorderModifier.isPending
-                                      }
-                                      onClick={() =>
-                                        void reorderModifier.mutateAsync({
-                                          id: mod.id,
-                                          direction: "down",
-                                        })
-                                      }
-                                    >
-                                      <ChevronDownIcon />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="size-7"
-                                      aria-label={`Edit ${mod.name}`}
-                                      onClick={() => onEditModifier(group, mod)}
-                                    >
-                                      <PencilIcon />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      danger
-                                      className="size-7"
-                                      aria-label={`Archive ${mod.name}`}
-                                      onClick={() => onArchiveModifier(mod)}
-                                    >
-                                      <PowerOffIcon />
-                                    </Button>
-                                  </span>
-                                ) : null}
-                              </li>
-                            ))
-                          )}
-                        </ul>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="tabular-nums"
+                          onClick={() => onOpenModifiers(group)}
+                        >
+                          {activeModCount} modifier{activeModCount !== 1 ? "s" : ""}
+                        </Button>
                       </TableCell>
                       <TableCell className="tabular-nums">{group.linkedToCount}</TableCell>
                       <TableCell>
@@ -349,54 +265,11 @@ export function ModifierGroupListCard({
                               <>
                                 <Button
                                   type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8"
-                                  aria-label={`Move ${group.name} up in modifier groups`}
-                                  disabled={index === 0 || reorderGroup.isPending}
-                                  onClick={() =>
-                                    void reorderGroup.mutateAsync({
-                                      id: group.id,
-                                      direction: "up",
-                                    })
-                                  }
-                                >
-                                  <ChevronUpIcon />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8"
-                                  aria-label={`Move ${group.name} down in modifier groups`}
-                                  disabled={
-                                    index === table.rows.length - 1 || reorderGroup.isPending
-                                  }
-                                  onClick={() =>
-                                    void reorderGroup.mutateAsync({
-                                      id: group.id,
-                                      direction: "down",
-                                    })
-                                  }
-                                >
-                                  <ChevronDownIcon />
-                                </Button>
-                                <Button
-                                  type="button"
                                   size="sm"
                                   variant="outline"
                                   onClick={() => onEditGroup(group)}
                                 >
                                   Edit
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => onAddModifier(group)}
-                                >
-                                  <PlusIcon />
-                                  Modifier
                                 </Button>
                                 <Button
                                   type="button"

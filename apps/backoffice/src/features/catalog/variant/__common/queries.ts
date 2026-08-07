@@ -74,22 +74,22 @@ export function useAllModifierGroupsQuery() {
   return useQuery(orpc.catalog.listModifierGroups.queryOptions());
 }
 
-export function useLinkedModifierGroupsQuery(variantId: string | null) {
+export function useLinkedModifierGroupsForItemQuery(menuItemId: string | null) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
   return useQuery({
-    ...orpc.catalog.listLinkedModifierGroups.queryOptions({
-      input: { variantId: variantId ?? "" },
+    ...orpc.catalog.listLinkedModifierGroupsForMenuItem.queryOptions({
+      input: { menuItemId: menuItemId ?? "" },
     }),
-    enabled: Boolean(variantId),
+    enabled: Boolean(menuItemId),
   });
 }
 
-function useInvalidateLinked(variantId: string) {
+function useInvalidateLinkedForItem(menuItemId: string) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({
-      queryKey: orpc.catalog.listLinkedModifierGroups.queryKey({ input: { variantId } }),
+      queryKey: orpc.catalog.listLinkedModifierGroupsForMenuItem.queryKey({ input: { menuItemId } }),
     });
     void queryClient.invalidateQueries({
       queryKey: orpc.catalog.listModifierGroups.queryKey(),
@@ -97,22 +97,22 @@ function useInvalidateLinked(variantId: string) {
   };
 }
 
-export function useLinkModifierGroupMutation(variantId: string) {
+export function useLinkModifierGroupToItemMutation(menuItemId: string) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
-  const invalidate = useInvalidateLinked(variantId);
+  const invalidate = useInvalidateLinkedForItem(menuItemId);
   return useMutation(
-    orpc.catalog.linkModifierGroup.mutationOptions({
+    orpc.catalog.linkModifierGroupToMenuItem.mutationOptions({
       onSuccess: invalidate,
       meta: { silent: true },
     }),
   );
 }
 
-export function useUnlinkModifierGroupMutation(variantId: string) {
+export function useUnlinkModifierGroupFromItemMutation(menuItemId: string) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
-  const invalidate = useInvalidateLinked(variantId);
+  const invalidate = useInvalidateLinkedForItem(menuItemId);
   return useMutation(
-    orpc.catalog.unlinkModifierGroup.mutationOptions({
+    orpc.catalog.unlinkModifierGroupFromMenuItem.mutationOptions({
       onSuccess: invalidate,
       meta: { silent: true },
     }),

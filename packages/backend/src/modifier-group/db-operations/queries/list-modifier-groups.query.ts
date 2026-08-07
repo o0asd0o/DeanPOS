@@ -9,10 +9,10 @@ export const listModifierGroups = (db: DatabaseInstance) =>
     .select(
       sql<number>`(
         SELECT COUNT(*)::int
-        FROM "VariantModifierGroup" vmg
-        JOIN "Variant" v ON v.tenant_id = vmg.tenant_id AND v.id = vmg.variant_id
-        WHERE vmg.modifier_group_id = "ModifierGroup".id
-          AND v.archived_at IS NULL
+        FROM "MenuItemModifierGroup" immg
+        JOIN "MenuItem" mi ON mi.tenant_id = immg.tenant_id AND mi.id = immg.menu_item_id
+        WHERE immg.modifier_group_id = "ModifierGroup".id
+          AND mi.archived_at IS NULL
       )`.as("linked_to_count"),
     )
     .orderBy("sort_order")

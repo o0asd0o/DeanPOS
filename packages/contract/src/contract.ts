@@ -246,7 +246,6 @@ export const catalogReadVariantSchema = z.object({
   name: z.string(),
   priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
-  modifierGroups: z.array(catalogReadModifierGroupSchema),
 });
 
 export const catalogReadMenuItemSchema = z.object({
@@ -256,6 +255,7 @@ export const catalogReadMenuItemSchema = z.object({
   name: z.string(),
   priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
+  modifierGroups: z.array(catalogReadModifierGroupSchema),
   variants: z.array(catalogReadVariantSchema),
 });
 
@@ -360,12 +360,12 @@ export const catalogModifierUpdateInputSchema = z.object({
 export const catalogListModifiersInputSchema = z.object({
   groupId: z.string(),
 });
-export const catalogVariantModifierGroupInputSchema = z.object({
-  variantId: z.string(),
+export const catalogMenuItemModifierGroupInputSchema = z.object({
+  menuItemId: z.string(),
   modifierGroupId: z.string(),
 });
-export const catalogListLinkedModifierGroupsInputSchema = z.object({
-  variantId: z.string(),
+export const catalogListLinkedModifierGroupsForItemInputSchema = z.object({
+  menuItemId: z.string(),
 });
 
 // The Tenant-default row for a method, admin-only (issue 14). `image` carries
@@ -726,14 +726,14 @@ export const contract = {
       .input(catalogEntityIdInputSchema)
       .output(modifierOutputSchema.nullable()),
     reorderModifier: oc.input(catalogReorderInputSchema).output(modifierOutputSchema.nullable()),
-    linkModifierGroup: oc
-      .input(catalogVariantModifierGroupInputSchema)
+    linkModifierGroupToMenuItem: oc
+      .input(catalogMenuItemModifierGroupInputSchema)
       .output(modifierGroupOutputSchema.nullable()),
-    unlinkModifierGroup: oc
-      .input(catalogVariantModifierGroupInputSchema)
+    unlinkModifierGroupFromMenuItem: oc
+      .input(catalogMenuItemModifierGroupInputSchema)
       .output(z.object({ ok: z.boolean() })),
-    listLinkedModifierGroups: oc
-      .input(catalogListLinkedModifierGroupsInputSchema)
+    listLinkedModifierGroupsForMenuItem: oc
+      .input(catalogListLinkedModifierGroupsForItemInputSchema)
       .output(z.array(modifierGroupOutputSchema)),
     read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
     version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),

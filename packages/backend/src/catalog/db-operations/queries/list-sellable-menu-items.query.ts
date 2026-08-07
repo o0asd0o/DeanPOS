@@ -1,6 +1,6 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 
-// Sellable = MenuItem not archived, parent Category not archived, has at least one active Variant.
+// Sellable = MenuItem not archived, parent Category not archived (decision 075: no variant required).
 export const listSellableMenuItems = (db: DatabaseInstance) =>
   db
     .selectFrom("MenuItem as m")
@@ -10,15 +10,6 @@ export const listSellableMenuItems = (db: DatabaseInstance) =>
     .select(["m.id", "m.tenant_id", "m.category_id", "m.name", "m.price_centavos", "m.sort_order"])
     .where("m.archived_at", "is", null)
     .where("c.archived_at", "is", null)
-    .where((eb) =>
-      eb.exists(
-        eb
-          .selectFrom("Variant as v")
-          .select(eb.lit(1).as("one"))
-          .whereRef("v.menu_item_id", "=", "m.id")
-          .where("v.archived_at", "is", null),
-      ),
-    )
     .orderBy("c.sort_order")
     .orderBy("m.sort_order")
     .orderBy("m.id")

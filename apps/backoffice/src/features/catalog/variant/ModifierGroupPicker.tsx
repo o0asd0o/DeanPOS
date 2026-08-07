@@ -3,21 +3,23 @@ import { Badge, Button } from "ui";
 
 import {
   useAllModifierGroupsQuery,
-  useLinkModifierGroupMutation,
-  useLinkedModifierGroupsQuery,
-  useUnlinkModifierGroupMutation,
+  useLinkModifierGroupToItemMutation,
+  useLinkedModifierGroupsForItemQuery,
+  useUnlinkModifierGroupFromItemMutation,
 } from "./__common/queries.ts";
 
-export function ModifierGroupPicker({ variantId }: { variantId: string }) {
+type Props = { menuItemId: string };
+
+export function ModifierGroupPicker({ menuItemId }: Props) {
   const allGroupsQuery = useAllModifierGroupsQuery();
-  const linkedQuery = useLinkedModifierGroupsQuery(variantId);
-  const link = useLinkModifierGroupMutation(variantId);
-  const unlink = useUnlinkModifierGroupMutation(variantId);
+  const linkedQuery = useLinkedModifierGroupsForItemQuery(menuItemId);
+  const link = useLinkModifierGroupToItemMutation(menuItemId);
+  const unlink = useUnlinkModifierGroupFromItemMutation(menuItemId);
+
   const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
     text: "",
     slot: 0,
   });
-
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
@@ -59,12 +61,12 @@ export function ModifierGroupPicker({ variantId }: { variantId: string }) {
                   onClick={() => {
                     if (linked) {
                       unlink.mutate(
-                        { variantId, modifierGroupId: group.id },
+                        { menuItemId, modifierGroupId: group.id },
                         { onSuccess: () => announce(`Unlinked ${group.name}`) },
                       );
                     } else {
                       link.mutate(
-                        { variantId, modifierGroupId: group.id },
+                        { menuItemId, modifierGroupId: group.id },
                         {
                           onSuccess: (result) =>
                             announce(

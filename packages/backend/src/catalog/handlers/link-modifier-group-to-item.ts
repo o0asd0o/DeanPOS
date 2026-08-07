@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { catalogVariantModifierGroupInputSchema } from "contract/src/contract.ts";
+import { catalogMenuItemModifierGroupInputSchema } from "contract/src/contract.ts";
 import type { z } from "zod";
 
 import { hasAtLeastRole } from "../../common/authorize.ts";
@@ -9,11 +9,11 @@ import { withTenantScope } from "../../db/client.ts";
 import { getModifierGroup } from "../../modifier-group/db-operations/queries/get-modifier-group.query.ts";
 import { toModifierGroupOutput } from "../../modifier-group/helpers.ts";
 import { listModifiersForGroup } from "../../modifier/db-operations/queries/list-modifiers-for-group.query.ts";
-import { getVariant } from "../../variant/db-operations/queries/get-variant.query.ts";
-import { guardEffectivePrice, NegativeEffectivePriceError } from "../guard-effective-price.ts";
-import { insertVariantModifierGroup } from "../db-operations/commands/insert-variant-modifier-group.command.ts";
+import { getMenuItem } from "../db-operations/queries/get-menu-item.query.ts";
+import { guardEffectivePriceForItem, NegativeEffectivePriceError } from "../guard-effective-price.ts";
+import { insertMenuItemModifierGroup } from "../db-operations/commands/insert-menu-item-modifier-group.command.ts";
 
-export const inputSchema = catalogVariantModifierGroupInputSchema;
+export const inputSchema = catalogMenuItemModifierGroupInputSchema;
 type Input = z.infer<typeof inputSchema>;
 
 export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput> | null> = async ({
@@ -26,30 +26,30 @@ export const handler: Handler<Input, ReturnType<typeof toModifierGroupOutput> | 
 
   try {
     return await withTenantScope(ctx.db, tenantId, async (db) => {
-      const variant = await getVariant(db, input.variantId);
-      if (!variant || variant.archived_at) return null;
+      const menuItem = await getMenuItem(db, input.menuItemId);
+      if (!menuItem || menuItem.archived_at) return null;
 
       const group = await getModifierGroup(db, input.modifierGroupId);
       if (!group || group.archived_at) return null;
 
       const existing = await db
-        .selectFrom("VariantModifierGroup")
+        .selectFrom("MenuItemModifierGroup")
         .select("id")
-        .where("variant_id", "=", input.variantId)
+        .where("menu_item_id", "=", input.menuItemId)
         .where("modifier_group_id", "=", input.modifierGroupId)
         .executeTakeFirst();
 
       if (!existing) {
-        await insertVariantModifierGroup(
+        await insertMenuItemModifierGroup(
           db,
           randomUUID(),
           tenantId,
-          input.variantId,
+          input.menuItemId,
           input.modifierGroupId,
         );
       }
 
-      await guardEffectivePrice(db, input.variantId);
+      await guardEffectivePriceForItem(db, input.menuItemId);
 
       const updated = await getModifierGroup(db, input.modifierGroupId);
       if (!updated) return null;

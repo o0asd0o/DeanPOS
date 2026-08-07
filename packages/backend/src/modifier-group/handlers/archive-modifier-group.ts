@@ -6,9 +6,9 @@ import { withTenantScope } from "../../db/client.ts";
 import { setModifierGroupArchived } from "../db-operations/commands/set-modifier-group-archived.command.ts";
 import { getModifierGroup } from "../db-operations/queries/get-modifier-group.query.ts";
 import { listModifiersForGroup } from "../../modifier/db-operations/queries/list-modifiers-for-group.query.ts";
-import { listLinkedVariantIdsForGroup } from "../../catalog/db-operations/queries/list-linked-modifier-groups.query.ts";
-import { deleteAllLinksForGroup } from "../../catalog/db-operations/commands/delete-variant-modifier-group.command.ts";
-import { setVariantArchived } from "../../variant/db-operations/commands/set-variant-archived.command.ts";
+import { listLinkedItemIdsForGroup } from "../../catalog/db-operations/queries/list-linked-modifier-groups-for-item.query.ts";
+import { deleteAllMenuItemLinksForGroup } from "../../catalog/db-operations/commands/delete-menu-item-modifier-group.command.ts";
+import { setMenuItemArchived } from "../../catalog/db-operations/commands/set-menu-item-archived.command.ts";
 import { toModifierGroupOutput } from "../helpers.ts";
 
 export const inputSchema = z.object({ id: z.string() });
@@ -29,15 +29,15 @@ export const handler: Handler<Input, Output | null> = async ({ ctx, input }) => 
         return toModifierGroupOutput(current, modifiers, current.linked_to_count);
       }
 
-      // Archive cascade: remove all variant links. If required-one, archive the Variants too
-      // (a Variant with an unsatisfiable required group is not sellable — PRD cascade table).
+      // Archive cascade: remove all item links. If required-one, archive the linked Items too
+      // (an Item with an unsatisfiable required group is not sellable — PRD cascade table).
       if (current.selection_rule === "required-one") {
-        const links = await listLinkedVariantIdsForGroup(db, input.id);
+        const links = await listLinkedItemIdsForGroup(db, input.id);
         for (const link of links) {
-          await setVariantArchived(db, link.variant_id, new Date());
+          await setMenuItemArchived(db, link.menu_item_id, new Date());
         }
       }
-      await deleteAllLinksForGroup(db, input.id);
+      await deleteAllMenuItemLinksForGroup(db, input.id);
 
       await setModifierGroupArchived(db, input.id, new Date());
       const group = await getModifierGroup(db, input.id);

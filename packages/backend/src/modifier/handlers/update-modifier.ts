@@ -4,8 +4,8 @@ import type { z } from "zod";
 import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
-import { guardEffectivePrice } from "../../catalog/guard-effective-price.ts";
-import { listLinkedVariantIdsForGroup } from "../../catalog/db-operations/queries/list-linked-modifier-groups.query.ts";
+import { guardEffectivePriceForItem } from "../../catalog/guard-effective-price.ts";
+import { listLinkedItemIdsForGroup } from "../../catalog/db-operations/queries/list-linked-modifier-groups-for-item.query.ts";
 import { deltaToStored, validateDeltaConfig } from "../delta.ts";
 import { updateModifier } from "../db-operations/commands/update-modifier.command.ts";
 import { getModifier } from "../db-operations/queries/get-modifier.query.ts";
@@ -37,10 +37,10 @@ export const handler: Handler<Input, Output | null> = async ({ ctx, input }) => 
         deltaValue: stored.value,
       });
       if (!updated) return null;
-      // Guard: check every Variant linked to this modifier's group (direction 3).
-      const links = await listLinkedVariantIdsForGroup(db, current.group_id);
+      // Guard: check every Item linked to this modifier's group (direction 3).
+      const links = await listLinkedItemIdsForGroup(db, current.group_id);
       for (const link of links) {
-        await guardEffectivePrice(db, link.variant_id);
+        await guardEffectivePriceForItem(db, link.menu_item_id);
       }
       return updated;
     });

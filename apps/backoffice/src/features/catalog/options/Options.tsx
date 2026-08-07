@@ -1,21 +1,31 @@
 import { useRef, useState } from "react";
-import { Button, Sheet, SheetContent } from "ui";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Sheet,
+  SheetContent,
+} from "ui";
 
 import {
   useArchiveModifierGroupMutation,
-  useArchiveModifierMutation,
   useMeQuery,
   useModifierGroupsQuery,
   useReactivateModifierGroupMutation,
 } from "./__common/queries.ts";
-import type { ModifierGroupOutput, ModifierOutput } from "./helpers.ts";
+import type { ModifierGroupOutput } from "./helpers.ts";
 import { ModifierGroupEditor } from "./ModifierGroupEditor.tsx";
 import { ModifierGroupListCard } from "./ModifierGroupListCard.tsx";
+import { ModifierListSheet } from "./ModifierListSheet.tsx";
 
 type EditorState =
   | { mode: "closed" }
-  | { mode: "group"; group: ModifierGroupOutput | null }
-  | { mode: "modifier"; group: ModifierGroupOutput; modifier: ModifierOutput | null };
+  | { mode: "group"; group: ModifierGroupOutput | null };
 
 // Options screen (catalog issue 03): tenant-level ModifierGroups library.
 // List shape from record 038; editor is 049/050 SheetForm. No toast — live regions.
@@ -39,9 +49,15 @@ export function Options() {
   const opener = useRef<HTMLElement | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
+  const [modifierSheetGroupId, setModifierSheetGroupId] = useState<string | null>(null);
+  const modifierSheetGroup = modifierSheetGroupId
+    ? (groupsQuery.data?.find((g) => g.id === modifierSheetGroupId) ?? null)
+    : null;
+
+  const [pendingArchiveGroup, setPendingArchiveGroup] = useState<ModifierGroupOutput | null>(null);
+
   const archiveGroup = useArchiveModifierGroupMutation();
   const reactivateGroup = useReactivateModifierGroupMutation();
-  const archiveModifier = useArchiveModifierMutation();
 
   const openCreateGroup = () => {
     opener.current = document.activeElement as HTMLElement;
@@ -50,14 +66,6 @@ export function Options() {
   const openEditGroup = (group: ModifierGroupOutput) => {
     opener.current = document.activeElement as HTMLElement;
     setEditor({ mode: "group", group });
-  };
-  const openAddModifier = (group: ModifierGroupOutput) => {
-    opener.current = document.activeElement as HTMLElement;
-    setEditor({ mode: "modifier", group, modifier: null });
-  };
-  const openEditModifier = (group: ModifierGroupOutput, modifier: ModifierOutput) => {
-    opener.current = document.activeElement as HTMLElement;
-    setEditor({ mode: "modifier", group, modifier });
   };
   const closeEditor = () => {
     setEditor({ mode: "closed" });
@@ -99,15 +107,7 @@ export function Options() {
         canMutate={canMutate}
         editingGroupId={editor.mode === "group" && editor.group ? editor.group.id : null}
         onEditGroup={openEditGroup}
-        onArchiveGroup={async (group) => {
-          setInlineError(null);
-          const result = await archiveGroup.mutateAsync({ id: group.id });
-          if (!result) {
-            setInlineError("Couldn't archive the group.");
-            return;
-          }
-          announce(`${group.name} archived`);
-        }}
+        onArchiveGroup={setPendingArchiveGroup}
         onReactivateGroup={async (group) => {
           setInlineError(null);
           const result = await reactivateGroup.mutateAsync({ id: group.id });
@@ -117,19 +117,11 @@ export function Options() {
           }
           announce(`${group.name} reactivated`);
         }}
-        onAddModifier={openAddModifier}
-        onEditModifier={openEditModifier}
-        onArchiveModifier={async (modifier) => {
-          setInlineError(null);
-          const result = await archiveModifier.mutateAsync({ id: modifier.id });
-          if (!result) {
-            setInlineError("Couldn't archive the modifier.");
-            return;
-          }
-          announce(`${modifier.name} archived`);
-        }}
+        onOpenModifiers={(group) => setModifierSheetGroupId(group.id)}
         inlineError={inlineError}
       />
+
+      {/* Group editor sheet */}
       <Sheet
         modal={false}
         open={editor.mode !== "closed"}
@@ -149,18 +141,12 @@ export function Options() {
                   ? shownEditor.group
                     ? `group-${shownEditor.group.id}`
                     : "group-create"
-                  : shownEditor.modifier
-                    ? `mod-${shownEditor.modifier.id}`
-                    : `mod-create-${shownEditor.group.id}`
+                  : "group-create"
               }
               mode={
                 shownEditor.mode === "group"
                   ? { kind: "group", group: shownEditor.group }
-                  : {
-                      kind: "modifier",
-                      group: shownEditor.group,
-                      modifier: shownEditor.modifier,
-                    }
+                  : { kind: "group", group: null }
               }
               onSaved={handleSaved}
               onCancel={closeEditor}
@@ -168,6 +154,63 @@ export function Options() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Modifier list sheet */}
+      {modifierSheetGroup ? (
+        <ModifierListSheet
+          group={modifierSheetGroup}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setModifierSheetGroupId(null);
+          }}
+          onAnnounce={announce}
+          canMutate={canMutate}
+        />
+      ) : null}
+
+      {/* Archive group confirmation */}
+      <Dialog
+        open={pendingArchiveGroup !== null}
+        onOpenChange={(o) => {
+          if (!o) setPendingArchiveGroup(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive {pendingArchiveGroup?.name}?</DialogTitle>
+            <DialogDescription>
+              This modifier group will be hidden from new orders. You can reactivate it later.
+            </DialogDescription>
+          </DialogHeader>
+          {archiveGroup.isError ? (
+            <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
+              Couldn't archive the group.
+            </div>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              danger
+              aria-disabled={archiveGroup.isPending}
+              onClick={async () => {
+                if (!pendingArchiveGroup || archiveGroup.isPending) return;
+                setInlineError(null);
+                const result = await archiveGroup.mutateAsync({ id: pendingArchiveGroup.id });
+                if (!result) {
+                  setInlineError("Couldn't archive the group.");
+                  return;
+                }
+                announce(`${pendingArchiveGroup.name} archived`);
+                setPendingArchiveGroup(null);
+              }}
+            >
+              {archiveGroup.isPending ? "Archiving…" : "Archive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

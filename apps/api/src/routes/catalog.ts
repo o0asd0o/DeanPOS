@@ -37,9 +37,9 @@ import { handler as reorderVariantHandler } from "backend/src/variant/handlers/r
 import { handler as setVariantPriceHandler } from "backend/src/variant/handlers/set-variant-price.ts";
 import { handler as updateModifierHandler } from "backend/src/modifier/handlers/update-modifier.ts";
 import { handler as updateModifierGroupHandler } from "backend/src/modifier-group/handlers/update-modifier-group.ts";
-import { handler as linkModifierGroupHandler } from "backend/src/catalog/handlers/link-modifier-group.ts";
-import { handler as unlinkModifierGroupHandler } from "backend/src/catalog/handlers/unlink-modifier-group.ts";
-import { handler as listLinkedModifierGroupsHandler } from "backend/src/catalog/handlers/list-linked-modifier-groups.ts";
+import { handler as linkModifierGroupToItemHandler } from "backend/src/catalog/handlers/link-modifier-group-to-item.ts";
+import { handler as unlinkModifierGroupFromItemHandler } from "backend/src/catalog/handlers/unlink-modifier-group-from-item.ts";
+import { handler as listLinkedModifierGroupsForItemHandler } from "backend/src/catalog/handlers/list-linked-modifier-groups-for-item.ts";
 import { contract } from "contract/src/index.ts";
 
 // Only transport-aware code for `catalog.*` (ADR-0008 rule 5).
@@ -150,14 +150,14 @@ export const catalogReactivateModifierRoute = os.catalog.reactivateModifier.hand
 export const catalogReorderModifierRoute = os.catalog.reorderModifier.handler(
   ({ context, input }) => reorderModifierHandler({ ctx: context, input }),
 );
-export const catalogLinkModifierGroupRoute = os.catalog.linkModifierGroup.handler(
-  ({ context, input }) => linkModifierGroupHandler({ ctx: context, input }),
+export const catalogLinkModifierGroupToMenuItemRoute = os.catalog.linkModifierGroupToMenuItem.handler(
+  ({ context, input }) => linkModifierGroupToItemHandler({ ctx: context, input }),
 );
-export const catalogUnlinkModifierGroupRoute = os.catalog.unlinkModifierGroup.handler(
-  ({ context, input }) => unlinkModifierGroupHandler({ ctx: context, input }),
+export const catalogUnlinkModifierGroupFromMenuItemRoute = os.catalog.unlinkModifierGroupFromMenuItem.handler(
+  ({ context, input }) => unlinkModifierGroupFromItemHandler({ ctx: context, input }),
 );
-export const catalogListLinkedModifierGroupsRoute = os.catalog.listLinkedModifierGroups.handler(
-  ({ context, input }) => listLinkedModifierGroupsHandler({ ctx: context, input }),
+export const catalogListLinkedModifierGroupsForMenuItemRoute = os.catalog.listLinkedModifierGroupsForMenuItem.handler(
+  ({ context, input }) => listLinkedModifierGroupsForItemHandler({ ctx: context, input }),
 );
 export const catalogReadRoute = os.catalog.read.handler(({ context, input }) =>
   readCatalogHandler({ ctx: context, input }),

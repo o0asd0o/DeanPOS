@@ -61,6 +61,7 @@ import {
   reorderSteps,
   type VariantOutput,
 } from "@/features/catalog/helpers.ts";
+import { ModifierGroupPicker } from "@/features/catalog/variant/ModifierGroupPicker.tsx";
 import { SortableVariantRow } from "@/features/catalog/variant/SortableVariantRow.tsx";
 import { VariantEditorSheet } from "@/features/catalog/variant/VariantEditorSheet.tsx";
 
@@ -483,6 +484,16 @@ export function MenuItemDetail() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-6">
+          <h2 className="text-lg font-semibold">Modifier groups</h2>
+          <p className="text-sm text-muted-foreground">
+            Apply to this item regardless of which variant is chosen.
+          </p>
+          <ModifierGroupPicker menuItemId={id} />
         </CardContent>
       </Card>
 
