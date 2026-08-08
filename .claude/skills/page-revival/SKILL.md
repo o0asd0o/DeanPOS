@@ -1,0 +1,1 @@
+../../../.pi/skills/page-revival/SKILL.md
