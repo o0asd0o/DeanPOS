@@ -8,15 +8,21 @@ function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 }
 
-function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+function SheetTrigger({
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
   return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />;
 }
 
-function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
+function SheetClose({
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Close>) {
   return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
-function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
+function SheetPortal({
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Portal>) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
 }
 
@@ -29,7 +35,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sheet-overlay"
       aria-hidden="true"
       className={cn(
-        "pointer-events-none fixed inset-0 z-50 animate-in bg-black/40 backdrop-blur-sm fade-in-0",
+        "pointer-events-none fixed inset-0 z-50 animate-in bg-black/20 backdrop-blur-sm fade-in-0",
         className,
       )}
       {...props}
@@ -50,11 +56,18 @@ function SheetContent({
   /** A non-modal Sheet leaves the page behind it usable, so it gets no scrim. */
   withOverlay?: boolean;
 }) {
+  // A non-modal Sheet keeps the page behind it interactive, so focus
+  // legitimately lands outside it while it is open (tabbing out, opening the
+  // row's own `⋯` menu, clicking another row). Radix dismisses a dialog when
+  // focus moves outside it; the editor sheets close on their own buttons
+  // (Cancel / X / Escape), not on focus loss — so the default focus-outside
+  // dismissal is suppressed here.
   return (
     <SheetPortal>
       {withOverlay && <SheetOverlay />}
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        onFocusOutside={(event) => event.preventDefault()}
         className={cn(
           "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=open]:animate-in data-[state=open]:duration-150",
           side === "right" &&
@@ -104,7 +117,10 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Title>) {
+function SheetTitle({
+  className,
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Title>) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"

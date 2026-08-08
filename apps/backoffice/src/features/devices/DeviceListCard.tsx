@@ -69,11 +69,17 @@ export function DeviceListCard({
   const [query, setQuery] = useState("");
   const now = new Date();
 
-  const storeName = (device: DeviceOutput) => storeNameById.get(device.storeId) ?? "";
+  const storeName = (device: DeviceOutput) =>
+    storeNameById.get(device.storeId) ?? "";
   const userName = (device: DeviceOutput) =>
-    device.assignedUserId ? (userNameById.get(device.assignedUserId) ?? "") : "";
+    device.assignedUserId
+      ? (userNameById.get(device.assignedUserId) ?? "")
+      : "";
 
-  const SORT_VALUES: Record<SortKey, (device: DeviceOutput) => string | number> = {
+  const SORT_VALUES: Record<
+    SortKey,
+    (device: DeviceOutput) => string | number
+  > = {
     name: (device) => device.name.toLowerCase(),
     store: (device) => storeName(device).toLowerCase(),
     assignedTo: (device) => userName(device).toLowerCase(),
@@ -122,10 +128,16 @@ export function DeviceListCard({
             <Table aria-label="Devices">
               <TableHeader>
                 <TableRow>
-                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
+                  <TableHead
+                    sorted={table.sortedBy("name")}
+                    onSort={() => table.sortBy("name")}
+                  >
                     Device
                   </TableHead>
-                  <TableHead sorted={table.sortedBy("store")} onSort={() => table.sortBy("store")}>
+                  <TableHead
+                    sorted={table.sortedBy("store")}
+                    onSort={() => table.sortBy("store")}
+                  >
                     Store
                   </TableHead>
                   <TableHead
@@ -171,7 +183,11 @@ export function DeviceListCard({
                         </div>
                       </TableCell>
                       <TableCell>{storeName(device)}</TableCell>
-                      <TableCell className={cn(!userName(device) && "text-muted-foreground")}>
+                      <TableCell
+                        className={cn(
+                          !userName(device) && "text-muted-foreground",
+                        )}
+                      >
                         {userName(device) || "Open to all"}
                       </TableCell>
                       <TableCell>
@@ -213,10 +229,14 @@ export function DeviceListCard({
                             <DropdownMenuContent
                               align="end"
                               // Every menu item hands off to a dialog/sheet, whose
-                              // own focus scope takes over; restoring focus to the
-                              // `⋯` trigger here would fire a focusin outside the
-                              // non-modal Edit sheet and dismiss it (record 008).
-                              onCloseAutoFocus={(event) => event.preventDefault()}
+                              // own focus scope takes over; restoring focus to
+                              // the `⋯` trigger here would steal it back out of
+                              // the sheet (its Name field holds it by then), so
+                              // the menu hands off without taking it back
+                              // (record 008).
+                              onCloseAutoFocus={(event) =>
+                                event.preventDefault()
+                              }
                             >
                               <DropdownMenuItem onSelect={() => onEdit(device)}>
                                 <PencilIcon />
