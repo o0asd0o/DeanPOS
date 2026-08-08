@@ -12,6 +12,7 @@
     "dev": "bash scripts/dev.sh",
     "migrate": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate deploy",
     "migrate:status": "set -a; [ -f .env ] && . ./.env; set +a; vp exec -F backend prisma migrate status",
+    "seed:demo": "bun run scripts/seed-demo.ts",
     "prepare": "vp run -w codegen",
     "stack": "bash scripts/stack.sh"
   },
