@@ -5,6 +5,8 @@ import {
   PencilIcon,
   PowerOffIcon,
   SearchXIcon,
+  UserRoundIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import {
   Badge,
@@ -35,8 +37,13 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import type { HealthFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import type { DeviceListOutput, DeviceListSortKey, DeviceOutput } from "./helpers.ts";
+import type {
+  DeviceListOutput,
+  DeviceListSortKey,
+  DeviceOutput,
+} from "./helpers.ts";
 import { deviceHealthColor, relativeLastSeen } from "./helpers.ts";
+import useGetDeviceName from "./__hooks/useGetDeviceName.ts";
 
 // The list (record 056 Q5): Device (name + short code), Store, Assigned to,
 // Last seen, Status, Actions — six columns. The rows arrive as one server
@@ -89,13 +96,15 @@ export function DeviceListCard({
   const storeLabelId = useId();
   const now = new Date();
 
-  const storeName = (device: DeviceOutput) => storeNameById.get(device.storeId) ?? "";
-  const userName = (device: DeviceOutput) =>
-    device.assignedUserId ? (userNameById.get(device.assignedUserId) ?? "") : "";
+  const getName = useGetDeviceName({ storeNameById, userNameById });
 
   const devices = data?.items ?? [];
-  const pageCount = Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)));
-  const sorted = (key: DeviceListSortKey) => (sort.key === key ? sort.direction : undefined);
+  const pageCount = Math.max(
+    1,
+    Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)),
+  );
+  const sorted = (key: DeviceListSortKey) =>
+    sort.key === key ? sort.direction : undefined;
 
   return (
     <Card className="gap-4">
@@ -113,11 +122,17 @@ export function DeviceListCard({
               single-store tenant filters nothing (record 056 Q5). */}
           {storeNameById.size > 1 && (
             <div className="flex flex-col gap-1.5">
-              <span id={storeLabelId} className="text-xs font-medium text-muted-foreground">
+              <span
+                id={storeLabelId}
+                className="text-xs font-medium text-muted-foreground"
+              >
                 Store
               </span>
               <Select value={store} onValueChange={onStoreChange}>
-                <SelectTrigger aria-labelledby={storeLabelId} className="rounded-full">
+                <SelectTrigger
+                  aria-labelledby={storeLabelId}
+                  className="rounded-full"
+                >
                   <SelectValue placeholder="All stores" />
                 </SelectTrigger>
                 <SelectContent>
@@ -158,10 +173,16 @@ export function DeviceListCard({
             <Table aria-label="Devices">
               <TableHeader>
                 <TableRow>
-                  <TableHead sorted={sorted("name")} onSort={() => onSortChange("name")}>
+                  <TableHead
+                    sorted={sorted("name")}
+                    onSort={() => onSortChange("name")}
+                  >
                     Device
                   </TableHead>
-                  <TableHead sorted={sorted("store")} onSort={() => onSortChange("store")}>
+                  <TableHead
+                    sorted={sorted("store")}
+                    onSort={() => onSortChange("store")}
+                  >
                     Store
                   </TableHead>
                   <TableHead
@@ -170,10 +191,16 @@ export function DeviceListCard({
                   >
                     Assigned to
                   </TableHead>
-                  <TableHead sorted={sorted("lastSeen")} onSort={() => onSortChange("lastSeen")}>
+                  <TableHead
+                    sorted={sorted("lastSeen")}
+                    onSort={() => onSortChange("lastSeen")}
+                  >
                     Last seen
                   </TableHead>
-                  <TableHead sorted={sorted("status")} onSort={() => onSortChange("status")}>
+                  <TableHead
+                    sorted={sorted("status")}
+                    onSort={() => onSortChange("status")}
+                  >
                     Status
                   </TableHead>
                   {isAdmin && (
@@ -200,9 +227,29 @@ export function DeviceListCard({
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>{storeName(device)}</TableCell>
-                      <TableCell className={cn(!userName(device) && "text-muted-foreground")}>
-                        {userName(device) || "Open to all"}
+                      <TableCell>{getName(device, "storeName")}</TableCell>
+                      <TableCell
+                        className={cn(
+                          !getName(device, "userName") &&
+                            "text-muted-foreground",
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          {getName(device, "userName") ? (
+                            <UserRoundIcon
+                              aria-hidden="true"
+                              className="size-4 shrink-0"
+                            />
+                          ) : (
+                            <UsersRoundIcon
+                              aria-hidden="true"
+                              className="size-4 shrink-0"
+                            />
+                          )}
+                          <span>
+                            {getName(device, "userName") || "Open to all"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -242,13 +289,9 @@ export function DeviceListCard({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              // Every menu item hands off to a dialog/sheet, whose
-                              // own focus scope takes over; restoring focus to
-                              // the `⋯` trigger here would steal it back out of
-                              // the sheet (its Name field holds it by then), so
-                              // the menu hands off without taking it back
-                              // (record 008).
-                              onCloseAutoFocus={(event) => event.preventDefault()}
+                              onCloseAutoFocus={(event) =>
+                                event.preventDefault()
+                              }
                             >
                               <DropdownMenuItem onSelect={() => onEdit(device)}>
                                 <PencilIcon />
