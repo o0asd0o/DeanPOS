@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon } from "lucide-react";
+import {
+  PencilIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+  SearchXIcon,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -29,7 +34,10 @@ const KIND_LABEL: Record<PaymentMethodOutput["kind"], string> = {
 
 type SortKey = "name" | "kind" | "status";
 
-const SORT_VALUES: Record<SortKey, (method: PaymentMethodOutput) => string | number> = {
+const SORT_VALUES: Record<
+  SortKey,
+  (method: PaymentMethodOutput) => string | number
+> = {
   name: (method) => method.name.toLowerCase(),
   kind: (method) => KIND_LABEL[method.kind],
   status: (method) => (method.active ? 0 : 1),
@@ -88,7 +96,7 @@ export function PaymentMethodListCard({
           query={query}
           onQueryChange={setQuery}
           searchLabel="Search methods"
-          searchExample="e.g. GCash"
+          searchExample="GCash"
         />
         {reactivateFailed && (
           <div
@@ -107,10 +115,16 @@ export function PaymentMethodListCard({
             <Table aria-label="Payment methods">
               <TableHeader>
                 <TableRow>
-                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
+                  <TableHead
+                    sorted={table.sortedBy("name")}
+                    onSort={() => table.sortBy("name")}
+                  >
                     Method
                   </TableHead>
-                  <TableHead sorted={table.sortedBy("kind")} onSort={() => table.sortBy("kind")}>
+                  <TableHead
+                    sorted={table.sortedBy("kind")}
+                    onSort={() => table.sortBy("kind")}
+                  >
                     Kind
                   </TableHead>
                   <TableHead>Available at</TableHead>
@@ -131,7 +145,9 @@ export function PaymentMethodListCard({
                 {table.rows.map((method) => (
                   <TableRow
                     key={method.id}
-                    data-state={method.id === editingId ? "selected" : undefined}
+                    data-state={
+                      method.id === editingId ? "selected" : undefined
+                    }
                   >
                     <TableCell>{method.name}</TableCell>
                     <TableCell>{KIND_LABEL[method.kind]}</TableCell>
@@ -151,7 +167,9 @@ export function PaymentMethodListCard({
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {method.kind === "cash" ? (
-                            <span className="text-sm text-muted-foreground">Always on</span>
+                            <span className="text-sm text-muted-foreground">
+                              Always on
+                            </span>
                           ) : (
                             <>
                               {method.active && (

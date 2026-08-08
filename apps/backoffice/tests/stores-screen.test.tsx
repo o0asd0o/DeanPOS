@@ -11,7 +11,15 @@ import {
   withTenantScope,
   within,
 } from "api/src/test-seam-react.tsx";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import { router } from "@/router.tsx";
 
@@ -41,7 +49,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
+  await ownerDb
+    .deleteFrom("UserStore")
+    .where("tenant_id", "=", tenantId)
+    .execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -54,6 +65,7 @@ describe("the Stores screen — as an admin", () => {
   afterEach(async () => {
     await cleanup?.();
     cleanup = undefined;
+    vi.restoreAllMocks();
   });
 
   it("creates a Store, lists it with its settings, and shows no delete anywhere", async () => {
@@ -66,22 +78,34 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
+    );
     expect(screen.getByRole("button", { name: "Add store" })).toBeTruthy();
     await expectNoAxeViolations(container);
 
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
+    );
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Downtown" } });
-    fireEvent.change(screen.getByLabelText("Business-day start"), { target: { value: "02:00" } });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Downtown" },
+    });
+    fireEvent.change(screen.getByLabelText("Business-day start"), {
+      target: { value: "02:00" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
-    fireEvent.change(screen.getByLabelText("Table label 1"), { target: { value: "Patio" } });
+    fireEvent.change(screen.getByLabelText("Table label 1"), {
+      target: { value: "Patio" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Create store" }));
 
-    await waitFor(() => expect(screen.queryByRole("heading", { name: "New store" })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "New store" })).toBeNull(),
+    );
     await waitFor(() => expect(screen.getByText("Downtown")).toBeTruthy());
 
     const row = screen.getByText("Downtown").closest("tr")!;
@@ -89,11 +113,13 @@ describe("the Stores screen — as an admin", () => {
     expect(within(row).getByText("1")).toBeTruthy();
     expect(within(row).getByText("Active")).toBeTruthy();
 
-    expect(container.textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
+    expect(container.textContent?.toLowerCase()).not.toMatch(
+      /delete|permanently/,
+    );
     await expectNoAxeViolations(container);
   });
 
-  it("the reorder control: focus follows the moving row, not the position (record 039's critical check)", async () => {
+  it("the reorder control: drag-to-reorder keeps focus on the lifted row (record 039's critical check)", async () => {
     const { db } = renderRoute({
       router,
       tenantId,
@@ -103,43 +129,101 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
+    );
 
     for (let i = 0; i < 4; i++) {
       fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     }
-    const inputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
-    ["A", "B", "C", "D"].forEach((value, i) => fireEvent.change(inputs[i]!, { target: { value } }));
+    const inputs = screen.getAllByLabelText(
+      /Table label \d/,
+    ) as HTMLInputElement[];
+    ["A", "B", "C", "D"].forEach((value, i) =>
+      fireEvent.change(inputs[i]!, { target: { value } }),
+    );
 
-    // Native <button>, so activation is the platform's — click and key both
-    // land on the same onClick. What's asserted here is focus identity
-    // across a re-render (record 039's critical check).
-    const row1Down = screen.getByRole("button", { name: "Move label 1 down" }) as HTMLButtonElement;
-    expect(row1Down.tagName).toBe("BUTTON");
-    row1Down.focus();
-    expect(document.activeElement).toBe(row1Down);
+    // dnd-kit resolves drag targets from measured layout, and happy-dom
+    // reports every rect as zero — pin the four rows to fixed stacked rects
+    // keyed by their input value so the drag lands on real targets.
+    const rowValues = () =>
+      Array.from(
+        document.querySelectorAll<HTMLInputElement>(
+          "input[aria-label^='Table label']",
+        ),
+      ).map((input) => input.value);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const row = this.closest("[data-label-row]");
+        if (row) {
+          const index = rowValues().indexOf(
+            row.querySelector("input")?.value ?? "",
+          );
+          const top = index * 40;
+          return {
+            x: 0,
+            y: top,
+            top,
+            left: 0,
+            right: 120,
+            bottom: top + 40,
+            width: 120,
+            height: 40,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: 0,
+          height: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      },
+    );
 
-    fireEvent.click(row1Down);
-    await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 2 down"));
-    expect(document.activeElement).toBe(row1Down);
+    // The handle is a native <button>, so dnd-kit's keyboard sensor lifts it
+    // with Space and steps it with the arrow keys. What's asserted here is
+    // focus identity across the reorder (record 039's critical check): the
+    // same handle keeps focus and moves with its row.
+    const handle = screen.getByRole("button", {
+      name: "Drag label 1",
+    }) as HTMLButtonElement;
+    expect(handle.tagName).toBe("BUTTON");
+    handle.focus();
+    expect(document.activeElement).toBe(handle);
 
-    fireEvent.click(row1Down);
-    await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 3 down"));
-    expect(document.activeElement).toBe(row1Down);
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
+    await waitFor(() =>
+      expect(handle.getAttribute("aria-pressed")).toBe("true"),
+    );
+    fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
 
-    fireEvent.click(row1Down);
-    await waitFor(() => expect(row1Down.getAttribute("aria-label")).toBe("Move label 4 down"));
-    expect(document.activeElement).toBe(row1Down);
-    expect(row1Down.getAttribute("aria-disabled")).toBe("true");
-    expect(row1Down.disabled).toBe(false);
-
-    // Nothing else stands between the user and a fifth move but the
-    // early-return guard — prove it holds.
-    fireEvent.click(row1Down);
-    const reorderedInputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
-    expect(reorderedInputs.map((input) => input.value)).toStrictEqual(["B", "C", "D", "A"]);
+    const reorderedInputs = screen.getAllByLabelText(
+      /Table label \d/,
+    ) as HTMLInputElement[];
+    await waitFor(() =>
+      expect(reorderedInputs.map((input) => input.value)).toStrictEqual([
+        "B",
+        "C",
+        "D",
+        "A",
+      ]),
+    );
+    // Same element still focused, now wearing its new position (039 §1).
+    expect(document.activeElement).toBe(handle);
+    expect(handle.getAttribute("aria-label")).toBe("Drag label 4");
   });
 
   it("deactivates a Store — it stays listed, badged, readable, with Reactivate its only action — then reactivates it", async () => {
@@ -173,8 +257,14 @@ describe("the Stores screen — as an admin", () => {
         "This store stops being offered for new work, its past sales stay attributed to it, and Reactivate brings it back",
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("dialog").textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Deactivate" }));
+    expect(screen.getByRole("dialog").textContent?.toLowerCase()).not.toMatch(
+      /delete|permanently/,
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Deactivate",
+      }),
+    );
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => {
@@ -185,13 +275,21 @@ describe("the Stores screen — as an admin", () => {
     expect(screen.getByText("Store deactivated")).toBeTruthy();
 
     const deactivatedRow = screen.getByText("Closing Soon").closest("tr")!;
-    expect(within(deactivatedRow).queryByRole("button", { name: /^Edit/ })).toBeNull();
-    expect(within(deactivatedRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
-    expect(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ })).toBeTruthy();
+    expect(
+      within(deactivatedRow).queryByRole("button", { name: /^Edit/ }),
+    ).toBeNull();
+    expect(
+      within(deactivatedRow).queryByRole("button", { name: /^Deactivate/ }),
+    ).toBeNull();
+    expect(
+      within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }),
+    ).toBeTruthy();
 
     await expectNoAxeViolations(container);
 
-    fireEvent.click(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }));
+    fireEvent.click(
+      within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }),
+    );
     await waitFor(() => {
       const reactivatedRow = screen.getByText("Closing Soon").closest("tr")!;
       expect(within(reactivatedRow).getByText("Active")).toBeTruthy();
@@ -210,9 +308,13 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
@@ -220,16 +322,21 @@ describe("the Stores screen — as an admin", () => {
     // Two removals in a row produce the identical message "Label removed"
     // — each must still land in the live region as a fresh DOM mutation.
     fireEvent.click(screen.getByRole("button", { name: "Remove label 2" }));
-    const regions = () => screen.getAllByRole("status").filter((el) => el.textContent);
+    const regions = () =>
+      screen.getAllByRole("status").filter((el) => el.textContent);
     await waitFor(() =>
-      expect(regions().map((el) => el.textContent)).toStrictEqual(["Label removed"]),
+      expect(regions().map((el) => el.textContent)).toStrictEqual([
+        "Label removed",
+      ]),
     );
     const firstRegion = regions()[0]!;
 
     fireEvent.click(screen.getByRole("button", { name: "Remove label 1" }));
     await waitFor(() => {
       const active = regions();
-      expect(active.map((el) => el.textContent)).toStrictEqual(["Label removed"]);
+      expect(active.map((el) => el.textContent)).toStrictEqual([
+        "Label removed",
+      ]);
       expect(active[0]).not.toBe(firstRegion);
     });
   });
@@ -272,7 +379,9 @@ describe("the Stores screen — as an admin", () => {
     // Narrowed to this test's own twelve, so earlier tests' Stores cannot
     // shift the order under it.
     await waitFor(() => expect(names()).toContain("Paged 01"));
-    fireEvent.change(screen.getByLabelText("Search stores"), { target: { value: "Paged" } });
+    fireEvent.change(screen.getByLabelText("Search stores"), {
+      target: { value: "Paged" },
+    });
 
     // Ten of the twelve, ascending by name — the rest are a page away.
     expect(names()).toHaveLength(10);

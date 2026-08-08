@@ -1,3 +1,7 @@
+// One editable table label. Rows are keyed by `id`, not index, so a row keeps
+// its DOM node — and with it, focus — across reorders (record 039 §1).
+export type LabelRow = { id: string; value: string };
+
 // Mirrors `storeOutputSchema` in packages/contract/src/contract.ts. Not
 // inferred from the zod schema — `zod` is not a dependency of this app, and
 // duplicating this one shape is cheaper than adding it.

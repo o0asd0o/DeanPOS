@@ -1,12 +1,28 @@
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Hint } from "@/components/Hint.tsx";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
-import { Button, Input } from "ui";
+import { Button } from "ui";
 
-export type LabelRow = { id: string; value: string };
+import type { LabelRow } from "./helpers.ts";
+import { SortableLabelRow } from "./SortableLabelRow.tsx";
 
-// The reorder control (record 039). Rows are keyed by `row.id`, not index,
-// so the same DOM button moves with its row and focus follows it (039 §1).
+// The reorder control (record 039): drag the grip, or lift with Space and
+// move with the arrow keys. Rows are keyed by `row.id`, not index, so focus
+// stays on the handle that lifted a row wherever it lands (039 §1).
 export function TableLabelsField({
   rows,
   onChange,
@@ -25,20 +41,21 @@ export function TableLabelsField({
     setFocusId(null);
   }, [focusId]);
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    const next = [...rows];
-    [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
-    onChange(next);
-    onAnnounce(`Moved to position ${index} of ${rows.length}`);
-  };
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
-  const moveDown = (index: number) => {
-    if (index === rows.length - 1) return;
-    const next = [...rows];
-    [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
-    onChange(next);
-    onAnnounce(`Moved to position ${index + 2} of ${rows.length}`);
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const fromIndex = rows.findIndex((row) => row.id === active.id);
+    const toIndex = rows.findIndex((row) => row.id === over.id);
+    if (fromIndex < 0 || toIndex < 0) return;
+    onChange(arrayMove(rows, fromIndex, toIndex));
+    onAnnounce(`Moved to position ${toIndex + 1} of ${rows.length}`);
   };
 
   const remove = (index: number) => {
@@ -56,63 +73,43 @@ export function TableLabelsField({
     <fieldset className="flex flex-col gap-2">
       <legend>Table labels</legend>
       <Hint detail="Leave this empty if you do not seat customers at numbered tables. The terminal then shows no table control at all.">
-        Optional — for numbered tables only.
+        Optional — for numbered tables only. Drag the handle to reorder.
       </Hint>
-      {rows.map((row, index) => {
-        const n = index + 1;
-        return (
-          <div key={row.id} className="flex items-center gap-1">
-            <Input
-              placeholder={`Table ${n}`}
-              ref={(el) => {
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={rows.map((row) => row.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {rows.map((row, index) => (
+            <SortableLabelRow
+              key={row.id}
+              row={row}
+              index={index}
+              disabled={rows.length < 2}
+              inputRef={(el) => {
                 if (el) inputRefs.current.set(row.id, el);
                 else inputRefs.current.delete(row.id);
               }}
-              aria-label={`Table label ${n}`}
-              className="flex-1"
-              value={row.value}
-              onChange={(event) => {
+              onValueChange={(value) => {
                 const next = [...rows];
-                next[index] = { ...row, value: event.target.value };
+                next[index] = { ...row, value };
                 onChange(next);
               }}
+              onRemove={() => remove(index)}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="tap-target"
-              aria-label={`Move label ${n} up`}
-              aria-disabled={rows.length < 2 || index === 0}
-              onClick={() => moveUp(index)}
-            >
-              <ChevronUpIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="tap-target"
-              aria-label={`Move label ${n} down`}
-              aria-disabled={rows.length < 2 || index === rows.length - 1}
-              onClick={() => moveDown(index)}
-            >
-              <ChevronDownIcon aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="tap-target"
-              aria-label={`Remove label ${n}`}
-              onClick={() => remove(index)}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </div>
-        );
-      })}
-      <Button type="button" variant="outline" onClick={add} className="tap-target">
+          ))}
+        </SortableContext>
+      </DndContext>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={add}
+        className="tap-target"
+      >
         Add label
       </Button>
     </fieldset>
