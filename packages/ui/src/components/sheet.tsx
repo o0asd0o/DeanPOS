@@ -35,7 +35,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sheet-overlay"
       aria-hidden="true"
       className={cn(
-        "pointer-events-none fixed inset-0 z-50 animate-in bg-black/20 backdrop-blur-sm fade-in-0",
+        "pointer-events-none fixed inset-0 z-50 animate-in bg-black/30 backdrop-blur-sm fade-in-0",
         className,
       )}
       {...props}
