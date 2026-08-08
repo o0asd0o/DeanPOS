@@ -1,5 +1,12 @@
 import { useId } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon, UsersIcon } from "lucide-react";
+import {
+  EllipsisVerticalIcon,
+  PencilIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+  SearchXIcon,
+  UsersIcon,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -7,6 +14,11 @@ import {
   CardContent,
   cn,
   EmptyState,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +33,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { initials } from "@/components/helpers.ts";
 import type { RoleFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
@@ -57,8 +70,6 @@ export function UserListCard({
   isAdmin,
   callerId,
   editingId,
-  reactivatingId,
-  reactivateFailed,
   role,
   onRoleChange,
   store,
@@ -68,6 +79,7 @@ export function UserListCard({
   sort,
   onSortChange,
   onPageChange,
+  onClearFilters,
   onEdit,
   onDeactivate,
   onReactivate,
@@ -81,8 +93,6 @@ export function UserListCard({
   isAdmin: boolean;
   callerId: string | undefined;
   editingId: string | null;
-  reactivatingId: string | null;
-  reactivateFailed: boolean;
   role: RoleFilter;
   onRoleChange: (role: RoleFilter) => void;
   store: string;
@@ -92,6 +102,7 @@ export function UserListCard({
   sort: { key: UserListSortKey; direction: "asc" | "desc" };
   onSortChange: (key: UserListSortKey) => void;
   onPageChange: (page: number) => void;
+  onClearFilters: () => void;
   onEdit: (user: UserOutput) => void;
   onDeactivate: (user: UserOutput) => void;
   onReactivate: (user: UserOutput) => void;
@@ -138,14 +149,6 @@ export function UserListCard({
             </div>
           )}
         </ListToolbar>
-        {reactivateFailed && (
-          <div
-            role="alert"
-            className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-          >
-            Couldn&rsquo;t update the user
-          </div>
-        )}
         {isPending ? (
           <p role="status">Loading…</p>
         ) : isError ? (
@@ -162,6 +165,11 @@ export function UserListCard({
               icon={<SearchXIcon aria-hidden="true" />}
               title="No employees match these filters"
               description="Try another role or store, or clear the search."
+              action={
+                <Button variant="outline" onClick={onClearFilters}>
+                  Clear filters
+                </Button>
+              }
             />
           )
         ) : (
@@ -195,7 +203,17 @@ export function UserListCard({
                     key={user.id}
                     data-state={user.id === editingId ? "selected" : undefined}
                   >
-                    <TableCell>{`${user.firstName} ${user.lastName}`.trim() || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground"
+                        >
+                          {initials(user.firstName, user.lastName)}
+                        </span>
+                        <span>{`${user.firstName} ${user.lastName}`.trim() || "—"}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -216,7 +234,11 @@ export function UserListCard({
                         {ROLE_LABEL[user.role]}
                       </div>
                     </TableCell>
-                    <TableCell>{storeNamesFor(user.storeIds, stores)}</TableCell>
+                    <TableCell
+                      className={cn(user.storeIds.length === 0 && "text-muted-foreground")}
+                    >
+                      {storeNamesFor(user.storeIds, stores)}
+                    </TableCell>
                     <TableCell>
                       {user.active ? (
                         <Badge variant="success">Active</Badge>
@@ -226,60 +248,67 @@ export function UserListCard({
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {user.active && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="tap-target"
-                                aria-label={`Edit ${user.email}`}
-                                onClick={() => onEdit(user)}
-                              >
-                                <PencilIcon />
-                                Edit
-                              </Button>
-                              {user.id !== callerId && (
-                                <Button
-                                  variant="outline"
-                                  danger
-                                  size="sm"
-                                  className="tap-target"
-                                  aria-label={`Deactivate ${user.email}`}
-                                  onClick={() => onDeactivate(user)}
-                                >
-                                  <PowerOffIcon />
-                                  Deactivate
-                                </Button>
-                              )}
-                            </>
-                          )}
-                          {!user.active && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
-                              variant="outline"
-                              size="sm"
+                              variant="ghost"
+                              size="icon-sm"
                               className="tap-target"
-                              aria-label={`Reactivate ${user.email}`}
-                              aria-disabled={reactivatingId === user.id}
-                              onClick={() => onReactivate(user)}
+                              aria-label={`Actions for ${user.email}`}
                             >
-                              <RotateCcwIcon />
-                              Reactivate
+                              <EllipsisVerticalIcon />
                             </Button>
-                          )}
-                        </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            onCloseAutoFocus={(event) => event.preventDefault()}
+                          >
+                            {user.active ? (
+                              <>
+                                <DropdownMenuItem onSelect={() => onEdit(user)}>
+                                  <PencilIcon />
+                                  Edit
+                                </DropdownMenuItem>
+                                {user.id !== callerId && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onSelect={() => onDeactivate(user)}
+                                    >
+                                      <PowerOffIcon />
+                                      Deactivate
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              <DropdownMenuItem onSelect={() => onReactivate(user)}>
+                                <RotateCcwIcon />
+                                Reactivate
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <TablePagination
-              page={data?.page ?? 1}
-              pageCount={pageCount}
-              onPageChange={onPageChange}
-              label="Employees pages"
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + 1}–
+                {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + users.length} of{" "}
+                {data?.count ?? 0}
+              </p>
+              <TablePagination
+                page={data?.page ?? 1}
+                pageCount={pageCount}
+                onPageChange={onPageChange}
+                label="Employees pages"
+              />
+            </div>
           </div>
         )}
       </CardContent>

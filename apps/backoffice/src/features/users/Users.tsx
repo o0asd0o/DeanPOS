@@ -1,4 +1,5 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { UserPlusIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button, Sheet, SheetContent } from "ui";
 
@@ -48,7 +49,10 @@ export function Users() {
         role,
         store,
         q,
-        sort: sort.key === key ? { key, direction: sort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" },
+        sort:
+          sort.key === key
+            ? { key, direction: sort.direction === "asc" ? "desc" : "asc" }
+            : { key, direction: "asc" },
         page: 1,
       },
       replace: true,
@@ -112,8 +116,6 @@ export function Users() {
   const opener = useRef<HTMLElement | null>(null);
 
   const reactivateUser = useReactivateUserMutation();
-  const [reactivatingId, setReactivatingId] = useState<string | null>(null);
-  const [reactivateFailed, setReactivateFailed] = useState(false);
 
   const openCreate = () => {
     opener.current = document.activeElement as HTMLElement;
@@ -132,20 +134,19 @@ export function Users() {
     closeEditor();
   };
 
-  const handleReactivate = async (user: UserOutput) => {
+  const handleReactivate = (user: UserOutput) => {
     if (reactivateUser.isPending) return;
-    setReactivateFailed(false);
-    setReactivatingId(user.id);
-    try {
-      const result = await reactivateUser.mutateAsync({ id: user.id });
-      if (!result) return;
-      announce(`${user.email} reactivated`);
-    } catch {
-      setReactivateFailed(true);
-    } finally {
-      setReactivatingId(null);
-    }
+    reactivateUser.mutate(
+      { id: user.id },
+      { onSuccess: () => announce(`${user.email} reactivated`) },
+    );
   };
+  const onClearFilters = () =>
+    navigate({
+      to: "/employees",
+      search: { role: "all", store: "all", q: "", sort, page: 1 },
+      replace: true,
+    });
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -162,6 +163,7 @@ export function Users() {
         </div>
         {isAdmin && (
           <Button onClick={openCreate} className="tap-target">
+            <UserPlusIcon />
             Add employee
           </Button>
         )}
@@ -176,8 +178,6 @@ export function Users() {
         isAdmin={isAdmin}
         callerId={callerId}
         editingId={editor.mode === "edit" ? editor.user.id : null}
-        reactivatingId={reactivatingId}
-        reactivateFailed={reactivateFailed}
         role={role}
         onRoleChange={setRole}
         store={store}
@@ -187,6 +187,7 @@ export function Users() {
         sort={sort}
         onSortChange={setSort}
         onPageChange={setPage}
+        onClearFilters={onClearFilters}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}

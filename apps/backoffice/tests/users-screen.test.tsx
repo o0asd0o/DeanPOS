@@ -23,6 +23,12 @@ const tenantId = randomUUID();
 const adminId = randomUUID();
 const storeId = randomUUID();
 
+const openRowMenu = async (row: HTMLElement) => {
+  const trigger = within(row).getByRole("button", { name: /^Actions for/ });
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  return waitFor(() => screen.getByRole("menu"));
+};
+
 beforeAll(async () => {
   await ownerDb
     .insertInto("Tenant")
@@ -173,7 +179,8 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
     const row = screen.getByText(targetEmail).closest("tr")!;
-    fireEvent.click(within(row).getByRole("button", { name: `Edit ${targetEmail}` }));
+    const menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: `Edit ${targetEmail}` })).toBeTruthy(),
@@ -182,7 +189,7 @@ describe("the Users screen — as an admin", () => {
     expect(screen.queryByLabelText("Email")).toBeNull();
     // Reset password lives here, not a separate confirm-password field.
     expect(screen.getByRole("button", { name: "Reset password" })).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Role" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
 
     // Let the editor's own Stores checkbox list settle before continuing —
     // an in-flight request left behind by an unmounted editor can otherwise
@@ -248,7 +255,8 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
     const row = screen.getByText(targetEmail).closest("tr")!;
-    fireEvent.click(within(row).getByRole("button", { name: `Edit ${targetEmail}` }));
+    const menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: `Edit ${targetEmail}` })).toBeTruthy(),
     );
@@ -311,7 +319,8 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
     const row = screen.getByText(targetEmail).closest("tr")!;
-    fireEvent.click(within(row).getByRole("button", { name: `Deactivate ${targetEmail}` }));
+    let menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Deactivate" }));
 
     await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
     expect(screen.getByText(`Deactivate ${targetEmail}?`)).toBeTruthy();
@@ -325,17 +334,18 @@ describe("the Users screen — as an admin", () => {
     });
 
     const deactivatedRow = screen.getByText(targetEmail).closest("tr")!;
-    expect(within(deactivatedRow).queryByRole("button", { name: /^Edit/ })).toBeNull();
-    expect(within(deactivatedRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
-    expect(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ })).toBeTruthy();
-
-    await expectNoAxeViolations(container);
-
-    fireEvent.click(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }));
+    menu = await openRowMenu(deactivatedRow);
+    expect(within(menu).queryByRole("menuitem", { name: "Edit" })).toBeNull();
+    expect(within(menu).queryByRole("menuitem", { name: "Deactivate" })).toBeNull();
+    const reactivateItem = within(menu).getByRole("menuitem", { name: "Reactivate" });
+    expect(reactivateItem).toBeTruthy();
+    fireEvent.click(reactivateItem);
     await waitFor(() => {
       const reactivatedRow = screen.getByText(targetEmail).closest("tr")!;
       expect(within(reactivatedRow).getByText("Active")).toBeTruthy();
     });
+
+    await expectNoAxeViolations(container);
 
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
@@ -387,7 +397,8 @@ describe("the Users screen — as an admin", () => {
     // Lifecycle is a column, not a filter: the deactivated User is here by
     // default, badged, so nobody disappears unasked (record 044 §4). A
     // single-store tenant earns no Store control (record 056 Q5's rule).
-    expect(screen.getByText("Deactivated")).toBeTruthy();
+    const targetRow = screen.getByText(targetEmail).closest("tr")!;
+    expect(within(targetRow).getByText("Deactivated")).toBeTruthy();
     expect(screen.queryByRole("combobox")).toBeNull();
 
     // Search narrows to the one email, then to the person, then to the store
@@ -403,6 +414,11 @@ describe("the Users screen — as an admin", () => {
       target: { value: "no-such-user" },
     });
     await waitFor(() => expect(screen.getByText("No employees match these filters")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
+    expect(window.location.search).toContain("role=all");
+    expect(window.location.search).toContain("q=");
+    expect(window.location.search).toContain("page=1");
   });
 
   it("the caller's own row has no Deactivate action", async () => {
@@ -421,8 +437,9 @@ describe("the Users screen — as an admin", () => {
     );
     expect(selfCell).toBeTruthy();
     const selfRow = selfCell!.closest("tr")!;
-    expect(within(selfRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
-    expect(within(selfRow).getByRole("button", { name: /^Edit/ })).toBeTruthy();
+    const menu = await openRowMenu(selfRow);
+    expect(within(menu).queryByRole("menuitem", { name: "Deactivate" })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "Edit" })).toBeTruthy();
   });
 
   it("self-demoting is refused server-side and shows an error, not a silent close", async () => {
@@ -439,7 +456,8 @@ describe("the Users screen — as an admin", () => {
     const selfCell = Array.from(document.querySelectorAll("td")).find((cell) =>
       cell.textContent?.startsWith("users-screen-admin-"),
     )!;
-    fireEvent.click(within(selfCell.closest("tr")!).getByRole("button", { name: /^Edit/ }));
+    const menu = await openRowMenu(selfCell.closest("tr")!);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
 
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Role" })).toBeTruthy());
     fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
@@ -712,10 +730,12 @@ describe("the Employees toolbar — role, store, and search filters", () => {
     await waitFor(() => expect(screen.getByText("Page User 01")).toBeTruthy());
     expect(screen.getByText("Page User 09")).toBeTruthy();
     expect(screen.queryByText("Page User 12")).toBeNull();
+    expect(screen.getByText(/Showing 1–10 of \d+/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(screen.getByText("Page User 12")).toBeTruthy());
     expect(screen.queryByText("Page User 01")).toBeNull();
+    expect(screen.getByText(/Showing 11–\d+ of \d+/)).toBeTruthy();
     expect(window.location.search).toContain("page=2");
   });
 
