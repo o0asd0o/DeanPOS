@@ -23,14 +23,7 @@ export function SortableLabelRow({
   onRemove: () => void;
   inputRef: (el: HTMLInputElement | null) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled,
   });

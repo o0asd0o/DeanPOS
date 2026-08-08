@@ -6,10 +6,7 @@ import { Button, Input, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
 
-import {
-  useCreateStoreMutation,
-  useUpdateStoreMutation,
-} from "./__common/queries.ts";
+import { useCreateStoreMutation, useUpdateStoreMutation } from "./__common/queries.ts";
 import type { LabelRow, StoreOutput } from "./helpers.ts";
 import { TableLabelsField } from "./TableLabelsField.tsx";
 
@@ -49,9 +46,7 @@ export function StoreEditor({
       // Empty and whitespace-only labels are trimmed away silently on save,
       // with no error — the user has just abandoned a row they added
       // (record 039 clause 8).
-      const tableLabels = labelRows
-        .map((row) => row.value)
-        .filter((v) => v.trim() !== "");
+      const tableLabels = labelRows.map((row) => row.value).filter((v) => v.trim() !== "");
       const payload = {
         name: value.name,
         businessDayStart: value.businessDayStart,
@@ -88,13 +83,7 @@ export function StoreEditor({
           </Button>
           <Button type="submit" aria-disabled={gate.blocked}>
             <CheckIcon />
-            {store
-              ? saving
-                ? "Saving…"
-                : "Save changes"
-              : saving
-                ? "Creating…"
-                : "Create store"}
+            {store ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create store"}
           </Button>
         </>
       }
@@ -135,22 +124,14 @@ export function StoreEditor({
               id="business-day-start-hint"
               detail="Changing this affects reports from now on. Sales already recorded keep the day they were recorded under."
             >
-              Sales made before this time count towards the previous business
-              day.
+              Sales made before this time count towards the previous business day.
             </Hint>
           </div>
         )}
       </form.Field>
-      <TableLabelsField
-        rows={labelRows}
-        onChange={setLabelRows}
-        onAnnounce={onAnnounce}
-      />
+      <TableLabelsField rows={labelRows} onChange={setLabelRows} onAnnounce={onAnnounce} />
       {failed && (
-        <div
-          role="alert"
-          className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground"
-        >
+        <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm text-foreground">
           Couldn&rsquo;t save the store
         </div>
       )}

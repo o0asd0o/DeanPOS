@@ -10,6 +10,7 @@ import {
 } from "ui";
 
 import { useRevokeDeviceMutation } from "./__common/queries.ts";
+import { useLastNonNull } from "./helpers.ts";
 import type { DeviceOutput } from "./helpers.ts";
 
 // Revocation is immediate and permanent — never a hard delete (issue 09
@@ -20,28 +21,33 @@ export function RevokeDialog({
   onOpenChange,
   onRevoked,
 }: {
-  device: DeviceOutput;
+  device: DeviceOutput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRevoked: (name: string) => void;
 }) {
+  // The parent nulls `device` on close, but this dialog stays mounted for the
+  // exit animation — keep naming the Device until it is gone.
+  const shownDevice = useLastNonNull(device);
   const revokeDevice = useRevokeDeviceMutation();
 
   const handleRevoke = async () => {
-    if (revokeDevice.isPending) return;
-    const result = await revokeDevice.mutateAsync({ id: device.id });
+    if (revokeDevice.isPending || !shownDevice) return;
+    const result = await revokeDevice.mutateAsync({ id: shownDevice.id });
     if (!result) return;
-    onRevoked(device.name);
+    onRevoked(shownDevice.name);
   };
+
+  if (!shownDevice) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Revoke {device.name}?</DialogTitle>
+          <DialogTitle>Revoke {shownDevice.name}?</DialogTitle>
           <DialogDescription>
-            This terminal can no longer sign in or take sales. Its code, {device.code}, is never
-            reissued at this Store — enrol a new Device if this counter is still in use.
+            This terminal can no longer sign in or take sales. Its code, {shownDevice.code}, is
+            never reissued at this Store — enrol a new Device if this counter is still in use.
           </DialogDescription>
         </DialogHeader>
         {revokeDevice.isError && (

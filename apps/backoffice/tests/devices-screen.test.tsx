@@ -23,6 +23,16 @@ const tenantId = randomUUID();
 const adminId = randomUUID();
 const storeId = randomUUID();
 
+// Row actions (Rename, Revoke) live behind one `⋯` menu per Device (record
+// 056 Q5) — assignment is edited straight from its own column. Radix opens a
+// menu on pointerdown, which happy-dom's `click` does not imply (record 042),
+// and item selection closes it again.
+const openRowMenu = async (row: HTMLElement) => {
+  const trigger = within(row).getByRole("button", { name: /^Actions for/ });
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  return waitFor(() => screen.getByRole("menu"));
+};
+
 beforeAll(async () => {
   await ownerDb
     .insertInto("Tenant")
@@ -172,11 +182,12 @@ describe("the Devices screen — as an admin", () => {
     const row = screen.getByText("Counter 9").closest("tr")!;
     expect(within(row).getByText("C9")).toBeTruthy();
     expect(within(row).getByText("Active")).toBeTruthy();
-    expect(within(row).getByRole("button", { name: /^Revoke/ })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Actions for Counter 9" })).toBeTruthy();
 
     await expectNoAxeViolations(container);
 
-    fireEvent.click(within(row).getByRole("button", { name: /^Revoke/ }));
+    const menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Revoke" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: /Revoke Counter 9/ })).toBeTruthy(),
     );
@@ -186,14 +197,21 @@ describe("the Devices screen — as an admin", () => {
       const updatedRow = screen.getByText("Counter 9").closest("tr")!;
       expect(within(updatedRow).getByText("Revoked")).toBeTruthy();
     });
+    // A revoked Device keeps Edit in the menu, but Revoke is dropped; its
+    // Assigned to column stays as-is.
     const revokedRow = screen.getByText("Counter 9").closest("tr")!;
-    expect(within(revokedRow).queryByRole("button", { name: /^Revoke/ })).toBeNull();
-    expect(within(revokedRow).getByRole("button", { name: /^Rename/ })).toBeTruthy();
+    const revokedMenu = await openRowMenu(revokedRow);
+    expect(within(revokedMenu).queryByRole("menuitem", { name: "Revoke" })).toBeNull();
+    expect(within(revokedMenu).getByRole("menuitem", { name: "Edit" })).toBeTruthy();
+    // The open menu is modal: it aria-hides the page behind it (record 008),
+    // so close it before axe — Escape, since the trigger is hidden too.
+    fireEvent.keyDown(revokedMenu, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 
     await expectNoAxeViolations(container);
   });
 
-  it("issue 17: restricts a Device to one eligible User, then clears the restriction — WCAG 2.2 AA on the dialog", async () => {
+  it("issue 17: assigns a Device to one eligible User, then clears the assignment — WCAG 2.2 AA on the dialog", async () => {
     const deviceId = randomUUID();
     const cashierId = randomUUID();
     const passwordHash = await hashPassword("irrelevant");
@@ -249,12 +267,14 @@ describe("the Devices screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText("Counter 17")).toBeTruthy());
     const row = screen.getByText("Counter 17").closest("tr")!;
-    // The accessible name is the action ("Restrict {name}"), same as Rename
-    // and Revoke — the visible label ("Restrict"/"Restricted") is separate.
-    fireEvent.click(within(row).getByRole("button", { name: "Restrict Counter 17" }));
+    // Both editable fields live in one Edit sheet, opened from the `⋯` menu;
+    // the column itself is plain text ("Open to all" until a User is pinned).
+    expect(within(row).getByText("Open to all")).toBeTruthy();
+    const menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Restrict Counter 17" })).toBeTruthy(),
+      expect(screen.getByRole("heading", { name: "Edit Counter 17" })).toBeTruthy(),
     );
     await expectNoAxeViolations(screen.getByRole("dialog"));
 
@@ -263,10 +283,19 @@ describe("the Devices screen — as an admin", () => {
     fireEvent.click(screen.getByRole("option", { name: "Fay Ibarra" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Pinned to Fay, the column shows her name.
     await waitFor(() => {
-      const updatedRow = screen.getByText("Counter 17").closest("tr")!;
-      expect(within(updatedRow).getByText("Restricted")).toBeTruthy();
+      const pinnedRow = screen.getByText("Counter 17").closest("tr")!;
+      expect(within(pinnedRow).getByText("Fay Ibarra")).toBeTruthy();
     });
+    // Reopening the sheet starts from the saved assignment.
+    const pinnedRow = screen.getByText("Counter 17").closest("tr")!;
+    const pinnedMenu = await openRowMenu(pinnedRow);
+    fireEvent.click(within(pinnedMenu).getByRole("menuitem", { name: "Edit" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Edit Counter 17" })).toBeTruthy(),
+    );
 
     const stored = await withTenantScope(ownerDb, tenantId, (db) =>
       db
@@ -278,20 +307,15 @@ describe("the Devices screen — as an admin", () => {
     expect(stored?.assigned_user_id).toBe(cashierId);
 
     // Clear it back to open-to-all.
-    const restrictedRow = screen.getByText("Counter 17").closest("tr")!;
-    fireEvent.click(within(restrictedRow).getByRole("button", { name: "Restrict Counter 17" }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Restrict Counter 17" })).toBeTruthy(),
-    );
     fireEvent.click(screen.getByRole("combobox"));
     await waitFor(() => expect(screen.getByRole("option", { name: "Open to all" })).toBeTruthy());
     fireEvent.click(screen.getByRole("option", { name: "Open to all" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const clearedRow = screen.getByText("Counter 17").closest("tr")!;
-      expect(within(clearedRow).getByText("Restrict")).toBeTruthy();
-    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Cleared again, the column reads "Open to all".
+    const clearedRow = screen.getByText("Counter 17").closest("tr")!;
+    expect(within(clearedRow).getByText("Open to all")).toBeTruthy();
 
     const clearedStored = await withTenantScope(ownerDb, tenantId, (db) =>
       db
@@ -306,7 +330,7 @@ describe("the Devices screen — as an admin", () => {
     await ownerDb.deleteFrom("User").where("id", "=", cashierId).execute();
   });
 
-  it("issue 17: closing the dialog for a restricted Device and reopening it for a different, open-to-all Device does not carry the first selection over", async () => {
+  it("issue 17: closing the editor for an assigned Device and reopening it for a different, open-to-all Device does not carry the first selection over", async () => {
     const restrictedDeviceId = randomUUID();
     const openDeviceId = randomUUID();
     const cashierId = randomUUID();
@@ -374,25 +398,34 @@ describe("the Devices screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText("Counter 18")).toBeTruthy());
     const restrictedRow = screen.getByText("Counter 18").closest("tr")!;
-    fireEvent.click(within(restrictedRow).getByRole("button", { name: "Restrict Counter 18" }));
+    // Pre-assigned in the fixture: the column shows her name once the users
+    // query settles (it feeds the name map).
+    await waitFor(() => expect(within(restrictedRow).getByText("Fay Ibarra")).toBeTruthy());
+    let menu = await openRowMenu(restrictedRow);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Restrict Counter 18" })).toBeTruthy(),
+      expect(screen.getByRole("heading", { name: "Edit Counter 18" })).toBeTruthy(),
     );
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     const openRow = screen.getByText("Counter 19").closest("tr")!;
-    fireEvent.click(within(openRow).getByRole("button", { name: "Restrict Counter 19" }));
+    expect(within(openRow).getByText("Open to all")).toBeTruthy();
+    menu = await openRowMenu(openRow);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Restrict Counter 19" })).toBeTruthy(),
+      expect(screen.getByRole("heading", { name: "Edit Counter 19" })).toBeTruthy(),
     );
     expect(screen.getByRole("combobox").textContent).toBe("Open to all");
+    // The sheet only submits when something changed, so dirty the name with a
+    // trailing space — it trims back to "Counter 19", leaving the row as-is.
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Counter 19 " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const updatedRow = screen.getByText("Counter 19").closest("tr")!;
-      expect(within(updatedRow).getByText("Restrict")).toBeTruthy();
-    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Saving "Open to all" leaves the column unchanged.
+    const savedRow = screen.getByText("Counter 19").closest("tr")!;
+    expect(within(savedRow).getByText("Open to all")).toBeTruthy();
 
     const stored = await withTenantScope(ownerDb, tenantId, (db) =>
       db

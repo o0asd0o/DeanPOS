@@ -11,6 +11,7 @@ import {
 } from "ui";
 
 import { useEnrolmentWatchQuery } from "./__common/queries.ts";
+import { useLastNonNull } from "./helpers.ts";
 import type { EnrolmentCode } from "./helpers.ts";
 
 // The result half of record 056 Q5's enrolment panel, as a modal dialog: the
@@ -23,35 +24,40 @@ export function EnrolmentCodeDialog({
   onOpenChange,
   onEnrolled,
 }: {
-  result: EnrolmentCode;
+  result: EnrolmentCode | null;
   storeName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEnrolled: (name: string) => void;
 }) {
+  // The parent nulls `result` on close, but this dialog stays mounted for the
+  // exit animation — keep showing the last code rather than a blank box.
+  const shownResult = useLastNonNull(result);
   // The code is reserved at its Store until it is redeemed, so a Device
   // carrying it is proof this enrolment landed.
   const watch = useEnrolmentWatchQuery(open);
   const enrolled = (watch.data ?? []).some(
-    (device) => device.storeId === result.storeId && device.code === result.code,
+    (device) => device.storeId === shownResult?.storeId && device.code === shownResult?.code,
   );
 
   useEffect(() => {
-    if (open && enrolled) onEnrolled(result.name);
-  }, [open, enrolled, onEnrolled, result.name]);
+    if (open && enrolled && shownResult) onEnrolled(shownResult.name);
+  }, [open, enrolled, onEnrolled, shownResult]);
 
-  const characters = result.secret.split("");
+  const characters = shownResult?.secret.split("") ?? [];
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     // Clipboard access can be refused outright (permissions, insecure origin);
     // the code is still readable on screen, so a failure needs no alarm.
     try {
-      await navigator.clipboard?.writeText(result.secret);
+      await navigator.clipboard?.writeText(shownResult?.secret ?? "");
       setCopied(true);
     } catch {
       setCopied(false);
     }
   };
+
+  if (!shownResult) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,7 +65,7 @@ export function EnrolmentCodeDialog({
         <DialogHeader>
           <DialogTitle>Enrolment code</DialogTitle>
           <DialogDescription>
-            {result.name} · {storeName}
+            {shownResult.name} · {storeName}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted p-4">
@@ -87,8 +93,8 @@ export function EnrolmentCodeDialog({
         </p>
         <p className="text-sm text-muted-foreground">
           Expires in 10 minutes, at{" "}
-          <time dateTime={result.expiresAt.toISOString()}>
-            {result.expiresAt.toLocaleTimeString()}
+          <time dateTime={shownResult.expiresAt.toISOString()}>
+            {shownResult.expiresAt.toLocaleTimeString()}
           </time>
           .
         </p>

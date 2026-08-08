@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 // Mirrors `deviceOutputSchema` in packages/contract/src/contract.ts — not
 // inferred from zod, same reasoning as stores/helpers.ts.
 export type DeviceOutput = {
@@ -43,3 +45,31 @@ export const relativeLastSeen = (lastSeenAt: Date, now: Date = new Date()): stri
   const days = Math.round(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
 };
+
+export type DeviceHealth = "green" | "amber" | "grey";
+
+// Fleet health dot colour: green under five minutes since last seen, amber
+// under an hour, grey after — or outright grey for a revoked Device, whose
+// last seen is history, not health (record 056 Q5).
+export const deviceHealthColor = (
+  lastSeenAt: Date,
+  now: Date = new Date(),
+  revoked: boolean,
+): DeviceHealth => {
+  if (revoked) return "grey";
+  const minutes = (now.getTime() - lastSeenAt.getTime()) / 60_000;
+  if (minutes < 5) return "green";
+  if (minutes < 60) return "amber";
+  return "grey";
+};
+
+// The last non-null value a Sheet/Dialog was given. The parent nulls its data
+// the moment it closes, but Radix keeps the dialog mounted for the exit
+// animation — this keeps content on screen instead of a blank flash.
+export function useLastNonNull<T>(value: T | null | undefined): T | null {
+  const last = useRef<T | null>(null);
+  useEffect(() => {
+    if (value != null) last.current = value;
+  }, [value]);
+  return value ?? last.current;
+}

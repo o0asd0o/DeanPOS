@@ -1346,6 +1346,164 @@ describe("device.setAssignedUser", () => {
   });
 });
 
+describe("device.update", () => {
+  async function assignStore(tenantId: string, userId: string, storeId: string) {
+    await withTenantScope(seam.db, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: userId,
+          store_id: storeId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+  }
+
+  it("updates name and assignment in one call, auditing each changed field once", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "UP1");
+    if (!exchanged.ok) throw new Error("setup failed");
+    await assignStore(tenantA, cashierA, storeA1);
+
+    const updated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.update({
+        id: exchanged.deviceId,
+        name: "Counter 1U",
+        assignedUserId: cashierA,
+      });
+    expect(updated?.name).toBe("Counter 1U");
+    expect(updated?.assignedUserId).toBe(cashierA);
+
+    const audits = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .select(["field", "old_value", "new_value"])
+        .where("device_id", "=", exchanged.deviceId)
+        .where("field", "in", ["name", "assigned_user"])
+        .execute(),
+    );
+    expect(audits).toHaveLength(2);
+    const nameAudit = audits.find((row) => row.field === "name");
+    expect(nameAudit?.old_value).toBe("Counter 1");
+    expect(nameAudit?.new_value).toBe("Counter 1U");
+    const assignmentAudit = audits.find((row) => row.field === "assigned_user");
+    expect(assignmentAudit?.old_value).toBeNull();
+    expect(assignmentAudit?.new_value).toBe(cashierA);
+  });
+
+  it("leaves a field alone when it did not change — no audit row for it", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "UP2");
+    if (!exchanged.ok) throw new Error("setup failed");
+    await assignStore(tenantA, cashierA, storeA1);
+
+    const updated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.update({
+        id: exchanged.deviceId,
+        name: "Counter 1",
+        assignedUserId: cashierA,
+      });
+    expect(updated?.name).toBe("Counter 1");
+    expect(updated?.assignedUserId).toBe(cashierA);
+
+    const audits = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("DeviceAudit")
+        .select(["field"])
+        .where("device_id", "=", exchanged.deviceId)
+        .where("field", "in", ["name", "assigned_user"])
+        .execute(),
+    );
+    expect(audits.map((row) => row.field)).toEqual(["assigned_user"]);
+  });
+
+  it("refuses a target User not assigned to the Device's Store, server-side, and changes nothing", async () => {
+    const { exchanged } = await generateAndExchange(storeA1, "UP3");
+    if (!exchanged.ok) throw new Error("setup failed");
+    // A fresh cashier with no Store rows at all — never assigned to the
+    // Device's storeA1.
+    const outsider = randomUUID();
+    const passwordHash = await hashPassword("irrelevant");
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: outsider,
+        tenant_id: tenantA,
+        email: `update-outsider-${randomUUID()}@dev.test`,
+        password_hash: passwordHash,
+        role: "cashier",
+      })
+      .execute();
+
+    const updated = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.update({
+        id: exchanged.deviceId,
+        name: "Should Not Land",
+        assignedUserId: outsider,
+      });
+    expect(updated).toBeNull();
+
+    const stored = await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["name", "assigned_user_id"])
+        .where("id", "=", exchanged.deviceId)
+        .executeTakeFirstOrThrow(),
+    );
+    expect(stored.name).toBe("Counter 1");
+    expect(stored.assigned_user_id).toBeNull();
+
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", outsider).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", outsider).execute();
+  });
+
+  it("wrong-tenant probe [device.update]: Tenant A cannot update Tenant B's Device; B's row is untouched", async () => {
+    const generatedAsB = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.generateCode({ storeId: storeB, name: "B Update Target", code: "BU" });
+    if (!generatedAsB.ok) throw new Error("setup failed");
+    const exchangedAsB = await seam.client.terminal.enrol({ secret: generatedAsB.secret });
+    if (!exchangedAsB.ok) throw new Error("setup failed");
+
+    const ownerSees = await seam.actors
+      .asTenant(tenantB, { userId: adminB, role: "admin" })
+      .client.device.update({
+        id: exchangedAsB.deviceId,
+        name: "B Update Target",
+        assignedUserId: null,
+      });
+    expect(ownerSees?.id).toBe(exchangedAsB.deviceId);
+
+    await expectWrongTenantRefusal({
+      path: "device.update",
+      mode: "refusal",
+      ownerSees,
+      otherGets: () =>
+        seam.actors
+          .asTenant(tenantA, { userId: adminA, role: "admin" })
+          .client.device.update({
+            id: exchangedAsB.deviceId,
+            name: "Hijacked From A",
+            assignedUserId: null,
+          }),
+    });
+
+    const stillNamed = await withTenantScope(seam.db, tenantB, (db) =>
+      db
+        .selectFrom("Device")
+        .select(["name"])
+        .where("id", "=", exchangedAsB.deviceId)
+        .executeTakeFirst(),
+    );
+    expect(stillNamed?.name).toBe("B Update Target");
+  });
+});
+
 describe("DeviceAudit_name_has_old_value_check", () => {
   it("still forces a `name` row to a non-null old_value and every other pre-existing field to null, in both directions", async () => {
     const { exchanged } = await generateAndExchange(storeA1, "SA5");

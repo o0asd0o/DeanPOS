@@ -69,6 +69,7 @@ import {
   deviceRenameRoute,
   deviceRevokeRoute,
   deviceSetAssignedUserRoute,
+  deviceUpdateRoute,
   terminalEnrolRoute,
   terminalHeartbeatRoute,
   terminalMeRoute,
@@ -243,6 +244,7 @@ export const createApp = ({
         rename: deviceRenameRoute,
         revoke: deviceRevokeRoute,
         setAssignedUser: deviceSetAssignedUserRoute,
+        update: deviceUpdateRoute,
       },
       // The terminal's own key — `enrol` unauthenticated, the rest Device-token.
       terminal: {

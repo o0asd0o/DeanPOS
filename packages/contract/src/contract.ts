@@ -446,6 +446,14 @@ export const deviceSetAssignedUserInputSchema = z.object({
   userId: z.string().nullable(),
 });
 
+// The editor sheet's one call (name + assignment together), so a Device's
+// two editable fields land in a single round-trip.
+export const deviceUpdateInputSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  assignedUserId: z.string().nullable(),
+});
+
 // The terminal's own procedures (issue 09, record 056 Q6). `enrol` is
 // unauthenticated; `me`/`heartbeat` are Device-token.
 export const terminalEnrolInputSchema = z.object({ secret: z.string().min(1) });
@@ -775,6 +783,8 @@ export const contract = {
     setAssignedUser: oc
       .input(deviceSetAssignedUserInputSchema)
       .output(deviceOutputSchema.nullable()),
+    // The editor sheet's one call — name and assignment in a single update.
+    update: oc.input(deviceUpdateInputSchema).output(deviceOutputSchema.nullable()),
   },
   // The terminal's own key (issue 09, record 056 Q6) — distinct from
   // `device` above so the two principals can never be mixed in one

@@ -75,15 +75,8 @@ export function TableLabelsField({
       <Hint detail="Leave this empty if you do not seat customers at numbered tables. The terminal then shows no table control at all.">
         Optional — for numbered tables only. Drag the handle to reorder.
       </Hint>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={rows.map((row) => row.id)}
-          strategy={verticalListSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={rows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
           {rows.map((row, index) => (
             <SortableLabelRow
               key={row.id}
@@ -104,12 +97,7 @@ export function TableLabelsField({
           ))}
         </SortableContext>
       </DndContext>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={add}
-        className="tap-target"
-      >
+      <Button type="button" variant="outline" onClick={add} className="tap-target">
         Add label
       </Button>
     </fieldset>

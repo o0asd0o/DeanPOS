@@ -27,7 +27,11 @@ export function useUsersQuery(enabled: boolean) {
 // refreshes the table underneath it.
 export function useEnrolmentWatchQuery(enabled: boolean) {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  return useQuery({ ...orpc.device.list.queryOptions(), enabled, refetchInterval: 3000 });
+  return useQuery({
+    ...orpc.device.list.queryOptions(),
+    enabled,
+    refetchInterval: 3000,
+  });
 }
 
 // Codes still waiting for a terminal — the enrolment in flight survives
@@ -40,13 +44,17 @@ export function usePendingCodesQuery() {
 export function useInvalidatePendingCodes() {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: orpc.device.pendingCodes.queryKey() });
+  return () =>
+    queryClient.invalidateQueries({
+      queryKey: orpc.device.pendingCodes.queryKey(),
+    });
 }
 
 function useInvalidateDevices() {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: orpc.device.list.queryKey() });
+  return () =>
+    queryClient.invalidateQueries({ queryKey: orpc.device.list.queryKey() });
 }
 
 export function useGenerateCodeMutation() {
@@ -66,29 +74,26 @@ export function useCancelCodeMutation() {
   return useMutation(
     orpc.device.cancelCode.mutationOptions({
       onSuccess: invalidate,
-      meta: { success: "Enrolment removed", error: "Couldn't remove the enrolment" },
+      meta: {
+        success: "Enrolment removed",
+        error: "Couldn't remove the enrolment",
+      },
     }),
   );
 }
 
-export function useRenameDeviceMutation() {
+// The editor sheet's one call: name and assignment together, so a Save
+// round-trips once.
+export function useUpdateDeviceMutation() {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
   const invalidate = useInvalidateDevices();
   return useMutation(
-    orpc.device.rename.mutationOptions({
+    orpc.device.update.mutationOptions({
       onSuccess: invalidate,
-      meta: { success: "Renamed", error: "Couldn't rename the device" },
-    }),
-  );
-}
-
-export function useSetAssignedUserMutation() {
-  const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  const invalidate = useInvalidateDevices();
-  return useMutation(
-    orpc.device.setAssignedUser.mutationOptions({
-      onSuccess: invalidate,
-      meta: { success: "Assignment updated", error: "Couldn't update the assignment" },
+      meta: {
+        success: "Device updated",
+        error: "Couldn't update the device",
+      },
     }),
   );
 }

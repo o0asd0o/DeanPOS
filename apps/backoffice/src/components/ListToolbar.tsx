@@ -2,15 +2,17 @@ import { useId } from "react";
 import { Search } from "lucide-react";
 import { cn, Input } from "ui";
 
+export type StatusFilter = "all" | "active" | "deactivated";
+
 // The pills read bare — the "Status" label above the group carries what the
-// `Status:` prefix used to say on each one.
-const STATUS_FILTERS = [
+// `Status:` prefix used to say on each one. The deactivated pill is
+// re-labelled per list: Devices calls a revoked Device "Revoked" (record 056
+// Q5), the rest keep "Deactivated".
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "deactivated", label: "Deactivated" },
-] as const;
-
-export type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];
+];
 
 // The list card's own toolbar (record 044 §§1–2): status pills left, search
 // right, both inside the card so the page header stays title and one action.
@@ -21,6 +23,7 @@ export function ListToolbar({
   onQueryChange,
   searchLabel,
   searchExample,
+  deactivatedLabel = "Deactivated",
 }: {
   status: StatusFilter;
   onStatusChange: (status: StatusFilter) => void;
@@ -28,9 +31,13 @@ export function ListToolbar({
   onQueryChange: (query: string) => void;
   searchLabel: string;
   searchExample: string;
+  deactivatedLabel?: string;
 }) {
   const statusId = useId();
   const searchId = useId();
+  const filters = STATUS_FILTERS.map((filter) =>
+    filter.value === "deactivated" ? { ...filter, label: deactivatedLabel } : filter,
+  );
 
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -43,7 +50,7 @@ export function ListToolbar({
           aria-labelledby={statusId}
           className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1.5"
         >
-          {STATUS_FILTERS.map((filter) => (
+          {filters.map((filter) => (
             <button
               key={filter.value}
               type="button"

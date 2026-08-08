@@ -11,6 +11,7 @@ import { handler as pinSyncHandler } from "backend/src/device/handlers/pin-sync.
 import { handler as renameDeviceHandler } from "backend/src/device/handlers/rename-device.ts";
 import { handler as revokeDeviceHandler } from "backend/src/device/handlers/revoke-device.ts";
 import { handler as setAssignedUserHandler } from "backend/src/device/handlers/set-assigned-user.ts";
+import { handler as updateDeviceHandler } from "backend/src/device/handlers/update-device.ts";
 import { contract } from "contract/src/index.ts";
 
 // Only transport-aware code for `device.*`/`terminal.*` (ADR-0008 rule 5).
@@ -36,6 +37,9 @@ export const deviceRevokeRoute = os.device.revoke.handler(({ context, input }) =
 );
 export const deviceSetAssignedUserRoute = os.device.setAssignedUser.handler(({ context, input }) =>
   setAssignedUserHandler({ ctx: context, input }),
+);
+export const deviceUpdateRoute = os.device.update.handler(({ context, input }) =>
+  updateDeviceHandler({ ctx: context, input }),
 );
 
 export const terminalEnrolRoute = os.terminal.enrol.handler(({ context, input }) =>

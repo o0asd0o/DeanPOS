@@ -11,15 +11,7 @@ import {
   withTenantScope,
   within,
 } from "api/src/test-seam-react.tsx";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vite-plus/test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { router } from "@/router.tsx";
 
@@ -49,10 +41,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await ownerDb
-    .deleteFrom("UserStore")
-    .where("tenant_id", "=", tenantId)
-    .execute();
+  await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -78,16 +67,12 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "Add store" })).toBeTruthy();
     await expectNoAxeViolations(container);
 
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
 
     fireEvent.change(screen.getByLabelText("Name"), {
@@ -103,9 +88,7 @@ describe("the Stores screen — as an admin", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Create store" }));
 
-    await waitFor(() =>
-      expect(screen.queryByRole("heading", { name: "New store" })).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "New store" })).toBeNull());
     await waitFor(() => expect(screen.getByText("Downtown")).toBeTruthy());
 
     const row = screen.getByText("Downtown").closest("tr")!;
@@ -113,9 +96,7 @@ describe("the Stores screen — as an admin", () => {
     expect(within(row).getByText("1")).toBeTruthy();
     expect(within(row).getByText("Active")).toBeTruthy();
 
-    expect(container.textContent?.toLowerCase()).not.toMatch(
-      /delete|permanently/,
-    );
+    expect(container.textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
     await expectNoAxeViolations(container);
   });
 
@@ -129,40 +110,28 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
 
     for (let i = 0; i < 4; i++) {
       fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     }
-    const inputs = screen.getAllByLabelText(
-      /Table label \d/,
-    ) as HTMLInputElement[];
-    ["A", "B", "C", "D"].forEach((value, i) =>
-      fireEvent.change(inputs[i]!, { target: { value } }),
-    );
+    const inputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
+    ["A", "B", "C", "D"].forEach((value, i) => fireEvent.change(inputs[i]!, { target: { value } }));
 
     // dnd-kit resolves drag targets from measured layout, and happy-dom
     // reports every rect as zero — pin the four rows to fixed stacked rects
     // keyed by their input value so the drag lands on real targets.
     const rowValues = () =>
       Array.from(
-        document.querySelectorAll<HTMLInputElement>(
-          "input[aria-label^='Table label']",
-        ),
+        document.querySelectorAll<HTMLInputElement>("input[aria-label^='Table label']"),
       ).map((input) => input.value);
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function (this: Element) {
         const row = this.closest("[data-label-row]");
         if (row) {
-          const index = rowValues().indexOf(
-            row.querySelector("input")?.value ?? "",
-          );
+          const index = rowValues().indexOf(row.querySelector("input")?.value ?? "");
           const top = index * 40;
           return {
             x: 0,
@@ -202,24 +171,15 @@ describe("the Stores screen — as an admin", () => {
     expect(document.activeElement).toBe(handle);
 
     fireEvent.keyDown(handle, { key: " ", code: "Space" });
-    await waitFor(() =>
-      expect(handle.getAttribute("aria-pressed")).toBe("true"),
-    );
+    await waitFor(() => expect(handle.getAttribute("aria-pressed")).toBe("true"));
     fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
     fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
     fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
     fireEvent.keyDown(handle, { key: " ", code: "Space" });
 
-    const reorderedInputs = screen.getAllByLabelText(
-      /Table label \d/,
-    ) as HTMLInputElement[];
+    const reorderedInputs = screen.getAllByLabelText(/Table label \d/) as HTMLInputElement[];
     await waitFor(() =>
-      expect(reorderedInputs.map((input) => input.value)).toStrictEqual([
-        "B",
-        "C",
-        "D",
-        "A",
-      ]),
+      expect(reorderedInputs.map((input) => input.value)).toStrictEqual(["B", "C", "D", "A"]),
     );
     // Same element still focused, now wearing its new position (039 §1).
     expect(document.activeElement).toBe(handle);
@@ -257,9 +217,7 @@ describe("the Stores screen — as an admin", () => {
         "This store stops being offered for new work, its past sales stay attributed to it, and Reactivate brings it back",
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("dialog").textContent?.toLowerCase()).not.toMatch(
-      /delete|permanently/,
-    );
+    expect(screen.getByRole("dialog").textContent?.toLowerCase()).not.toMatch(/delete|permanently/);
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Deactivate",
@@ -275,21 +233,13 @@ describe("the Stores screen — as an admin", () => {
     expect(screen.getByText("Store deactivated")).toBeTruthy();
 
     const deactivatedRow = screen.getByText("Closing Soon").closest("tr")!;
-    expect(
-      within(deactivatedRow).queryByRole("button", { name: /^Edit/ }),
-    ).toBeNull();
-    expect(
-      within(deactivatedRow).queryByRole("button", { name: /^Deactivate/ }),
-    ).toBeNull();
-    expect(
-      within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }),
-    ).toBeTruthy();
+    expect(within(deactivatedRow).queryByRole("button", { name: /^Edit/ })).toBeNull();
+    expect(within(deactivatedRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
+    expect(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ })).toBeTruthy();
 
     await expectNoAxeViolations(container);
 
-    fireEvent.click(
-      within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }),
-    );
+    fireEvent.click(within(deactivatedRow).getByRole("button", { name: /^Reactivate/ }));
     await waitFor(() => {
       const reactivatedRow = screen.getByText("Closing Soon").closest("tr")!;
       expect(within(reactivatedRow).getByText("Active")).toBeTruthy();
@@ -308,13 +258,9 @@ describe("the Stores screen — as an admin", () => {
     });
     cleanup = () => db.destroy();
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Stores" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add store" }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "New store" })).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
@@ -322,21 +268,16 @@ describe("the Stores screen — as an admin", () => {
     // Two removals in a row produce the identical message "Label removed"
     // — each must still land in the live region as a fresh DOM mutation.
     fireEvent.click(screen.getByRole("button", { name: "Remove label 2" }));
-    const regions = () =>
-      screen.getAllByRole("status").filter((el) => el.textContent);
+    const regions = () => screen.getAllByRole("status").filter((el) => el.textContent);
     await waitFor(() =>
-      expect(regions().map((el) => el.textContent)).toStrictEqual([
-        "Label removed",
-      ]),
+      expect(regions().map((el) => el.textContent)).toStrictEqual(["Label removed"]),
     );
     const firstRegion = regions()[0]!;
 
     fireEvent.click(screen.getByRole("button", { name: "Remove label 1" }));
     await waitFor(() => {
       const active = regions();
-      expect(active.map((el) => el.textContent)).toStrictEqual([
-        "Label removed",
-      ]);
+      expect(active.map((el) => el.textContent)).toStrictEqual(["Label removed"]);
       expect(active[0]).not.toBe(firstRegion);
     });
   });
