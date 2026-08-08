@@ -39,10 +39,16 @@ export function useMeQuery() {
 }
 
 // The assignment dialog's picker (issue 17), `admin`-only like the dialog
-// itself — a `manager` viewing this screen can't reach it.
+// itself — a `manager` viewing this screen can't reach it. `user.list` is now
+// paginated (record 076), and the picker needs the whole roster to name an
+// assignee, so it asks for one page that covers it — the roster is small and
+// 1000 is the contract's ceiling for exactly this read.
 export function useUsersQuery(enabled: boolean) {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  return useQuery({ ...orpc.user.list.queryOptions(), enabled });
+  return useQuery({
+    ...orpc.user.list.queryOptions({ input: { perPage: 1000 } }),
+    enabled,
+  });
 }
 
 // The enrolment dialog's watch. It scopes the poll to the pending code, so a

@@ -63,6 +63,42 @@ export const userOutputSchema = z.object({
   storeIds: z.array(z.string()),
 });
 
+// The roster's server-side page (record 076 amends 044 §2): role, store and
+// search filter in the DB, so a page is a page of the *filtered* set, and the
+// count rides the response. `perPage`'s ceiling is 1000, not 100 as on
+// device.list, because the Devices assignee picker reads the whole roster
+// through this procedure — the screen itself pages at 10.
+export const userListInputSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(1000).default(10),
+  role: z.enum(["all", "cashier", "manager", "admin"]).default("all"),
+  storeId: z.string().optional(),
+  search: z.string().max(100).optional(),
+  sort: z
+    .object({
+      key: z.enum(["name", "email", "role", "status"]),
+      direction: z.enum(["asc", "desc"]),
+    })
+    .default({ key: "name", direction: "asc" }),
+});
+
+// Amends record 044 §2's "no count, total": every disclosed number counts
+// only rows the caller can see (a manager's counts cover their own Stores), so
+// the leak the clause feared cannot occur. 044's other two clauses — the
+// caller is always in their own result, and the Stores cell is projected
+// through the caller's visibility — are unchanged.
+export const userListOutputSchema = z.object({
+  items: z.array(userOutputSchema),
+  count: z.number(),
+  page: z.number(),
+  perPage: z.number(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+  // The page headline's roster totals, independent of the current filter.
+  totalCount: z.number(),
+  activeCount: z.number(),
+});
+
 // Email is create-only and never editable (record 045 §1 clause 1; record
 // 031's global-uniqueness precondition on `user_login_lookup`).
 export const userCreateInputSchema = z.object({
@@ -669,7 +705,7 @@ export const contract = {
   // Back-office User management (issue 06, record 044 §2). Deactivate/
   // reactivate/resetPassword stay out of `update` (records 040 §3, 043).
   user: {
-    list: oc.input(z.void()).output(z.array(userOutputSchema)),
+    list: oc.input(userListInputSchema).output(userListOutputSchema),
     create: oc.input(userCreateInputSchema).output(userOutputSchema.nullable()),
     update: oc.input(userUpdateInputSchema).output(userOutputSchema.nullable()),
     deactivate: oc.input(userIdInputSchema).output(userOutputSchema.nullable()),

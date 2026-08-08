@@ -13,8 +13,8 @@ import { contract } from "contract/src/index.ts";
 // Only transport-aware code for `user.*` (ADR-0008 rule 5).
 const os = implement(contract).$context<Ctx>();
 
-export const userListRoute = os.user.list.handler(({ context }) =>
-  listUsersHandler({ ctx: context, input: undefined }),
+export const userListRoute = os.user.list.handler(({ context, input }) =>
+  listUsersHandler({ ctx: context, input }),
 );
 export const userCreateRoute = os.user.create.handler(({ context, input }) =>
   createUserHandler({ ctx: context, input }),

@@ -831,13 +831,119 @@ describe("user.list", () => {
   it("an admin sees every User in their own Tenant, including themselves, and none of another Tenant's", async () => {
     const list = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.user.list();
+      .client.user.list({ perPage: 100 });
 
-    const ids = list.map((user) => user.id);
+    const ids = list.items.map((user) => user.id);
     expect(ids).toContain(adminA);
     expect(ids).toContain(managerA);
     expect(ids).toContain(cashierA);
     expect(ids).not.toContain(adminB);
+  });
+
+  it("pages the roster server-side: page 1 holds ten, the envelope says there is a page 2, and page 2 holds the rest", async () => {
+    // Earlier describes leave their own Users behind; the assertions are
+    // relative to a baseline snapshot, not an absolute roster size.
+    const baseline = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.user.list({ perPage: 1000 });
+    const baselineIds = new Set(baseline.items.map((user) => user.id));
+    expect(baselineIds.has(adminA)).toBe(true);
+
+    const extraIds: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const id = randomUUID();
+      extraIds.push(id);
+      await seedTenantUser(ownerDb, {
+        id,
+        tenantId: tenantA,
+        email: `page-${i}-${randomUUID()}@user.test`,
+        passwordHash: await hashPassword("irrelevant"),
+        role: "cashier",
+        mustChangePassword: false,
+      });
+    }
+
+    const page1 = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.user.list({ page: 1, perPage: 10 });
+    const page2 = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.user.list({ page: 2, perPage: 10 });
+
+    const expectedTotal = baseline.items.length + 12;
+    expect(page1.items).toHaveLength(10);
+    expect(page1.hasNextPage).toBe(true);
+    expect(page1.hasPrevPage).toBe(false);
+    expect(page2.items).toHaveLength(expectedTotal - 10);
+    expect(page2.hasNextPage).toBe(false);
+    expect(page2.hasPrevPage).toBe(true);
+    expect(page1.count).toBe(expectedTotal);
+    expect(page1.totalCount).toBe(expectedTotal);
+    expect(page1.activeCount).toBe(baseline.activeCount + 12);
+
+    // Every seeded extra lands on one of the two pages, exactly once each.
+    const seen = new Set([...page1.items, ...page2.items].map((user) => user.id));
+    expect(seen.size).toBe(expectedTotal);
+    for (const id of extraIds) expect(seen.has(id)).toBe(true);
+
+    // FK order: UserRole before User — seedTenantUser writes both.
+    await ownerDb.deleteFrom("UserRole").where("user_id", "in", extraIds).execute();
+    await ownerDb.deleteFrom("User").where("id", "in", extraIds).execute();
+  });
+
+  it("filters the roster server-side by role, Store and search term", async () => {
+    const targetId = randomUUID();
+    await seedTenantUser(ownerDb, {
+      id: targetId,
+      tenantId: tenantA,
+      email: `filtered-roster-${randomUUID()}@user.test`,
+      passwordHash: await hashPassword("irrelevant"),
+      role: "manager",
+      mustChangePassword: false,
+      firstName: "Rosa",
+      lastName: "Cruz",
+    });
+    await withTenantScope(seam.db, tenantA, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantA,
+          user_id: targetId,
+          store_id: storeA1,
+          assigned: true,
+          effective_from: new Date(Date.now() - 10_000),
+        })
+        .execute(),
+    );
+
+    const admin = () => seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" });
+
+    const managers = await admin().client.user.list({ role: "manager", perPage: 100 });
+    expect(managers.items.map((user) => user.id)).toContain(targetId);
+    expect(managers.items.map((user) => user.id)).not.toContain(cashierA);
+
+    const atStoreA1 = await admin().client.user.list({ storeId: storeA1, perPage: 100 });
+    expect(atStoreA1.items.map((user) => user.id)).toContain(targetId);
+    expect(atStoreA1.items.map((user) => user.id)).not.toContain(cashierA);
+
+    // Search matches the person and the Store they work at, not just the email.
+    const byName = await admin().client.user.list({ search: "rosa", perPage: 100 });
+    expect(byName.items.map((user) => user.id)).toContain(targetId);
+    const byStore = await admin().client.user.list({ search: "outlet 1", perPage: 100 });
+    expect(byStore.items.map((user) => user.id)).toContain(targetId);
+
+    // The filters compose: a role that excludes the target leaves nothing.
+    const cashiersAtStoreA1 = await admin().client.user.list({
+      role: "cashier",
+      storeId: storeA1,
+      perPage: 100,
+    });
+    expect(cashiersAtStoreA1.items.map((user) => user.id)).not.toContain(targetId);
+
+    await ownerDb.deleteFrom("UserStore").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("UserRole").where("user_id", "=", targetId).execute();
+    await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });
 
   it("a manager sees themselves and Users sharing their own Stores, with the Stores cell projected to their own visibility", async () => {
@@ -876,18 +982,32 @@ describe("user.list", () => {
         .execute(),
     );
 
-    const list = await seam.actors
-      .asTenant(tenantA, { userId: managerA, role: "manager" })
-      .client.user.list();
+    const manager = () =>
+      seam.actors.asTenant(tenantA, { userId: managerA, role: "manager" });
+    const list = await manager().client.user.list({ perPage: 100 });
 
-    const ids = list.map((user) => user.id);
+    const ids = list.items.map((user) => user.id);
     expect(ids).toContain(managerA); // the caller is always in their own result
     expect(ids).toContain(coWorkerId);
     expect(ids).not.toContain(cashierA); // cashierA has no Store assignment at all
-    expect(ids).not.toContain(adminA); // no total/count leak by including every Tenant User
+    expect(ids).not.toContain(adminA); // no count leak by including every Tenant User
 
-    const coWorkerRow = list.find((user) => user.id === coWorkerId)!;
+    const coWorkerRow = list.items.find((user) => user.id === coWorkerId)!;
     expect(coWorkerRow.storeIds).toStrictEqual([storeA1]);
+    // The disclosed totals cover exactly the rows the manager can see —
+    // fewer than the whole Tenant roster, and every visible row counted.
+    const adminCount = (
+      await seam.actors
+        .asTenant(tenantA, { userId: adminA, role: "admin" })
+        .client.user.list({ perPage: 1000 })
+    ).items.length;
+    expect(list.totalCount).toBe(list.items.length);
+    expect(list.totalCount).toBeLessThan(adminCount);
+
+    // Searching a Store name the manager cannot see matches nothing — the
+    // co-worker's invisible storeA2 assignment must not surface them.
+    const searchInvisible = await manager().client.user.list({ search: "outlet 2" });
+    expect(searchInvisible.items.map((user) => user.id)).not.toContain(coWorkerId);
 
     await ownerDb.deleteFrom("UserStore").where("user_id", "=", coWorkerId).execute();
     await ownerDb.deleteFrom("UserRole").where("user_id", "=", coWorkerId).execute();
@@ -897,29 +1017,32 @@ describe("user.list", () => {
   it("a cashier is refused, server-side, and sees no User at all — not even themselves", async () => {
     const list = await seam.actors
       .asTenant(tenantA, { userId: cashierA, role: "cashier" })
-      .client.user.list();
+      .client.user.list({});
 
-    expect(list).toStrictEqual([]);
+    expect(list.items).toStrictEqual([]);
+    expect(list.count).toBe(0);
+    expect(list.totalCount).toBe(0);
   });
 
   it("an unauthenticated caller sees no User at all", async () => {
-    const list = await seam.actors.asUnauthenticated().client.user.list();
+    const list = await seam.actors.asUnauthenticated().client.user.list({});
 
-    expect(list).toStrictEqual([]);
+    expect(list.items).toStrictEqual([]);
+    expect(list.count).toBe(0);
   });
 
   it("wrong-tenant probe [user.list]: Tenant B's User is never visible in Tenant A's list", async () => {
     const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.user.list();
-    expect(listAsA.map((user) => user.id)).not.toContain(adminB);
-    const ownAsA = listAsA.find((user) => user.id === adminA);
+      .client.user.list({ perPage: 100 });
+    expect(listAsA.items.map((user) => user.id)).not.toContain(adminB);
+    const ownAsA = listAsA.items.find((user) => user.id === adminA);
     expect(ownAsA).toBeTruthy();
 
     const listAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
-      .client.user.list();
-    const ownAsB = listAsB.find((user) => user.id === adminB);
+      .client.user.list({ perPage: 100 });
+    const ownAsB = listAsB.items.find((user) => user.id === adminB);
     expect(ownAsB).toBeTruthy();
 
     await expectWrongTenantRefusal({

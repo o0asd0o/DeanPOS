@@ -675,6 +675,108 @@ describe("the Employees toolbar — role, store, and search filters", () => {
     await waitFor(() => expect(screen.getByText(toolbarAdminEmail)).toBeTruthy());
     expect(window.location.search).toContain("role=all");
   });
+
+  it("pages the roster server-side: ten rows per page, and Next lands on page 2 with the rest", async () => {
+    const pageIds: string[] = [];
+    for (let i = 1; i <= 12; i++) {
+      const id = randomUUID();
+      pageIds.push(id);
+      await ownerDb
+        .insertInto("User")
+        .values({
+          id,
+          tenant_id: tenantId,
+          email: `paged-roster-${i}-${randomUUID()}@user.test`,
+          first_name: "Page",
+          last_name: `User ${String(i).padStart(2, "0")}`,
+          password_hash: await hashPassword("irrelevant"),
+          role: "cashier",
+        })
+        .execute();
+    }
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/employees",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("User").where("id", "in", pageIds).execute();
+    };
+
+    // The roster is the admin + twelve named cashiers; the admin's blank
+    // name sorts first, so page 1 is the admin + ten cashiers.
+    await waitFor(() => expect(screen.getByText("Page User 01")).toBeTruthy());
+    expect(screen.getByText("Page User 09")).toBeTruthy();
+    expect(screen.queryByText("Page User 12")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(screen.getByText("Page User 12")).toBeTruthy());
+    expect(screen.queryByText("Page User 01")).toBeNull();
+    expect(window.location.search).toContain("page=2");
+  });
+
+  it("sorting a column rides the URL and re-queries the server page", async () => {
+    const zebraId = randomUUID();
+    const alphaId = randomUUID();
+    await ownerDb
+      .insertInto("User")
+      .values([
+        {
+          id: zebraId,
+          tenant_id: tenantId,
+          email: `sort-zebra-${randomUUID()}@user.test`,
+          first_name: "Zoe",
+          last_name: "Zebra",
+          password_hash: await hashPassword("irrelevant"),
+          role: "cashier",
+        },
+        {
+          id: alphaId,
+          tenant_id: tenantId,
+          email: `sort-alpha-${randomUUID()}@user.test`,
+          first_name: "Ava",
+          last_name: "Alpha",
+          password_hash: await hashPassword("irrelevant"),
+          role: "cashier",
+        },
+      ])
+      .execute();
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/employees",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("User").where("id", "in", [zebraId, alphaId]).execute();
+    };
+
+    const rowTexts = () => screen.getAllByRole("row").map((row) => row.textContent ?? "");
+    const indexOf = (texts: string[], marker: string) =>
+      texts.findIndex((text) => text.includes(marker));
+    // Name asc is the default: Ava before Zoe (the admin's blank name sorts
+    // ahead of both, so relative order is the assertion, not row position).
+    await waitFor(() => {
+      const texts = rowTexts();
+      expect(indexOf(texts, "sort-alpha")).toBeGreaterThanOrEqual(0);
+      expect(indexOf(texts, "sort-alpha")).toBeLessThan(indexOf(texts, "sort-zebra"));
+    });
+
+    // One click on the Name header flips to descending, and the URL follows.
+    fireEvent.click(screen.getByRole("button", { name: "Name" }));
+    await waitFor(() => {
+      const texts = rowTexts();
+      expect(indexOf(texts, "sort-zebra")).toBeLessThan(indexOf(texts, "sort-alpha"));
+    });
+    expect(window.location.search).toContain("desc");
+  });
 });
 
 describe("the Users screen — as a manager", () => {

@@ -107,7 +107,7 @@ export function Devices() {
   // Who each Device is assigned to, for the editable Assigned to column — the
   // same list the dialog offers, so a name never 404s on screen.
   const userNameById = new Map(
-    (usersQuery.data ?? []).map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]),
+    (usersQuery.data?.items ?? []).map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]),
   );
 
   // Fleet summary once the list is in hand; the instructional line stays
@@ -284,7 +284,7 @@ export function Devices() {
         >
           <EditDeviceSheet
             device={editTarget}
-            users={usersQuery.data ?? []}
+            users={usersQuery.data?.items ?? []}
             onClose={closeEdit}
             onSaved={() => {
               closeEdit();

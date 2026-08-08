@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { Button, Sheet, SheetContent } from "ui";
 
 import type { RoleFilter } from "@/components/ListToolbar.tsx";
+import type { UserListSortKey } from "./helpers.ts";
+import { EMPLOYEES_PAGE_SIZE } from "./helpers.ts";
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import {
   useMeQuery,
@@ -20,9 +22,48 @@ type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; use
 // region, the list `Card`, then the editor `Card` when open — the same
 // shape record 038 settled for Stores.
 export function Users() {
-  const usersQuery = useUsersQuery();
   const storesQuery = useStoresQuery();
   const meQuery = useMeQuery();
+
+  // The toolbar's filters, the sort, and the page are URL state (the route's
+  // validateSearch), so a filtered view survives a trip to a row's editor;
+  // `replace` keeps back/forward clear of every keystroke. The list query is
+  // a server page of that state.
+  const { role, store, q, sort, page } = useSearch({ from: "/_shell/employees" });
+  // `to` is the path — a search-only navigate from a `from` route id resolves
+  // against the id as if it were a path and lands on NotFound.
+  const navigate = useNavigate();
+  // Any filter or sort change starts back at page 1 — a stale page number in
+  // the URL would otherwise land on a page that no longer exists.
+  const setRole = (role: RoleFilter) =>
+    navigate({ to: "/employees", search: { role, store, q, sort, page: 1 }, replace: true });
+  const setStore = (store: string) =>
+    navigate({ to: "/employees", search: { role, store, q, sort, page: 1 }, replace: true });
+  const setQuery = (q: string) =>
+    navigate({ to: "/employees", search: { role, store, q, sort, page: 1 }, replace: true });
+  const setSort = (key: UserListSortKey) =>
+    navigate({
+      to: "/employees",
+      search: {
+        role,
+        store,
+        q,
+        sort: sort.key === key ? { key, direction: sort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" },
+        page: 1,
+      },
+      replace: true,
+    });
+  const setPage = (page: number) =>
+    navigate({ to: "/employees", search: { role, store, q, sort, page }, replace: true });
+
+  const usersQuery = useUsersQuery({
+    page,
+    perPage: EMPLOYEES_PAGE_SIZE,
+    role,
+    storeId: store === "all" ? undefined : store,
+    search: q === "" ? undefined : q,
+    sort,
+  });
 
   // Both queries gate screen state (finding 5): a failed `store.list` must
   // never silently read as "no stores" — that misreports every User's
@@ -37,31 +78,16 @@ export function Users() {
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
   const callerId = meQuery.data?.authenticated === true ? meQuery.data.userId : undefined;
 
-  // Roster summary once the list is in hand; the instructional line stays
-  // while loading (or after an error, when the list never arrived).
+  // Roster summary from the server envelope (record 076): the headline
+  // counts the whole visible roster, independent of the current filter. The
+  // instructional line stays while loading (or after an error).
+  const totalCount = usersQuery.data?.totalCount ?? 0;
+  const activeCount = usersQuery.data?.activeCount ?? 0;
   const usersLoaded = !usersQuery.isPending && !usersQuery.isError;
-  const roster = usersQuery.data ?? [];
   const subtitle =
-    usersLoaded && roster.length > 0
-      ? `${roster.length} employee${roster.length === 1 ? "" : "s"} · ${
-          roster.filter((user) => user.active).length
-        } active`
+    usersLoaded && totalCount > 0
+      ? `${totalCount} employee${totalCount === 1 ? "" : "s"} · ${activeCount} active`
       : "Who can sign in, what they may do, and where they work.";
-
-  // The toolbar's filters are URL state (the route's validateSearch), so a
-  // filtered view survives a trip to a row's editor; `replace` keeps
-  // back/forward clear of every keystroke.
-  const { role, store, q } = useSearch({ from: "/_shell/employees" });
-  // `to` is the path — a search-only navigate from a `from` route id resolves
-  // against the id as if it were a path and lands on NotFound. The full
-  // object (not a spread of `prev`) is what the route's search type wants.
-  const navigate = useNavigate();
-  const setRole = (role: RoleFilter) =>
-    navigate({ to: "/employees", search: { role, store, q }, replace: true });
-  const setStore = (store: string) =>
-    navigate({ to: "/employees", search: { role, store, q }, replace: true });
-  const setQuery = (q: string) =>
-    navigate({ to: "/employees", search: { role, store, q }, replace: true });
 
   // Two alternating regions, not one string (record 039 finding 4):
   // identical consecutive messages would otherwise produce no DOM mutation
@@ -141,7 +167,7 @@ export function Users() {
         )}
       </div>
       <UserListCard
-        users={usersQuery.data}
+        data={usersQuery.data}
         stores={storesQuery.data ?? []}
         isPending={isPending}
         isError={isError}
@@ -158,6 +184,9 @@ export function Users() {
         onStoreChange={setStore}
         query={q}
         onQueryChange={setQuery}
+        sort={sort}
+        onSortChange={setSort}
+        onPageChange={setPage}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}

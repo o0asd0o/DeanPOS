@@ -24,8 +24,7 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import type { RoleFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import { useTableView } from "@/lib/table.ts";
-import type { UserOutput } from "./helpers.ts";
+import type { UserListOutput, UserListSortKey, UserOutput } from "./helpers.ts";
 
 const ROLE_LABEL: Record<UserOutput["role"], string> = {
   cashier: "Cashier",
@@ -35,28 +34,21 @@ const ROLE_LABEL: Record<UserOutput["role"], string> = {
 
 type SortKey = "name" | "email" | "role" | "status";
 
-const SORT_VALUES: Record<SortKey, (user: UserOutput) => string | number> = {
-  name: (user) => `${user.firstName} ${user.lastName}`.trim().toLowerCase(),
-  email: (user) => user.email.toLowerCase(),
-  role: (user) => ROLE_LABEL[user.role],
-  status: (user) => (user.active ? 0 : 1),
-};
-
 function storeNamesFor(storeIds: string[], stores: { id: string; name: string }[]): string {
   const assigned = new Set(storeIds);
   const names = stores.filter((store) => assigned.has(store.id)).map((store) => store.name);
   return names.length > 0 ? names.join(", ") : "None";
 }
 
-// The list (record 044 §§1–4). A deactivated User stays inline, badged,
-// never hidden or dimmed — the Status column is the User's own choice, and
-// every User is visible by default so nobody disappears unasked. The toolbar
-// filters on what the roster's reader hunts for — Role (what access they
-// hold) and Store (where they work) — not the lifecycle boolean, which is
-// already a column badge and a sort. Both ride the route's URL search params,
-// so the card owns none of the state.
+// The list (record 044 §§1–4, amended by 076): the rows arrive as one server
+// page, already filtered, sorted, and paginated by `user.list` — the card
+// only renders. A deactivated User stays inline, badged, never hidden or
+// dimmed: the Status column is the User's own choice, every User is visible
+// by default, and the toolbar filters what the roster's reader hunts for —
+// Role (what access they hold) and Store (where they work). Both ride the
+// route's URL search params, so the card owns none of the state.
 export function UserListCard({
-  users,
+  data,
   stores,
   isPending,
   isError,
@@ -73,11 +65,14 @@ export function UserListCard({
   onStoreChange,
   query,
   onQueryChange,
+  sort,
+  onSortChange,
+  onPageChange,
   onEdit,
   onDeactivate,
   onReactivate,
 }: {
-  users: UserOutput[] | undefined;
+  data: UserListOutput | undefined;
   stores: { id: string; name: string }[];
   isPending: boolean;
   isError: boolean;
@@ -94,6 +89,9 @@ export function UserListCard({
   onStoreChange: (store: string) => void;
   query: string;
   onQueryChange: (query: string) => void;
+  sort: { key: UserListSortKey; direction: "asc" | "desc" };
+  onSortChange: (key: UserListSortKey) => void;
+  onPageChange: (page: number) => void;
   onEdit: (user: UserOutput) => void;
   onDeactivate: (user: UserOutput) => void;
   onReactivate: (user: UserOutput) => void;
@@ -101,20 +99,9 @@ export function UserListCard({
   const storeLabelId = useId();
   const storeNameById = new Map(stores.map((store) => [store.id, store.name]));
 
-  const term = query.trim().toLowerCase();
-  const visible = (users ?? []).filter(
-    (user) =>
-      (role === "all" || user.role === role) &&
-      (store === "all" || user.storeIds.includes(store)) &&
-      // Name, email, and the stores they work at: the field asks for a
-      // person or a place, and the list carries both.
-      (term === "" ||
-        user.email.toLowerCase().includes(term) ||
-        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term) ||
-        storeNamesFor(user.storeIds, stores).toLowerCase().includes(term)),
-  );
-
-  const table = useTableView(visible, SORT_VALUES, "name");
+  const users = data?.items ?? [];
+  const pageCount = Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)));
+  const sorted = (key: SortKey) => (sort.key === key ? sort.direction : undefined);
 
   return (
     <Card className="gap-4">
@@ -163,31 +150,36 @@ export function UserListCard({
           <p role="status">Loading…</p>
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
-        ) : !users || users.length === 0 ? (
-          <EmptyState
-            icon={<UsersIcon aria-hidden="true" />}
-            title="No employees to show"
-            description="Invite someone to give them a back office sign-in and a till PIN."
-          />
+        ) : users.length === 0 ? (
+          data?.totalCount === 0 ? (
+            <EmptyState
+              icon={<UsersIcon aria-hidden="true" />}
+              title="No employees to show"
+              description="Invite someone to give them a back office sign-in and a till PIN."
+            />
+          ) : (
+            <EmptyState
+              icon={<SearchXIcon aria-hidden="true" />}
+              title="No employees match these filters"
+              description="Try another role or store, or clear the search."
+            />
+          )
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Employees">
               <TableHeader>
                 <TableRow>
-                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
+                  <TableHead sorted={sorted("name")} onSort={() => onSortChange("name")}>
                     Name
                   </TableHead>
-                  <TableHead sorted={table.sortedBy("email")} onSort={() => table.sortBy("email")}>
+                  <TableHead sorted={sorted("email")} onSort={() => onSortChange("email")}>
                     Email
                   </TableHead>
-                  <TableHead sorted={table.sortedBy("role")} onSort={() => table.sortBy("role")}>
+                  <TableHead sorted={sorted("role")} onSort={() => onSortChange("role")}>
                     Role
                   </TableHead>
                   <TableHead>Stores</TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("status")}
-                    onSort={() => table.sortBy("status")}
-                  >
+                  <TableHead sorted={sorted("status")} onSort={() => onSortChange("status")}>
                     Status
                   </TableHead>
                   {isAdmin && (
@@ -198,7 +190,7 @@ export function UserListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {table.rows.map((user) => (
+                {users.map((user) => (
                   <TableRow
                     key={user.id}
                     data-state={user.id === editingId ? "selected" : undefined}
@@ -282,17 +274,10 @@ export function UserListCard({
                 ))}
               </TableBody>
             </Table>
-            {visible.length === 0 && (
-              <EmptyState
-                icon={<SearchXIcon aria-hidden="true" />}
-                title="No employees match these filters"
-                description="Try another role or store, or clear the search."
-              />
-            )}
             <TablePagination
-              page={table.page}
-              pageCount={table.pageCount}
-              onPageChange={table.setPage}
+              page={data?.page ?? 1}
+              pageCount={pageCount}
+              onPageChange={onPageChange}
               label="Employees pages"
             />
           </div>

@@ -13,6 +13,27 @@ export type UserOutput = {
   storeIds: string[];
 };
 
+export type UserListSortKey = "name" | "email" | "role" | "status";
+
+export type UserListSort = { key: UserListSortKey; direction: "asc" | "desc" };
+
+// Mirrors `userListOutputSchema` — the server-side roster page (record 076
+// amends 044 §2): items already filtered/sorted/paged server-side, the
+// headline's roster totals, and the pagination envelope.
+export type UserListOutput = {
+  items: UserOutput[];
+  count: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  totalCount: number;
+  activeCount: number;
+};
+
+// The one page size the server and every client call agree on.
+export const EMPLOYEES_PAGE_SIZE = 10;
+
 // Generated in the browser, never on the server and never returned by one:
 // record 051 keeps 043's rule that this value exists in exactly one field.
 // Six upper-case symbols with no lookalikes — record 052 trades length for

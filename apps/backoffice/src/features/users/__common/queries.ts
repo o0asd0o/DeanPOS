@@ -1,6 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MutationKey, QueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
+
+import type { RoleFilter } from "@/components/ListToolbar.tsx";
+import type { UserListSort } from "@/features/users/helpers.ts";
 
 // `reset()` only detaches the observer — the password-bearing variables stay
 // in MutationCache for its GC window (record 043 no-go 8). This removes the
@@ -11,9 +14,26 @@ function evictMutation(queryClient: QueryClient, mutationKey: MutationKey) {
   }
 }
 
-export function useUsersQuery() {
+// The roster's server-side input (mirrors userListInputSchema): role, store,
+// search, sort and page ride the request, so the URL is the source of truth
+// and a refetch is a new page, not a client-side re-filter.
+export type UsersQueryInput = {
+  page: number;
+  perPage: number;
+  role: RoleFilter;
+  storeId?: string;
+  search?: string;
+  sort: UserListSort;
+};
+
+export function useUsersQuery(input: UsersQueryInput) {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
-  return useQuery(orpc.user.list.queryOptions());
+  return useQuery({
+    ...orpc.user.list.queryOptions({ input }),
+    // Keep the previous page on screen while the next filter round-trips —
+    // per-keystroke search must not flash a blank table.
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useStoresQuery() {
@@ -31,7 +51,11 @@ export function useMeQuery() {
 function useInvalidateUsers() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: orpc.user.list.queryKey() });
+  // `user.list` keys are [path, { input, type }] — a mutation must refresh
+  // whichever page/filter is on screen, so match every list query by its
+  // shared path segment rather than one concrete input.
+  const path = orpc.user.list.queryKey({ input: {} })[0];
+  return () => void queryClient.invalidateQueries({ queryKey: [path] });
 }
 
 export function useCreateUserMutation() {
