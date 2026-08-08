@@ -34,9 +34,11 @@ export function EnrolmentCodeDialog({
   // exit animation — keep showing the last code rather than a blank box.
   const shownResult = useLastNonNull(result);
   // The code is reserved at its Store until it is redeemed, so a Device
-  // carrying it is proof this enrolment landed.
-  const watch = useEnrolmentWatchQuery(open);
-  const enrolled = (watch.data ?? []).some(
+  // carrying it is proof this enrolment landed. The poll is scoped to the
+  // code, so the enrolled Device is on page 1 of the list no matter how it
+  // sorts in the fleet.
+  const watch = useEnrolmentWatchQuery(open, shownResult?.code);
+  const enrolled = (watch.data?.items ?? []).some(
     (device) => device.storeId === shownResult?.storeId && device.code === shownResult?.code,
   );
 

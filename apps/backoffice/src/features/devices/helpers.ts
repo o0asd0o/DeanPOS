@@ -14,6 +14,27 @@ export type DeviceOutput = {
   assignedUserId: string | null;
 };
 
+export type DeviceListSortKey = "name" | "store" | "assignedTo" | "lastSeen" | "status";
+
+export type DeviceListSort = { key: DeviceListSortKey; direction: "asc" | "desc" };
+
+// Mirrors `deviceListOutputSchema` — the server-side fleet page (record 056
+// Q5): items already filtered/sorted/paged, the headline's fleet totals, and
+// the pagination envelope.
+export type DeviceListOutput = {
+  items: DeviceOutput[];
+  count: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  totalCount: number;
+  activeCount: number;
+};
+
+// The one page size the server and every client call agree on.
+export const DEVICES_PAGE_SIZE = 10;
+
 // Mirrors `deviceGenerateCodeOutputSchema`'s success branch, and
 // `devicePendingCodeSchema` for one still waiting on its terminal.
 export type EnrolmentCode = {

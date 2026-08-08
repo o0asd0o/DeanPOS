@@ -341,7 +341,7 @@ describe("the Users screen — as an admin", () => {
     await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
   });
 
-  it("filters the list by status and by a search term, and says so when nothing matches", async () => {
+  it("keeps a deactivated User visible by default, searches by store name, and says so when nothing matches", async () => {
     const targetId = randomUUID();
     const targetEmail = `filtered-screen-${randomUUID()}@user.test`;
     await ownerDb
@@ -357,6 +357,17 @@ describe("the Users screen — as an admin", () => {
         active: false,
       })
       .execute();
+    await ownerDb
+      .insertInto("UserStore")
+      .values({
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: targetId,
+        store_id: storeId,
+        assigned: true,
+        effective_from: new Date(Date.now() - 60_000),
+      })
+      .execute();
 
     const { db } = renderRoute({
       router,
@@ -367,27 +378,31 @@ describe("the Users screen — as an admin", () => {
     });
     cleanup = async () => {
       await db.destroy();
+      await ownerDb.deleteFrom("UserStore").where("user_id", "=", targetId).execute();
       await ownerDb.deleteFrom("User").where("id", "=", targetId).execute();
     };
 
     await waitFor(() => expect(screen.getByText(targetEmail)).toBeTruthy());
 
-    // Deactivated User drops out under `Active`, comes back under `All`.
-    fireEvent.click(screen.getByRole("button", { name: "Show active" }));
-    expect(screen.queryByText(targetEmail)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
-    expect(screen.getByText(targetEmail)).toBeTruthy();
+    // Lifecycle is a column, not a filter: the deactivated User is here by
+    // default, badged, so nobody disappears unasked (record 044 §4). A
+    // single-store tenant earns no Store control (record 056 Q5's rule).
+    expect(screen.getByText("Deactivated")).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
 
-    // Search narrows to the one email, then to nobody.
+    // Search narrows to the one email, then to the person, then to the store
+    // they work at — a person or a place, not just an address. Each assert
+    // waits for the URL-driven filter to re-render the rows.
     fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: targetEmail } });
-    expect(screen.getAllByText(/@user\.test/).length).toBe(1);
-    // The field asks for a person, so a name finds them too, not just an email.
+    await waitFor(() => expect(screen.getAllByText(/@user\.test/).length).toBe(1));
     fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: "juana" } });
-    expect(screen.getAllByText(/@user\.test/).length).toBe(1);
+    await waitFor(() => expect(screen.getAllByText(/@user\.test/).length).toBe(1));
+    fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: "downtown" } });
+    await waitFor(() => expect(screen.getAllByText(/@user\.test/).length).toBe(1));
     fireEvent.change(screen.getByLabelText("Search employees"), {
       target: { value: "no-such-user" },
     });
-    expect(screen.getByText("No employees match these filters")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("No employees match these filters")).toBeTruthy());
   });
 
   it("the caller's own row has no Deactivate action", async () => {
@@ -438,6 +453,227 @@ describe("the Users screen — as an admin", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/Couldn.t save the employee/);
     // Still in the editor, not silently closed.
     expect(screen.getByRole("button", { name: "Save changes" })).toBeTruthy();
+  });
+});
+
+describe("the Employees toolbar — role, store, and search filters", () => {
+  let cleanup: (() => Promise<void>) | undefined;
+  // The admin principal's row is wiped with the roster and restored here, so
+  // the restored email is only known from this point on.
+  let toolbarAdminEmail = "";
+  // Present from the start of this describe (the single-store case is proven
+  // in the admin describe above); the suite's own afterAll removes every
+  // Store for the tenant regardless.
+  const cubaoStoreId = randomUUID();
+
+  beforeAll(async () => {
+    // The admin describe above leaves its Users behind; wipe them so these
+    // tests own the whole roster, then restore the admin (FK order:
+    // UserStore, then UserRole, then User).
+    await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
+    await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
+    await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
+    toolbarAdminEmail = `users-screen-toolbar-admin-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: adminId,
+        tenant_id: tenantId,
+        email: toolbarAdminEmail,
+        password_hash: await hashPassword("irrelevant"),
+        role: "admin",
+      })
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Store")
+        .values({ id: cubaoStoreId, tenant_id: tenantId, name: "Cubao" })
+        .execute(),
+    );
+  });
+
+  afterEach(async () => {
+    await cleanup?.();
+    cleanup = undefined;
+  });
+
+  it("role pills split the roster by access, and the choice lands in the URL", async () => {
+    // One of each role, none assigned to a Store — the Role pills are the
+    // only way to tell them apart.
+    const cashierId = randomUUID();
+    const managerId = randomUUID();
+    const cashierEmail = `roster-cashier-${randomUUID()}@user.test`;
+    const managerEmail = `roster-manager-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values([
+        {
+          id: cashierId,
+          tenant_id: tenantId,
+          email: cashierEmail,
+          password_hash: await hashPassword("irrelevant"),
+          role: "cashier",
+        },
+        {
+          id: managerId,
+          tenant_id: tenantId,
+          email: managerEmail,
+          password_hash: await hashPassword("irrelevant"),
+          role: "manager",
+        },
+      ])
+      .execute();
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/employees",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("User").where("id", "in", [cashierId, managerId]).execute();
+    };
+
+    await waitFor(() => expect(screen.getByText(cashierEmail)).toBeTruthy());
+    expect(screen.getByText(managerEmail)).toBeTruthy();
+    expect(screen.getByText(toolbarAdminEmail)).toBeTruthy();
+
+    // Cashier only — the manager and the admin drop out, and the choice
+    // lands in the URL so a shared link finds the same roster.
+    fireEvent.click(screen.getByRole("button", { name: "Show cashier" }));
+    await waitFor(() => expect(screen.queryByText(managerEmail)).toBeNull());
+    expect(screen.getByText(cashierEmail)).toBeTruthy();
+    expect(screen.queryByText(toolbarAdminEmail)).toBeNull();
+    expect(window.location.search).toContain("role=cashier");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show manager" }));
+    await waitFor(() => expect(screen.getByText(managerEmail)).toBeTruthy());
+    expect(screen.queryByText(cashierEmail)).toBeNull();
+    expect(screen.queryByText(toolbarAdminEmail)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(screen.getByText(toolbarAdminEmail)).toBeTruthy());
+    expect(screen.getByText(cashierEmail)).toBeTruthy();
+  });
+
+  it("a second store earns the Store control, which filters by it", async () => {
+    const cubaoUserId = randomUUID();
+    const cubaoEmail = `cubao-roster-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: cubaoUserId,
+        tenant_id: tenantId,
+        email: cubaoEmail,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: cubaoUserId,
+          store_id: cubaoStoreId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/employees",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("UserStore").where("user_id", "=", cubaoUserId).execute();
+      await ownerDb.deleteFrom("User").where("id", "=", cubaoUserId).execute();
+    };
+
+    // The stores query settles behind the roster — the control appears only
+    // once it has, so the wait is on the control, not the rows.
+    const storeSelect = await screen.findByRole("combobox", { name: "Store" });
+    await waitFor(() => expect(screen.getByText(cubaoEmail)).toBeTruthy());
+
+    fireEvent.click(storeSelect);
+    await waitFor(() => expect(screen.getByRole("option", { name: "Cubao" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("option", { name: "Cubao" }));
+
+    await waitFor(() => expect(screen.queryByText(toolbarAdminEmail)).toBeNull());
+    expect(screen.getByText(cubaoEmail)).toBeTruthy();
+    expect(window.location.search).toContain(`store=${cubaoStoreId}`);
+
+    // Back to every store restores the roster.
+    fireEvent.click(screen.getByRole("combobox", { name: "Store" }));
+    await waitFor(() => expect(screen.getByRole("option", { name: "All stores" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("option", { name: "All stores" }));
+    await waitFor(() => expect(screen.getByText(toolbarAdminEmail)).toBeTruthy());
+  });
+
+  it("search matches the store an employee works at, and a filtered URL lands on the same fleet on a fresh render", async () => {
+    const downtownUserId = randomUUID();
+    const downtownEmail = `downtown-roster-${randomUUID()}@user.test`;
+    await ownerDb
+      .insertInto("User")
+      .values({
+        id: downtownUserId,
+        tenant_id: tenantId,
+        email: downtownEmail,
+        password_hash: await hashPassword("irrelevant"),
+        role: "cashier",
+      })
+      .execute();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("UserStore")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          user_id: downtownUserId,
+          store_id: storeId,
+          assigned: true,
+          effective_from: new Date(Date.now() - 60_000),
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/employees?role=cashier&q=downtown",
+    });
+    cleanup = async () => {
+      await db.destroy();
+      await ownerDb.deleteFrom("UserStore").where("user_id", "=", downtownUserId).execute();
+      await ownerDb.deleteFrom("User").where("id", "=", downtownUserId).execute();
+    };
+
+    // A fresh render at a filtered URL lands on the same fleet: only the one
+    // Downtown cashier matches `role=cashier` + `q=downtown`, and the search
+    // field reads the URL it came from.
+    await waitFor(() => expect(screen.getByText(downtownEmail)).toBeTruthy());
+    expect(screen.queryByText(toolbarAdminEmail)).toBeNull();
+    expect((screen.getByLabelText("Search employees") as HTMLInputElement).value).toBe("downtown");
+
+    // Widen to every role — the store-name search alone still finds her.
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(screen.queryByText(toolbarAdminEmail)).toBeNull());
+    expect(screen.getByText(downtownEmail)).toBeTruthy();
+
+    // Clearing the search restores the whole roster, and the URL follows.
+    fireEvent.change(screen.getByLabelText("Search employees"), { target: { value: "" } });
+    await waitFor(() => expect(screen.getByText(toolbarAdminEmail)).toBeTruthy());
+    expect(window.location.search).toContain("role=all");
   });
 });
 

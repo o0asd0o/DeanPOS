@@ -399,6 +399,36 @@ export const deviceOutputSchema = z.object({
   assignedUserId: z.string().nullable(),
 });
 
+// The fleet page (record 056 Q5, server-side pagination): filters and sort
+// ride the request so a page is a page of the filtered set. `health` mirrors
+// the table's dot thresholds — online under 5 min, stale under an hour,
+// offline after that or revoked.
+export const deviceListInputSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(100).default(10),
+  health: z.enum(["all", "online", "stale", "offline"]).default("all"),
+  storeId: z.string().optional(),
+  search: z.string().max(100).optional(),
+  sort: z
+    .object({
+      key: z.enum(["name", "store", "assignedTo", "lastSeen", "status"]),
+      direction: z.enum(["asc", "desc"]),
+    })
+    .default({ key: "name", direction: "asc" }),
+});
+
+export const deviceListOutputSchema = z.object({
+  items: z.array(deviceOutputSchema),
+  count: z.number(),
+  page: z.number(),
+  perPage: z.number(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+  // The page headline's fleet totals, independent of the current filter.
+  totalCount: z.number(),
+  activeCount: z.number(),
+});
+
 // The Device short code, admin-typed (record 056 Q4): 2-4 symbols from a
 // 33-symbol set that excludes I/L/O.
 const deviceCodeSchema = z
@@ -773,7 +803,7 @@ export const contract = {
   // accepts a Device token, the same not-found/false shape other admin-only
   // procedures use.
   device: {
-    list: oc.input(z.void()).output(z.array(deviceOutputSchema)),
+    list: oc.input(deviceListInputSchema).output(deviceListOutputSchema),
     pendingCodes: oc.input(z.void()).output(z.array(devicePendingCodeSchema)),
     cancelCode: oc.input(deviceIdInputSchema).output(z.object({ ok: z.boolean() })),
     generateCode: oc.input(deviceGenerateCodeInputSchema).output(deviceGenerateCodeOutputSchema),

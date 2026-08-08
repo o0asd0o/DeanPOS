@@ -1,6 +1,8 @@
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { Button, Sheet, SheetContent } from "ui";
 
+import type { RoleFilter } from "@/components/ListToolbar.tsx";
 import { DeactivateDialog } from "./DeactivateDialog.tsx";
 import {
   useMeQuery,
@@ -34,6 +36,32 @@ export function Users() {
   };
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
   const callerId = meQuery.data?.authenticated === true ? meQuery.data.userId : undefined;
+
+  // Roster summary once the list is in hand; the instructional line stays
+  // while loading (or after an error, when the list never arrived).
+  const usersLoaded = !usersQuery.isPending && !usersQuery.isError;
+  const roster = usersQuery.data ?? [];
+  const subtitle =
+    usersLoaded && roster.length > 0
+      ? `${roster.length} employee${roster.length === 1 ? "" : "s"} · ${
+          roster.filter((user) => user.active).length
+        } active`
+      : "Who can sign in, what they may do, and where they work.";
+
+  // The toolbar's filters are URL state (the route's validateSearch), so a
+  // filtered view survives a trip to a row's editor; `replace` keeps
+  // back/forward clear of every keystroke.
+  const { role, store, q } = useSearch({ from: "/_shell/employees" });
+  // `to` is the path — a search-only navigate from a `from` route id resolves
+  // against the id as if it were a path and lands on NotFound. The full
+  // object (not a spread of `prev`) is what the route's search type wants.
+  const navigate = useNavigate();
+  const setRole = (role: RoleFilter) =>
+    navigate({ to: "/employees", search: { role, store, q }, replace: true });
+  const setStore = (store: string) =>
+    navigate({ to: "/employees", search: { role, store, q }, replace: true });
+  const setQuery = (q: string) =>
+    navigate({ to: "/employees", search: { role, store, q }, replace: true });
 
   // Two alternating regions, not one string (record 039 finding 4):
   // identical consecutive messages would otherwise produce no DOM mutation
@@ -104,9 +132,7 @@ export function Users() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Employees</h1>
-          <p className="text-sm text-muted-foreground">
-            Who can sign in, what they may do, and where they work.
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         {isAdmin && (
           <Button onClick={openCreate} className="tap-target">
@@ -126,6 +152,12 @@ export function Users() {
         editingId={editor.mode === "edit" ? editor.user.id : null}
         reactivatingId={reactivatingId}
         reactivateFailed={reactivateFailed}
+        role={role}
+        onRoleChange={setRole}
+        store={store}
+        onStoreChange={setStore}
+        query={q}
+        onQueryChange={setQuery}
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}

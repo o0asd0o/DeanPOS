@@ -13,10 +13,23 @@ set +a
 
 cd "$(dirname "$0")/.."
 
-(cd apps/api && bun run dev) &
-(cd apps/landing && bun run dev) &
-(cd apps/pos && bun run dev) &
-(cd apps/backoffice && bun run dev) &
+pids=()
 
-trap 'kill 0' INT TERM
+cleanup() {
+  trap - INT TERM EXIT
+  local pid
+  for pid in "${pids[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  # Process-group sweep for grandchildren (bun --hot, next, vp).
+  kill 0 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup INT TERM EXIT
+
+(cd apps/api && bun run dev) & pids+=($!)
+(cd apps/landing && bun run dev) & pids+=($!)
+(cd apps/pos && bun run dev) & pids+=($!)
+(cd apps/backoffice && bun run dev) & pids+=($!)
+
 wait

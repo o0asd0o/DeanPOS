@@ -1,9 +1,31 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 
-export function useDevicesQuery() {
+import type { HealthFilter } from "@/components/ListToolbar.tsx";
+import type { DeviceListSort } from "@/features/devices/helpers.ts";
+import { DEVICES_PAGE_SIZE } from "@/features/devices/helpers.ts";
+
+// The list's server-side input (mirrors deviceListInputSchema): filters,
+// sort, and page ride the request, so the URL is the source of truth and a
+// refetch is a new page, not a client-side re-filter.
+export type DevicesQueryInput = {
+  page: number;
+  perPage: number;
+  health: HealthFilter;
+  storeId?: string;
+  search?: string;
+  sort: DeviceListSort;
+};
+
+export function useDevicesQuery(input: DevicesQueryInput) {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  return useQuery(orpc.device.list.queryOptions());
+  return useQuery({
+    ...orpc.device.list.queryOptions({ input }),
+    refetchInterval: 60_000,
+    // Keep the previous page on screen while the next filter round-trips —
+    // per-keystroke search must not flash a blank table.
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useStoresQuery() {
@@ -23,12 +45,19 @@ export function useUsersQuery(enabled: boolean) {
   return useQuery({ ...orpc.user.list.queryOptions(), enabled });
 }
 
-// Same key as the list, so one poll both closes the enrolment dialog and
-// refreshes the table underneath it.
-export function useEnrolmentWatchQuery(enabled: boolean) {
+// The enrolment dialog's watch. It scopes the poll to the pending code, so a
+// page-1 query finds the enrolled Device no matter how deep in the fleet it
+// sorts — the code is reserved until redeemed (record 056 Q5).
+export function useEnrolmentWatchQuery(enabled: boolean, code: string | undefined) {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
   return useQuery({
-    ...orpc.device.list.queryOptions(),
+    ...orpc.device.list.queryOptions({
+      input: {
+        page: 1,
+        perPage: DEVICES_PAGE_SIZE,
+        ...(code ? { search: code } : {}),
+      },
+    }),
     enabled,
     refetchInterval: 3000,
   });
@@ -50,11 +79,14 @@ export function useInvalidatePendingCodes() {
     });
 }
 
-function useInvalidateDevices() {
+export function useInvalidateDevices() {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
   const queryClient = useQueryClient();
-  return () =>
-    queryClient.invalidateQueries({ queryKey: orpc.device.list.queryKey() });
+  // `device.list` keys are [path, { input, type }] — a mutation must refresh
+  // whichever page/filter is on screen, so match every list query by its
+  // shared path segment rather than one concrete input.
+  const path = orpc.device.list.queryKey({ input: {} })[0];
+  return () => void queryClient.invalidateQueries({ queryKey: [path] });
 }
 
 export function useGenerateCodeMutation() {

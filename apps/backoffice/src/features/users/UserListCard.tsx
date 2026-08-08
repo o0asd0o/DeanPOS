@@ -1,11 +1,17 @@
-import { useState } from "react";
+import { useId } from "react";
 import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  cn,
   EmptyState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -15,7 +21,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
-import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import type { RoleFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { useTableView } from "@/lib/table.ts";
@@ -43,8 +49,12 @@ function storeNamesFor(storeIds: string[], stores: { id: string; name: string }[
 }
 
 // The list (record 044 §§1–4). A deactivated User stays inline, badged,
-// never hidden or dimmed — the status filter is the User's own choice, and
-// `Status: All` is the default so nobody disappears unasked.
+// never hidden or dimmed — the Status column is the User's own choice, and
+// every User is visible by default so nobody disappears unasked. The toolbar
+// filters on what the roster's reader hunts for — Role (what access they
+// hold) and Store (where they work) — not the lifecycle boolean, which is
+// already a column badge and a sort. Both ride the route's URL search params,
+// so the card owns none of the state.
 export function UserListCard({
   users,
   stores,
@@ -57,6 +67,12 @@ export function UserListCard({
   editingId,
   reactivatingId,
   reactivateFailed,
+  role,
+  onRoleChange,
+  store,
+  onStoreChange,
+  query,
+  onQueryChange,
   onEdit,
   onDeactivate,
   onReactivate,
@@ -72,22 +88,30 @@ export function UserListCard({
   editingId: string | null;
   reactivatingId: string | null;
   reactivateFailed: boolean;
+  role: RoleFilter;
+  onRoleChange: (role: RoleFilter) => void;
+  store: string;
+  onStoreChange: (store: string) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
   onEdit: (user: UserOutput) => void;
   onDeactivate: (user: UserOutput) => void;
   onReactivate: (user: UserOutput) => void;
 }) {
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [query, setQuery] = useState("");
+  const storeLabelId = useId();
+  const storeNameById = new Map(stores.map((store) => [store.id, store.name]));
 
   const term = query.trim().toLowerCase();
   const visible = (users ?? []).filter(
     (user) =>
-      (status === "all" || (status === "active") === user.active) &&
-      // Name as well as email: the field asks for a person, and the list now
-      // carries one.
+      (role === "all" || user.role === role) &&
+      (store === "all" || user.storeIds.includes(store)) &&
+      // Name, email, and the stores they work at: the field asks for a
+      // person or a place, and the list carries both.
       (term === "" ||
         user.email.toLowerCase().includes(term) ||
-        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term)),
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term) ||
+        storeNamesFor(user.storeIds, stores).toLowerCase().includes(term)),
   );
 
   const table = useTableView(visible, SORT_VALUES, "name");
@@ -96,13 +120,37 @@ export function UserListCard({
     <Card className="gap-4">
       <CardContent className="flex flex-col gap-4">
         <ListToolbar
-          status={status}
-          onStatusChange={setStatus}
+          status={role}
+          onStatusChange={onRoleChange}
+          variant="role"
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={onQueryChange}
           searchLabel="Search employees"
           searchExample="Juana dela Cruz"
-        />
+        >
+          {/* The Store dimension earns its control only past one store — a
+              single-store tenant filters nothing (record 056 Q5's rule). */}
+          {storeNameById.size > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <span id={storeLabelId} className="text-xs font-medium text-muted-foreground">
+                Store
+              </span>
+              <Select value={store} onValueChange={onStoreChange}>
+                <SelectTrigger aria-labelledby={storeLabelId} className="rounded-full">
+                  <SelectValue placeholder="All stores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All stores</SelectItem>
+                  {[...storeNameById.entries()].map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </ListToolbar>
         {reactivateFailed && (
           <div
             role="alert"
@@ -157,7 +205,25 @@ export function UserListCard({
                   >
                     <TableCell>{`${user.firstName} ${user.lastName}`.trim() || "—"}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{ROLE_LABEL[user.role]}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* The access dot (ADR-0013): colour is spent only on
+                            elevated access, so a roster of cashiers stays
+                            quiet and the admins scan in one pass down the
+                            column. Blue is free — green is already the Active
+                            lifecycle badge in the same row. */}
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "size-1.5 shrink-0 rounded-full",
+                            user.role === "admin" && "bg-status-info-tone",
+                            user.role === "manager" && "bg-status-warning-tone",
+                            user.role === "cashier" && "bg-muted-foreground/40",
+                          )}
+                        />
+                        {ROLE_LABEL[user.role]}
+                      </div>
+                    </TableCell>
                     <TableCell>{storeNamesFor(user.storeIds, stores)}</TableCell>
                     <TableCell>
                       {user.active ? (
@@ -220,7 +286,7 @@ export function UserListCard({
               <EmptyState
                 icon={<SearchXIcon aria-hidden="true" />}
                 title="No employees match these filters"
-                description="Try another status, or clear the search."
+                description="Try another role or store, or clear the search."
               />
             )}
             <TablePagination

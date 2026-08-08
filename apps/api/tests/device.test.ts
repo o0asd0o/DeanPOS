@@ -390,8 +390,8 @@ describe("terminal.enrol", () => {
     // is confined to a device it actually owns, not merely absent here.
     const listAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
-      .client.device.list();
-    const ownAsB = listAsB.find((device) => device.id === exchanged.deviceId);
+      .client.device.list({ perPage: 100 });
+    const ownAsB = listAsB.items.find((device) => device.id === exchanged.deviceId);
     expect(ownAsB).toBeTruthy();
 
     const generatedAsA = await seam.actors
@@ -403,9 +403,9 @@ describe("terminal.enrol", () => {
 
     const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.device.list();
-    expect(listAsA.map((device) => device.id)).not.toContain(exchanged.deviceId);
-    const ownAsA = listAsA.find((device) => device.id === exchangedAsA.deviceId);
+      .client.device.list({ perPage: 100 });
+    expect(listAsA.items.map((device) => device.id)).not.toContain(exchanged.deviceId);
+    const ownAsA = listAsA.items.find((device) => device.id === exchangedAsA.deviceId);
     expect(ownAsA).toBeTruthy();
 
     await expectWrongTenantRefusal({
@@ -872,33 +872,144 @@ describe("the Device token principal", () => {
 });
 
 describe("device.list", () => {
-  it("an admin sees every Device in their own Tenant, with last-seen", async () => {
+  it("an admin sees the first page of every Device in their own Tenant, with last-seen", async () => {
     const { exchanged } = await generateAndExchange(storeA1, "P1");
     if (!exchanged.ok) throw new Error("setup failed");
 
     const list = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.device.list();
-    const row = list.find((d) => d.id === exchanged.deviceId);
+      .client.device.list({ perPage: 100 });
+    expect(list.count).toBeGreaterThanOrEqual(1);
+    const row = list.items.find((d) => d.id === exchanged.deviceId);
     expect(row?.name).toBe("Counter 1");
     expect(row?.lastSeenAt).toBeInstanceOf(Date);
     expect(row?.revokedAt).toBeNull();
+    // The envelope's defaults: first page of ten, nothing before it.
+    expect(list.page).toBe(1);
+    expect(list.perPage).toBe(100);
+    expect(list.hasPrevPage).toBe(false);
+  });
+
+  it("paginates the fleet: page 2 holds the remainder, with next/prev flags and a clamped out-of-range page", async () => {
+    // Earlier describes leave Devices behind; wipe so this test owns the
+    // exact set (FK order: audit, codes, then devices).
+    await ownerDb.deleteFrom("DeviceAudit").where("tenant_id", "=", tenantA).execute();
+    await ownerDb.deleteFrom("EnrolmentCode").where("tenant_id", "=", tenantA).execute();
+    await ownerDb.deleteFrom("Device").where("tenant_id", "=", tenantA).execute();
+    // Seed twelve directly (the exchange path is for the enrolment tests; a
+    // page needs volume, not ceremony).
+    await withTenantScope(ownerDb, tenantA, (db) =>
+      db
+        .insertInto("Device")
+        .values(
+          Array.from({ length: 12 }, (_, i) => ({
+            id: randomUUID(),
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: `Page Device ${i + 1}`,
+            code: `PD${i + 1}`,
+            token_hash: `page-${randomUUID()}`,
+          })),
+        )
+        .execute(),
+    );
+
+    const page1 = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list({ perPage: 10 });
+    expect(page1.items).toHaveLength(10);
+    expect(page1.count).toBe(12);
+    expect(page1.hasNextPage).toBe(true);
+    expect(page1.hasPrevPage).toBe(false);
+    const page1Ids = new Set(page1.items.map((d) => d.id));
+
+    const page2 = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list({ page: 2, perPage: 10 });
+    expect(page2.page).toBe(2);
+    expect(page2.items).toHaveLength(2);
+    expect(page2.hasNextPage).toBe(false);
+    expect(page2.hasPrevPage).toBe(true);
+    expect(page2.items.some((d) => page1Ids.has(d.id))).toBe(false);
+
+    // An out-of-range page is clamped to the last real one, and reports it.
+    const clamped = await seam.actors
+      .asTenant(tenantA, { userId: adminA, role: "admin" })
+      .client.device.list({ page: 99, perPage: 10 });
+    expect(clamped.page).toBe(2);
+    expect(clamped.items).toEqual(page2.items);
+  });
+
+  it("filters the fleet by health, mirroring the dot thresholds", async () => {
+    await withTenantScope(ownerDb, tenantA, (db) =>
+      db
+        .insertInto("Device")
+        .values([
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: "Healthy Till",
+            code: "HT1",
+            token_hash: `health-${randomUUID()}`,
+            last_seen_at: new Date(Date.now() - 60_000),
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: "Stale Till",
+            code: "ST1",
+            token_hash: `health-${randomUUID()}`,
+            last_seen_at: new Date(Date.now() - 30 * 60_000),
+          },
+          {
+            id: randomUUID(),
+            tenant_id: tenantA,
+            store_id: storeA1,
+            name: "Dead Till",
+            code: "DT1",
+            token_hash: `health-${randomUUID()}`,
+            last_seen_at: new Date(Date.now() - 2 * 24 * 60 * 60_000),
+          },
+        ])
+        .execute(),
+    );
+
+    const byHealth = async (health: string) => {
+      const page = await seam.actors
+        .asTenant(tenantA, { userId: adminA, role: "admin" })
+        .client.device.list({
+          health: health as "all" | "online" | "stale" | "offline",
+          search: "Till",
+        });
+      return page.items.map((d) => d.name);
+    };
+
+    expect(await byHealth("online")).toContain("Healthy Till");
+    expect(await byHealth("online")).not.toContain("Stale Till");
+    expect(await byHealth("stale")).toEqual(["Stale Till"]);
+    expect(await byHealth("offline")).toEqual(["Dead Till"]);
   });
 
   it("a manager and a cashier are refused, server-side, and see nothing", async () => {
     const asManager = await seam.actors
       .asTenant(tenantA, { userId: managerA, role: "manager" })
-      .client.device.list();
+      .client.device.list({});
     const asCashier = await seam.actors
       .asTenant(tenantA, { userId: cashierA, role: "cashier" })
-      .client.device.list();
-    expect(asManager).toStrictEqual([]);
-    expect(asCashier).toStrictEqual([]);
+      .client.device.list({});
+    expect(asManager.items).toStrictEqual([]);
+    expect(asManager.count).toBe(0);
+    expect(asManager.totalCount).toBe(0);
+    expect(asCashier.items).toStrictEqual([]);
+    expect(asCashier.count).toBe(0);
   });
 
   it("an unauthenticated caller sees nothing", async () => {
-    const list = await seam.actors.asUnauthenticated().client.device.list();
-    expect(list).toStrictEqual([]);
+    const list = await seam.actors.asUnauthenticated().client.device.list({});
+    expect(list.items).toStrictEqual([]);
+    expect(list.count).toBe(0);
   });
 
   it("wrong-tenant probe [device.list]: Tenant B's Device is readable as Tenant B, never in Tenant A's list", async () => {
@@ -911,9 +1022,9 @@ describe("device.list", () => {
 
     const listAsB = await seam.actors
       .asTenant(tenantB, { userId: adminB, role: "admin" })
-      .client.device.list();
-    expect(listAsB.map((d) => d.id)).toContain(exchangedAsB.deviceId);
-    const ownAsB = listAsB.find((d) => d.id === exchangedAsB.deviceId);
+      .client.device.list({ perPage: 100 });
+    expect(listAsB.items.map((d) => d.id)).toContain(exchangedAsB.deviceId);
+    const ownAsB = listAsB.items.find((d) => d.id === exchangedAsB.deviceId);
 
     const generatedAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
@@ -924,9 +1035,9 @@ describe("device.list", () => {
 
     const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.device.list();
-    expect(listAsA.map((d) => d.id)).not.toContain(exchangedAsB.deviceId);
-    const ownAsA = listAsA.find((d) => d.id === exchangedAsA.deviceId);
+      .client.device.list({ perPage: 100 });
+    expect(listAsA.items.map((d) => d.id)).not.toContain(exchangedAsB.deviceId);
+    const ownAsA = listAsA.items.find((d) => d.id === exchangedAsA.deviceId);
     expect(ownAsA).toBeTruthy();
 
     await expectWrongTenantRefusal({
@@ -1484,13 +1595,11 @@ describe("device.update", () => {
       mode: "refusal",
       ownerSees,
       otherGets: () =>
-        seam.actors
-          .asTenant(tenantA, { userId: adminA, role: "admin" })
-          .client.device.update({
-            id: exchangedAsB.deviceId,
-            name: "Hijacked From A",
-            assignedUserId: null,
-          }),
+        seam.actors.asTenant(tenantA, { userId: adminA, role: "admin" }).client.device.update({
+          id: exchangedAsB.deviceId,
+          name: "Hijacked From A",
+          assignedUserId: null,
+        }),
     });
 
     const stillNamed = await withTenantScope(seam.db, tenantB, (db) =>

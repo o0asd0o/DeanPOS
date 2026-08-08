@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId } from "react";
 import {
   EllipsisVerticalIcon,
   MonitorSmartphoneIcon,
@@ -17,6 +17,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   EmptyState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -27,23 +32,21 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
-import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import type { HealthFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import { useTableView } from "@/lib/table.ts";
-import type { DeviceOutput } from "./helpers.ts";
+import type { DeviceListOutput, DeviceListSortKey, DeviceOutput } from "./helpers.ts";
 import { deviceHealthColor, relativeLastSeen } from "./helpers.ts";
 
-type SortKey = "name" | "store" | "assignedTo" | "lastSeen" | "status";
-
 // The list (record 056 Q5): Device (name + short code), Store, Assigned to,
-// Last seen, Status, Actions — six columns. Assignment is a plain read here
-// (open to all or one employee); both it and the name are edited in the `⋯`
-// menu's Edit sheet in one call. Revoke is only on a live row — a revoked
-// Device still names past sales, so Edit stays (Revoke is absent, not
-// disabled).
+// Last seen, Status, Actions — six columns. The rows arrive as one server
+// page, already filtered, sorted, and paginated by `device.list`; the card
+// only renders. Assignment is a plain read here (open to all or one
+// employee); both it and the name are edited in the `⋯` menu's Edit sheet in
+// one call. Revoke is only on a live row — a revoked Device still names past
+// sales, so Edit stays (Revoke is absent, not disabled).
 export function DeviceListCard({
-  devices,
+  data,
   storeNameById,
   userNameById,
   isPending,
@@ -51,10 +54,19 @@ export function DeviceListCard({
   isFetching,
   refetch,
   isAdmin,
+  health,
+  onHealthChange,
+  store,
+  onStoreChange,
+  query,
+  onQueryChange,
+  sort,
+  onSortChange,
+  onPageChange,
   onEdit,
   onRevoke,
 }: {
-  devices: DeviceOutput[] | undefined;
+  data: DeviceListOutput | undefined;
   storeNameById: Map<string, string>;
   userNameById: Map<string, string>;
   isPending: boolean;
@@ -62,100 +74,106 @@ export function DeviceListCard({
   isFetching: boolean;
   refetch: () => void;
   isAdmin: boolean;
+  health: HealthFilter;
+  onHealthChange: (health: HealthFilter) => void;
+  store: string;
+  onStoreChange: (store: string) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
+  sort: { key: DeviceListSortKey; direction: "asc" | "desc" };
+  onSortChange: (key: DeviceListSortKey) => void;
+  onPageChange: (page: number) => void;
   onEdit: (device: DeviceOutput) => void;
   onRevoke: (device: DeviceOutput) => void;
 }) {
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [query, setQuery] = useState("");
+  const storeLabelId = useId();
   const now = new Date();
 
-  const storeName = (device: DeviceOutput) =>
-    storeNameById.get(device.storeId) ?? "";
+  const storeName = (device: DeviceOutput) => storeNameById.get(device.storeId) ?? "";
   const userName = (device: DeviceOutput) =>
-    device.assignedUserId
-      ? (userNameById.get(device.assignedUserId) ?? "")
-      : "";
+    device.assignedUserId ? (userNameById.get(device.assignedUserId) ?? "") : "";
 
-  const SORT_VALUES: Record<
-    SortKey,
-    (device: DeviceOutput) => string | number
-  > = {
-    name: (device) => device.name.toLowerCase(),
-    store: (device) => storeName(device).toLowerCase(),
-    assignedTo: (device) => userName(device).toLowerCase(),
-    lastSeen: (device) => device.lastSeenAt.getTime(),
-    status: (device) => (device.revokedAt ? 1 : 0),
-  };
-
-  const term = query.trim().toLowerCase();
-  const visible = (devices ?? []).filter(
-    (device) =>
-      (status === "all" || (status === "active") === !device.revokedAt) &&
-      (term === "" ||
-        device.name.toLowerCase().includes(term) ||
-        device.code.toLowerCase().includes(term)),
-  );
-
-  const table = useTableView(visible, SORT_VALUES, "name");
+  const devices = data?.items ?? [];
+  const pageCount = Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)));
+  const sorted = (key: DeviceListSortKey) => (sort.key === key ? sort.direction : undefined);
 
   return (
     <Card className="gap-4">
       <CardContent className="flex flex-col gap-4">
         <ListToolbar
-          status={status}
-          onStatusChange={setStatus}
+          status={health}
+          onStatusChange={onHealthChange}
+          variant="health"
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={onQueryChange}
           searchLabel="Search devices"
           searchExample="Counter 2"
-          deactivatedLabel="Revoked"
-        />
+        >
+          {/* The Store dimension earns its control only past one store — a
+              single-store tenant filters nothing (record 056 Q5). */}
+          {storeNameById.size > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <span id={storeLabelId} className="text-xs font-medium text-muted-foreground">
+                Store
+              </span>
+              <Select value={store} onValueChange={onStoreChange}>
+                <SelectTrigger aria-labelledby={storeLabelId} className="rounded-full">
+                  <SelectValue placeholder="All stores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All stores</SelectItem>
+                  {[...storeNameById.entries()].map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </ListToolbar>
         {isPending ? (
           <p role="status">Loading…</p>
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
-        ) : !devices || devices.length === 0 ? (
-          <EmptyState
-            icon={<MonitorSmartphoneIcon aria-hidden="true" />}
-            title="No devices yet"
-            description={
-              isAdmin &&
-              "Enrol a terminal to start taking sales at the till. Use Enrol a device above."
-            }
-          />
+        ) : devices.length === 0 ? (
+          data?.totalCount === 0 ? (
+            <EmptyState
+              icon={<MonitorSmartphoneIcon aria-hidden="true" />}
+              title="No devices yet"
+              description={
+                isAdmin &&
+                "Enrol a terminal to start taking sales at the till. Use Enrol a device above."
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<SearchXIcon aria-hidden="true" />}
+              title="No devices match these filters"
+              description="Try another filter, or clear the search."
+            />
+          )
         ) : (
           <div className="overflow-x-auto py-1">
             <Table aria-label="Devices">
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    sorted={table.sortedBy("name")}
-                    onSort={() => table.sortBy("name")}
-                  >
+                  <TableHead sorted={sorted("name")} onSort={() => onSortChange("name")}>
                     Device
                   </TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("store")}
-                    onSort={() => table.sortBy("store")}
-                  >
+                  <TableHead sorted={sorted("store")} onSort={() => onSortChange("store")}>
                     Store
                   </TableHead>
                   <TableHead
-                    sorted={table.sortedBy("assignedTo")}
-                    onSort={() => table.sortBy("assignedTo")}
+                    sorted={sorted("assignedTo")}
+                    onSort={() => onSortChange("assignedTo")}
                   >
                     Assigned to
                   </TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("lastSeen")}
-                    onSort={() => table.sortBy("lastSeen")}
-                  >
+                  <TableHead sorted={sorted("lastSeen")} onSort={() => onSortChange("lastSeen")}>
                     Last seen
                   </TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("status")}
-                    onSort={() => table.sortBy("status")}
-                  >
+                  <TableHead sorted={sorted("status")} onSort={() => onSortChange("status")}>
                     Status
                   </TableHead>
                   {isAdmin && (
@@ -166,7 +184,7 @@ export function DeviceListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {table.rows.map((device) => {
+                {devices.map((device) => {
                   const health = deviceHealthColor(
                     device.lastSeenAt,
                     now,
@@ -183,11 +201,7 @@ export function DeviceListCard({
                         </div>
                       </TableCell>
                       <TableCell>{storeName(device)}</TableCell>
-                      <TableCell
-                        className={cn(
-                          !userName(device) && "text-muted-foreground",
-                        )}
-                      >
+                      <TableCell className={cn(!userName(device) && "text-muted-foreground")}>
                         {userName(device) || "Open to all"}
                       </TableCell>
                       <TableCell>
@@ -234,9 +248,7 @@ export function DeviceListCard({
                               // the sheet (its Name field holds it by then), so
                               // the menu hands off without taking it back
                               // (record 008).
-                              onCloseAutoFocus={(event) =>
-                                event.preventDefault()
-                              }
+                              onCloseAutoFocus={(event) => event.preventDefault()}
                             >
                               <DropdownMenuItem onSelect={() => onEdit(device)}>
                                 <PencilIcon />
@@ -263,17 +275,12 @@ export function DeviceListCard({
                 })}
               </TableBody>
             </Table>
-            {visible.length === 0 && (
-              <EmptyState
-                icon={<SearchXIcon aria-hidden="true" />}
-                title="No devices match these filters"
-                description="Try another status, or clear the search."
-              />
-            )}
             <TablePagination
-              page={table.page}
-              pageCount={table.pageCount}
-              onPageChange={table.setPage}
+              // The server clamps an out-of-range page; show the page it
+              // actually served, not the stale URL value.
+              page={data?.page ?? 1}
+              pageCount={pageCount}
+              onPageChange={onPageChange}
               label="Devices pages"
             />
           </div>

@@ -17,8 +17,8 @@ import { contract } from "contract/src/index.ts";
 // Only transport-aware code for `device.*`/`terminal.*` (ADR-0008 rule 5).
 const os = implement(contract).$context<Ctx>();
 
-export const deviceListRoute = os.device.list.handler(({ context }) =>
-  listDevicesHandler({ ctx: context, input: undefined }),
+export const deviceListRoute = os.device.list.handler(({ context, input }) =>
+  listDevicesHandler({ ctx: context, input }),
 );
 export const devicePendingCodesRoute = os.device.pendingCodes.handler(({ context }) =>
   listPendingCodesHandler({ ctx: context, input: undefined }),
