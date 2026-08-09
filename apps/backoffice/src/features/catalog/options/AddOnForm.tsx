@@ -111,6 +111,7 @@ export function AddOnForm({
               id="add-on-name"
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
+              placeholder="e.g. Extra rice"
             />
           </div>
         )}
