@@ -6,7 +6,15 @@ export type StatusFilter = "all" | "active" | "deactivated";
 export type HealthFilter = "all" | "online" | "stale" | "offline";
 export type RoleFilter = "all" | "cashier" | "manager" | "admin";
 export type ReachFilter = "all" | "live" | "nostores" | "deactivated";
-export type ListFilter = StatusFilter | HealthFilter | RoleFilter | ReachFilter;
+export type SellabilityFilter = "all" | "live" | "draft" | "archived";
+export type UsageFilter = "all" | "inuse" | "unused" | "archived";
+export type ListFilter =
+  | StatusFilter
+  | HealthFilter
+  | RoleFilter
+  | ReachFilter
+  | SellabilityFilter
+  | UsageFilter;
 
 // The pills read bare — the label above the group carries what the
 // `Status:`/`Health:` prefix used to say on each one. The deactivated pill is
@@ -49,11 +57,27 @@ const REACH_FILTERS: { value: ReachFilter; label: string }[] = [
   { value: "deactivated", label: "Deactivated" },
 ];
 
+const SELLABILITY_FILTERS: { value: SellabilityFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "live", label: "Live" },
+  { value: "draft", label: "Draft" },
+  { value: "archived", label: "Archived" },
+];
+
+const USAGE_FILTERS: { value: UsageFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "inuse", label: "In use" },
+  { value: "unused", label: "Unused" },
+  { value: "archived", label: "Archived" },
+];
+
 const VARIANTS = {
   status: { label: "Status", options: STATUS_FILTERS },
   health: { label: "Health", options: HEALTH_FILTERS },
   role: { label: "Role", options: ROLE_FILTERS },
   reach: { label: "Availability", options: REACH_FILTERS },
+  sellability: { label: "Status", options: SELLABILITY_FILTERS },
+  usage: { label: "Usage", options: USAGE_FILTERS },
 } satisfies Record<string, { label: string; options: { value: ListFilter; label: string }[] }>;
 
 // The list card's own toolbar (record 044 §§1–2): pills left, search right,

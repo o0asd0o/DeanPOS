@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // What every list card needs to sort and page its own rows, without either
 // card owning the rules. The lists are small and arrive whole, so this is all
@@ -33,9 +33,14 @@ export function useTableView<T, K extends string>(
   // `NoInfer` so the column set comes from `sortValues`, not from whichever
   // single key was named here.
   initialKey: NoInfer<K>,
+  pageResetKey?: string,
 ) {
   const [sort, setSort] = useState<SortState<K>>({ key: initialKey, direction: "asc" });
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageResetKey]);
 
   const sorted = sortRows(rows, sortValues[sort.key], sort.direction);
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
@@ -59,18 +64,11 @@ export function useTableView<T, K extends string>(
   };
 }
 
-// The page numbers to draw: always the first and last, a run of five around
-// the current page, and a gap marker wherever the run breaks.
+// The page numbers to draw: always show the first and last, plus the current
+// page when it is between them, with one gap marker for skipped pages.
 export function pageWindow(current: number, total: number): (number | "gap")[] {
-  // Anchored so the run stays five wide at either end (1-5, or last-4..last).
-  const start = Math.min(Math.max(current - 2, 1), Math.max(total - 4, 1));
-  const run = [0, 1, 2, 3, 4].map((offset) => start + offset);
-
-  const shown = [...new Set([1, ...run, total])]
-    .filter((page) => page >= 1 && page <= total)
-    .sort((a, b) => a - b);
-
-  return shown.flatMap((page, index) =>
-    index > 0 && page - shown[index - 1]! > 1 ? ["gap" as const, page] : [page],
-  );
+  if (total <= 4) return Array.from({ length: total }, (_, index) => index + 1);
+  if (current <= 2) return [1, 2, "gap", total];
+  if (current >= total - 1) return [1, "gap", total - 1, total];
+  return [1, "gap", current, total];
 }

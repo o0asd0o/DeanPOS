@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ArchiveIcon, RotateCcwIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
   Badge,
   Button,
@@ -30,7 +31,7 @@ import {
 
 import { ErrorState } from "@/components/ErrorState.tsx";
 import { TableSkeleton } from "@/components/TableSkeleton.tsx";
-import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import type { UsageFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { reorderSteps } from "@/features/catalog/helpers.ts";
@@ -76,8 +77,10 @@ export function ModifierGroupListCard({
   onOpenModifiers: (group: ModifierGroupOutput) => void;
   inlineError: string | null;
 }) {
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [query, setQuery] = useState("");
+  const { usage: status, q: query } = useSearch({ from: "/_shell/add-ons" });
+  const navigate = useNavigate();
+  const setSearch = (next: { usage: UsageFilter; q: string }) =>
+    navigate({ to: "/add-ons", search: next, replace: true });
   const reorderGroup = useReorderModifierGroupMutation();
 
   const term = query.trim().toLowerCase();
@@ -98,13 +101,16 @@ export function ModifierGroupListCard({
 
   const visible = (groups ?? []).filter(
     (group) =>
-      (status === "all" || (status === "active") === !group.archivedAt) &&
+      (status === "all" ||
+        (status === "archived" && group.archivedAt !== null) ||
+        (status === "inuse" && group.archivedAt === null && group.linkedToCount > 0) ||
+        (status === "unused" && group.archivedAt === null && group.linkedToCount === 0)) &&
       (term === "" ||
         group.name.toLowerCase().includes(term) ||
         group.modifiers.some((m) => m.name.toLowerCase().includes(term))),
   );
 
-  const table = useTableView(visible, SORT_VALUES, "name");
+  const table = useTableView(visible, SORT_VALUES, "name", `${status}:${query}`);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -134,11 +140,12 @@ export function ModifierGroupListCard({
       <CardContent className="flex flex-col gap-4">
         <ListToolbar
           status={status}
-          onStatusChange={setStatus}
+          onStatusChange={(next) => setSearch({ usage: next, q: query })}
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={(next) => setSearch({ usage: status, q: next })}
           searchLabel="Search options"
           searchExample="e.g. Size"
+          variant="usage"
         />
         {inlineError ? (
           <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
@@ -192,6 +199,21 @@ export function ModifierGroupListCard({
                         onOpenModifiers={onOpenModifiers}
                       />
                     ))}
+                    {(groups ?? [])
+                      .filter((group) => group.archivedAt !== null)
+                      .map((group) => (
+                        <SortableModifierGroupRow
+                          key={group.id}
+                          group={group}
+                          disabled
+                          editingGroupId={editingGroupId}
+                          canMutate={canMutate}
+                          onEditGroup={onEditGroup}
+                          onArchiveGroup={onArchiveGroup}
+                          onReactivateGroup={onReactivateGroup}
+                          onOpenModifiers={onOpenModifiers}
+                        />
+                      ))}
                   </TableBody>
                 </Table>
               </div>

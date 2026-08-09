@@ -17,12 +17,19 @@ import {
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useRouteContext } from "@tanstack/react-router";
-import { ArrowLeftIcon, CheckIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  PencilIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  EmptyState,
   Input,
   Select,
   SelectContent,
@@ -77,7 +84,9 @@ export function MenuItemDetail() {
   const { id } = useParams({ from: "/_shell/catalog_/$id" });
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
 
-  const menuItemQuery = useQuery(orpc.catalog.getMenuItem.queryOptions({ input: { id } }));
+  const menuItemQuery = useQuery(
+    orpc.catalog.getMenuItem.queryOptions({ input: { id } }),
+  );
   const variantsQuery = useQuery(
     orpc.catalog.listVariants.queryOptions({ input: { menuItemId: id } }),
   );
@@ -102,37 +111,55 @@ export function MenuItemDetail() {
   const moveMenuItem = useMoveMenuItemOnDetailMutation(id);
   const setMenuItemPrice = useSetMenuItemPriceOnDetailMutation(id);
 
-  const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
+  const [announcement, setAnnouncement] = useState<{
+    text: string;
+    slot: 0 | 1;
+  }>({
     text: "",
     slot: 0,
   });
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
-  const [variantEditor, setVariantEditor] = useState<VariantEditorState>({ mode: "closed" });
+  const [variantEditor, setVariantEditor] = useState<VariantEditorState>({
+    mode: "closed",
+  });
   const lastVariantEditor = useRef<VariantEditorState>({ mode: "create" });
-  if (variantEditor.mode !== "closed") lastVariantEditor.current = variantEditor;
+  if (variantEditor.mode !== "closed")
+    lastVariantEditor.current = variantEditor;
   const shownVariantEditor =
     variantEditor.mode === "closed" ? lastVariantEditor.current : variantEditor;
 
   const [variantFailed, setVariantFailed] = useState(false);
   const [itemFailed, setItemFailed] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<VariantOutput | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<VariantOutput | null>(
+    null,
+  );
   const [archiveFailed, setArchiveFailed] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState(false);
-  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(
+    null,
+  );
   const opener = useRef<HTMLElement | null>(null);
 
-  const itemBusy = renameMenuItem.isPending || moveMenuItem.isPending || setMenuItemPrice.isPending;
+  const itemBusy =
+    renameMenuItem.isPending ||
+    moveMenuItem.isPending ||
+    setMenuItemPrice.isPending;
   const variantBusy =
-    createVariant.isPending || renameVariant.isPending || setVariantPrice.isPending;
+    createVariant.isPending ||
+    renameVariant.isPending ||
+    setVariantPrice.isPending;
   const reordering = reorderVariant.isPending;
 
   const menuItem = menuItemQuery.data ?? null;
   const categories = categoriesQuery.data ?? [];
-  const activeCategories = categories.filter((category) => category.archivedAt === null);
-  const categoryName = categories.find((c) => c.id === menuItem?.categoryId)?.name ?? "Unknown";
+  const activeCategories = categories.filter(
+    (category) => category.archivedAt === null,
+  );
+  const categoryName =
+    categories.find((c) => c.id === menuItem?.categoryId)?.name ?? "Unknown";
 
   const variants = useMemo(() => {
     const rows = variantsQuery.data ?? [];
@@ -151,7 +178,9 @@ export function MenuItemDetail() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const form = useForm({
@@ -172,7 +201,10 @@ export function MenuItemDetail() {
       setPriceError(null);
       setItemFailed(false);
       if (name !== menuItem.name) {
-        const renamed = await renameMenuItem.mutateAsync({ id: menuItem.id, name });
+        const renamed = await renameMenuItem.mutateAsync({
+          id: menuItem.id,
+          name,
+        });
         if (!renamed) {
           setItemFailed(true);
           return;
@@ -202,7 +234,11 @@ export function MenuItemDetail() {
   const gate = useSubmitGate(form, { busy: itemBusy });
 
   const handleCategorySave = async () => {
-    if (!menuItem || !pendingCategoryId || pendingCategoryId === menuItem.categoryId) {
+    if (
+      !menuItem ||
+      !pendingCategoryId ||
+      pendingCategoryId === menuItem.categoryId
+    ) {
       setEditingCategory(false);
       setPendingCategoryId(null);
       return;
@@ -234,7 +270,10 @@ export function MenuItemDetail() {
     opener.current?.focus();
   };
 
-  const handleVariantSave = async (value: { name: string; priceCentavos: number }) => {
+  const handleVariantSave = async (value: {
+    name: string;
+    priceCentavos: number;
+  }) => {
     setVariantFailed(false);
     if (shownVariantEditor.mode === "create") {
       const created = await createVariant.mutateAsync({
@@ -295,11 +334,18 @@ export function MenuItemDetail() {
     void versionQuery.refetch();
   };
 
-  const handleReorder = async (variantId: string, fromIndex: number, toIndex: number) => {
+  const handleReorder = async (
+    variantId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reordering) return;
     for (let step = 0; step < plan.steps; step += 1) {
-      const result = await reorderVariant.mutateAsync({ id: variantId, direction: plan.direction });
+      const result = await reorderVariant.mutateAsync({
+        id: variantId,
+        direction: plan.direction,
+      });
       if (!result) break;
     }
     announce("Variant reordered");
@@ -348,14 +394,22 @@ export function MenuItemDetail() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <Button variant="ghost" size="sm" className="w-fit tap-target" asChild>
-            <Link to="/catalog">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit tap-target"
+            asChild
+          >
+            <Link to="/catalog" search={{ status: "all", q: "", category: "" }}>
               <ArrowLeftIcon />
               Catalog
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold">{menuItem.name}</h1>
+            <Badge variant={activeVariants.length > 0 ? "success" : "warning"}>
+              {activeVariants.length > 0 ? "Live" : "Draft"}
+            </Badge>
             {editingCategory ? (
               <div className="flex items-center gap-1">
                 <Select
@@ -521,9 +575,11 @@ export function MenuItemDetail() {
               isFetching={variantsQuery.isFetching}
             />
           ) : variants.length === 0 ? (
-            <p role="status" className="text-muted-foreground">
-              No variants yet.
-            </p>
+            <EmptyState
+              title="No variants yet"
+              description="Add a variant to make this menu item sellable."
+              icon={<PlusIcon aria-hidden="true" />}
+            />
           ) : (
             <DndContext
               sensors={sensors}
@@ -589,8 +645,16 @@ export function MenuItemDetail() {
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
           <VariantEditorSheet
-            key={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant.id : "create"}
-            variant={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant : null}
+            key={
+              shownVariantEditor.mode === "edit"
+                ? shownVariantEditor.variant.id
+                : "create"
+            }
+            variant={
+              shownVariantEditor.mode === "edit"
+                ? shownVariantEditor.variant
+                : null
+            }
             busy={variantBusy}
             failed={variantFailed}
             onSave={handleVariantSave}

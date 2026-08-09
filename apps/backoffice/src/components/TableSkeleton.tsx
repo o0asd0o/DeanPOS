@@ -14,7 +14,7 @@ const headersByVariant: Record<TableSkeletonVariant, string[]> = {
   employees: ["Name", "Email", "Role", "Stores", "Status", ""],
   devices: ["Device", "Store", "Assigned to", "Last seen", "Status", ""],
   paymentMethods: ["Method", "Kind", "Available at", "Status", ""],
-  menuItems: ["", "Name", "Price", "Actions"],
+  menuItems: ["", "Name", "Price", "Variants", "Status", "Actions"],
   modifierGroups: ["", "Group", "Rule", "Modifiers", "Linked to", "Status", "Actions"],
   overrides: ["When", "Store", "Action", "Approved by", "Reason", "Device"],
 };

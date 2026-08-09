@@ -13,6 +13,7 @@ export type CategoryOutput = {
 export type MenuItemOutput = CategoryOutput & {
   categoryId: string;
   priceCentavos: number;
+  activeVariantCount: number;
 };
 
 export type VariantOutput = {

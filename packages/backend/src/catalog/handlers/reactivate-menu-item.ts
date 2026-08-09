@@ -25,7 +25,8 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
     const sortOrder = await nextMenuItemSortOrder(db, item.category_id);
     const parked = await setMenuItemSortOrder(db, input.id, sortOrder);
     if (!parked) return null;
-    return setMenuItemArchived(db, input.id, null);
+    const reactivated = await setMenuItemArchived(db, input.id, null);
+    return reactivated ? getMenuItem(db, reactivated.id) : undefined;
   });
   return row ? toMenuItemOutput(row) : null;
 };

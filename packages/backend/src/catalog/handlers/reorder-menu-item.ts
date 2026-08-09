@@ -37,7 +37,8 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
       const temp = Math.max(...active.map((item) => item.sort_order), 0) + 1000;
       await setMenuItemSortOrder(db, current.id, temp);
       await setMenuItemSortOrder(db, neighbour.id, currentOrder);
-      return setMenuItemSortOrder(db, current.id, neighbourOrder);
+      const reordered = await setMenuItemSortOrder(db, current.id, neighbourOrder);
+      return reordered ? getMenuItem(db, reordered.id) : undefined;
     });
     return row ? toMenuItemOutput(row) : null;
   } catch {

@@ -1,10 +1,11 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Link } from "@tanstack/react-router";
-import { ArchiveIcon, GripVerticalIcon } from "lucide-react";
-import { Button, cn, TableCell, TableRow } from "ui";
+import { GripVerticalIcon } from "lucide-react";
+import { Badge, cn, TableCell, TableRow } from "ui";
 
 import { formatCentavos, type MenuItemOutput } from "@/features/catalog/helpers.ts";
+import { MenuItemActions } from "./MenuItemActions.tsx";
 
 export function SortableMenuItemRow({
   item,
@@ -23,13 +24,12 @@ export function SortableMenuItemRow({
   return (
     <TableRow
       ref={setNodeRef}
-      className="last:!border-b"
       // design-exempt: dnd-kit needs live transform and transition while dragging
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={cn(isDragging && "relative z-10 bg-background shadow-md")}
+      className={cn("last:!border-b", isDragging && "relative z-10 bg-background shadow-md")}
     >
       <TableCell className="w-10">
         <button
@@ -53,24 +53,22 @@ export function SortableMenuItemRow({
         </Link>
       </TableCell>
       <TableCell className="tabular-nums">{formatCentavos(item.priceCentavos)}</TableCell>
+      <TableCell className="tabular-nums">
+        <Link
+          to="/catalog/$id"
+          params={{ id: item.id }}
+          className="underline-offset-4 hover:underline"
+        >
+          {item.activeVariantCount}
+        </Link>
+      </TableCell>
+      <TableCell>
+        <Badge variant={item.activeVariantCount > 0 ? "success" : "warning"}>
+          {item.activeVariantCount > 0 ? "Live" : "Draft"}
+        </Badge>
+      </TableCell>
       <TableCell className="text-right">
-        <div className="flex justify-end gap-1">
-          <Button variant="outline" size="sm" className="tap-target" asChild>
-            <Link to="/catalog/$id" params={{ id: item.id }}>
-              Edit
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            danger
-            aria-label={`Archive menu item ${item.name}`}
-            onClick={() => onArchive(item)}
-            className="tap-target"
-          >
-            <ArchiveIcon aria-hidden="true" />
-          </Button>
-        </div>
+        <MenuItemActions item={item} onArchive={onArchive} />
       </TableCell>
     </TableRow>
   );

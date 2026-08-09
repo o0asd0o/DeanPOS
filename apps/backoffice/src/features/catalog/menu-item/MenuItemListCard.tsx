@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   closestCenter,
   DndContext,
@@ -15,13 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  PlusIcon,
-  ArchiveIcon,
-  FolderOpenIcon,
-  SearchXIcon,
-  UtensilsCrossedIcon,
-} from "lucide-react";
+import { PlusIcon, FolderOpenIcon, SearchXIcon, UtensilsCrossedIcon } from "lucide-react";
 import {
   Button,
   Card,
@@ -32,20 +26,24 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  Badge,
   TableRow,
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
-import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
+import type { SellabilityFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { useTableView } from "@/lib/table.ts";
+import { PAGE_SIZE } from "@/lib/table.ts";
 import {
   formatCentavos,
   type CategoryOutput,
   type MenuItemOutput,
 } from "@/features/catalog/helpers.ts";
 import { SortableMenuItemRow } from "./SortableMenuItemRow.tsx";
+import { MenuItemActions } from "./MenuItemActions.tsx";
 
 type SortKey = "name" | "price";
 
@@ -79,18 +77,20 @@ export function MenuItemListCard({
   onReorder: (itemId: string, fromIndex: number, toIndex: number) => void;
   reordering: boolean;
 }) {
-  const [status, setStatus] = useState<StatusFilter>("active");
-  const [query, setQuery] = useState("");
+  const { status, q: query, category: categorySearch } = useSearch({ from: "/_shell/catalog" });
+  const navigate = useNavigate();
+  const setSearch = (next: { status: SellabilityFilter; q: string }) =>
+    navigate({
+      to: "/catalog",
+      search: { status: next.status, q: next.q, category: categorySearch },
+      replace: true,
+    });
 
   const inCategory = useMemo(
     () => (menuItems ?? []).filter((item) => category !== null && item.categoryId === category.id),
     [menuItems, category],
   );
   const term = query.trim().toLowerCase();
-  // Drag only when the full active order is on screen — search/filter breaks position meaning.
-  const canDrag =
-    category !== null && category.archivedAt === null && status === "active" && term === "";
-
   const serverActiveOrdered = useMemo(
     () =>
       inCategory
@@ -100,6 +100,14 @@ export function MenuItemListCard({
     [inCategory],
   );
 
+  // Drag only when the full active order is on screen — search/filter breaks position meaning.
+  const canDrag =
+    category !== null &&
+    category.archivedAt === null &&
+    status === "all" &&
+    term === "" &&
+    inCategory.length <= PAGE_SIZE;
+
   const [ordered, setOrdered] = useState(serverActiveOrdered);
   useEffect(() => {
     if (!reordering) setOrdered(serverActiveOrdered);
@@ -108,11 +116,17 @@ export function MenuItemListCard({
   const filtered = inCategory.filter(
     (item) =>
       (status === "all" ||
-        (status === "active" && item.archivedAt === null) ||
-        (status === "deactivated" && item.archivedAt !== null)) &&
+        (status === "archived" && item.archivedAt !== null) ||
+        (status === "live" && item.archivedAt === null && item.activeVariantCount > 0) ||
+        (status === "draft" && item.archivedAt === null && item.activeVariantCount === 0)) &&
       (term === "" || item.name.toLowerCase().includes(term)),
   );
-  const table = useTableView(canDrag ? ordered : filtered, SORT_VALUES, "name");
+  const table = useTableView(
+    canDrag ? ordered : filtered,
+    SORT_VALUES,
+    "name",
+    `${status}:${query}:${categorySearch}`,
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -169,6 +183,8 @@ export function MenuItemListCard({
                     </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Price</TableHead>
+                    <TableHead>Variants</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -181,6 +197,22 @@ export function MenuItemListCard({
                       onArchive={onArchive}
                     />
                   ))}
+                  {inCategory
+                    .filter((item) => item.archivedAt !== null)
+                    .map((item) => (
+                      <TableRow key={item.id} className="last:!border-b">
+                        <TableCell />
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">Archived</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <MenuItemActions item={item} onReactivate={onReactivate} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
@@ -205,6 +237,8 @@ export function MenuItemListCard({
                     Price
                   </button>
                 </TableHead>
+                <TableHead>Variants</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -229,34 +263,37 @@ export function MenuItemListCard({
                     <TableCell className="tabular-nums">
                       {archived ? "—" : formatCentavos(item.priceCentavos)}
                     </TableCell>
+                    <TableCell className="tabular-nums">
+                      {archived ? (
+                        "—"
+                      ) : (
+                        <Link
+                          to="/catalog/$id"
+                          params={{ id: item.id }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {item.activeVariantCount}
+                        </Link>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          archived
+                            ? "secondary"
+                            : item.activeVariantCount > 0
+                              ? "success"
+                              : "warning"
+                        }
+                      >
+                        {archived ? "Archived" : item.activeVariantCount > 0 ? "Live" : "Draft"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">
                       {archived ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onReactivate(item)}
-                          className="tap-target"
-                        >
-                          Reactivate
-                        </Button>
+                        <MenuItemActions item={item} onReactivate={onReactivate} />
                       ) : (
-                        <div className="flex justify-end gap-1">
-                          <Button variant="outline" size="sm" className="tap-target" asChild>
-                            <Link to="/catalog/$id" params={{ id: item.id }}>
-                              Edit
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            danger
-                            aria-label={`Archive menu item ${item.name}`}
-                            onClick={() => onArchive(item)}
-                            className="tap-target"
-                          >
-                            <ArchiveIcon aria-hidden="true" />
-                          </Button>
-                        </div>
+                        <MenuItemActions item={item} onArchive={onArchive} />
                       )}
                     </TableCell>
                   </TableRow>
@@ -291,7 +328,14 @@ export function MenuItemListCard({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">{category ? category.name : "Menu items"}</h2>
-            <p className="text-sm text-muted-foreground">Add items and set their prices.</p>
+            <p className="text-sm text-muted-foreground">
+              {inCategory.length} item{inCategory.length === 1 ? "" : "s"} ·{" "}
+              {
+                inCategory.filter((item) => item.archivedAt === null && item.activeVariantCount > 0)
+                  .length
+              }{" "}
+              live
+            </p>
           </div>
           {category && category.archivedAt === null && (
             <Button onClick={onAdd} className="tap-target">
@@ -302,15 +346,15 @@ export function MenuItemListCard({
         </div>
         <ListToolbar
           status={status}
-          onStatusChange={setStatus}
+          onStatusChange={(next) => setSearch({ status: next, q: query })}
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={(next) => setSearch({ status, q: next })}
           searchLabel="Search menu items"
           searchExample="Adobo"
+          variant="sellability"
         />
         {body()}
       </CardContent>
     </Card>
   );
 }
-import { TableSkeleton } from "@/components/TableSkeleton.tsx";

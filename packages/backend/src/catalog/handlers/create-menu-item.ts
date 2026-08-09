@@ -9,6 +9,7 @@ import { withTenantScope } from "../../db/client.ts";
 import { insertMenuItem } from "../db-operations/commands/insert-menu-item.command.ts";
 import { getCategory } from "../db-operations/queries/get-category.query.ts";
 import { nextMenuItemSortOrder } from "../db-operations/queries/next-menu-item-sort-order.query.ts";
+import { getMenuItem } from "../db-operations/queries/get-menu-item.query.ts";
 import { toMenuItemOutput } from "../helpers.ts";
 
 export const inputSchema = catalogMenuItemCreateInputSchema;
@@ -24,7 +25,7 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
     const category = await getCategory(db, input.categoryId);
     if (!category || category.archived_at) return null;
     const sortOrder = await nextMenuItemSortOrder(db, input.categoryId);
-    return insertMenuItem(db, {
+    const inserted = await insertMenuItem(db, {
       id: randomUUID(),
       tenantId,
       categoryId: input.categoryId,
@@ -32,6 +33,7 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
       priceCentavos: input.priceCentavos,
       sortOrder,
     });
+    return inserted ? getMenuItem(db, inserted.id) : undefined;
   });
   return row ? toMenuItemOutput(row) : null;
 };

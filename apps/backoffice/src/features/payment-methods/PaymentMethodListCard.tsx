@@ -118,7 +118,7 @@ export function PaymentMethodListCard({
       matchesSearch(method, stores, term),
   );
 
-  const table = useTableView(visible, SORT_VALUES, "name");
+  const table = useTableView(visible, SORT_VALUES, "name", `${reach}:${store}:${term}`);
   const filtered = reach !== "all" || store !== "all" || term !== "";
 
   return (

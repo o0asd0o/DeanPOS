@@ -1,9 +1,4 @@
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { Button, cn } from "ui";
 
 import { pageWindow } from "@/lib/table.ts";
@@ -21,8 +16,8 @@ export function formatPaginationSummary(
   return `Showing ${firstItem}–${lastItem} of ${totalItems}`;
 }
 
-// One page strip for every list: First/Back, the numbers around the current
-// page, then Next/Last. Absent entirely while everything fits on one page —
+// One page strip for every list: icon-only Back/Next around a compact page
+// window. Absent entirely while everything fits on one page —
 // a control that can only do nothing is noise.
 export function TablePagination({
   page,
@@ -52,16 +47,6 @@ export function TablePagination({
       </p>
       {pageCount >= 2 && (
         <nav aria-label={label} className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="First page"
-            aria-disabled={page === 1}
-            onClick={() => goTo(1)}
-          >
-            <ChevronsLeftIcon />
-            First
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -102,18 +87,8 @@ export function TablePagination({
             aria-disabled={page === pageCount}
             onClick={() => goTo(page + 1)}
           >
-            Next
             <ChevronRightIcon />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Last page"
-            aria-disabled={page === pageCount}
-            onClick={() => goTo(pageCount)}
-          >
-            Last
-            <ChevronsRightIcon />
+            Next
           </Button>
         </nav>
       )}

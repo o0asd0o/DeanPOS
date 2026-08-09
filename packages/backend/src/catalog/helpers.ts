@@ -11,7 +11,9 @@ export const toCategoryOutput = (category: Selectable<Category>) => ({
   createdAt: category.created_at,
 });
 
-export const toMenuItemOutput = (menuItem: Selectable<MenuItem>) => ({
+export const toMenuItemOutput = (
+  menuItem: Selectable<MenuItem> & { activeVariantCount: number },
+) => ({
   id: menuItem.id,
   tenantId: menuItem.tenant_id,
   name: menuItem.name,
@@ -20,4 +22,5 @@ export const toMenuItemOutput = (menuItem: Selectable<MenuItem>) => ({
   archivedAt: menuItem.archived_at,
   createdAt: menuItem.created_at,
   categoryId: menuItem.category_id,
+  activeVariantCount: menuItem.activeVariantCount,
 });

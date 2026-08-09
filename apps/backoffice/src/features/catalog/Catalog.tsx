@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Sheet, SheetContent } from "ui";
 
 import { ArchiveCategoryDialog } from "./category/ArchiveCategoryDialog.tsx";
@@ -32,6 +33,8 @@ type MenuItemEditorState =
 
 // Catalog screen (issue 01): left Categories rail + MenuItem list Card (record 038).
 export function Catalog() {
+  const { status, q, category: categorySearch } = useSearch({ from: "/_shell/catalog" });
+  const navigate = useNavigate();
   const categoriesQuery = useCategoriesQuery();
   const menuItemsQuery = useMenuItemsQuery();
   const reorderCategory = useReorderCategoryMutation();
@@ -49,45 +52,56 @@ export function Catalog() {
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(categorySearch || null);
   const categories = categoriesQuery.data;
   const selected =
     categories?.find((category) => category.id === selectedId) ??
     categories?.find((category) => category.archivedAt === null) ??
     null;
 
+  useEffect(() => {
+    setSelectedId(categorySearch || null);
+  }, [categorySearch]);
+
+  useEffect(() => {
+    const fallback = categories?.find((item) => item.archivedAt === null);
+    if (fallback && categorySearch !== fallback.id) {
+      setSelectedId(fallback.id);
+      void navigate({
+        to: "/catalog",
+        search: { status, q, category: fallback.id },
+        replace: true,
+      });
+    }
+  }, [categories, navigate, q, selected, status]);
+
+  const setCategory = (categoryId: string) => {
+    setSelectedId(categoryId);
+    void navigate({ to: "/catalog", search: { status, q, category: categoryId }, replace: true });
+  };
+
   const [categoryEditor, setCategoryEditor] = useState<CategoryEditorState>({
     mode: "closed",
   });
   const lastCategoryEditor = useRef<CategoryEditorState>({ mode: "create" });
-  if (categoryEditor.mode !== "closed")
-    lastCategoryEditor.current = categoryEditor;
+  if (categoryEditor.mode !== "closed") lastCategoryEditor.current = categoryEditor;
   const shownCategoryEditor =
-    categoryEditor.mode === "closed"
-      ? lastCategoryEditor.current
-      : categoryEditor;
+    categoryEditor.mode === "closed" ? lastCategoryEditor.current : categoryEditor;
 
   const [menuItemEditor, setMenuItemEditor] = useState<MenuItemEditorState>({
     mode: "closed",
   });
   const lastMenuItemEditor = useRef<MenuItemEditorState>({ mode: "create" });
-  if (menuItemEditor.mode !== "closed")
-    lastMenuItemEditor.current = menuItemEditor;
+  if (menuItemEditor.mode !== "closed") lastMenuItemEditor.current = menuItemEditor;
   const shownMenuItemEditor =
-    menuItemEditor.mode === "closed"
-      ? lastMenuItemEditor.current
-      : menuItemEditor;
+    menuItemEditor.mode === "closed" ? lastMenuItemEditor.current : menuItemEditor;
 
-  const [archiveCategoryTarget, setArchiveCategoryTarget] =
-    useState<CategoryOutput | null>(null);
+  const [archiveCategoryTarget, setArchiveCategoryTarget] = useState<CategoryOutput | null>(null);
   const lastArchiveCategory = useRef<CategoryOutput | null>(null);
-  if (archiveCategoryTarget)
-    lastArchiveCategory.current = archiveCategoryTarget;
-  const shownArchiveCategory =
-    archiveCategoryTarget ?? lastArchiveCategory.current;
+  if (archiveCategoryTarget) lastArchiveCategory.current = archiveCategoryTarget;
+  const shownArchiveCategory = archiveCategoryTarget ?? lastArchiveCategory.current;
 
-  const [archiveItemTarget, setArchiveItemTarget] =
-    useState<MenuItemOutput | null>(null);
+  const [archiveItemTarget, setArchiveItemTarget] = useState<MenuItemOutput | null>(null);
   const lastArchiveItem = useRef<MenuItemOutput | null>(null);
   if (archiveItemTarget) lastArchiveItem.current = archiveItemTarget;
   const shownArchiveItem = archiveItemTarget ?? lastArchiveItem.current;
@@ -119,11 +133,7 @@ export function Catalog() {
     opener.current?.focus();
   };
 
-  const handleReorderCategory = async (
-    categoryId: string,
-    fromIndex: number,
-    toIndex: number,
-  ) => {
+  const handleReorderCategory = async (categoryId: string, fromIndex: number, toIndex: number) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reorderCategory.isPending) return;
     setReorderingCategories(true);
@@ -141,11 +151,7 @@ export function Catalog() {
     }
   };
 
-  const handleReorderMenuItem = async (
-    itemId: string,
-    fromIndex: number,
-    toIndex: number,
-  ) => {
+  const handleReorderMenuItem = async (itemId: string, fromIndex: number, toIndex: number) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reorderMenuItem.isPending) return;
     setReorderingItems(true);
@@ -181,8 +187,7 @@ export function Catalog() {
       <div>
         <h1 className="text-xl font-semibold">Catalog</h1>
         <p className="text-sm text-muted-foreground">
-          Categories organize the terminal grid. Menu items stay drafts until
-          they have a variant.
+          Categories organize the terminal grid. Menu items stay drafts until they have a variant.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-4">
@@ -194,7 +199,7 @@ export function Catalog() {
             isFetching={categoriesQuery.isFetching}
             refetch={() => void categoriesQuery.refetch()}
             selectedId={selected?.id ?? null}
-            onSelect={(category) => setSelectedId(category.id)}
+            onSelect={(category) => setCategory(category.id)}
             onAdd={openCategoryCreate}
             onRename={openCategoryRename}
             onReorder={handleReorderCategory}
@@ -253,18 +258,10 @@ export function Catalog() {
                   ? `edit-${shownCategoryEditor.category.id}`
                   : "create-category"
               }
-              category={
-                shownCategoryEditor.mode === "edit"
-                  ? shownCategoryEditor.category
-                  : null
-              }
+              category={shownCategoryEditor.mode === "edit" ? shownCategoryEditor.category : null}
               onSaved={(category) => {
-                setSelectedId(category.id);
-                announce(
-                  categoryEditor.mode === "edit"
-                    ? "Category saved"
-                    : "Category created",
-                );
+                setCategory(category.id);
+                announce(categoryEditor.mode === "edit" ? "Category saved" : "Category created");
                 closeCategoryEditor();
               }}
               onCancel={closeCategoryEditor}
@@ -292,11 +289,7 @@ export function Catalog() {
                   ? `edit-${shownMenuItemEditor.item.id}`
                   : "create-menu-item"
               }
-              menuItem={
-                shownMenuItemEditor.mode === "edit"
-                  ? shownMenuItemEditor.item
-                  : null
-              }
+              menuItem={shownMenuItemEditor.mode === "edit" ? shownMenuItemEditor.item : null}
               categories={categoriesQuery.data ?? []}
               defaultCategoryId={
                 shownMenuItemEditor.mode === "edit"
@@ -304,12 +297,8 @@ export function Catalog() {
                   : selected.id
               }
               onSaved={(item) => {
-                setSelectedId(item.categoryId);
-                announce(
-                  menuItemEditor.mode === "edit"
-                    ? "Menu item saved"
-                    : "Menu item created",
-                );
+                setCategory(item.categoryId);
+                announce(menuItemEditor.mode === "edit" ? "Menu item saved" : "Menu item created");
                 closeMenuItemEditor();
               }}
               onCancel={closeMenuItemEditor}

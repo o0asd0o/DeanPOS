@@ -3,7 +3,10 @@ import { CSS } from "@dnd-kit/utilities";
 import { ArchiveIcon, GripVerticalIcon } from "lucide-react";
 import { Badge, Button, cn, TableCell, TableRow } from "ui";
 
-import { formatCentavos, type VariantOutput } from "@/features/catalog/helpers.ts";
+import {
+  formatCentavos,
+  type VariantOutput,
+} from "@/features/catalog/helpers.ts";
 
 export function SortableVariantRow({
   variant,
@@ -19,7 +22,14 @@ export function SortableVariantRow({
   onReactivate?: (variant: VariantOutput) => void;
 }) {
   const active = variant.archivedAt === null;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: variant.id,
     disabled: disabled || !active,
   });
@@ -27,13 +37,15 @@ export function SortableVariantRow({
   return (
     <TableRow
       ref={setNodeRef}
-      className="last:!border-b"
       // design-exempt: dnd-kit needs live transform and transition while dragging
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      className={cn(isDragging && "relative z-10 bg-background shadow-md")}
+      className={cn(
+        "last:border-b!",
+        isDragging && "relative z-10 bg-background shadow-md",
+      )}
     >
       <TableCell className="w-10">
         {active ? (
@@ -50,7 +62,9 @@ export function SortableVariantRow({
         ) : null}
       </TableCell>
       <TableCell className="font-medium">{variant.name}</TableCell>
-      <TableCell className="tabular-nums">{formatCentavos(variant.priceCentavos)}</TableCell>
+      <TableCell className="tabular-nums">
+        {formatCentavos(variant.priceCentavos)}
+      </TableCell>
       <TableCell>
         {active ? (
           <Badge variant="success">Active</Badge>

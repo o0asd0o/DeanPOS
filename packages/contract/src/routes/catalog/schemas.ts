@@ -18,6 +18,7 @@ export const categoryOutputSchema = z.object({
 export const menuItemOutputSchema = categoryOutputSchema.extend({
   categoryId: z.string(),
   priceCentavos: z.number().int(),
+  activeVariantCount: z.number().int().nonnegative(),
 });
 
 export const variantOutputSchema = z.object({

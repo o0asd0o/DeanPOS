@@ -27,7 +27,8 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
       if (!category || category.archived_at) return null;
       if (item.category_id === input.categoryId) return item;
       const sortOrder = await nextMenuItemSortOrder(db, input.categoryId);
-      return moveMenuItem(db, input.id, { categoryId: input.categoryId, sortOrder });
+      const moved = await moveMenuItem(db, input.id, { categoryId: input.categoryId, sortOrder });
+      return moved ? getMenuItem(db, moved.id) : undefined;
     });
     return row ? toMenuItemOutput(row) : null;
   } catch {

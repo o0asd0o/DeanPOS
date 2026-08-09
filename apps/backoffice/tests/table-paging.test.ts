@@ -4,11 +4,10 @@ import { formatPaginationSummary } from "@/components/TablePagination.tsx";
 import { nextSort, pageWindow, sortRows } from "@/lib/table.ts";
 
 describe("the list tables' sort and page rules", () => {
-  it("keeps five numbers around the current page, with the ends always shown", () => {
-    expect(pageWindow(1, 25)).toEqual([1, 2, 3, 4, 5, "gap", 25]);
-    expect(pageWindow(12, 25)).toEqual([1, "gap", 10, 11, 12, 13, 14, "gap", 25]);
-    // At the far end the run stays five wide rather than trailing off.
-    expect(pageWindow(25, 25)).toEqual([1, "gap", 21, 22, 23, 24, 25]);
+  it("keeps a compact page window with the ends always shown", () => {
+    expect(pageWindow(1, 25)).toEqual([1, 2, "gap", 25]);
+    expect(pageWindow(12, 25)).toEqual([1, "gap", 12, 25]);
+    expect(pageWindow(25, 25)).toEqual([1, "gap", 24, 25]);
     expect(pageWindow(2, 3)).toEqual([1, 2, 3]);
   });
 

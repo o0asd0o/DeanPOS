@@ -21,7 +21,8 @@ export const handler: Handler<Input, MenuItemOutput | null> = async ({ ctx, inpu
     const current = await getMenuItem(db, input.id);
     if (!current || current.archived_at) return null;
     if (current.price_centavos === input.priceCentavos) return current;
-    return updateMenuItemPrice(db, input.id, input.priceCentavos);
+    const updated = await updateMenuItemPrice(db, input.id, input.priceCentavos);
+    return updated ? getMenuItem(db, updated.id) : undefined;
   });
   return row ? toMenuItemOutput(row) : null;
 };

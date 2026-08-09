@@ -10,7 +10,6 @@ import {
   parsePriceInput,
   type VariantOutput,
 } from "@/features/catalog/helpers.ts";
-import { ModifierGroupPicker } from "./ModifierGroupPicker.tsx";
 
 const NAME_MAX = 60;
 
@@ -116,7 +115,6 @@ export function VariantEditorSheet({
           Couldn&rsquo;t save the variant
         </div>
       )}
-      {variant && <ModifierGroupPicker variantId={variant.id} />}
     </SheetForm>
   );
 }
