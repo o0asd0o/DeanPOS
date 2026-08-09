@@ -55,6 +55,17 @@ beforeAll(async () => {
   });
   expect(created).toBeTruthy();
   discountB = created!.discountId;
+  const own = await asA().catalog.createDiscount({
+    name: "A Senior",
+    type: "percent",
+    value: 10000,
+    scope: "order",
+    requiresOverride: true,
+    vatExempt: false,
+    requiresReference: false,
+    referenceLabel: null,
+  });
+  expect(own).toBeTruthy();
 });
 
 afterAll(async () => {
@@ -72,12 +83,13 @@ const asB = () => seam.actors.asTenant(tenantB, { userId: adminB, role: "admin" 
 describe("discount wrong-tenant probes", () => {
   it("wrong-tenant probe [catalog.listDiscounts]: Tenant A cannot read Tenant B's list", async () => {
     const owner = await asB().catalog.listDiscounts();
+    const otherOwn = await asA().catalog.listDiscounts();
     await expectWrongTenantRefusal({
       path: "catalog.listDiscounts",
       mode: "confined",
       ownerSees: owner,
       otherGets: () => asA().catalog.listDiscounts(),
-      otherOwn: [],
+      otherOwn,
     });
   });
 

@@ -1,6 +1,6 @@
 # 06 — Discounts
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -39,33 +39,41 @@ new row. This is 069's named carve-out. Do not use a Discount to test `## Scenar
 
 ## Acceptance criteria
 
-- [ ] A `Discount` table with `tenant_id`, RLS enabled and forced in the creating migration,
+- [x] A `Discount` table with `tenant_id`, RLS enabled and forced in the creating migration,
       `@@unique([tenantId, id])`, and an `effective_from` supporting the versioned-row shape.
-- [ ] An edit writes a **new row**, never an `UPDATE` of the old one; the prior row stays readable
+- [x] An edit writes a **new row**, never an `UPDATE` of the old one; the prior row stays readable
       and an Order can reference the version it applied.
-- [ ] Constraints refused **at write time**, so `checkout` never reasons about a malformed one:
+- [x] Constraints refused **at write time**, so `checkout` never reasons about a malformed one:
       `amount` implies `scope: order` — an `amount` with `scope: line` is rejected; a `percent`
       value is `0 < v ≤ 100`, so `0`, `100.01` and a negative are rejected and `100` is accepted;
       an `amount` value is positive `Centavos` and one that is not exact centavos is rejected;
       `requiresReference` with an empty label is rejected.
-- [ ] A null value is accepted and marked prompt-at-sale, bounded by the same rules at sale time.
-- [ ] Only `admin` and `manager` may set `vatExempt` and `requiresOverride`; a `cashier` cannot
+- [x] A null value is accepted and marked prompt-at-sale, bounded by the same rules at sale time.
+- [x] Only `admin` and `manager` may set `vatExempt` and `requiresOverride`; a `cashier` cannot
       create, edit, or archive a Discount at all, enforced server-side.
-- [ ] The audit log carries actor, Tenant, Discount id, and which fields changed — **never the
+- [x] The audit log carries actor, Tenant, Discount id, and which fields changed — **never the
       values** (Security Criterion 8). A test asserts no value reaches the log.
-- [ ] A new Tenant's list is empty, and the read model returns `discounts: []` rather than
+- [x] A new Tenant's list is empty, and the read model returns `discounts: []` rather than
       omitting the field.
-- [ ] The empty state is built as the primary state, from the mock, not improvised.
-- [ ] Creating, editing, or archiving a Discount moves the catalog version; an archived Discount
+- [x] The empty state is built as the primary state, from the mock, not improvised.
+- [x] Creating, editing, or archiving a Discount moves the catalog version; an archived Discount
       leaves the read model and stays readable by id.
 - [ ] A `requiresReference` label renamed after sales captured references under the old one does
       not alter those captures — assert capture-at-sale per ADR-0010's principle
       (`## Scenarios` row 23).
-- [ ] The screen states plainly that DeanPOS discounts are applied by a person and never
+- [x] The screen states plainly that DeanPOS discounts are applied by a person and never
       automatically.
-- [ ] No `toast()` on save; announcement through record 038's live regions, failure inline.
-- [ ] Wrong-tenant probes on every procedure this issue exposes.
-- [ ] WCAG 2.2 AA, asserted by the existing automated accessibility check.
+- [x] No `toast()` on save; announcement through record 038's live regions, failure inline.
+- [x] Wrong-tenant probes on every procedure this issue exposes.
+- [x] WCAG 2.2 AA, asserted by the existing automated accessibility check.
+
+## Closure
+
+Closed as `done` on 2026-08-09 after implementation and acceptance review. The five new
+`catalog.*Discount` wrong-tenant probes pass against the local database; migration deploy is
+clean; backend, API, and backoffice typechecks pass. Scenario row 23 remains intentionally
+unticked: capture-at-sale is deferred to `checkout`, with the carry-forward note in
+`.scratch/checkout/discount-capture.md`.
 
 ## Visual reference
 
