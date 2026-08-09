@@ -99,7 +99,7 @@ describe("the Payment methods screen — as an admin", () => {
       .execute();
   });
 
-  it("shows cash as Always on with no Edit, creates a method available everywhere by default, and shows no delete anywhere", async () => {
+  it("shows cash with no actions menu, creates a method available everywhere by default, and shows no delete anywhere", async () => {
     const { container, db } = renderRoute({
       router,
       tenantId,
@@ -117,7 +117,6 @@ describe("the Payment methods screen — as an admin", () => {
     await waitFor(() => expect(screen.getAllByText("Cash").length).toBeGreaterThan(0));
     const cashRow = screen.getAllByText("Cash")[0]!.closest("tr")!;
     expect(within(cashRow).getByText("All stores")).toBeTruthy();
-    expect(within(cashRow).getByText("Always on")).toBeTruthy();
     expect(within(cashRow).queryByRole("button", { name: /^Actions for/ })).toBeNull();
 
     await expectNoAxeViolations(container);

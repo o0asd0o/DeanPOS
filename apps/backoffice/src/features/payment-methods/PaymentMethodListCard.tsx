@@ -236,9 +236,7 @@ export function PaymentMethodListCard({
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">
-                          {method.kind === "cash" ? (
-                            <span className="text-sm text-muted-foreground">Always on</span>
-                          ) : (
+                          {method.kind !== "cash" && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
