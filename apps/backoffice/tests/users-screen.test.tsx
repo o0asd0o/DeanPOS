@@ -79,7 +79,9 @@ describe("the Users screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Employees" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "Add employee" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Role" }).className).toContain("h-11");
+    const roleGroup = screen.getByRole("group", { name: "Role" });
+    expect(roleGroup.className).toContain("h-11");
+    expect(roleGroup.className).toContain("p-1");
     await expectNoAxeViolations(container);
 
     fireEvent.click(screen.getByRole("button", { name: "Add employee" }));
