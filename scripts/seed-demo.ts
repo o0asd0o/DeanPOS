@@ -26,7 +26,7 @@ const tenantId = seedId("tenant", "demo");
 const baseDate = new Date("2026-08-01T08:00:00.000Z");
 const dateAt = (minutes: number) => new Date(baseDate.getTime() + minutes * 60_000);
 
-const stores = [
+const baseStores = [
   { key: "uptown", name: "Uptown Mall", active: true, labels: ["A1", "A2", "B1", "B2"] },
   {
     key: "downtown",
@@ -37,6 +37,19 @@ const stores = [
   { key: "cebu", name: "Cebu Central", active: true, labels: ["Window", "Patio", "Bar"] },
   { key: "makati", name: "Makati Annex", active: false, labels: ["Front", "Back"] },
 ].map((store) => ({ ...store, id: seedId("store", store.key) }));
+const stores = [
+  ...baseStores,
+  ...Array.from({ length: 36 }, (_, index) => {
+    const number = index + 5;
+    return {
+      id: seedId("store", `branch-${number}`),
+      key: `branch-${number}`,
+      name: `${["BGC", "Quezon", "Pasig", "Davao", "Iloilo", "Alabang"][index % 6]} Branch ${String(number).padStart(2, "0")}`,
+      active: index % 11 !== 10,
+      labels: [`${number}A`, `${number}B`, `${number}C`],
+    };
+  }),
+];
 
 const staffSeeds: Array<{
   key: string;
@@ -70,13 +83,62 @@ const staffSeeds: Array<{
   ["rhea", "Rhea", "Manalo", "cashier"],
   ["simon", "Simon", "Lopez", "cashier", false],
 ] as const;
-const staff = staffSeeds.map(([key, firstName, lastName, role, active = true]) => ({
+const baseStaff = staffSeeds.map(([key, firstName, lastName, role, active = true]) => ({
   key,
   firstName,
   lastName,
   role,
   active,
 }));
+const generatedFirstNames = [
+  "Adrian",
+  "Bianca",
+  "Clarisse",
+  "Dario",
+  "Estelle",
+  "Felix",
+  "Grace",
+  "Harvey",
+  "Irene",
+  "Jonas",
+  "Kaye",
+  "Leandro",
+  "Mina",
+  "Noel",
+  "Odette",
+];
+const generatedLastNames = [
+  "Aguilar",
+  "Bautista",
+  "Calderon",
+  "Domingo",
+  "Estrada",
+  "Fernandez",
+  "Gonzales",
+  "Herrera",
+  "Ilagan",
+  "Jimenez",
+  "Kintanar",
+  "Lorenzo",
+  "Macaraig",
+  "Natividad",
+  "Ortega",
+  "Pineda",
+  "Quizon",
+];
+const staff = [
+  ...baseStaff,
+  ...Array.from({ length: 225 }, (_, index) => {
+    const number = index + 1;
+    return {
+      key: `staff-${String(number).padStart(3, "0")}`,
+      firstName: generatedFirstNames[index % generatedFirstNames.length]!,
+      lastName: generatedLastNames[index % generatedLastNames.length]!,
+      role: index % 12 === 0 ? ("manager" as const) : ("cashier" as const),
+      active: index % 23 !== 22,
+    };
+  }),
+];
 
 const admin = {
   id: seedId("user", "alex-rivera"),
@@ -91,11 +153,19 @@ const staffUsers = staff.map((user) => ({
   email: `${user.key}@deanpos.local`,
 }));
 
-const categories = ["Coffee", "Breakfast", "Rice meals", "Pasta", "Desserts"].map(
+const baseCategories = ["Coffee", "Breakfast", "Rice meals", "Pasta", "Desserts"].map(
   (name, index) => ({ id: seedId("category", name), name, sortOrder: index }),
 );
+const categories = [
+  ...baseCategories,
+  ...Array.from({ length: 95 }, (_, index) => {
+    const number = index + 6;
+    const name = `${["Seasonal", "Chef's", "Weekend", "Family", "Classic"][index % 5]} picks ${String(number).padStart(2, "0")}`;
+    return { id: seedId("category", name), name, sortOrder: number - 1 };
+  }),
+];
 
-const menuItems = [
+const baseMenuItems = [
   ["Coffee", "House latte", 16500],
   ["Coffee", "Spanish latte", 18500],
   ["Coffee", "Cold brew", 17500],
@@ -117,6 +187,18 @@ const menuItems = [
   ["Desserts", "Chocolate chip cookie", 9500],
   ["Desserts", "Seasonal fruit bowl", 15000],
 ] as const;
+const menuItems: Array<[string, string, number]> = [
+  ...baseMenuItems,
+  ...Array.from({ length: 380 }, (_, index) => {
+    const category = categories[index % categories.length]!.name;
+    const number = index + 1;
+    return [
+      category,
+      `${category} special ${String(number).padStart(3, "0")}`,
+      12_500 + ((index * 1_750) % 28_000),
+    ];
+  }),
+];
 
 await withTenantScope(db, tenantId, async (scopedDb) => {
   await scopedDb
@@ -220,6 +302,11 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     { key: "gcash", name: "GCash", kind: "recorded" as const },
     { key: "card", name: "Card terminal", kind: "recorded" as const },
     { key: "maya", name: "Maya QR", kind: "recorded" as const },
+    ...Array.from({ length: 36 }, (_, index) => ({
+      key: `recorded-${String(index + 1).padStart(2, "0")}`,
+      name: `${["Wallet", "Bank transfer", "Card reader", "QR counter"][index % 4]} ${String(index + 1).padStart(2, "0")}`,
+      kind: "recorded" as const,
+    })),
   ];
   await scopedDb
     .insertInto("PaymentMethod")
@@ -250,7 +337,7 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
 
-  const deviceSeeds = [
+  const baseDeviceSeeds = [
     ["Uptown Counter 1", "UP1", "uptown", staffUsers[0]!.id, -8, false],
     ["Uptown Counter 2", "UP2", "uptown", null, -34, false],
     ["Uptown Patio", "UP3", "uptown", staffUsers[6]!.id, -120, false],
@@ -261,6 +348,20 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     ["Makati Legacy Till", "MK1", "makati", null, -2_000, true],
     ["Training Terminal", "TR1", "uptown", null, -240, false],
   ] as const;
+  const deviceSeeds: Array<[string, string, string, string | null, number, boolean]> = [
+    ...baseDeviceSeeds,
+    ...Array.from({ length: 81 }, (_, index) => {
+      const number = index + 1;
+      return [
+        `${stores[(index + 3) % stores.length]!.name} Counter ${String(number).padStart(2, "0")}`,
+        `D${String(number).padStart(2, "0")}`,
+        stores[(index + 3) % stores.length]!.key,
+        index % 4 === 0 ? staffUsers[(index + 12) % staffUsers.length]!.id : null,
+        -(index * 17 + 6),
+        index % 29 === 28,
+      ];
+    }),
+  ];
   await scopedDb
     .insertInto("Device")
     .values(
@@ -309,7 +410,7 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
 
-  const variants = [
+  const baseVariants = [
     ["House latte", "Hot", 0],
     ["House latte", "Iced", 1000],
     ["House latte", "Large", 3500],
@@ -318,6 +419,13 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     ["Pancake stack", "Banana", 2500],
     ["Pancake stack", "Berries", 4500],
   ] as const;
+  const variants: Array<[string, string, number]> = [
+    ...baseVariants,
+    ...Array.from({ length: 133 }, (_, index) => {
+      const item = menuItems[(index + 4) % menuItems.length]!;
+      return [item[1], ["Regular", "Iced", "Large", "Family"][index % 4]!, (index % 4) * 1_500];
+    }),
+  ];
   await scopedDb
     .insertInto("Variant")
     .values(
@@ -338,6 +446,12 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     { key: "milk", name: "Milk choice", rule: "required-one", maximum: null },
     { key: "syrup", name: "Extra syrup", rule: "many", maximum: 2 },
     { key: "sides", name: "Breakfast sides", rule: "optional-one", maximum: null },
+    ...Array.from({ length: 57 }, (_, index) => ({
+      key: `custom-${String(index + 1).padStart(2, "0")}`,
+      name: `${["Add-ons", "Toppings", "Extras", "Choices"][index % 4]} ${String(index + 1).padStart(2, "0")}`,
+      rule: index % 3 === 0 ? "required-one" : index % 3 === 1 ? "optional-one" : "many",
+      maximum: index % 3 === 2 ? 2 : null,
+    })),
   ];
   await scopedDb
     .insertInto("ModifierGroup")
@@ -353,7 +467,7 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     )
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
-  const modifiers = [
+  const baseModifiers = [
     ["milk", "Whole milk", "absolute", 0],
     ["milk", "Oat milk", "absolute", 2500],
     ["milk", "Soy milk", "absolute", 1500],
@@ -363,6 +477,18 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     ["sides", "Garlic rice", "absolute", 3500],
     ["sides", "Atchara", "absolute", 1500],
   ] as const;
+  const modifiers: Array<[string, string, string, number]> = [
+    ...baseModifiers,
+    ...Array.from({ length: 152 }, (_, index) => {
+      const group = modifierGroups[(index + 3) % modifierGroups.length]!;
+      return [
+        group.key,
+        `${["Standard", "Premium", "Light", "Double"][index % 4]} ${String(index + 1).padStart(3, "0")}`,
+        "absolute",
+        500 + (index % 6) * 500,
+      ];
+    }),
+  ];
   await scopedDb
     .insertInto("Modifier")
     .values(
@@ -383,20 +509,29 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     .set({ default_modifier_id: seedId("modifier", "milk:Whole milk") })
     .where("id", "=", seedId("modifier-group", "milk"))
     .execute();
+  const baseModifierLinks = ["House latte", "Spanish latte", "Pancake stack", "Longsilog"].flatMap(
+    (itemName) =>
+      (itemName === "Pancake stack" || itemName === "Longsilog"
+        ? ["sides"]
+        : ["milk", "syrup"]
+      ).map((groupKey) => [itemName, groupKey] as const),
+  );
+  const modifierLinks: Array<[string, string]> = [
+    ...baseModifierLinks,
+    ...Array.from({ length: 152 }, (_, index) => [
+      menuItems[(index + 8) % menuItems.length]![1],
+      modifierGroups[(index + 3) % modifierGroups.length]!.key,
+    ]),
+  ];
   await scopedDb
     .insertInto("MenuItemModifierGroup")
     .values(
-      ["House latte", "Spanish latte", "Pancake stack", "Longsilog"].flatMap((itemName) =>
-        (itemName === "Pancake stack" || itemName === "Longsilog"
-          ? ["sides"]
-          : ["milk", "syrup"]
-        ).map((groupKey) => ({
-          id: seedId("menu-item-modifier-group", `${itemName}:${groupKey}`),
-          tenant_id: tenantId,
-          menu_item_id: seedId("menu-item", itemName),
-          modifier_group_id: seedId("modifier-group", groupKey),
-        })),
-      ),
+      modifierLinks.map(([itemName, groupKey]) => ({
+        id: seedId("menu-item-modifier-group", `${itemName}:${groupKey}`),
+        tenant_id: tenantId,
+        menu_item_id: seedId("menu-item", itemName),
+        modifier_group_id: seedId("modifier-group", groupKey),
+      })),
     )
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
@@ -404,6 +539,6 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
 
 console.log(`Seeded DeanPOS Demo Cafe. Admin: ${admin.email} / ${password}`);
 console.log(`Tenant ID: ${tenantId}`);
-console.log(`Employees: ${staffUsers.length + 1}; stores: ${stores.length}; devices: 9`);
+console.log(`Employees: ${staffUsers.length + 1}; stores: ${stores.length}; devices: 90`);
 
 await db.destroy();
