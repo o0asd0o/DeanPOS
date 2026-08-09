@@ -1,0 +1,4 @@
+interface:
+  display_name: "Close Acceptance Criteria"
+  short_description: "Implement and close a local issue"
+  default_prompt: "Use $close-acceptance-criteria to implement this issue, close every acceptance criterion, and mark it done."
