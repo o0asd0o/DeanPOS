@@ -66,6 +66,8 @@ describe("sale screen", () => {
     });
     const { container } = render(<SaleWorkspace catalog={catalog} />);
 
+    expect(screen.getByRole("group", { name: "Categories" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Menu" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Water/ }));
     fireEvent.click(screen.getByRole("button", { name: /Juice/ }));
     fireEvent.click(screen.getByRole("button", { name: /Tea/ }));

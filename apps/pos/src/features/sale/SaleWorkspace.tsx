@@ -80,7 +80,7 @@ export function SaleWorkspace({ catalog }: Props) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 md:p-4">
+    <div className="flex min-h-0 flex-1 bg-muted/40 md:p-4">
       <div className="flex min-w-0 flex-1 md:gap-4">
         {selectedItem ? (
           <VariantGrid
@@ -101,7 +101,7 @@ export function SaleWorkspace({ catalog }: Props) {
             onItemSelect={selectItem}
           />
         )}
-        <div className="hidden min-h-0 md:flex">
+        <div className="hidden min-h-0 self-start md:flex">
           <Cart draft={draft} onClear={requestClear} />
         </div>
       </div>

@@ -1,5 +1,6 @@
-import { Card, CardContent } from "ui";
+import { Badge, Button, Card, CardAction, CardContent, CardHeader, CardTitle } from "ui";
 
+import { CategoryTabs } from "./CategoryTabs.tsx";
 import { formatPeso } from "./helpers.ts";
 import type { SaleMenuItem } from "./types.ts";
 
@@ -7,7 +8,7 @@ type Props = {
   item: SaleMenuItem;
   categories: { id: string; name: string }[];
   onBack: () => void;
-  onCategorySelect: (categoryId: string) => void;
+  onCategorySelect: (categoryId: string | null) => void;
   onVariantSelect: (variantId: string) => void;
 };
 
@@ -21,45 +22,50 @@ export function VariantGrid({
   return (
     <section
       aria-label={`${item.name} variants`}
-      className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-4"
+      className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:p-4"
     >
-      <div
-        aria-label="Categories"
-        className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible"
-      >
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            className="min-h-11 shrink-0 text-left"
-            onClick={() => onCategorySelect(category.id)}
-          >
-            {category.name}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="min-h-11 text-left font-medium" onClick={onBack}>
-        ‹ {item.name} — choose a variant
-      </button>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {item.variants.map((variant) => (
-          <Card key={variant.id} className="min-h-28">
-            <CardContent className="flex h-full p-0">
-              <button
-                type="button"
-                disabled={!variant.available}
-                className="flex min-h-28 w-full flex-col items-center justify-center gap-1 p-3 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => onVariantSelect(variant.id)}
-              >
-                <span className="font-medium">{variant.name}</span>
-                <span className="text-sm text-muted-foreground">
-                  {variant.available ? formatPeso(variant.priceCentavos) : "Sold out"}
-                </span>
-              </button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-0">
+          <CategoryTabs
+            categories={categories}
+            selectedCategoryId={item.categoryId}
+            onCategorySelect={onCategorySelect}
+          />
+          <Button type="button" variant="ghost" className="justify-start" onClick={onBack}>
+            ‹ {item.name} — choose a variant
+          </Button>
+        </CardContent>
+      </Card>
+      <Card className="flex-1">
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            {item.name}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="secondary">{item.variants.length} choices</Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {item.variants.map((variant) => (
+            <Card key={variant.id} className="min-h-32 py-0">
+              <CardContent className="flex h-full p-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={!variant.available}
+                  className="h-full min-h-32 w-full flex-col gap-2 whitespace-normal"
+                  onClick={() => onVariantSelect(variant.id)}
+                >
+                  <span>{variant.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {variant.available ? formatPeso(variant.priceCentavos) : "Sold out"}
+                  </span>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
     </section>
   );
 }
