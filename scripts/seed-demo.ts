@@ -562,6 +562,54 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     )
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
+
+  const addOns = [
+    { key: "extra-rice", name: "Extra rice", deltaKind: "absolute", deltaValue: 1500, maximum: 2 },
+    { key: "fried-egg", name: "Fried egg", deltaKind: "absolute", deltaValue: 3500, maximum: 1 },
+    {
+      key: "extra-shot",
+      name: "Extra espresso shot",
+      deltaKind: "absolute",
+      deltaValue: 4500,
+      maximum: 3,
+    },
+    { key: "oat-milk", name: "Oat milk", deltaKind: "absolute", deltaValue: 2500, maximum: 1 },
+  ] as const;
+  await scopedDb
+    .insertInto("AddOn")
+    .values(
+      addOns.map((addOn, index) => ({
+        id: seedId("add-on", addOn.key),
+        tenant_id: tenantId,
+        name: addOn.name,
+        delta_kind: addOn.deltaKind,
+        delta_value: addOn.deltaValue,
+        maximum: addOn.maximum,
+        sort_order: index,
+      })),
+    )
+    .onConflict((oc) => oc.column("id").doNothing())
+    .execute();
+  const addOnLinks = [
+    ["Chicken adobo", "extra-rice"],
+    ["Beef tapa", "extra-rice"],
+    ["Longsilog", "fried-egg"],
+    ["House latte", "extra-shot"],
+    ["Spanish latte", "extra-shot"],
+    ["House latte", "oat-milk"],
+  ] as const;
+  await scopedDb
+    .insertInto("MenuItemAddOn")
+    .values(
+      addOnLinks.map(([itemName, addOnKey]) => ({
+        id: seedId("menu-item-add-on", `${itemName}:${addOnKey}`),
+        tenant_id: tenantId,
+        menu_item_id: seedId("menu-item", itemName),
+        add_on_id: seedId("add-on", addOnKey),
+      })),
+    )
+    .onConflict((oc) => oc.column("id").doNothing())
+    .execute();
 });
 
 console.log(`Seeded DeanPOS Demo Cafe. Admin: ${admin.email} / ${password}`);
