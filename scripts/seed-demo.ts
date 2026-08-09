@@ -335,7 +335,7 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
           })),
         ),
     )
-    .onConflict((oc) => oc.column("id").doNothing())
+    .onConflict((oc) => oc.columns(["payment_method_id", "store_id"]).doNothing())
     .execute();
 
   const baseDeviceSeeds = [
