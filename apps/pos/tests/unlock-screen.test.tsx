@@ -326,6 +326,8 @@ describe("the unlock screen", () => {
         ),
       ).toBeTruthy(),
     );
+    fireEvent.click(screen.getByRole("link", { name: "Register this POS" }));
+    await waitFor(() => expect(screen.getByLabelText("Enrolment code")).toBeTruthy());
   });
 
   it("locking returns to the PIN prompt and clears the acting User, leaving device token and roster untouched", async () => {

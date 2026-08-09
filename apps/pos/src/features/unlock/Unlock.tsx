@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
+import { Link } from "@tanstack/react-router";
 import { Button, Card, CardContent, CardHeader, CardTitle, useSubmitGate } from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
@@ -131,9 +132,14 @@ export function Unlock() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {noOneYet ? (
-            <p role="status">
-              No one is set up at this till yet. Connect once to load the store&rsquo;s users
-            </p>
+            <>
+              <p role="status">
+                No one is set up at this till yet. Connect once to load the store&rsquo;s users
+              </p>
+              <Button asChild>
+                <Link to="/enrol">Register this POS</Link>
+              </Button>
+            </>
           ) : restricted ? (
             <>
               <p className="text-lg font-medium">
