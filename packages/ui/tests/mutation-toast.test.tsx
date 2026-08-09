@@ -35,6 +35,7 @@ describe("mutation toasts", () => {
     await clickSave(() => Promise.resolve({ id: "1" }));
 
     await waitFor(() => expect(screen.getByText("Store saved")).toBeTruthy());
+    expect(screen.getByText("The action completed successfully.")).toBeTruthy();
   });
 
   it("reports a rejection as a failure", async () => {

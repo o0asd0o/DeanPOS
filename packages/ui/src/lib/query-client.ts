@@ -7,11 +7,17 @@ import { toast } from "sonner";
 // through record 038's live regions instead (catalog Options, Direction §5).
 declare module "@tanstack/react-query" {
   interface Register {
-    mutationMeta: { success?: string; error?: string; silent?: boolean };
+    mutationMeta: {
+      success?: string;
+      successDescription?: string;
+      error?: string;
+      silent?: boolean;
+    };
   }
 }
 
 const DEFAULT_SUCCESS = "Saved";
+const DEFAULT_SUCCESS_DESCRIPTION = "The action completed successfully.";
 const DEFAULT_ERROR = "Something went wrong";
 
 // A handler that refuses resolves `null` (or `{ ok: false }`) rather than
@@ -41,7 +47,10 @@ export function createQueryClient(config?: QueryClientConfig): QueryClient {
       onSuccess: (data, _variables, _context, mutation) => {
         if (mutation.meta?.silent) return;
         if (isRefusal(data)) toast.error(mutation.meta?.error ?? DEFAULT_ERROR);
-        else toast.success(mutation.meta?.success ?? DEFAULT_SUCCESS);
+        else
+          toast.success(mutation.meta?.success ?? DEFAULT_SUCCESS, {
+            description: mutation.meta?.successDescription ?? DEFAULT_SUCCESS_DESCRIPTION,
+          });
       },
       onError: (_error, _variables, _context, mutation) => {
         if (mutation.meta?.silent) return;
