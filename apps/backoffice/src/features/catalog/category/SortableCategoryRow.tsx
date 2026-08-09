@@ -20,7 +20,14 @@ export function SortableCategoryRow({
   onRename: (category: CategoryOutput) => void;
   onArchive: (category: CategoryOutput) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: category.id,
     disabled,
   });
@@ -34,12 +41,13 @@ export function SortableCategoryRow({
         transition,
       }}
       className={cn(
-        "group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition-colors",
+        "group cursor-pointer flex items-center gap-1 rounded-lg border px-2 py-1.5 transition-colors",
         selected
           ? "border-primary bg-primary text-primary-foreground shadow-sm"
           : "border-transparent hover:bg-muted/60",
         isDragging && "z-10 bg-background opacity-95 shadow-md",
       )}
+      onClick={() => onSelect(category)}
     >
       <button
         type="button"
@@ -57,7 +65,6 @@ export function SortableCategoryRow({
       <button
         type="button"
         className="min-w-0 flex-1 truncate px-1 text-left text-sm font-medium"
-        onClick={() => onSelect(category)}
       >
         {category.name}
       </button>
@@ -65,7 +72,10 @@ export function SortableCategoryRow({
         variant="ghost"
         size="icon-sm"
         aria-label={`Rename category ${category.name}`}
-        onClick={() => onRename(category)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRename(category);
+        }}
         className={cn(
           "tap-target",
           selected &&
@@ -79,7 +89,10 @@ export function SortableCategoryRow({
         size="icon-sm"
         danger
         aria-label={`Archive category ${category.name}`}
-        onClick={() => onArchive(category)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onArchive(category);
+        }}
         className={cn(
           "tap-target",
           selected &&
