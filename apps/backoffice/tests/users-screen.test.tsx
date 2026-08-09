@@ -399,6 +399,7 @@ describe("the Users screen — as an admin", () => {
     // single-store tenant earns no Store control (record 056 Q5's rule).
     const targetRow = screen.getByText(targetEmail).closest("tr")!;
     expect(within(targetRow).getByText("Deactivated")).toBeTruthy();
+    expect(targetRow.className).toContain("last:!border-b");
     expect(screen.queryByRole("combobox")).toBeNull();
 
     // Search narrows to the one email, then to the person, then to the store

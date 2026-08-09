@@ -201,6 +201,7 @@ export function UserListCard({
                 {users.map((user) => (
                   <TableRow
                     key={user.id}
+                    className="last:!border-b"
                     data-state={user.id === editingId ? "selected" : undefined}
                   >
                     <TableCell>
@@ -296,7 +297,12 @@ export function UserListCard({
                 ))}
               </TableBody>
             </Table>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-2",
+                pageCount < 2 && "mt-3",
+              )}
+            >
               <p className="text-sm text-muted-foreground">
                 Showing {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + 1}–
                 {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + users.length} of{" "}
