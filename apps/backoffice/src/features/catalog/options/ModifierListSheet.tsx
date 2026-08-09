@@ -15,18 +15,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useForm } from "@tanstack/react-form";
 import {
-  ArrowLeftIcon,
-  CheckIcon,
   GripVerticalIcon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
   PowerOffIcon,
+  RotateCcwIcon,
   XIcon,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   cn,
@@ -43,31 +41,19 @@ import {
   SheetContent,
   SheetTitle,
   toast,
-  useSubmitGate,
 } from "ui";
 
 import { reorderSteps } from "@/features/catalog/helpers.ts";
 
 import {
   useArchiveModifierMutation,
-  useCreateModifierMutation,
+  useReactivateModifierMutation,
   useReorderModifierMutation,
-  useUpdateModifierMutation,
 } from "./__common/queries.ts";
-import { DeltaField, type DeltaKind } from "./DeltaField.tsx";
-import {
-  absoluteToEditorString,
-  formatDelta,
-  type ModifierGroupOutput,
-  type ModifierOutput,
-  parseAbsoluteDeltaInput,
-  parseMultiplierRateInput,
-  perMilleToEditorString,
-} from "./helpers.ts";
+import { ModifierForm } from "./ModifierForm.tsx";
+import { formatDelta, type ModifierGroupOutput, type ModifierOutput } from "./helpers.ts";
 
-type SheetPage =
-  | { view: "list" }
-  | { view: "edit"; modifier: ModifierOutput | null };
+type SheetPage = { view: "list" } | { view: "edit"; modifier: ModifierOutput | null };
 
 function SortableModifierRow({
   mod,
@@ -84,14 +70,7 @@ function SortableModifierRow({
   onEdit: (mod: ModifierOutput) => void;
   onArchive: (mod: ModifierOutput) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: mod.id,
     disabled,
   });
@@ -122,9 +101,7 @@ function SortableModifierRow({
       ) : null}
       <span className="flex-1">
         {mod.name}{" "}
-        <span className="tabular-nums text-muted-foreground">
-          {formatDelta(mod.delta)}
-        </span>
+        <span className="tabular-nums text-muted-foreground">{formatDelta(mod.delta)}</span>
       </span>
       {interactive ? (
         <span className="inline-flex items-center gap-1">
@@ -155,185 +132,6 @@ function SortableModifierRow({
   );
 }
 
-function ModifierEditPanel({
-  group,
-  modifier,
-  onBack,
-  onSaved,
-}: {
-  group: ModifierGroupOutput;
-  modifier: ModifierOutput | null;
-  onBack: () => void;
-  onSaved: (msg: string, name: string) => void;
-}) {
-  const createModifier = useCreateModifierMutation();
-  const updateModifier = useUpdateModifierMutation();
-  const saving = createModifier.isPending || updateModifier.isPending;
-  const [formError, setFormError] = useState<string | null>(null);
-  const [deltaError, setDeltaError] = useState<string | null>(null);
-
-  const form = useForm({
-    defaultValues: {
-      name: modifier?.name ?? "",
-      deltaKind: (modifier?.delta.kind ?? "absolute") as DeltaKind,
-      absoluteValue:
-        modifier?.delta.kind === "absolute"
-          ? absoluteToEditorString(modifier.delta.amountCentavos)
-          : "",
-      multiplierValue:
-        modifier?.delta.kind === "multiplier"
-          ? perMilleToEditorString(modifier.delta.perMille)
-          : "",
-    },
-    onSubmit: async ({ value }) => {
-      setFormError(null);
-      setDeltaError(null);
-
-      let delta:
-        | { kind: "absolute"; amountCentavos: number }
-        | { kind: "multiplier"; perMille: number };
-
-      if (value.deltaKind === "absolute") {
-        const parsed = parseAbsoluteDeltaInput(value.absoluteValue);
-        if (!parsed.ok) {
-          setDeltaError("Enter an amount with up to two decimal places.");
-          return;
-        }
-        if (parsed.value < -100_000 || parsed.value > 100_000) {
-          setDeltaError("Amount must be within ±₱1,000.00.");
-          return;
-        }
-        delta = { kind: "absolute", amountCentavos: parsed.value };
-      } else {
-        const parsed = parseMultiplierRateInput(value.multiplierValue);
-        if (!parsed.ok) {
-          setDeltaError(
-            "Enter a rate with up to three decimal places (e.g. 0.5).",
-          );
-          return;
-        }
-        delta = { kind: "multiplier", perMille: parsed.perMille };
-      }
-
-      const saved = modifier
-        ? await updateModifier.mutateAsync({
-            id: modifier.id,
-            name: value.name,
-            delta,
-          })
-        : await createModifier.mutateAsync({
-            groupId: group.id,
-            name: value.name,
-            delta,
-          });
-
-      if (!saved) {
-        setFormError("Couldn't save the modifier.");
-        return;
-      }
-      onSaved(modifier ? "Saved" : "Modifier created", value.name);
-    },
-  });
-
-  const gate = useSubmitGate(form, { busy: saving, dirty: true });
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    if (e.target !== e.currentTarget) return;
-    e.preventDefault();
-    if (saving) return;
-    gate.submit();
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      aria-busy={saving}
-      className="flex h-full flex-col"
-    >
-      <div className="flex items-center gap-2 border-b px-4 py-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={onBack}
-          aria-label="Back to modifiers list"
-        >
-          <ArrowLeftIcon />
-        </Button>
-        <h2 className="flex-1 text-lg font-semibold">
-          {modifier ? `Edit ${modifier.name}` : `New modifier`}
-        </h2>
-      </div>
-      <div className="scrollbar-slim flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {formError ? (
-          <div
-            role="alert"
-            className="rounded-md bg-status-danger-tint p-3 text-sm"
-          >
-            {formError}
-          </div>
-        ) : null}
-        <form.Field name="name">
-          {(field) => (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="modifier-name">Name</label>
-              <Input
-                id="modifier-name"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                autoComplete="off"
-                placeholder="e.g. Extra Cheese"
-              />
-            </div>
-          )}
-        </form.Field>
-        <form.Field name="deltaKind">
-          {(kindField) => (
-            <form.Field
-              name={
-                kindField.state.value === "absolute"
-                  ? "absoluteValue"
-                  : "multiplierValue"
-              }
-            >
-              {(valueField) => (
-                <DeltaField
-                  kind={kindField.state.value}
-                  value={valueField.state.value}
-                  onKindChange={(k) => {
-                    kindField.handleChange(k);
-                    setDeltaError(null);
-                  }}
-                  onValueChange={(v) => {
-                    valueField.handleChange(v);
-                    setDeltaError(null);
-                  }}
-                  error={deltaError}
-                />
-              )}
-            </form.Field>
-          )}
-        </form.Field>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t p-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          disabled={saving}
-        >
-          <XIcon />
-          Cancel
-        </Button>
-        <Button type="submit" aria-disabled={gate.blocked}>
-          <CheckIcon />
-          Save
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export function ModifierListSheet({
   group,
   open,
@@ -348,12 +146,12 @@ export function ModifierListSheet({
   canMutate: boolean;
 }) {
   const [page, setPage] = useState<SheetPage>({ view: "list" });
-  const [archiveTarget, setArchiveTarget] = useState<ModifierOutput | null>(
-    null,
-  );
+  const [query, setQuery] = useState("");
+  const [archiveTarget, setArchiveTarget] = useState<ModifierOutput | null>(null);
   const [pendingItemName, setPendingItemName] = useState<string | null>(null);
 
   const archiveModifier = useArchiveModifierMutation();
+  const reactivateModifier = useReactivateModifierMutation();
   const reorderModifier = useReorderModifierMutation();
 
   const activeMods = useMemo(
@@ -365,6 +163,15 @@ export function ModifierListSheet({
     [group.modifiers],
   );
   const [ordered, setOrdered] = useState(activeMods);
+  const archivedMods = useMemo(
+    () => group.modifiers.filter((modifier) => modifier.archivedAt),
+    [group.modifiers],
+  );
+  const term = query.trim().toLowerCase();
+  const filteredOrdered = ordered.filter((modifier) => modifier.name.toLowerCase().includes(term));
+  const filteredArchived = archivedMods.filter((modifier) =>
+    modifier.name.toLowerCase().includes(term),
+  );
   useEffect(() => {
     if (!reorderModifier.isPending) setOrdered(activeMods);
   }, [activeMods, reorderModifier.isPending]);
@@ -432,15 +239,11 @@ export function ModifierListSheet({
               <div className="flex h-full w-1/2 flex-col overflow-hidden">
                 <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                   <h2 className="text-lg font-semibold">
-                    Modifiers · {group.name}
+                    Modifiers · {group.name} · {activeMods.length} active · {archivedMods.length}{" "}
+                    archived
                   </h2>
                   <SheetClose asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Close"
-                    >
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label="Close">
                       <XIcon />
                     </Button>
                   </SheetClose>
@@ -449,9 +252,20 @@ export function ModifierListSheet({
                   <p className="px-2 pb-2 pt-1 text-sm text-muted-foreground">
                     Drag to reorder. Changes apply immediately.
                   </p>
-                  {ordered.length === 0 ? (
+                  <label className="sr-only" htmlFor="modifier-search">
+                    Search modifiers
+                  </label>
+                  <Input
+                    id="modifier-search"
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search modifiers"
+                    className="mb-2"
+                  />
+                  {filteredOrdered.length === 0 && filteredArchived.length === 0 ? (
                     <p className="p-2 text-sm text-muted-foreground">
-                      No modifiers yet.
+                      {term ? "No modifiers match this search." : "No modifiers yet."}
                     </p>
                   ) : (
                     <DndContext
@@ -460,27 +274,55 @@ export function ModifierListSheet({
                       onDragEnd={handleDragEnd}
                     >
                       <SortableContext
-                        items={ordered.map((m) => m.id)}
+                        items={filteredOrdered.map((m) => m.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {ordered.map((mod) => (
+                        {filteredOrdered.map((mod) => (
                           <SortableModifierRow
                             key={mod.id}
                             mod={mod}
                             groupArchivedAt={group.archivedAt}
                             canMutate={canMutate}
-                            disabled={
-                              reorderModifier.isPending || ordered.length < 2
-                            }
-                            onEdit={(m) =>
-                              setPage({ view: "edit", modifier: m })
-                            }
+                            disabled={reorderModifier.isPending || ordered.length < 2}
+                            onEdit={(m) => setPage({ view: "edit", modifier: m })}
                             onArchive={setArchiveTarget}
                           />
                         ))}
                       </SortableContext>
                     </DndContext>
                   )}
+                  {filteredArchived.length > 0 ? (
+                    <div className="mt-3 flex flex-col gap-1">
+                      <p className="px-2 text-sm font-medium text-muted-foreground">Archived</p>
+                      {filteredArchived.map((modifier) => (
+                        <div
+                          key={modifier.id}
+                          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground opacity-70"
+                        >
+                          <span className="flex-1">
+                            {modifier.name}{" "}
+                            <span className="tabular-nums">{formatDelta(modifier.delta)}</span>
+                          </span>
+                          {canMutate && !group.archivedAt ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={async () => {
+                                const result = await reactivateModifier.mutateAsync({
+                                  id: modifier.id,
+                                });
+                                if (result) onAnnounce(`${modifier.name} reactivated`);
+                              }}
+                            >
+                              <RotateCcwIcon />
+                              Reactivate
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   {pendingItemName ? (
                     <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground opacity-60">
                       <span className="inline-flex size-8 items-center justify-center">
@@ -511,26 +353,16 @@ export function ModifierListSheet({
               </div>
 
               {/* Panel 2 — edit form */}
-              <div
-                className="flex h-full w-1/2 flex-col overflow-hidden"
-                aria-hidden={!inEditMode}
-              >
+              <div className="flex h-full w-1/2 flex-col overflow-hidden" aria-hidden={!inEditMode}>
                 {inEditMode ? (
-                  <ModifierEditPanel
-                    key={
-                      page.modifier
-                        ? `edit-${page.modifier.id}`
-                        : `create-${group.id}`
-                    }
+                  <ModifierForm
+                    key={page.modifier ? `edit-${page.modifier.id}` : `create-${group.id}`}
                     group={group}
                     modifier={page.modifier}
-                    onBack={() => setPage({ view: "list" })}
-                    onSaved={(msg, name) => {
+                    onCancel={() => setPage({ view: "list" })}
+                    onSaved={(msg) => {
                       toast(msg);
                       onAnnounce(msg);
-                      if (page.view === "edit" && page.modifier === null) {
-                        setPendingItemName(name);
-                      }
                       setPage({ view: "list" });
                     }}
                   />
@@ -551,15 +383,11 @@ export function ModifierListSheet({
           <DialogHeader>
             <DialogTitle>Archive {archiveTarget?.name}?</DialogTitle>
             <DialogDescription>
-              This modifier will be hidden from new orders. You can reactivate
-              it later.
+              This modifier will be hidden from new orders. You can reactivate it later.
             </DialogDescription>
           </DialogHeader>
           {archiveModifier.isError ? (
-            <div
-              role="alert"
-              className="rounded-md bg-status-danger-tint p-3 text-sm"
-            >
+            <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
               Couldn't archive the modifier.
             </div>
           ) : null}

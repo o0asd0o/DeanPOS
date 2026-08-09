@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Options } from "@/features/catalog/options/Options.tsx";
 import type { UsageFilter } from "@/components/ListToolbar.tsx";
 
-const USAGES: UsageFilter[] = ["all", "inuse", "unused", "archived"];
+const USAGES: UsageFilter[] = ["all", "inuse", "needsattention", "unused"];
 const parseUsage = (value: unknown): UsageFilter =>
   USAGES.includes(value as UsageFilter) ? (value as UsageFilter) : "all";
 const parseQuery = (value: unknown) => (typeof value === "string" ? value.slice(0, 100) : "");

@@ -7,7 +7,7 @@ export type HealthFilter = "all" | "online" | "stale" | "offline";
 export type RoleFilter = "all" | "cashier" | "manager" | "admin";
 export type ReachFilter = "all" | "live" | "nostores" | "deactivated";
 export type SellabilityFilter = "all" | "live" | "draft" | "archived";
-export type UsageFilter = "all" | "inuse" | "unused" | "archived";
+export type UsageFilter = "all" | "inuse" | "needsattention" | "unused";
 export type ListFilter =
   | StatusFilter
   | HealthFilter
@@ -67,8 +67,8 @@ const SELLABILITY_FILTERS: { value: SellabilityFilter; label: string }[] = [
 const USAGE_FILTERS: { value: UsageFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "inuse", label: "In use" },
+  { value: "needsattention", label: "Needs attention" },
   { value: "unused", label: "Unused" },
-  { value: "archived", label: "Archived" },
 ];
 
 const VARIANTS = {

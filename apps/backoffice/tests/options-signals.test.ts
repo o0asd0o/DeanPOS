@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { getModifierGroupSignals, type ModifierGroupOutput } from "@/features/catalog/options/helpers.ts";
+import {
+  getModifierGroupSignals,
+  type ModifierGroupOutput,
+} from "@/features/catalog/options/helpers.ts";
 
 const group = (overrides: Partial<ModifierGroupOutput>): ModifierGroupOutput => ({
   id: "group",
@@ -31,13 +34,17 @@ describe("modifier group signals", () => {
     };
     const archivedModifier = { ...activeModifier, id: "archived", archivedAt: new Date() };
 
-    expect(getModifierGroupSignals(group({ linkedToCount: 1, modifiers: [activeModifier] }))).toEqual({
+    expect(
+      getModifierGroupSignals(group({ linkedToCount: 1, modifiers: [activeModifier] })),
+    ).toEqual({
       activeModifierCount: 1,
       inUse: true,
       needsAttention: false,
       unused: false,
     });
-    expect(getModifierGroupSignals(group({ linkedToCount: 1, modifiers: [archivedModifier] }))).toEqual({
+    expect(
+      getModifierGroupSignals(group({ linkedToCount: 1, modifiers: [archivedModifier] })),
+    ).toEqual({
       activeModifierCount: 0,
       inUse: false,
       needsAttention: true,

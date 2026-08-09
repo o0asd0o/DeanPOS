@@ -37,6 +37,22 @@ export const SELECTION_RULE_LABEL: Record<ModifierGroupOutput["selectionRule"], 
   many: "Many",
 };
 
+export function getModifierGroupSignals(group: ModifierGroupOutput) {
+  const activeModifierCount = group.modifiers.filter((modifier) => !modifier.archivedAt).length;
+  const needsAttention =
+    !group.archivedAt &&
+    group.linkedToCount > 0 &&
+    group.selectionRule === "required-one" &&
+    activeModifierCount === 0;
+
+  return {
+    activeModifierCount,
+    inUse: !group.archivedAt && group.linkedToCount > 0 && !needsAttention,
+    needsAttention,
+    unused: group.linkedToCount === 0,
+  };
+}
+
 export function formatDelta(delta: DeltaOutput): string {
   if (delta.kind === "absolute") {
     const formatted = formatCentavos(delta.amountCentavos);

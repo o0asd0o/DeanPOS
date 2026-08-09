@@ -19,13 +19,12 @@ import {
   useReactivateModifierGroupMutation,
 } from "./__common/queries.ts";
 import type { ModifierGroupOutput } from "./helpers.ts";
+import { getModifierGroupSignals } from "./helpers.ts";
 import { ModifierGroupEditor } from "./ModifierGroupEditor.tsx";
 import { ModifierGroupListCard } from "./ModifierGroupListCard.tsx";
 import { ModifierListSheet } from "./ModifierListSheet.tsx";
 
-type EditorState =
-  | { mode: "closed" }
-  | { mode: "group"; group: ModifierGroupOutput | null };
+type EditorState = { mode: "closed" } | { mode: "group"; group: ModifierGroupOutput | null };
 
 // Options screen (catalog issue 03): tenant-level ModifierGroups library.
 // List shape from record 038; editor is 049/050 SheetForm. No toast — live regions.
@@ -34,6 +33,9 @@ export function Options() {
   const meQuery = useMeQuery();
   const role = meQuery.data?.authenticated === true ? meQuery.data.role : null;
   const canMutate = role === "admin" || role === "manager";
+  const groupSignals = (groupsQuery.data ?? []).map(getModifierGroupSignals);
+  const inUseCount = groupSignals.filter((signal) => signal.inUse).length;
+  const needsAttentionCount = groupSignals.filter((signal) => signal.needsAttention).length;
 
   const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
     text: "",
@@ -89,7 +91,8 @@ export function Options() {
         <div>
           <h1 className="text-xl font-semibold">Options</h1>
           <p className="text-sm text-muted-foreground">
-            Shared modifier groups for the menu — created once, linked many times.
+            {(groupsQuery.data ?? []).length} groups · {inUseCount} in use · {needsAttentionCount}{" "}
+            need attention
           </p>
         </div>
         {canMutate ? (

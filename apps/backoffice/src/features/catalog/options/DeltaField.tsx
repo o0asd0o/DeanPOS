@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { cn, Input } from "ui";
 
 import { MoneyInput } from "@/components/MoneyInput.tsx";
@@ -21,7 +22,7 @@ export function DeltaField({
   onValueChange: (value: string) => void;
   error?: string | null;
 }) {
-  const valueId = "modifier-delta-value";
+  const valueId = useId();
 
   return (
     <fieldset className="flex flex-col gap-3">

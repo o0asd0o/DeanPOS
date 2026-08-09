@@ -8,6 +8,7 @@ import { type ModifierGroupOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
 export function SortableModifierGroupRow({
   group,
   disabled,
+  showGrip,
   editingGroupId,
   canMutate,
   onEditGroup,
@@ -17,6 +18,7 @@ export function SortableModifierGroupRow({
 }: {
   group: ModifierGroupOutput;
   disabled: boolean;
+  showGrip: boolean;
   editingGroupId: string | null;
   canMutate: boolean;
   onEditGroup: (group: ModifierGroupOutput) => void;
@@ -24,16 +26,9 @@ export function SortableModifierGroupRow({
   onReactivateGroup: (group: ModifierGroupOutput) => void;
   onOpenModifiers: (group: ModifierGroupOutput) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id,
-    disabled,
+    disabled: disabled || !showGrip,
   });
 
   const activeModCount = group.modifiers.filter((m) => !m.archivedAt).length;
@@ -43,24 +38,23 @@ export function SortableModifierGroupRow({
       ref={setNodeRef}
       // design-exempt: dnd-kit needs live transform and transition while dragging
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "last:border-b!",
-        isDragging && "relative z-10 bg-background shadow-md",
-      )}
+      className={cn("last:border-b!", isDragging && "relative z-10 bg-background shadow-md")}
       data-state={editingGroupId === group.id ? "selected" : undefined}
     >
-      <TableCell className="w-10">
-        <button
-          type="button"
-          className="tap-target inline-flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label={`Drag modifier group ${group.name}`}
-          disabled={disabled}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVerticalIcon aria-hidden="true" className="size-4" />
-        </button>
-      </TableCell>
+      {showGrip ? (
+        <TableCell className="w-10">
+          <button
+            type="button"
+            className="tap-target inline-flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={`Drag modifier group ${group.name}`}
+            disabled={disabled}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVerticalIcon aria-hidden="true" className="size-4" />
+          </button>
+        </TableCell>
+      ) : null}
       <TableCell className="font-medium">{group.name}</TableCell>
       <TableCell>{SELECTION_RULE_LABEL[group.selectionRule]}</TableCell>
       <TableCell>

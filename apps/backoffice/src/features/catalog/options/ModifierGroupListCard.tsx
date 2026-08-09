@@ -13,18 +13,16 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ArchiveIcon, RotateCcwIcon, SearchXIcon } from "lucide-react";
+import { SearchXIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
   EmptyState,
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -39,7 +37,7 @@ import { reorderSteps } from "@/features/catalog/helpers.ts";
 import { useTableView } from "@/lib/table.ts";
 
 import { useReorderModifierGroupMutation } from "./__common/queries.ts";
-import { type ModifierGroupOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
+import { getModifierGroupSignals, type ModifierGroupOutput } from "./helpers.ts";
 import { SortableModifierGroupRow } from "./SortableModifierGroupRow.tsx";
 
 type SortKey = "name" | "rule" | "linked" | "status";
@@ -103,9 +101,9 @@ export function ModifierGroupListCard({
   const visible = (groups ?? []).filter(
     (group) =>
       (status === "all" ||
-        (status === "archived" && group.archivedAt !== null) ||
-        (status === "inuse" && group.archivedAt === null && group.linkedToCount > 0) ||
-        (status === "unused" && group.archivedAt === null && group.linkedToCount === 0)) &&
+        (status === "inuse" && getModifierGroupSignals(group).inUse) ||
+        (status === "needsattention" && getModifierGroupSignals(group).needsAttention) ||
+        (status === "unused" && getModifierGroupSignals(group).unused)) &&
       (term === "" ||
         group.name.toLowerCase().includes(term) ||
         group.modifiers.some((m) => m.name.toLowerCase().includes(term))),
@@ -206,6 +204,7 @@ export function ModifierGroupListCard({
                         key={group.id}
                         group={group}
                         disabled={reorderGroup.isPending || ordered.length < 2}
+                        showGrip={true}
                         editingGroupId={editingGroupId}
                         canMutate={canMutate}
                         onEditGroup={onEditGroup}
@@ -221,6 +220,7 @@ export function ModifierGroupListCard({
                           key={group.id}
                           group={group}
                           disabled
+                          showGrip={true}
                           editingGroupId={editingGroupId}
                           canMutate={canMutate}
                           onEditGroup={onEditGroup}
@@ -262,76 +262,20 @@ export function ModifierGroupListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {table.rows.map((group) => {
-                  const activeModCount = group.modifiers.filter((m) => !m.archivedAt).length;
-                  return (
-                    <TableRow
-                      key={group.id}
-                      className="last:!border-b"
-                      data-state={editingGroupId === group.id ? "selected" : undefined}
-                    >
-                      <TableCell className="font-medium">{group.name}</TableCell>
-                      <TableCell>{SELECTION_RULE_LABEL[group.selectionRule]}</TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="tabular-nums"
-                          onClick={() => onOpenModifiers(group)}
-                        >
-                          {activeModCount} modifier{activeModCount !== 1 ? "s" : ""}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="tabular-nums">{group.linkedToCount}</TableCell>
-                      <TableCell>
-                        {group.archivedAt ? (
-                          <Badge variant="secondary">Archived</Badge>
-                        ) : (
-                          <Badge variant="success">Active</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {canMutate ? (
-                          <div className="inline-flex flex-wrap items-center justify-end gap-1">
-                            {!group.archivedAt ? (
-                              <>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => onEditGroup(group)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon-sm"
-                                  variant="ghost"
-                                  danger
-                                  aria-label={`Archive modifier group ${group.name}`}
-                                  onClick={() => onArchiveGroup(group)}
-                                >
-                                  <ArchiveIcon />
-                                </Button>
-                              </>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onReactivateGroup(group)}
-                              >
-                                <RotateCcwIcon />
-                                Reactivate
-                              </Button>
-                            )}
-                          </div>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {table.rows.map((group) => (
+                  <SortableModifierGroupRow
+                    key={group.id}
+                    group={group}
+                    disabled={true}
+                    showGrip={false}
+                    editingGroupId={editingGroupId}
+                    canMutate={canMutate}
+                    onEditGroup={onEditGroup}
+                    onArchiveGroup={onArchiveGroup}
+                    onReactivateGroup={onReactivateGroup}
+                    onOpenModifiers={onOpenModifiers}
+                  />
+                ))}
               </TableBody>
             </Table>
             <TablePagination
