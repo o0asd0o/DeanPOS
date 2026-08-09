@@ -65,6 +65,14 @@ export const catalogReadModifierGroupSchema = z.object({
   modifiers: z.array(catalogReadModifierSchema),
 });
 
+export const catalogReadAddOnSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  delta: catalogDeltaSchema,
+  maximum: z.number().int().positive().nullable(),
+  sortOrder: z.number().int(),
+});
+
 export const catalogReadVariantSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -80,6 +88,7 @@ export const catalogReadMenuItemSchema = z.object({
   priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
   modifierGroups: z.array(catalogReadModifierGroupSchema),
+  addOns: z.array(catalogReadAddOnSchema),
   variants: z.array(catalogReadVariantSchema),
 });
 
@@ -188,5 +197,33 @@ export const catalogMenuItemModifierGroupInputSchema = z.object({
   modifierGroupId: z.string(),
 });
 export const catalogListLinkedModifierGroupsForItemInputSchema = z.object({
+  menuItemId: z.string(),
+});
+
+export const addOnOutputSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  delta: catalogDeltaSchema,
+  maximum: z.number().int().positive().nullable(),
+  sortOrder: z.number().int(),
+  archivedAt: z.date().nullable(),
+  createdAt: z.date(),
+  linkedToCount: z.number().int().nonnegative(),
+});
+
+export const catalogAddOnCreateInputSchema = z.object({
+  name: catalogNameSchema,
+  delta: catalogDeltaSchema,
+  maximum: z.number().int().positive().nullable().optional(),
+});
+export const catalogAddOnUpdateInputSchema = catalogAddOnCreateInputSchema.extend({
+  id: z.string(),
+});
+export const catalogMenuItemAddOnInputSchema = z.object({
+  menuItemId: z.string(),
+  addOnId: z.string(),
+});
+export const catalogListLinkedAddOnsForItemInputSchema = z.object({
   menuItemId: z.string(),
 });

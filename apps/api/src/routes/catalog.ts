@@ -4,18 +4,21 @@ import { handler as archiveCategoryHandler } from "backend/src/catalog/handlers/
 import { handler as archiveMenuItemHandler } from "backend/src/catalog/handlers/archive-menu-item.ts";
 import { handler as archiveModifierHandler } from "backend/src/modifier/handlers/archive-modifier.ts";
 import { handler as archiveModifierGroupHandler } from "backend/src/modifier-group/handlers/archive-modifier-group.ts";
+import { handler as archiveAddOnHandler } from "backend/src/add-on/handlers/archive-add-on.ts";
 import { handler as archiveVariantHandler } from "backend/src/variant/handlers/archive-variant.ts";
 import { handler as catalogVersionHandler } from "backend/src/catalog/handlers/catalog-version.ts";
 import { handler as createCategoryHandler } from "backend/src/catalog/handlers/create-category.ts";
 import { handler as createMenuItemHandler } from "backend/src/catalog/handlers/create-menu-item.ts";
 import { handler as createModifierHandler } from "backend/src/modifier/handlers/create-modifier.ts";
 import { handler as createModifierGroupHandler } from "backend/src/modifier-group/handlers/create-modifier-group.ts";
+import { handler as createAddOnHandler } from "backend/src/add-on/handlers/create-add-on.ts";
 import { handler as createVariantHandler } from "backend/src/variant/handlers/create-variant.ts";
 import { handler as getMenuItemHandler } from "backend/src/catalog/handlers/get-menu-item.ts";
 import { handler as getVariantHandler } from "backend/src/variant/handlers/get-variant.ts";
 import { handler as listCategoriesHandler } from "backend/src/catalog/handlers/list-categories.ts";
 import { handler as listMenuItemsHandler } from "backend/src/catalog/handlers/list-menu-items.ts";
 import { handler as listModifierGroupsHandler } from "backend/src/modifier-group/handlers/list-modifier-groups.ts";
+import { handler as listAddOnsHandler } from "backend/src/add-on/handlers/list-add-ons.ts";
 import { handler as listModifiersHandler } from "backend/src/modifier/handlers/list-modifiers.ts";
 import { handler as listVariantsHandler } from "backend/src/variant/handlers/list-variants.ts";
 import { handler as moveMenuItemHandler } from "backend/src/catalog/handlers/move-menu-item.ts";
@@ -24,6 +27,7 @@ import { handler as reactivateCategoryHandler } from "backend/src/catalog/handle
 import { handler as reactivateMenuItemHandler } from "backend/src/catalog/handlers/reactivate-menu-item.ts";
 import { handler as reactivateModifierHandler } from "backend/src/modifier/handlers/reactivate-modifier.ts";
 import { handler as reactivateModifierGroupHandler } from "backend/src/modifier-group/handlers/reactivate-modifier-group.ts";
+import { handler as reactivateAddOnHandler } from "backend/src/add-on/handlers/reactivate-add-on.ts";
 import { handler as reactivateVariantHandler } from "backend/src/variant/handlers/reactivate-variant.ts";
 import { handler as readCatalogHandler } from "backend/src/catalog/handlers/read-catalog.ts";
 import { handler as renameCategoryHandler } from "backend/src/catalog/handlers/rename-category.ts";
@@ -33,13 +37,18 @@ import { handler as reorderCategoryHandler } from "backend/src/catalog/handlers/
 import { handler as reorderMenuItemHandler } from "backend/src/catalog/handlers/reorder-menu-item.ts";
 import { handler as reorderModifierHandler } from "backend/src/modifier/handlers/reorder-modifier.ts";
 import { handler as reorderModifierGroupHandler } from "backend/src/modifier-group/handlers/reorder-modifier-group.ts";
+import { handler as reorderAddOnHandler } from "backend/src/add-on/handlers/reorder-add-on.ts";
 import { handler as reorderVariantHandler } from "backend/src/variant/handlers/reorder-variant.ts";
 import { handler as setVariantPriceHandler } from "backend/src/variant/handlers/set-variant-price.ts";
 import { handler as updateModifierHandler } from "backend/src/modifier/handlers/update-modifier.ts";
 import { handler as updateModifierGroupHandler } from "backend/src/modifier-group/handlers/update-modifier-group.ts";
+import { handler as updateAddOnHandler } from "backend/src/add-on/handlers/update-add-on.ts";
 import { handler as linkModifierGroupToItemHandler } from "backend/src/catalog/handlers/link-modifier-group-to-item.ts";
 import { handler as unlinkModifierGroupFromItemHandler } from "backend/src/catalog/handlers/unlink-modifier-group-from-item.ts";
 import { handler as listLinkedModifierGroupsForItemHandler } from "backend/src/catalog/handlers/list-linked-modifier-groups-for-item.ts";
+import { handler as linkAddOnToItemHandler } from "backend/src/catalog/handlers/link-add-on-to-menu-item.ts";
+import { handler as unlinkAddOnFromItemHandler } from "backend/src/catalog/handlers/unlink-add-on-from-menu-item.ts";
+import { handler as listLinkedAddOnsForItemHandler } from "backend/src/catalog/handlers/list-linked-add-ons-for-menu-item.ts";
 import { contract } from "contract/src/index.ts";
 
 // Only transport-aware code for `catalog.*` (ADR-0008 rule 5).
@@ -150,15 +159,46 @@ export const catalogReactivateModifierRoute = os.catalog.reactivateModifier.hand
 export const catalogReorderModifierRoute = os.catalog.reorderModifier.handler(
   ({ context, input }) => reorderModifierHandler({ ctx: context, input }),
 );
-export const catalogLinkModifierGroupToMenuItemRoute = os.catalog.linkModifierGroupToMenuItem.handler(
-  ({ context, input }) => linkModifierGroupToItemHandler({ ctx: context, input }),
+export const catalogLinkModifierGroupToMenuItemRoute =
+  os.catalog.linkModifierGroupToMenuItem.handler(({ context, input }) =>
+    linkModifierGroupToItemHandler({ ctx: context, input }),
+  );
+export const catalogUnlinkModifierGroupFromMenuItemRoute =
+  os.catalog.unlinkModifierGroupFromMenuItem.handler(({ context, input }) =>
+    unlinkModifierGroupFromItemHandler({ ctx: context, input }),
+  );
+export const catalogListLinkedModifierGroupsForMenuItemRoute =
+  os.catalog.listLinkedModifierGroupsForMenuItem.handler(({ context, input }) =>
+    listLinkedModifierGroupsForItemHandler({ ctx: context, input }),
+  );
+export const catalogListAddOnsRoute = os.catalog.listAddOns.handler(({ context }) =>
+  listAddOnsHandler({ ctx: context, input: undefined }),
 );
-export const catalogUnlinkModifierGroupFromMenuItemRoute = os.catalog.unlinkModifierGroupFromMenuItem.handler(
-  ({ context, input }) => unlinkModifierGroupFromItemHandler({ ctx: context, input }),
+export const catalogCreateAddOnRoute = os.catalog.createAddOn.handler(({ context, input }) =>
+  createAddOnHandler({ ctx: context, input }),
 );
-export const catalogListLinkedModifierGroupsForMenuItemRoute = os.catalog.listLinkedModifierGroupsForMenuItem.handler(
-  ({ context, input }) => listLinkedModifierGroupsForItemHandler({ ctx: context, input }),
+export const catalogUpdateAddOnRoute = os.catalog.updateAddOn.handler(({ context, input }) =>
+  updateAddOnHandler({ ctx: context, input }),
 );
+export const catalogArchiveAddOnRoute = os.catalog.archiveAddOn.handler(({ context, input }) =>
+  archiveAddOnHandler({ ctx: context, input }),
+);
+export const catalogReactivateAddOnRoute = os.catalog.reactivateAddOn.handler(
+  ({ context, input }) => reactivateAddOnHandler({ ctx: context, input }),
+);
+export const catalogReorderAddOnRoute = os.catalog.reorderAddOn.handler(({ context, input }) =>
+  reorderAddOnHandler({ ctx: context, input }),
+);
+export const catalogLinkAddOnToMenuItemRoute = os.catalog.linkAddOnToMenuItem.handler(
+  ({ context, input }) => linkAddOnToItemHandler({ ctx: context, input }),
+);
+export const catalogUnlinkAddOnFromMenuItemRoute = os.catalog.unlinkAddOnFromMenuItem.handler(
+  ({ context, input }) => unlinkAddOnFromItemHandler({ ctx: context, input }),
+);
+export const catalogListLinkedAddOnsForMenuItemRoute =
+  os.catalog.listLinkedAddOnsForMenuItem.handler(({ context, input }) =>
+    listLinkedAddOnsForItemHandler({ ctx: context, input }),
+  );
 export const catalogReadRoute = os.catalog.read.handler(({ context, input }) =>
   readCatalogHandler({ ctx: context, input }),
 );

@@ -50,6 +50,8 @@ model Tenant {
   modifierGroups                        ModifierGroup[]
   modifiers                             Modifier[]
   menuItemModifierGroups                MenuItemModifierGroup[]
+  addOns                                AddOn[]
+  menuItemAddOns                        MenuItemAddOn[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -283,6 +285,7 @@ model MenuItem {
   category              Category                @relation(fields: [tenantId, categoryId], references: [tenantId, id])
   variants              Variant[]
   menuItemModifierGroups MenuItemModifierGroup[]
+  menuItemAddOns         MenuItemAddOn[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -369,6 +372,40 @@ model MenuItemModifierGroup {
   @@index([tenantId])
   @@index([tenantId, menuItemId])
   @@index([tenantId, modifierGroupId])
+}
+
+model AddOn {
+  id             String          @id
+  tenantId       String          @map("tenant_id")
+  name           String
+  deltaKind      String          @map("delta_kind")
+  deltaValue     Int             @map("delta_value")
+  maximum        Int?
+  sortOrder      Int             @map("sort_order")
+  archivedAt     DateTime?       @map("archived_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  menuItemAddOns MenuItemAddOn[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+model MenuItemAddOn {
+  id         String   @id
+  tenantId   String   @map("tenant_id")
+  menuItemId String   @map("menu_item_id")
+  addOnId    String   @map("add_on_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  menuItem   MenuItem @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+  addOn      AddOn    @relation(fields: [tenantId, addOnId], references: [tenantId, id])
+
+  @@unique([tenantId, menuItemId, addOnId])
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, menuItemId])
+  @@index([tenantId, addOnId])
 }
 
 // Append-only (record 054 Q1). `storeId` null is a change to the method

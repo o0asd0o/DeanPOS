@@ -48,6 +48,19 @@ export const catalogVersion = async (db: DatabaseInstance, tenantId: string, sto
               where immg."menu_item_id" = m."id"
                 and mg."archived_at" is null
             ), '[]'::jsonb),
+            'addOns', coalesce((
+              select jsonb_agg(jsonb_build_object(
+                'id', ao."id",
+                'name', ao."name",
+                'delta', jsonb_build_object('kind', ao."delta_kind", 'value', ao."delta_value"),
+                'maximum', ao."maximum",
+                'sortOrder', ao."sort_order"
+              ) order by ao."sort_order", ao."id")
+              from "MenuItemAddOn" imao
+              join "AddOn" ao on ao."id" = imao."add_on_id"
+              where imao."menu_item_id" = m."id"
+                and ao."archived_at" is null
+            ), '[]'::jsonb),
             'variants', coalesce((
               select jsonb_agg(jsonb_build_object(
                 'id', v."id",

@@ -11,6 +11,7 @@ import { listLinkedModifierGroupsForItem } from "../db-operations/queries/list-l
 import { listActiveModifiersForGroup } from "../../modifier/db-operations/queries/list-modifiers-for-group.query.ts";
 import { toCategoryOutput } from "../helpers.ts";
 import { deltaFromStored } from "../../modifier/delta.ts";
+import { listLinkedAddOnsForItem } from "../db-operations/queries/list-linked-add-ons-for-item.query.ts";
 
 export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
@@ -30,7 +31,14 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
   return withTenantScope(ctx.db, tenantId, async (db) => {
     const categories = (await listActiveCategories(db)).map(toCategoryOutput);
     const sellable = await listSellableMenuItems(db);
-    const toGroupShape = async (group: { id: string; name: string; selection_rule: string; maximum: number | null; default_modifier_id: string | null; sort_order: number }) => {
+    const toGroupShape = async (group: {
+      id: string;
+      name: string;
+      selection_rule: string;
+      maximum: number | null;
+      default_modifier_id: string | null;
+      sort_order: number;
+    }) => {
       const allModifiers = await listActiveModifiersForGroup(db, group.id);
       const modifiers = allModifiers.map((m) => {
         const dr = deltaFromStored(m.delta_kind as "absolute" | "multiplier", m.delta_value);
@@ -56,6 +64,19 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       sellable.map(async (item) => {
         const itemGroups = await listLinkedModifierGroupsForItem(db, item.id);
         const modifierGroups = await Promise.all(itemGroups.map(toGroupShape));
+        const addOns = (await listLinkedAddOnsForItem(db, item.id)).map((addOn) => {
+          const result = deltaFromStored(
+            addOn.delta_kind as "absolute" | "multiplier",
+            addOn.delta_value,
+          );
+          return {
+            id: addOn.id,
+            name: addOn.name,
+            delta: result.ok ? result.delta : { kind: "absolute" as const, amountCentavos: 0 },
+            maximum: addOn.maximum,
+            sortOrder: addOn.sort_order,
+          };
+        });
 
         const variants = await listActiveVariantsForMenuItem(db, item.id);
         const variantsWithGroups = variants.map((variant) => ({
@@ -72,6 +93,7 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
           priceCentavos: item.price_centavos,
           sortOrder: item.sort_order,
           modifierGroups,
+          addOns,
           variants: variantsWithGroups,
         };
       }),

@@ -9,7 +9,11 @@ export class NegativeEffectivePriceError extends Error {
   }
 }
 
-async function worstCaseDelta(db: DatabaseInstance, groups: { id: string; selection_rule: string }[]): Promise<number> {
+async function worstCaseDelta(
+  db: DatabaseInstance,
+  groups: { id: string; selection_rule: string }[],
+  menuItemId: string,
+): Promise<number> {
   let sum = 0;
   for (const group of groups) {
     const modifiers = await db
@@ -31,6 +35,16 @@ async function worstCaseDelta(db: DatabaseInstance, groups: { id: string; select
       sum += absNegatives.reduce((s, v) => s + v, 0);
     }
   }
+  const addOns = await db
+    .selectFrom("MenuItemAddOn")
+    .innerJoin("AddOn", "AddOn.id", "MenuItemAddOn.add_on_id")
+    .select(["AddOn.delta_kind", "AddOn.delta_value"])
+    .where("MenuItemAddOn.menu_item_id", "=", menuItemId)
+    .where("AddOn.archived_at", "is", null)
+    .execute();
+  sum += addOns
+    .filter((addOn) => addOn.delta_kind === "absolute" && addOn.delta_value < 0)
+    .reduce((total, addOn) => total + addOn.delta_value, 0);
   return sum;
 }
 
@@ -54,12 +68,15 @@ export async function guardEffectivePrice(db: DatabaseInstance, variantId: strin
   if (!variant) return;
 
   const groups = await itemGroups(db, variant.menu_item_id);
-  const delta = await worstCaseDelta(db, groups);
+  const delta = await worstCaseDelta(db, groups, variant.menu_item_id);
   if (variant.price_centavos + delta < 0) throw new NegativeEffectivePriceError();
 }
 
 /** Item link or modifier delta change: throws if item or any active variant price + delta < 0. */
-export async function guardEffectivePriceForItem(db: DatabaseInstance, menuItemId: string): Promise<void> {
+export async function guardEffectivePriceForItem(
+  db: DatabaseInstance,
+  menuItemId: string,
+): Promise<void> {
   const item = await db
     .selectFrom("MenuItem")
     .select(["price_centavos"])
@@ -69,7 +86,7 @@ export async function guardEffectivePriceForItem(db: DatabaseInstance, menuItemI
   if (!item) return;
 
   const groups = await itemGroups(db, menuItemId);
-  const delta = await worstCaseDelta(db, groups);
+  const delta = await worstCaseDelta(db, groups, menuItemId);
   if (item.price_centavos + delta < 0) throw new NegativeEffectivePriceError();
 
   const variants = await db
