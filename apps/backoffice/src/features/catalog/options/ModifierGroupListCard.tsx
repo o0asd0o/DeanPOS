@@ -13,7 +13,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ArchiveIcon, RotateCcwIcon } from "lucide-react";
+import { ArchiveIcon, RotateCcwIcon, SearchXIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
@@ -21,6 +21,7 @@ import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   Table,
   TableBody,
   TableCell,
@@ -111,6 +112,7 @@ export function ModifierGroupListCard({
   );
 
   const table = useTableView(visible, SORT_VALUES, "name", `${status}:${query}`);
+  const hasFilters = status !== "all" || term !== "";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -159,7 +161,20 @@ export function ModifierGroupListCard({
         ) : canDrag && ordered.length === 0 ? (
           <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
         ) : !canDrag && table.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
+          hasFilters ? (
+            <EmptyState
+              icon={<SearchXIcon aria-hidden="true" />}
+              title="No modifier groups match these filters"
+              description="Try another usage or clear the search."
+              action={
+                <Button variant="outline" onClick={() => setSearch({ usage: "all", q: "" })}>
+                  Clear filters
+                </Button>
+              }
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
+          )
         ) : canDrag ? (
           <DndContext
             sensors={sensors}

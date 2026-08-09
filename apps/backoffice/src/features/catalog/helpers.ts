@@ -27,6 +27,16 @@ export type VariantOutput = {
   createdAt: Date;
 };
 
+export function resolveCatalogCategoryId(
+  categories: CategoryOutput[] | undefined,
+  selectedId: string | null,
+): string | null {
+  const active = (categories ?? []).filter((category) => category.archivedAt === null);
+  return active.some((category) => category.id === selectedId)
+    ? selectedId
+    : (active[0]?.id ?? null);
+}
+
 // Backend reorder is neighbour-swap only; drag maps to N sequential swaps.
 export const reorderSteps = (
   fromIndex: number,

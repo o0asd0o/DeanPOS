@@ -84,6 +84,12 @@ export function Devices() {
   };
   const setPage = (page: number) =>
     navigate({ to: "/devices", search: { ...search, page }, replace: true });
+  const onClearFilters = () =>
+    navigate({
+      to: "/devices",
+      search: { ...search, health: "all", store: "all", q: "", page: 1 },
+      replace: true,
+    });
 
   const devicesQuery = useDevicesQuery({
     page,
@@ -224,6 +230,7 @@ export function Devices() {
         sort={sort}
         onSortChange={setSort}
         onPageChange={setPage}
+        onClearFilters={onClearFilters}
         onEdit={openEdit}
         onRevoke={(device) => {
           opener.current = document.activeElement as HTMLElement;

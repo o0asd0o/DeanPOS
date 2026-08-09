@@ -9,6 +9,7 @@ import {
   renderRoute,
   screen,
   waitFor,
+  withTenantScope,
   within,
 } from "api/src/test-seam-react.tsx";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
@@ -65,6 +66,38 @@ describe("the Options screen", () => {
     unmountAll();
     await ownerDb.deleteFrom("Modifier").where("tenant_id", "=", tenantId).execute();
     await ownerDb.deleteFrom("ModifierGroup").where("tenant_id", "=", tenantId).execute();
+  });
+
+  it("clears option filters from the filtered empty state", async () => {
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("ModifierGroup")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          name: "Filter target",
+          selection_rule: "single",
+          sort_order: 0,
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: managerId,
+      role: "manager",
+      initialLocation: "/add-ons?q=missing-option",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() =>
+      expect(screen.getByText("No modifier groups match these filters")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(screen.getByText("Filter target")).toBeTruthy());
+    expect(window.location.search).toContain("usage=all");
+    expect(window.location.search).toContain("q=");
   });
 
   it("lists groups with Linked to from the query, delta radios + affix, live regions, axe clean", async () => {

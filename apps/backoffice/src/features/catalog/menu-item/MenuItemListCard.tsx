@@ -127,6 +127,7 @@ export function MenuItemListCard({
     "name",
     `${status}:${query}:${categorySearch}`,
   );
+  const hasFilters = status !== "all" || term !== "";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -307,6 +308,13 @@ export function MenuItemListCard({
             icon={<SearchXIcon aria-hidden="true" />}
             title="No menu items match these filters"
             description="Try another status, or clear the search."
+            action={
+              hasFilters && (
+                <Button variant="outline" onClick={() => setSearch({ status: "all", q: "" })}>
+                  Clear filters
+                </Button>
+              )
+            }
           />
         )}
         <TablePagination

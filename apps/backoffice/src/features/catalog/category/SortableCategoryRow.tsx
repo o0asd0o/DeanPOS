@@ -34,14 +34,19 @@ export function SortableCategoryRow({
         transition,
       }}
       className={cn(
-        "flex items-center gap-1 rounded-md border px-2 py-1.5",
-        selected ? "border-primary bg-muted/40" : "border-transparent",
+        "group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition-colors",
+        selected
+          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+          : "border-transparent hover:bg-muted/60",
         isDragging && "z-10 bg-background opacity-95 shadow-md",
       )}
     >
       <button
         type="button"
-        className="tap-target inline-flex size-9 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40"
+        className={cn(
+          "tap-target inline-flex size-9 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-40",
+          selected && "text-primary-foreground/70",
+        )}
         aria-label={`Drag category ${category.name}`}
         disabled={disabled}
         {...attributes}
@@ -61,7 +66,11 @@ export function SortableCategoryRow({
         size="icon-sm"
         aria-label={`Rename category ${category.name}`}
         onClick={() => onRename(category)}
-        className="tap-target"
+        className={cn(
+          "tap-target",
+          selected &&
+            "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+        )}
       >
         <PencilIcon aria-hidden="true" />
       </Button>
@@ -71,7 +80,11 @@ export function SortableCategoryRow({
         danger
         aria-label={`Archive category ${category.name}`}
         onClick={() => onArchive(category)}
-        className="tap-target"
+        className={cn(
+          "tap-target",
+          selected &&
+            "text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground",
+        )}
       >
         <ArchiveIcon aria-hidden="true" />
       </Button>

@@ -19,7 +19,7 @@ import {
   useReorderMenuItemMutation,
 } from "./menu-item/__common/queries.ts";
 import type { CategoryOutput, MenuItemOutput } from "./helpers.ts";
-import { reorderSteps } from "./helpers.ts";
+import { reorderSteps, resolveCatalogCategoryId } from "./helpers.ts";
 
 type CategoryEditorState =
   | { mode: "closed" }
@@ -64,16 +64,16 @@ export function Catalog() {
   }, [categorySearch]);
 
   useEffect(() => {
-    const fallback = categories?.find((item) => item.archivedAt === null);
-    if (fallback && categorySearch !== fallback.id) {
-      setSelectedId(fallback.id);
+    const resolvedId = resolveCatalogCategoryId(categories, selectedId);
+    if (resolvedId && selectedId !== resolvedId) {
+      setSelectedId(resolvedId);
       void navigate({
         to: "/catalog",
-        search: { status, q, category: fallback.id },
+        search: { status, q, category: resolvedId },
         replace: true,
       });
     }
-  }, [categories, navigate, q, selected, status]);
+  }, [categories, navigate, q, selectedId, status]);
 
   const setCategory = (categoryId: string) => {
     setSelectedId(categoryId);
@@ -213,6 +213,7 @@ export function Catalog() {
               announce(`${category.name} reactivated`);
             }}
             reordering={reorderingCategories}
+            reactivating={reactivateCategory.isPending}
           />
         </div>
         <div className="lg:col-span-3">

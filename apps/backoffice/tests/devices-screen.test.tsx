@@ -73,6 +73,36 @@ describe("the Devices screen — as an admin", () => {
     cleanup = undefined;
   });
 
+  it("clears device filters from the filtered empty state", async () => {
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Device")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          store_id: storeId,
+          name: "Filter target",
+          code: "FT",
+          token_hash: `filter-target-${randomUUID()}`,
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/devices?q=missing-device",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("No devices match these filters")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(screen.getByText("Filter target")).toBeTruthy());
+    expect(window.location.search).toContain("q=");
+  });
+
   it("shows the unfiltered empty state, generates a code, and shows the result", async () => {
     const { container, db } = renderRoute({
       router,

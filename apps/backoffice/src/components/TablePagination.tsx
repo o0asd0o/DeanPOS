@@ -36,6 +36,8 @@ export function TablePagination({
   itemCount: number;
   totalItems: number;
 }) {
+  if (totalItems === 0) return null;
+
   const goTo = (next: number) => {
     if (next >= 1 && next <= pageCount && next !== page) onPageChange(next);
   };

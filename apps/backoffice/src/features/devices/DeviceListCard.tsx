@@ -67,6 +67,7 @@ export function DeviceListCard({
   sort,
   onSortChange,
   onPageChange,
+  onClearFilters,
   onEdit,
   onRevoke,
 }: {
@@ -87,6 +88,7 @@ export function DeviceListCard({
   sort: { key: DeviceListSortKey; direction: "asc" | "desc" };
   onSortChange: (key: DeviceListSortKey) => void;
   onPageChange: (page: number) => void;
+  onClearFilters: () => void;
   onEdit: (device: DeviceOutput) => void;
   onRevoke: (device: DeviceOutput) => void;
 }) {
@@ -153,6 +155,11 @@ export function DeviceListCard({
               icon={<SearchXIcon aria-hidden="true" />}
               title="No devices match these filters"
               description="Try another filter, or clear the search."
+              action={
+                <Button variant="outline" onClick={onClearFilters}>
+                  Clear filters
+                </Button>
+              }
             />
           )
         ) : (

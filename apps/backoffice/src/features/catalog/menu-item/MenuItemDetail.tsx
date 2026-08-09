@@ -474,7 +474,7 @@ export function MenuItemDetail() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col gap-4 pt-6">
+        <CardContent className="flex flex-col gap-4">
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -545,7 +545,7 @@ export function MenuItemDetail() {
       </Card>
 
       <Card>
-        <CardContent className="flex flex-col gap-4 pt-6">
+        <CardContent className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Modifier groups</h2>
           <p className="text-sm text-muted-foreground">
             Apply to this item regardless of which variant is chosen.
@@ -555,7 +555,7 @@ export function MenuItemDetail() {
       </Card>
 
       <Card>
-        <CardContent className="flex flex-col gap-4 pt-6">
+        <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Variants</h2>

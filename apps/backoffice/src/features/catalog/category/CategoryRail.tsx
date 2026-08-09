@@ -14,11 +14,12 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { PlusIcon } from "lucide-react";
-import { Badge, Button, Card, CardAction, CardContent, CardHeader, CardTitle } from "ui";
+import { ArchiveIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import { Button, Card, CardAction, CardContent, CardHeader, CardTitle } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
 import type { CategoryOutput } from "@/features/catalog/helpers.ts";
+import { ArchivedCategoriesDialog } from "./ArchivedCategoriesDialog.tsx";
 import { SortableCategoryRow } from "./SortableCategoryRow.tsx";
 
 export function CategoryRail({
@@ -35,6 +36,7 @@ export function CategoryRail({
   onArchive,
   onReactivate,
   reordering,
+  reactivating,
 }: {
   categories: CategoryOutput[] | undefined;
   isPending: boolean;
@@ -49,6 +51,7 @@ export function CategoryRail({
   onArchive: (category: CategoryOutput) => void;
   onReactivate: (category: CategoryOutput) => void;
   reordering: boolean;
+  reactivating: boolean;
 }) {
   const serverActive = useMemo(
     () =>
@@ -64,6 +67,7 @@ export function CategoryRail({
   );
 
   const [ordered, setOrdered] = useState(serverActive);
+  const [archivesOpen, setArchivesOpen] = useState(false);
   useEffect(() => {
     if (!reordering) setOrdered(serverActive);
   }, [serverActive, reordering]);
@@ -86,9 +90,14 @@ export function CategoryRail({
   };
 
   return (
-    <Card className="gap-3">
-      <CardHeader>
-        <CardTitle>Categories</CardTitle>
+    <Card className="gap-0 overflow-hidden">
+      <CardHeader className="border-b pb-4">
+        <div>
+          <CardTitle>Categories</CardTitle>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">
+            {serverActive.length} active
+          </p>
+        </div>
         <CardAction>
           <Button size="sm" onClick={onAdd} className="tap-target">
             <PlusIcon aria-hidden="true" />
@@ -96,7 +105,7 @@ export function CategoryRail({
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-3 pt-4">
         {isPending ? (
           <p role="status">Loading…</p>
         ) : isError ? (
@@ -116,7 +125,7 @@ export function CategoryRail({
                 items={ordered.map((category) => category.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="flex flex-col gap-2" aria-label="Categories">
+                <div className="flex flex-col gap-1" aria-label="Active categories">
                   {ordered.map((category) => (
                     <SortableCategoryRow
                       key={category.id}
@@ -132,27 +141,37 @@ export function CategoryRail({
               </SortableContext>
             </DndContext>
             {archived.length > 0 && (
-              <div className="mt-2 flex flex-col gap-2 border-t pt-2">
-                <p className="text-xs font-medium text-muted-foreground">Archived</p>
-                {archived.map((category) => (
-                  <div key={category.id} className="flex items-center gap-2 px-2 py-1">
-                    <span className="min-w-0 flex-1 truncate text-sm">{category.name}</span>
-                    <Badge variant="secondary">Archived</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onReactivate(category)}
-                      className="tap-target"
-                    >
-                      Reactivate
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="tap-target h-auto w-full justify-start gap-2 rounded-lg border border-dashed px-3 py-3 text-left hover:bg-muted/50"
+                onClick={() => setArchivesOpen(true)}
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-status-warning-tint text-status-warning-tone">
+                  <ArchiveIcon aria-hidden="true" className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">Archived categories</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {archived.length} archived
+                  </span>
+                </span>
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+              </Button>
             )}
           </>
         )}
       </CardContent>
+      <ArchivedCategoriesDialog
+        categories={archived}
+        open={archivesOpen}
+        onOpenChange={setArchivesOpen}
+        onReactivate={onReactivate}
+        reactivating={reactivating}
+      />
     </Card>
   );
 }
