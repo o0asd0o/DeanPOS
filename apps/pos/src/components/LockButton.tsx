@@ -6,7 +6,12 @@ export function LockButton() {
   const { actingUser, setActingUser } = useActingUser();
   if (actingUser === null) return null;
   return (
-    <Button variant="outline" size="sm" onClick={() => setActingUser(null)}>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="w-full justify-start"
+      onClick={() => setActingUser(null)}
+    >
       Lock
     </Button>
   );

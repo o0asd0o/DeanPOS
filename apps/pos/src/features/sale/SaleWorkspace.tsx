@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Button,
   Dialog,
@@ -24,27 +25,31 @@ import {
 } from "./draft-store.ts";
 import { MobileCart } from "./MobileCart.tsx";
 import { ModifierAddonModal } from "./ModifierAddonModal.tsx";
+import { SaleKebabMenu } from "./SaleKebabMenu.tsx";
 import { SaleGrid } from "./SaleGrid.tsx";
 import type { SaleCatalog, SaleMenuItem } from "./types.ts";
 import { VariantGrid } from "./VariantGrid.tsx";
+import { readViewMode, writeViewMode, type ViewMode } from "./view-mode.ts";
 
 type Props = { catalog: SaleCatalog };
 
 export function SaleWorkspace({ catalog }: Props) {
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => readViewMode());
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<SaleMenuItem | null>(null);
   const [draft, setDraft] = useState<Draft | null>(() => readDraft());
   const [clearOpen, setClearOpen] = useState(false);
   const [picker, setPicker] = useState<{
     item: SaleMenuItem;
-    variantId: string;
+    variantId: string | null;
     lineId?: string;
   } | null>(null);
 
   const visibleItems = catalog.menuItems.filter(
     (item) =>
-      (categoryId === null || item.categoryId === categoryId) &&
+      (search !== "" || categoryId === null || item.categoryId === categoryId) &&
       item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
   const ensureDraft = () => {
@@ -97,26 +102,13 @@ export function SaleWorkspace({ catalog }: Props) {
   };
   const editLine = (line: Draft["lines"][number]) => {
     const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
-    const variant = item?.variants.find((entry) => entry.id === line.variantId);
-    if (item && variant) setPicker({ item, variantId: variant.id, lineId: line.id });
-  };
-  const changeQuantity = (lineId: string, quantity: number) => {
-    const line = draft?.lines.find((entry) => entry.id === lineId);
-    if (!draft || !line) return;
-    const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
-    if (!item) return;
-    const next = updateLine(
-      draft,
-      lineId,
-      { ...line, quantity },
-      item.modifierGroups.flatMap((g) => g.modifiers),
-      item.addOns,
-    );
-    writeDraft(next);
-    setDraft(next);
+    if (item) setPicker({ item, variantId: line.variantId, lineId: line.id });
   };
   const addBaseItem = (item: SaleMenuItem) => {
-    if (item.modifierGroups.length > 0 || item.addOns.length > 0) return;
+    if (item.modifierGroups.length > 0 || item.addOns.length > 0) {
+      setPicker({ item, variantId: null });
+      return;
+    }
     const next = addOptionlessLine(ensureDraft(), {
       menuItemId: item.id,
       menuItemName: item.name,
@@ -147,10 +139,42 @@ export function SaleWorkspace({ catalog }: Props) {
     setCategoryId(nextCategoryId);
     setSelectedItem(null);
   };
+  const setSavedViewMode = (nextViewMode: ViewMode) => {
+    writeViewMode(nextViewMode);
+    setViewMode(nextViewMode);
+  };
+  const headerActions = (
+    <span data-sale-actions className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Search menu"
+        onClick={() => {
+          setSearchOpen((current) => !current);
+          if (searchOpen) setSearch("");
+        }}
+      >
+        {searchOpen ? "×" : "⌕"}
+      </Button>
+      <SaleKebabMenu disabled={(draft?.lines.length ?? 0) === 0} onClear={requestClear} />
+    </span>
+  );
+  const headerTarget = document.getElementById("shell-header-actions");
+  useEffect(() => {
+    const lockAction = document.getElementById("shell-lock-action");
+    lockAction?.classList.add("hidden");
+    return () => lockAction?.classList.remove("hidden");
+  }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 bg-muted/40 md:p-4 pt-0!">
-      <div className="flex min-w-0 flex-1 md:gap-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-muted/40 md:p-4">
+      {headerTarget ? (
+        createPortal(headerActions, headerTarget)
+      ) : (
+        <div className="flex justify-end gap-1">{headerActions}</div>
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1 md:gap-4">
         {selectedItem ? (
           <VariantGrid
             item={selectedItem}
@@ -164,46 +188,25 @@ export function SaleWorkspace({ catalog }: Props) {
             categories={catalog.categories}
             items={visibleItems}
             search={search}
+            searchOpen={searchOpen}
             selectedCategoryId={categoryId}
+            viewMode={viewMode}
             onSearchChange={setSearch}
+            onViewModeChange={setSavedViewMode}
             onCategorySelect={selectCategory}
             onItemSelect={selectItem}
           />
         )}
-        <div className="hidden min-h-0 self-start md:flex">
-          <Cart
-            draft={draft}
-            onClear={requestClear}
-            onEdit={editLine}
-            onQuantityChange={changeQuantity}
-            onRemove={(lineId) => {
-              const next = draft ? removeLine(draft, lineId) : null;
-              if (next) {
-                writeDraft(next);
-                setDraft(next);
-              }
-            }}
-          />
+        <div className="hidden min-h-0 md:flex">
+          <Cart draft={draft} onEdit={editLine} />
         </div>
       </div>
-      <MobileCart
-        draft={draft}
-        onClear={requestClear}
-        onEdit={editLine}
-        onQuantityChange={changeQuantity}
-        onRemove={(lineId) => {
-          const next = draft ? removeLine(draft, lineId) : null;
-          if (next) {
-            writeDraft(next);
-            setDraft(next);
-          }
-        }}
-      />
+      <MobileCart draft={draft} onEdit={editLine} />
       {picker && (
         <ModifierAddonModal
           key={`${picker.lineId ?? "new"}-${picker.variantId}`}
           item={picker.item}
-          variant={picker.item.variants.find((entry) => entry.id === picker.variantId)!}
+          variant={picker.item.variants.find((entry) => entry.id === picker.variantId) ?? null}
           open
           onOpenChange={(open) => {
             if (!open) setPicker(null);
@@ -212,6 +215,13 @@ export function SaleWorkspace({ catalog }: Props) {
             picker.lineId ? draft?.lines.find((line) => line.id === picker.lineId) : undefined
           }
           onSubmit={submitPicker}
+          onRemove={() => {
+            if (!picker.lineId || !draft) return;
+            const next = removeLine(draft, picker.lineId);
+            writeDraft(next);
+            setDraft(next);
+            setPicker(null);
+          }}
         />
       )}
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>

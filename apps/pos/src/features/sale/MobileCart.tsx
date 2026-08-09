@@ -6,10 +6,7 @@ import { Cart } from "./Cart.tsx";
 
 type Props = {
   draft: Draft | null;
-  onClear: () => void;
   onEdit: (line: Draft["lines"][number]) => void;
-  onQuantityChange: (lineId: string, quantity: number) => void;
-  onRemove: (lineId: string) => void;
 };
 
 export function MobileCart(props: Props) {

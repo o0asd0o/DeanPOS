@@ -1,15 +1,20 @@
-import { Badge, Button, Card, CardContent, Input } from "ui";
+import { Button, Card, CardContent, Input } from "ui";
 
-import { CategoryTabs } from "./CategoryTabs.tsx";
 import { formatPeso } from "./helpers.ts";
+import { SaleGridBottomBar } from "./SaleGridBottomBar.tsx";
+import { SaleList } from "./SaleList.tsx";
 import type { SaleMenuItem } from "./types.ts";
+import type { ViewMode } from "./view-mode.ts";
 
 type Props = {
   categories: { id: string; name: string }[];
   items: SaleMenuItem[];
   search: string;
+  searchOpen: boolean;
   selectedCategoryId: string | null;
+  viewMode: ViewMode;
   onSearchChange: (value: string) => void;
+  onViewModeChange: (viewMode: ViewMode) => void;
   onCategorySelect: (categoryId: string | null) => void;
   onItemSelect: (item: SaleMenuItem) => void;
 };
@@ -18,52 +23,61 @@ export function SaleGrid({
   categories,
   items,
   search,
+  searchOpen,
   selectedCategoryId,
+  viewMode,
   onSearchChange,
+  onViewModeChange,
   onCategorySelect,
   onItemSelect,
 }: Props) {
   return (
-    <section aria-label="Menu" className="flex min-w-0 flex-1 flex-col gap-4">
-      <Card>
-        <CardContent className="flex flex-col gap-3 pt-0">
-          <Input
-            aria-label="Search menu"
-            placeholder="Search menu…"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-          <CategoryTabs
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            onCategorySelect={onCategorySelect}
-          />
-        </CardContent>
-      </Card>
-      <div className="flex items-center justify-between px-3 sm:px-4">
-        <h2 className="text-base font-semibold">Menu</h2>
-        <Badge variant="secondary">{items.length} items</Badge>
+    <section aria-label="Menu" className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      {searchOpen && (
+        <Card>
+          <CardContent className="p-2">
+            <Input
+              aria-label="Search menu"
+              placeholder="Search menu…"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+          </CardContent>
+        </Card>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {viewMode === "list" ? (
+          <SaleList items={items} onItemSelect={onItemSelect} />
+        ) : (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
+            {items.map((item) => (
+              <Card key={item.id} className="min-h-11 py-0">
+                <CardContent className="flex h-full p-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={!item.available}
+                    className="min-h-20 w-full flex-col gap-1 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
+                    onClick={() => onItemSelect(item)}
+                  >
+                    <span>{item.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {item.available ? formatPeso(item.priceCentavos) : "Sold out"}
+                    </span>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-        {items.map((item) => (
-          <Card key={item.id} className="min-h-32 py-0">
-            <CardContent className="flex h-full p-0">
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={!item.available}
-                className="h-full min-h-32 w-full flex-col gap-2 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
-                onClick={() => onItemSelect(item)}
-              >
-                <span>{item.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {item.available ? formatPeso(item.priceCentavos) : "Sold out"}
-                </span>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <SaleGridBottomBar
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        viewMode={viewMode}
+        onCategorySelect={onCategorySelect}
+        onViewModeChange={onViewModeChange}
+      />
     </section>
   );
 }

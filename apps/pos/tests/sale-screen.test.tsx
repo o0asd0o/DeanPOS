@@ -125,7 +125,7 @@ describe("sale screen", () => {
     expect(screen.queryByRole("button", { name: /Water/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Juice/ }));
-    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Clear order" }));
     expect(screen.getByRole("dialog", { name: "Clear this order?" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear order" }));
@@ -172,10 +172,11 @@ describe("sale screen", () => {
     await expectNoAxeViolations(container);
     fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
     const dialog = screen.getByRole("dialog", { name: /Customize Adobo options/ });
-    expect(screen.getByRole("button", { name: "Regular" }).getAttribute("aria-pressed")).toBe(
+    expect(screen.getByRole("button", { name: /Regular/ }).getAttribute("aria-pressed")).toBe(
       "true",
     );
     expect(screen.getByText("Size (required)")).toBeTruthy();
+    await expectNoAxeViolations(dialog);
     fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
     fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
     expect(screen.getByRole("button", { name: "Add one Extra rice" })).toHaveProperty(
@@ -199,6 +200,9 @@ describe("sale screen", () => {
     expect(line.id).toBe(original);
     expect(line.quantity).toBe(2);
     expect(screen.getByText("1 items · ₱30.00 · Open cart")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /2 × Rice/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByText("0 items · ₱0.00 · Open cart")).toBeTruthy();
   });
 
   it("shows signed option deltas and persists list view", () => {
@@ -221,7 +225,12 @@ describe("sale screen", () => {
             },
           ],
           addOns: [
-            { id: "rice", name: "Extra rice", delta: { kind: "absolute" as const, amountCentavos: 1_500 }, maximum: 1 },
+            {
+              id: "rice",
+              name: "Extra rice",
+              delta: { kind: "absolute" as const, amountCentavos: 1_500 },
+              maximum: 1,
+            },
           ],
         },
       ],
@@ -231,6 +240,10 @@ describe("sale screen", () => {
     fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
     expect(screen.getByRole("button", { name: /Half −₱10\.00/ })).toBeTruthy();
     expect(screen.getByText("Extra rice +₱15.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Half −₱10\.00/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
+    expect(screen.getByRole("button", { name: "Add to order ₱25.00" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "List view" }));
     expect(screen.getByRole("button", { name: /Adobo options.*₱20\.00/ })).toBeTruthy();
     unmount();

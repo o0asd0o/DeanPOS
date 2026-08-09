@@ -27,3 +27,7 @@ export function useActingUser(): ActingUserContextValue {
   if (!value) throw new Error("useActingUser must be used within ActingUserProvider");
   return value;
 }
+
+export function useOptionalActingUser(): ActingUserContextValue | null {
+  return useContext(ActingUserContext);
+}
