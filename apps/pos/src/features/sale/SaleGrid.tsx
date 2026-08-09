@@ -24,7 +24,7 @@ export function SaleGrid({
   onItemSelect,
 }: Props) {
   return (
-    <section aria-label="Menu" className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:p-4">
+    <section aria-label="Menu" className="flex min-w-0 flex-1 flex-col gap-4">
       <Card>
         <CardContent className="flex flex-col gap-3 pt-0">
           <Input
