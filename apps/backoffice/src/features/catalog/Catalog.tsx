@@ -20,6 +20,7 @@ import {
 } from "./menu-item/__common/queries.ts";
 import type { CategoryOutput, MenuItemOutput } from "./helpers.ts";
 import { reorderSteps, resolveCatalogCategoryId } from "./helpers.ts";
+import { PAGE_SIZE } from "@/lib/table.ts";
 
 type CategoryEditorState =
   | { mode: "closed" }
@@ -33,10 +34,23 @@ type MenuItemEditorState =
 
 // Catalog screen (issue 01): left Categories rail + MenuItem list Card (record 038).
 export function Catalog() {
-  const { status, q, category: categorySearch } = useSearch({ from: "/_shell/catalog" });
+  const {
+    status,
+    q,
+    category: categorySearch,
+    page,
+    sort,
+  } = useSearch({ from: "/_shell/catalog" });
   const navigate = useNavigate();
   const categoriesQuery = useCategoriesQuery();
-  const menuItemsQuery = useMenuItemsQuery();
+  const menuItemsQuery = useMenuItemsQuery({
+    categoryId: categorySearch || undefined,
+    page,
+    perPage: PAGE_SIZE,
+    status,
+    search: q || undefined,
+    sort,
+  });
   const reorderCategory = useReorderCategoryMutation();
   const reorderMenuItem = useReorderMenuItemMutation();
   const reactivateCategory = useReactivateCategoryMutation();
@@ -52,7 +66,9 @@ export function Catalog() {
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
-  const [selectedId, setSelectedId] = useState<string | null>(categorySearch || null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    categorySearch || null,
+  );
   const categories = categoriesQuery.data;
   const selected =
     categories?.find((category) => category.id === selectedId) ??
@@ -69,7 +85,7 @@ export function Catalog() {
       setSelectedId(resolvedId);
       void navigate({
         to: "/catalog",
-        search: { status, q, category: resolvedId },
+        search: { status, q, category: resolvedId, page: 1, sort },
         replace: true,
       });
     }
@@ -77,31 +93,45 @@ export function Catalog() {
 
   const setCategory = (categoryId: string) => {
     setSelectedId(categoryId);
-    void navigate({ to: "/catalog", search: { status, q, category: categoryId }, replace: true });
+    void navigate({
+      to: "/catalog",
+      search: { status, q, category: categoryId, page: 1, sort },
+      replace: true,
+    });
   };
 
   const [categoryEditor, setCategoryEditor] = useState<CategoryEditorState>({
     mode: "closed",
   });
   const lastCategoryEditor = useRef<CategoryEditorState>({ mode: "create" });
-  if (categoryEditor.mode !== "closed") lastCategoryEditor.current = categoryEditor;
+  if (categoryEditor.mode !== "closed")
+    lastCategoryEditor.current = categoryEditor;
   const shownCategoryEditor =
-    categoryEditor.mode === "closed" ? lastCategoryEditor.current : categoryEditor;
+    categoryEditor.mode === "closed"
+      ? lastCategoryEditor.current
+      : categoryEditor;
 
   const [menuItemEditor, setMenuItemEditor] = useState<MenuItemEditorState>({
     mode: "closed",
   });
   const lastMenuItemEditor = useRef<MenuItemEditorState>({ mode: "create" });
-  if (menuItemEditor.mode !== "closed") lastMenuItemEditor.current = menuItemEditor;
+  if (menuItemEditor.mode !== "closed")
+    lastMenuItemEditor.current = menuItemEditor;
   const shownMenuItemEditor =
-    menuItemEditor.mode === "closed" ? lastMenuItemEditor.current : menuItemEditor;
+    menuItemEditor.mode === "closed"
+      ? lastMenuItemEditor.current
+      : menuItemEditor;
 
-  const [archiveCategoryTarget, setArchiveCategoryTarget] = useState<CategoryOutput | null>(null);
+  const [archiveCategoryTarget, setArchiveCategoryTarget] =
+    useState<CategoryOutput | null>(null);
   const lastArchiveCategory = useRef<CategoryOutput | null>(null);
-  if (archiveCategoryTarget) lastArchiveCategory.current = archiveCategoryTarget;
-  const shownArchiveCategory = archiveCategoryTarget ?? lastArchiveCategory.current;
+  if (archiveCategoryTarget)
+    lastArchiveCategory.current = archiveCategoryTarget;
+  const shownArchiveCategory =
+    archiveCategoryTarget ?? lastArchiveCategory.current;
 
-  const [archiveItemTarget, setArchiveItemTarget] = useState<MenuItemOutput | null>(null);
+  const [archiveItemTarget, setArchiveItemTarget] =
+    useState<MenuItemOutput | null>(null);
   const lastArchiveItem = useRef<MenuItemOutput | null>(null);
   if (archiveItemTarget) lastArchiveItem.current = archiveItemTarget;
   const shownArchiveItem = archiveItemTarget ?? lastArchiveItem.current;
@@ -133,7 +163,11 @@ export function Catalog() {
     opener.current?.focus();
   };
 
-  const handleReorderCategory = async (categoryId: string, fromIndex: number, toIndex: number) => {
+  const handleReorderCategory = async (
+    categoryId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reorderCategory.isPending) return;
     setReorderingCategories(true);
@@ -151,7 +185,11 @@ export function Catalog() {
     }
   };
 
-  const handleReorderMenuItem = async (itemId: string, fromIndex: number, toIndex: number) => {
+  const handleReorderMenuItem = async (
+    itemId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reorderMenuItem.isPending) return;
     setReorderingItems(true);
@@ -169,12 +207,7 @@ export function Catalog() {
     }
   };
 
-  const activeItemCount = (menuItemsQuery.data ?? []).filter(
-    (item) =>
-      shownArchiveCategory !== null &&
-      item.categoryId === shownArchiveCategory.id &&
-      item.archivedAt === null,
-  ).length;
+  const activeItemCount = menuItemsQuery.data?.activeCount ?? 0;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -187,7 +220,8 @@ export function Catalog() {
       <div>
         <h1 className="text-xl font-semibold">Catalog</h1>
         <p className="text-sm text-muted-foreground">
-          Categories organize the terminal grid. Menu items stay drafts until they have a variant.
+          Categories organize the terminal grid. Menu items stay drafts until
+          they have a variant.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-4">
@@ -219,7 +253,7 @@ export function Catalog() {
         <div className="lg:col-span-3">
           <MenuItemListCard
             category={selected}
-            menuItems={menuItemsQuery.data}
+            data={menuItemsQuery.data}
             isPending={menuItemsQuery.isPending}
             isError={menuItemsQuery.isError}
             isFetching={menuItemsQuery.isFetching}
@@ -259,10 +293,18 @@ export function Catalog() {
                   ? `edit-${shownCategoryEditor.category.id}`
                   : "create-category"
               }
-              category={shownCategoryEditor.mode === "edit" ? shownCategoryEditor.category : null}
+              category={
+                shownCategoryEditor.mode === "edit"
+                  ? shownCategoryEditor.category
+                  : null
+              }
               onSaved={(category) => {
                 setCategory(category.id);
-                announce(categoryEditor.mode === "edit" ? "Category saved" : "Category created");
+                announce(
+                  categoryEditor.mode === "edit"
+                    ? "Category saved"
+                    : "Category created",
+                );
                 closeCategoryEditor();
               }}
               onCancel={closeCategoryEditor}
@@ -290,7 +332,11 @@ export function Catalog() {
                   ? `edit-${shownMenuItemEditor.item.id}`
                   : "create-menu-item"
               }
-              menuItem={shownMenuItemEditor.mode === "edit" ? shownMenuItemEditor.item : null}
+              menuItem={
+                shownMenuItemEditor.mode === "edit"
+                  ? shownMenuItemEditor.item
+                  : null
+              }
               categories={categoriesQuery.data ?? []}
               defaultCategoryId={
                 shownMenuItemEditor.mode === "edit"
@@ -299,7 +345,11 @@ export function Catalog() {
               }
               onSaved={(item) => {
                 setCategory(item.categoryId);
-                announce(menuItemEditor.mode === "edit" ? "Menu item saved" : "Menu item created");
+                announce(
+                  menuItemEditor.mode === "edit"
+                    ? "Menu item saved"
+                    : "Menu item created",
+                );
                 closeMenuItemEditor();
               }}
               onCancel={closeMenuItemEditor}

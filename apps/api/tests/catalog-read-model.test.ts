@@ -78,8 +78,18 @@ describe("catalog.read", () => {
       hasNextPage: false,
       hasPrevPage: true,
       totalCount: 3,
+      activeCount: 3,
       liveCount: 0,
     });
+
+    await ownerDb
+      .deleteFrom("MenuItem")
+      .where("category_id", "in", [category!.id, otherCategory!.id])
+      .execute();
+    await ownerDb
+      .deleteFrom("Category")
+      .where("id", "in", [category!.id, otherCategory!.id])
+      .execute();
   });
 
   it("keeps empty categories, excludes drafts, and agrees with catalog.version", async () => {

@@ -364,7 +364,16 @@ export function MenuItemDetail() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
           <Button variant="ghost" size="sm" className="w-fit tap-target" asChild>
-            <Link to="/catalog" search={{ status: "all", q: "", category: "" }}>
+            <Link
+              to="/catalog"
+              search={{
+                status: "all",
+                q: "",
+                category: "",
+                page: 1,
+                sort: { key: "sortOrder", direction: "asc" },
+              }}
+            >
               <ArrowLeftIcon />
               Catalog
             </Link>

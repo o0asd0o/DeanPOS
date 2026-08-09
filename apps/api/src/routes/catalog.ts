@@ -57,8 +57,8 @@ const os = implement(contract).$context<Ctx>();
 export const catalogListCategoriesRoute = os.catalog.listCategories.handler(({ context }) =>
   listCategoriesHandler({ ctx: context, input: undefined }),
 );
-export const catalogListMenuItemsRoute = os.catalog.listMenuItems.handler(({ context }) =>
-  listMenuItemsHandler({ ctx: context, input: undefined }),
+export const catalogListMenuItemsRoute = os.catalog.listMenuItems.handler(({ context, input }) =>
+  listMenuItemsHandler({ ctx: context, input }),
 );
 export const catalogGetMenuItemRoute = os.catalog.getMenuItem.handler(({ context, input }) =>
   getMenuItemHandler({ ctx: context, input }),

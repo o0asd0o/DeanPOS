@@ -88,8 +88,8 @@ describe("catalog variants + archive cascade (read model)", () => {
     expect(created?.priceCentavos).toBe(12_000);
     expect(Number.isInteger(created?.priceCentavos)).toBe(true);
 
-    const listed = await client.catalog.listMenuItems();
-    expect(listed.find((row) => row.id === item.id)?.priceCentavos).toBe(10000);
+    const listed = await client.catalog.listMenuItems({});
+    expect(listed.items.find((row) => row.id === item.id)?.priceCentavos).toBe(10000);
 
     const read = await client.catalog.read({ storeId });
     const onRead = read.menuItems.find((row) => row.id === item.id);

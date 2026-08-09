@@ -14,6 +14,7 @@ import {
   catalogMenuItemCreateInputSchema,
   catalogMenuItemModifierGroupInputSchema,
   catalogMenuItemAddOnInputSchema,
+  catalogMenuItemListInputSchema,
   catalogMenuItemMoveInputSchema,
   catalogMenuItemRenameInputSchema,
   catalogMenuItemSetPriceInputSchema,
@@ -30,6 +31,7 @@ import {
   catalogVersionOutputSchema,
   categoryOutputSchema,
   menuItemOutputSchema,
+  menuItemListOutputSchema,
   modifierGroupOutputSchema,
   modifierOutputSchema,
   variantOutputSchema,
@@ -37,7 +39,7 @@ import {
 
 export const catalogContract = {
   listCategories: oc.input(z.void()).output(z.array(categoryOutputSchema)),
-  listMenuItems: oc.input(z.void()).output(z.array(menuItemOutputSchema)),
+  listMenuItems: oc.input(catalogMenuItemListInputSchema).output(menuItemListOutputSchema),
   getMenuItem: oc.input(catalogEntityIdInputSchema).output(menuItemOutputSchema.nullable()),
   listVariants: oc.input(catalogListVariantsInputSchema).output(z.array(variantOutputSchema)),
   getVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),

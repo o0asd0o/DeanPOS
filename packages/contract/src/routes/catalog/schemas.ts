@@ -21,6 +21,33 @@ export const menuItemOutputSchema = categoryOutputSchema.extend({
   activeVariantCount: z.number().int().nonnegative(),
 });
 
+export const catalogMenuItemListInputSchema = z
+  .object({
+    categoryId: z.string().optional(),
+    page: z.number().int().min(1).default(1),
+    perPage: z.number().int().min(1).max(100).default(10),
+    status: z.enum(["all", "live", "draft", "archived"]).default("all"),
+    search: z.string().max(100).optional(),
+    sort: z
+      .object({
+        key: z.enum(["name", "price", "sortOrder"]),
+        direction: z.enum(["asc", "desc"]),
+      })
+      .default({ key: "sortOrder", direction: "asc" }),
+  });
+
+export const menuItemListOutputSchema = z.object({
+  items: z.array(menuItemOutputSchema),
+  count: z.number(),
+  page: z.number(),
+  perPage: z.number(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+  totalCount: z.number(),
+  activeCount: z.number(),
+  liveCount: z.number(),
+});
+
 export const variantOutputSchema = z.object({
   id: z.string(),
   tenantId: z.string(),

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 
 import {
@@ -6,9 +6,19 @@ import {
   useInvalidateMenuItemEditor,
 } from "@/features/catalog/__common/queries.ts";
 
-export function useMenuItemsQuery() {
+export function useMenuItemsQuery(input: {
+  categoryId?: string;
+  page: number;
+  perPage: number;
+  status: "all" | "live" | "draft" | "archived";
+  search?: string;
+  sort: { key: "name" | "price" | "sortOrder"; direction: "asc" | "desc" };
+}) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog" });
-  return useQuery(orpc.catalog.listMenuItems.queryOptions());
+  return useQuery({
+    ...orpc.catalog.listMenuItems.queryOptions({ input }),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useCreateMenuItemMutation() {

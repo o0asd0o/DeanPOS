@@ -35,26 +35,20 @@ import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import type { SellabilityFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import { useTableView } from "@/lib/table.ts";
 import { PAGE_SIZE } from "@/lib/table.ts";
 import {
   formatCentavos,
   type CategoryOutput,
+  type MenuItemListOutput,
+  type MenuItemListSort,
   type MenuItemOutput,
 } from "@/features/catalog/helpers.ts";
 import { SortableMenuItemRow } from "./SortableMenuItemRow.tsx";
 import { MenuItemActions } from "./MenuItemActions.tsx";
 
-type SortKey = "name" | "price";
-
-const SORT_VALUES: Record<SortKey, (item: MenuItemOutput) => string | number> = {
-  name: (item) => item.name.toLowerCase(),
-  price: (item) => item.priceCentavos,
-};
-
 export function MenuItemListCard({
   category,
-  menuItems,
+  data,
   isPending,
   isError,
   isFetching,
@@ -66,7 +60,7 @@ export function MenuItemListCard({
   reordering,
 }: {
   category: CategoryOutput | null;
-  menuItems: MenuItemOutput[] | undefined;
+  data: MenuItemListOutput | undefined;
   isPending: boolean;
   isError: boolean;
   isFetching: boolean;
@@ -77,18 +71,41 @@ export function MenuItemListCard({
   onReorder: (itemId: string, fromIndex: number, toIndex: number) => void;
   reordering: boolean;
 }) {
-  const { status, q: query, category: categorySearch } = useSearch({ from: "/_shell/catalog" });
+  const { status, q: query, category: categorySearch, page, sort } = useSearch({
+    from: "/_shell/catalog",
+  });
   const navigate = useNavigate();
   const setSearch = (next: { status: SellabilityFilter; q: string }) =>
     navigate({
       to: "/catalog",
-      search: { status: next.status, q: next.q, category: categorySearch },
+      search: { status: next.status, q: next.q, category: categorySearch, page: 1, sort },
+      replace: true,
+    });
+  const setPage = (nextPage: number) =>
+    navigate({
+      to: "/catalog",
+      search: { status, q: query, category: categorySearch, page: nextPage, sort },
+      replace: true,
+    });
+  const setSort = (key: MenuItemListSort["key"]) =>
+    navigate({
+      to: "/catalog",
+      search: {
+        status,
+        q: query,
+        category: categorySearch,
+        page: 1,
+        sort:
+          sort.key === key
+            ? { key, direction: sort.direction === "asc" ? "desc" : "asc" }
+            : { key, direction: "asc" },
+      },
       replace: true,
     });
 
   const inCategory = useMemo(
-    () => (menuItems ?? []).filter((item) => category !== null && item.categoryId === category.id),
-    [menuItems, category],
+    () => (data?.items ?? []).filter((item) => category !== null && item.categoryId === category.id),
+    [data, category],
   );
   const term = query.trim().toLowerCase();
   const serverActiveOrdered = useMemo(
@@ -106,27 +123,15 @@ export function MenuItemListCard({
     category.archivedAt === null &&
     status === "all" &&
     term === "" &&
-    inCategory.length <= PAGE_SIZE;
+    data !== undefined &&
+    data.count <= PAGE_SIZE &&
+    sort.key === "sortOrder";
 
   const [ordered, setOrdered] = useState(serverActiveOrdered);
   useEffect(() => {
     if (!reordering) setOrdered(serverActiveOrdered);
   }, [serverActiveOrdered, reordering]);
 
-  const filtered = inCategory.filter(
-    (item) =>
-      (status === "all" ||
-        (status === "archived" && item.archivedAt !== null) ||
-        (status === "live" && item.archivedAt === null && item.activeVariantCount > 0) ||
-        (status === "draft" && item.archivedAt === null && item.activeVariantCount === 0)) &&
-      (term === "" || item.name.toLowerCase().includes(term)),
-  );
-  const table = useTableView(
-    canDrag ? ordered : filtered,
-    SORT_VALUES,
-    "name",
-    `${status}:${query}:${categorySearch}`,
-  );
   const hasFilters = status !== "all" || term !== "";
 
   const sensors = useSensors(
@@ -158,12 +163,29 @@ export function MenuItemListCard({
         />
       );
     }
-    if (inCategory.length === 0) {
+    if (inCategory.length === 0 && data?.totalCount === 0) {
       return (
         <EmptyState
           icon={<UtensilsCrossedIcon aria-hidden="true" />}
           title="No menu items yet"
           description="Add the first item in this category and set its price. Items stay drafts until they have a variant."
+        />
+      );
+    }
+
+    if (inCategory.length === 0) {
+      return (
+        <EmptyState
+          icon={<SearchXIcon aria-hidden="true" />}
+          title="No menu items match these filters"
+          description="Try another status, or clear the search."
+          action={
+            hasFilters && (
+              <Button variant="outline" onClick={() => setSearch({ status: "all", q: "" })}>
+                Clear filters
+              </Button>
+            )
+          }
         />
       );
     }
@@ -229,12 +251,12 @@ export function MenuItemListCard({
             <TableHeader>
               <TableRow>
                 <TableHead>
-                  <button type="button" onClick={() => table.sortBy("name")}>
+                  <button type="button" onClick={() => setSort("name")}>
                     Name
                   </button>
                 </TableHead>
                 <TableHead>
-                  <button type="button" onClick={() => table.sortBy("price")}>
+                  <button type="button" onClick={() => setSort("price")}>
                     Price
                   </button>
                 </TableHead>
@@ -244,7 +266,7 @@ export function MenuItemListCard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {table.rows.map((item) => {
+              {inCategory.map((item) => {
                 const archived = item.archivedAt !== null;
                 return (
                   <TableRow key={item.id} className="last:!border-b">
@@ -303,28 +325,14 @@ export function MenuItemListCard({
             </TableBody>
           </Table>
         </div>
-        {table.rows.length === 0 && (
-          <EmptyState
-            icon={<SearchXIcon aria-hidden="true" />}
-            title="No menu items match these filters"
-            description="Try another status, or clear the search."
-            action={
-              hasFilters && (
-                <Button variant="outline" onClick={() => setSearch({ status: "all", q: "" })}>
-                  Clear filters
-                </Button>
-              )
-            }
-          />
-        )}
         <TablePagination
-          page={table.page}
-          pageCount={table.pageCount}
-          onPageChange={table.setPage}
+          page={data?.page ?? page}
+          pageCount={Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? PAGE_SIZE)))}
+          onPageChange={setPage}
           label="Menu items pages"
-          pageSize={table.pageSize}
-          itemCount={table.rows.length}
-          totalItems={table.totalItems}
+          pageSize={data?.perPage ?? PAGE_SIZE}
+          itemCount={inCategory.length}
+          totalItems={data?.count ?? 0}
         />
       </>
     );
@@ -337,11 +345,8 @@ export function MenuItemListCard({
           <div>
             <h2 className="text-base font-semibold">{category ? category.name : "Menu items"}</h2>
             <p className="text-sm text-muted-foreground">
-              {inCategory.length} item{inCategory.length === 1 ? "" : "s"} ·{" "}
-              {
-                inCategory.filter((item) => item.archivedAt === null && item.activeVariantCount > 0)
-                  .length
-              }{" "}
+              {data?.totalCount ?? 0} item{data?.totalCount === 1 ? "" : "s"} ·{" "}
+              {data?.liveCount ?? 0}{" "}
               live
             </p>
           </div>

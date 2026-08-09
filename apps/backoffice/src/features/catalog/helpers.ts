@@ -16,6 +16,23 @@ export type MenuItemOutput = CategoryOutput & {
   activeVariantCount: number;
 };
 
+export type MenuItemListSort = {
+  key: "name" | "price" | "sortOrder";
+  direction: "asc" | "desc";
+};
+
+export type MenuItemListOutput = {
+  items: MenuItemOutput[];
+  count: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  totalCount: number;
+  activeCount: number;
+  liveCount: number;
+};
+
 export type VariantOutput = {
   id: string;
   tenantId: string;

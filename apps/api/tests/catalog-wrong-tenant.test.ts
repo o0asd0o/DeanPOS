@@ -158,13 +158,13 @@ describe("catalog wrong-tenant probes", () => {
   });
 
   it("wrong-tenant probe [catalog.listMenuItems]: Tenant B's menu item is readable as B, never in A's list", async () => {
-    const listAsB = await asB().catalog.listMenuItems();
-    const ownAsB = listAsB.find((row) => row.id === itemB);
+    const listAsB = await asB().catalog.listMenuItems({});
+    const ownAsB = listAsB.items.find((row) => row.id === itemB);
     expect(ownAsB).toBeTruthy();
 
-    const listAsA = await asA().catalog.listMenuItems();
-    expect(listAsA.map((row) => row.id)).not.toContain(itemB);
-    const ownAsA = listAsA.find((row) => row.id === itemA);
+    const listAsA = await asA().catalog.listMenuItems({});
+    expect(listAsA.items.map((row) => row.id)).not.toContain(itemB);
+    const ownAsA = listAsA.items.find((row) => row.id === itemA);
     expect(ownAsA).toBeTruthy();
 
     await expectWrongTenantRefusal({
