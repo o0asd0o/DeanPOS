@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { cn, Input } from "ui";
 
@@ -107,6 +107,16 @@ export function ListToolbar<F extends ListFilter>({
 }) {
   const statusId = useId();
   const searchId = useId();
+  const [draftQuery, setDraftQuery] = useState(query);
+
+  // Keep typing local and settle URL/API-backed list searches only after the
+  // user pauses. Every list using ListToolbar gets the same 300 ms behavior.
+  useEffect(() => setDraftQuery(query), [query]);
+  useEffect(() => {
+    if (draftQuery === query) return;
+    const timer = window.setTimeout(() => onQueryChange(draftQuery), 300);
+    return () => window.clearTimeout(timer);
+  }, [draftQuery, onQueryChange, query]);
   // Only the status pills rename their deactivated end per list.
   const filters = (
     variant === "status"
@@ -164,8 +174,8 @@ export function ListToolbar<F extends ListFilter>({
             id={searchId}
             type="search"
             placeholder={`e.g. ${searchExample}`}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
+            value={draftQuery}
+            onChange={(event) => setDraftQuery(event.target.value)}
             className="rounded-full pr-10"
           />
         </div>
