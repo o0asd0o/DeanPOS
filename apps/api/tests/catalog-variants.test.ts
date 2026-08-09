@@ -99,7 +99,7 @@ describe("catalog variants + archive cascade (read model)", () => {
         name: "Regular",
         priceCentavos: 12_000,
         sortOrder: 0,
-        modifierGroups: [],
+        available: true,
       },
     ]);
   });
@@ -136,7 +136,7 @@ describe("catalog variants + archive cascade (read model)", () => {
     );
   });
 
-  it("cascade row 3: archiving a Variant leaves siblings; last Variant drops the MenuItem", async () => {
+  it("cascade row 3: archiving a Variant leaves the MenuItem sellable without variants", async () => {
     const { client, item } = await seedItem("Cascade Variant");
     const first = await client.catalog.createVariant({
       menuItemId: item.id,
@@ -156,7 +156,8 @@ describe("catalog variants + archive cascade (read model)", () => {
 
     await client.catalog.archiveVariant({ id: second!.id });
     read = await client.catalog.read({ storeId });
-    expect(read.menuItems.map((row) => row.id)).not.toContain(item.id);
+    expect(read.menuItems.map((row) => row.id)).toContain(item.id);
+    expect(read.menuItems.find((row) => row.id === item.id)?.variants).toStrictEqual([]);
 
     const byId = await client.catalog.getVariant({ id: second!.id });
     expect(byId?.archivedAt).not.toBeNull();

@@ -88,3 +88,9 @@ shot is the point, and pagination moves the complexity into `offline-sync`'s cac
 - 05 — Add-ons
 - 06 — Discounts
 - 07 — Availability, per Store
+
+## Comments
+
+- AC1/AC2/AC3/AC4/AC5/AC7/AC9/AC12 proven by `apps/api/tests/catalog-read-model.test.ts`, `catalog-variants.test.ts`, and `catalog-availability.test.ts`.
+- Kysely specialist consulted and tasked: fluent builders retained for catalog blocks; only the PostgreSQL SHA-256 expression remains typed `sql`, because Kysely does not model `sha256(convert_to(...))`.
+- Read-model content now excludes top-level tenant/store keys and timestamps; `catalog.version` selects only the shared query's hash column. MenuItems remain sellable with zero active Variants.

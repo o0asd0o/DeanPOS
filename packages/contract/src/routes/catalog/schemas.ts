@@ -107,6 +107,13 @@ export const catalogReadVariantSchema = z.object({
   available: z.boolean(),
 });
 
+const catalogReadCategorySchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int(),
+});
+
 export const catalogReadMenuItemSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -172,7 +179,7 @@ export const catalogReadDiscountSchema = z.object({
   referenceLabel: z.string().nullable(),
 });
 export const catalogReadOutputSchema = z.object({
-  categories: z.array(categoryOutputSchema),
+  categories: z.array(catalogReadCategorySchema),
   menuItems: z.array(catalogReadMenuItemSchema),
   discounts: z.array(catalogReadDiscountSchema),
   version: z.string().regex(/^[0-9a-f]{64}$/),

@@ -108,7 +108,14 @@ describe("catalog.read", () => {
     const version = await client.catalog.version({ storeId });
 
     expect(read.categories.map((entry) => entry.name)).toStrictEqual(["Ulam"]);
-    expect(read.menuItems).toStrictEqual([]);
+    expect(read.menuItems).toHaveLength(1);
+    expect(read.menuItems[0]).toMatchObject({
+      id: item!.id,
+      variants: [],
+      modifierGroups: [],
+      addOns: [],
+      available: true,
+    });
     expect(version.version).toBe(read.version);
 
     const renamed = await client.catalog.renameMenuItem({

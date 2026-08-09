@@ -1,101 +1,217 @@
-import { sql } from "../../../db/client.ts";
 import type { DatabaseInstance } from "../../../db/client.ts";
+import { sql } from "../../../db/client.ts";
+import { jsonArrayFrom, jsonBuildObject } from "kysely/helpers/postgres";
 
-// Single expression for catalog.read + catalog.version (records 069/070).
-// menuItems include sellable rows with active Variants only.
-export const catalogVersion = async (db: DatabaseInstance, tenantId: string, storeId: string) => {
-  const result = await sql<{ version: string }>`
-    with payload as (
-      select jsonb_build_object(
-        'tenantId', ${sql<string>`${tenantId}::text`},
-        'storeId', ${sql<string>`${storeId}::text`},
-        'categories', coalesce((
-          select jsonb_agg(jsonb_build_object(
-            'id', c."id", 'tenantId', c."tenant_id", 'name', c."name", 'sortOrder', c."sort_order"
-          ) order by c."sort_order", c."id")
-          from "Category" c where c."archived_at" is null
-        ), '[]'::jsonb),
-        'discounts', coalesce((
-          select jsonb_agg(jsonb_build_object(
-            'id', d."id", 'name', d."name", 'type', d."type", 'scope', d."scope",
-            'value', d."value", 'requiresOverride', d."requires_override", 'vatExempt', d."vat_exempt",
-            'requiresReference', d."requires_reference", 'referenceLabel', d."reference_label"
-          ) order by d."name", d."id")
-          from (
-            select distinct on (discount_id) * from "Discount"
-            order by discount_id, effective_from desc, created_at desc
-          ) d where d."archived_at" is null
-        ), '[]'::jsonb),
-        'menuItems', coalesce((
-          select jsonb_agg(jsonb_build_object(
-            'id', m."id",
-            'tenantId', m."tenant_id",
-            'categoryId', m."category_id",
-            'name', m."name",
-            'priceCentavos', m."price_centavos",
-            'sortOrder', m."sort_order",
-            'modifierGroups', coalesce((
-              select jsonb_agg(jsonb_build_object(
-                'id', mg."id",
-                'name', mg."name",
-                'selectionRule', mg."selection_rule",
-                'maximum', mg."maximum",
-                'defaultModifierId', mg."default_modifier_id",
-                'sortOrder', mg."sort_order",
-                'modifiers', coalesce((
-                  select jsonb_agg(jsonb_build_object(
-                    'id', mo."id",
-                    'name', mo."name",
-                    'delta', jsonb_build_object('kind', mo."delta_kind", 'value', mo."delta_value"),
-                    'sortOrder', mo."sort_order"
-                  ) order by mo."sort_order", mo."id")
-                  from "Modifier" mo
-                  where mo."group_id" = mg."id"
-                    and mo."archived_at" is null
-                ), '[]'::jsonb)
-              ) order by mg."sort_order", mg."id")
-              from "MenuItemModifierGroup" immg
-              join "ModifierGroup" mg on mg."id" = immg."modifier_group_id"
-              where immg."menu_item_id" = m."id"
-                and mg."archived_at" is null
-            ), '[]'::jsonb),
-            'addOns', coalesce((
-              select jsonb_agg(jsonb_build_object(
-                'id', ao."id",
-                'name', ao."name",
-                'delta', jsonb_build_object('kind', ao."delta_kind", 'value', ao."delta_value"),
-                'maximum', ao."maximum",
-                'sortOrder', ao."sort_order"
-              ) order by ao."sort_order", ao."id")
-              from "MenuItemAddOn" imao
-              join "AddOn" ao on ao."id" = imao."add_on_id"
-              where imao."menu_item_id" = m."id"
-                and ao."archived_at" is null
-            ), '[]'::jsonb),
-            'variants', coalesce((
-              select jsonb_agg(jsonb_build_object(
-                'id', v."id",
-                'name', v."name",
-                'priceCentavos', v."price_centavos",
-                'sortOrder', v."sort_order",
-                'available', NOT EXISTS (SELECT 1 FROM "VariantUnavailability" u WHERE u."tenant_id" = v."tenant_id" AND u."variant_id" = v."id" AND u."store_id" = ${storeId})
-              ) order by v."sort_order", v."id")
-              from "Variant" v
-              where v."menu_item_id" = m."id"
-                and v."tenant_id" = m."tenant_id"
-                and v."archived_at" is null
-            ), '[]'::jsonb),
-            'available', NOT EXISTS (SELECT 1 FROM "MenuItemUnavailability" u WHERE u."tenant_id" = m."tenant_id" AND u."menu_item_id" = m."id" AND u."store_id" = ${storeId})
-          ) order by c."sort_order", m."sort_order", m."id")
-          from "MenuItem" m
-          inner join "Category" c
-            on c."id" = m."category_id" and c."tenant_id" = m."tenant_id"
-          where m."archived_at" is null
-            and c."archived_at" is null
-        ), '[]'::jsonb)
-      ) as content
-    )
-    select encode(sha256(convert_to(content::jsonb::text, 'UTF8')), 'hex') as version from payload
-  `.execute(db);
-  return result.rows[0]!.version;
+const buildCatalogPayload = (db: DatabaseInstance, storeId: string) => {
+  const currentDiscounts = db
+    .selectFrom("Discount as d")
+    .selectAll("d")
+    .distinctOn("d.discount_id")
+    .orderBy("d.discount_id")
+    .orderBy("d.effective_from", "desc")
+    .orderBy("d.created_at", "desc");
+
+  return db.selectNoFrom((eb) => [
+    jsonBuildObject({
+      categories: jsonArrayFrom(
+        eb
+          .selectFrom("Category as c")
+          .select(["c.id", "c.tenant_id as tenantId", "c.name", "c.sort_order as sortOrder"])
+          .where("c.archived_at", "is", null)
+          .orderBy("c.sort_order")
+          .orderBy("c.id"),
+      ),
+      menuItems: jsonArrayFrom(
+        eb
+          .selectFrom("MenuItem as m")
+          .innerJoin("Category as c", (join) =>
+            join.onRef("c.id", "=", "m.category_id").onRef("c.tenant_id", "=", "m.tenant_id"),
+          )
+          .select((eb) => [
+            "m.id",
+            "m.tenant_id as tenantId",
+            "m.category_id as categoryId",
+            "m.name",
+            "m.price_centavos as priceCentavos",
+            "m.sort_order as sortOrder",
+            jsonArrayFrom(
+              eb
+                .selectFrom("MenuItemModifierGroup as immg")
+                .innerJoin("ModifierGroup as mg", (join) =>
+                  join
+                    .onRef("mg.id", "=", "immg.modifier_group_id")
+                    .onRef("mg.tenant_id", "=", "immg.tenant_id"),
+                )
+                .select((eb) => [
+                  "mg.id",
+                  "mg.name",
+                  "mg.selection_rule as selectionRule",
+                  "mg.maximum",
+                  "mg.default_modifier_id as defaultModifierId",
+                  "mg.sort_order as sortOrder",
+                  jsonArrayFrom(
+                    eb
+                      .selectFrom("Modifier as mo")
+                      .select((eb) => [
+                        "mo.id",
+                        "mo.name",
+                        eb
+                          .case()
+                          .when("mo.delta_kind", "=", "absolute")
+                          .then(
+                            jsonBuildObject({
+                              kind: sql<string>`'absolute'::text`,
+                              amountCentavos: eb.ref("mo.delta_value"),
+                            }),
+                          )
+                          .when("mo.delta_kind", "=", "multiplier")
+                          .then(
+                            jsonBuildObject({
+                              kind: sql<string>`'multiplier'::text`,
+                              perMille: eb.ref("mo.delta_value"),
+                            }),
+                          )
+                          .end()
+                          .as("delta"),
+                        "mo.sort_order as sortOrder",
+                      ])
+                      .whereRef("mo.tenant_id", "=", "mg.tenant_id")
+                      .whereRef("mo.group_id", "=", "mg.id")
+                      .where("mo.archived_at", "is", null)
+                      .orderBy("mo.sort_order")
+                      .orderBy("mo.id"),
+                  ).as("modifiers"),
+                ])
+                .whereRef("immg.tenant_id", "=", "m.tenant_id")
+                .whereRef("immg.menu_item_id", "=", "m.id")
+                .where("mg.archived_at", "is", null)
+                .orderBy("mg.sort_order")
+                .orderBy("mg.id"),
+            ).as("modifierGroups"),
+            jsonArrayFrom(
+              eb
+                .selectFrom("MenuItemAddOn as imao")
+                .innerJoin("AddOn as ao", (join) =>
+                  join
+                    .onRef("ao.id", "=", "imao.add_on_id")
+                    .onRef("ao.tenant_id", "=", "imao.tenant_id"),
+                )
+                .select((eb) => [
+                  "ao.id",
+                  "ao.name",
+                  eb
+                    .case()
+                    .when("ao.delta_kind", "=", "absolute")
+                    .then(
+                      jsonBuildObject({
+                        kind: sql<string>`'absolute'::text`,
+                        amountCentavos: eb.ref("ao.delta_value"),
+                      }),
+                    )
+                    .when("ao.delta_kind", "=", "multiplier")
+                    .then(
+                      jsonBuildObject({
+                        kind: sql<string>`'multiplier'::text`,
+                        perMille: eb.ref("ao.delta_value"),
+                      }),
+                    )
+                    .end()
+                    .as("delta"),
+                  "ao.maximum",
+                  "ao.sort_order as sortOrder",
+                ])
+                .whereRef("imao.tenant_id", "=", "m.tenant_id")
+                .whereRef("imao.menu_item_id", "=", "m.id")
+                .where("ao.archived_at", "is", null)
+                .orderBy("ao.sort_order")
+                .orderBy("ao.id"),
+            ).as("addOns"),
+            jsonArrayFrom(
+              eb
+                .selectFrom("Variant as v")
+                .select((eb) => [
+                  "v.id",
+                  "v.name",
+                  "v.price_centavos as priceCentavos",
+                  "v.sort_order as sortOrder",
+                  eb
+                    .not(
+                      eb.exists(
+                        eb
+                          .selectFrom("VariantUnavailability as vu")
+                          .select("vu.variant_id")
+                          .whereRef("vu.tenant_id", "=", "v.tenant_id")
+                          .whereRef("vu.variant_id", "=", "v.id")
+                          .where("vu.store_id", "=", storeId),
+                      ),
+                    )
+                    .as("available"),
+                ])
+                .whereRef("v.menu_item_id", "=", "m.id")
+                .whereRef("v.tenant_id", "=", "m.tenant_id")
+                .where("v.archived_at", "is", null)
+                .orderBy("v.sort_order")
+                .orderBy("v.id"),
+            ).as("variants"),
+            eb
+              .not(
+                eb.exists(
+                  eb
+                    .selectFrom("MenuItemUnavailability as miu")
+                    .select("miu.menu_item_id")
+                    .whereRef("miu.tenant_id", "=", "m.tenant_id")
+                    .whereRef("miu.menu_item_id", "=", "m.id")
+                    .where("miu.store_id", "=", storeId),
+                ),
+              )
+              .as("available"),
+          ])
+          .where("m.archived_at", "is", null)
+          .where("c.archived_at", "is", null)
+          .orderBy("c.sort_order")
+          .orderBy("m.sort_order")
+          .orderBy("m.id"),
+      ),
+      discounts: jsonArrayFrom(
+        eb
+          .selectFrom(currentDiscounts.as("d"))
+          .select([
+            "d.id",
+            "d.name",
+            "d.type",
+            "d.scope",
+            "d.value",
+            "d.requires_override as requiresOverride",
+            "d.vat_exempt as vatExempt",
+            "d.requires_reference as requiresReference",
+            "d.reference_label as referenceLabel",
+          ])
+          .where("d.archived_at", "is", null)
+          .orderBy("d.name")
+          .orderBy("d.id"),
+      ),
+    }).as("content"),
+  ]);
 };
+
+const hashOfPayload = sql<string>`
+  encode(sha256(convert_to("payload"."content"::jsonb::text, 'UTF8')), 'hex')
+`;
+
+export const selectCatalogRead = (db: DatabaseInstance, storeId: string) =>
+  db
+    .selectFrom(buildCatalogPayload(db, storeId).as("payload"))
+    .select(["payload.content", hashOfPayload.as("version")])
+    .executeTakeFirstOrThrow();
+
+export const selectCatalogVersion = (db: DatabaseInstance, storeId: string) =>
+  db
+    .selectFrom(buildCatalogPayload(db, storeId).as("payload"))
+    .select(hashOfPayload.as("version"))
+    .executeTakeFirstOrThrow()
+    .then((row) => row.version);
+
+// Compatibility API for existing hash-only callers. The tenant is established
+// by withTenantScope; it is intentionally not part of the payload or hash.
+export const catalogVersion = (db: DatabaseInstance, _tenantId: string, storeId: string) =>
+  selectCatalogVersion(db, storeId);

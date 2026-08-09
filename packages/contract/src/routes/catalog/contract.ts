@@ -149,6 +149,10 @@ export const catalogContract = {
   archiveDiscount: oc.input(catalogEntityIdInputSchema).output(discountOutputSchema.nullable()),
   reactivateDiscount: oc.input(catalogEntityIdInputSchema).output(discountOutputSchema.nullable()),
 
+  /**
+   * `version` is opaque: 64 lowercase hex, the SHA-256 of the payload as JSONB.
+   * Compare only for equality within one tenant/store; it has no timestamp semantics.
+   */
   read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
   version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),
 };
