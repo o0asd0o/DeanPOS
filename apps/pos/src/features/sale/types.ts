@@ -10,3 +10,8 @@ export type SaleMenuItem = {
   modifierGroups: unknown[];
   addOns: unknown[];
 };
+
+export type SaleCatalog = {
+  categories: { id: string; name: string }[];
+  menuItems: SaleMenuItem[];
+};

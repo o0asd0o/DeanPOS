@@ -5,16 +5,39 @@ import type { SaleMenuItem } from "./types.ts";
 
 type Props = {
   item: SaleMenuItem;
+  categories: { id: string; name: string }[];
   onBack: () => void;
+  onCategorySelect: (categoryId: string) => void;
   onVariantSelect: (variantId: string) => void;
 };
 
-export function VariantGrid({ item, onBack, onVariantSelect }: Props) {
+export function VariantGrid({
+  item,
+  categories,
+  onBack,
+  onCategorySelect,
+  onVariantSelect,
+}: Props) {
   return (
     <section
       aria-label={`${item.name} variants`}
       className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-4"
     >
+      <div
+        aria-label="Categories"
+        className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible"
+      >
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            type="button"
+            className="min-h-11 shrink-0 text-left"
+            onClick={() => onCategorySelect(category.id)}
+          >
+            {category.name}
+          </button>
+        ))}
+      </div>
       <button type="button" className="min-h-11 text-left font-medium" onClick={onBack}>
         ‹ {item.name} — choose a variant
       </button>

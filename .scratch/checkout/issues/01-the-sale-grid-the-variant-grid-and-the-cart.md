@@ -1,6 +1,6 @@
 # 01 — The sale grid, the variant drill-down, and the cart
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -35,24 +35,24 @@ optionless case and the cart that holds it.
 
 ## Acceptance criteria
 
-- [ ] The sale screen renders the Device's Store catalog from the existing catalog read model,
+- [x] The sale screen renders the Device's Store catalog from the existing catalog read model,
       authorised by the Device token — grouped by Category, with unavailable Variants rendered
       unsellable and refused on tap.
-- [ ] Search narrows the grid by name.
-- [ ] Tapping a MenuItem replaces the grid in place with its Variants; the back control returns
+- [x] Search narrows the grid by name.
+- [x] Tapping a MenuItem replaces the grid in place with its Variants; the back control returns
       to the full menu; selecting a Category also exits the drill-down; the cart is unchanged
       throughout.
-- [ ] A MenuItem with exactly one Variant skips the variant step; a Variant with no modifier
+- [x] A MenuItem with exactly one Variant skips the variant step; a Variant with no modifier
       groups and no add-ons goes straight into the cart.
-- [ ] The draft carries a client-generated UUID from creation, persists to local storage, and
+- [x] The draft carries a client-generated UUID from creation, persists to local storage, and
       survives a terminal reload with its lines intact.
-- [ ] The running Order total is visible while building, both layouts.
-- [ ] Clearing a non-empty order is confirmed first; clearing an empty one needs no confirm.
-- [ ] Both layouts built from their own mock — 1280 side-by-side, 390 grid plus bottom sheet.
+- [x] The running Order total is visible while building, both layouts.
+- [x] Clearing a non-empty order is confirmed first; clearing an empty one needs no confirm.
+- [x] Both layouts built from their own mock — 1280 side-by-side, 390 grid plus bottom sheet.
       A width not drawn is a translation and is flagged as such in the build report.
-- [ ] A test drives building a three-line order with the transport stubbed to throw and it
+- [x] A test drives building a three-line order with the transport stubbed to throw and it
       completes — zero network requests after the initial catalog load.
-- [ ] WCAG 2.2 AA, asserted by the existing automated accessibility check, with touch targets
+- [x] WCAG 2.2 AA, asserted by the existing automated accessibility check, with touch targets
       and one-handed reach honoured on 390.
 
 ## Visual reference
@@ -77,3 +77,10 @@ to the `decider`, not to an implementer's judgement.
 
 - None — can start immediately. Consumes the `catalog` read model and `tenancy-identity`'s
   Device token, both already shipped.
+
+## Comments
+
+- Build report: the drawn layouts are 1280 and 390. The side-by-side/bottom-sheet switch uses
+  the existing `md` breakpoint (768px), a deliberate responsive translation for widths not
+  drawn in the references. `tests/sale-screen.test.tsx` drives three optionless lines with
+  `fetch` stubbed to throw after the catalog fixture stands in for the initial cached read.
