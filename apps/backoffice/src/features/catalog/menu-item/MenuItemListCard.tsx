@@ -212,7 +212,7 @@ export function MenuItemListCard({
               {table.rows.map((item) => {
                 const archived = item.archivedAt !== null;
                 return (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className="last:!border-b">
                     <TableCell className="font-medium">
                       {archived ? (
                         item.name
@@ -277,6 +277,9 @@ export function MenuItemListCard({
           pageCount={table.pageCount}
           onPageChange={table.setPage}
           label="Menu items pages"
+          pageSize={table.pageSize}
+          itemCount={table.rows.length}
+          totalItems={table.totalItems}
         />
       </>
     );

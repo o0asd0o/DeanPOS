@@ -13,10 +13,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  ArchiveIcon,
-  RotateCcwIcon,
-} from "lucide-react";
+import { ArchiveIcon, RotateCcwIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
@@ -39,10 +36,7 @@ import { reorderSteps } from "@/features/catalog/helpers.ts";
 import { useTableView } from "@/lib/table.ts";
 
 import { useReorderModifierGroupMutation } from "./__common/queries.ts";
-import {
-  type ModifierGroupOutput,
-  SELECTION_RULE_LABEL,
-} from "./helpers.ts";
+import { type ModifierGroupOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
 import { SortableModifierGroupRow } from "./SortableModifierGroupRow.tsx";
 
 type SortKey = "name" | "rule" | "linked" | "status";
@@ -235,6 +229,7 @@ export function ModifierGroupListCard({
                   return (
                     <TableRow
                       key={group.id}
+                      className="last:!border-b"
                       data-state={editingGroupId === group.id ? "selected" : undefined}
                     >
                       <TableCell className="font-medium">{group.name}</TableCell>
@@ -306,6 +301,9 @@ export function ModifierGroupListCard({
               pageCount={table.pageCount}
               onPageChange={table.setPage}
               label="Modifier groups pages"
+              pageSize={table.pageSize}
+              itemCount={table.rows.length}
+              totalItems={table.totalItems}
             />
           </div>
         )}

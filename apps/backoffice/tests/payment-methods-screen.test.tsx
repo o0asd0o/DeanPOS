@@ -25,6 +25,16 @@ const adminId = randomUUID();
 const storeId = randomUUID();
 const cashId = randomUUID();
 
+// Row actions (Edit, Deactivate/Reactivate) live behind one `⋯` menu per
+// method (matching Devices/Employees, record 056 Q5). Radix opens a menu on
+// pointerdown, which happy-dom's `click` does not imply (record 042), and
+// item selection closes it again.
+const openRowMenu = async (row: HTMLElement) => {
+  const trigger = within(row).getByRole("button", { name: /^Actions for/ });
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  return waitFor(() => screen.getByRole("menu"));
+};
+
 beforeAll(async () => {
   await ownerDb
     .insertInto("Tenant")
@@ -65,10 +75,28 @@ afterAll(async () => {
 describe("the Payment methods screen — as an admin", () => {
   let cleanup: (() => Promise<void>) | undefined;
 
+  // Every test starts from the same set: the seeded `cash` method and the one
+  // Store. A test that leaves a method behind would shift the next one's
+  // counts and push rows past the page size.
   afterEach(async () => {
     await cleanup?.();
     cleanup = undefined;
     localStorage.removeItem("deanpos.backoffice.paymentMethodsNoticeDismissed");
+    await ownerDb.deleteFrom("PaymentMethodAudit").where("tenant_id", "=", tenantId).execute();
+    await ownerDb
+      .deleteFrom("PaymentMethodAvailability")
+      .where("tenant_id", "=", tenantId)
+      .execute();
+    await ownerDb
+      .deleteFrom("PaymentMethod")
+      .where("tenant_id", "=", tenantId)
+      .where("kind", "!=", "cash")
+      .execute();
+    await ownerDb
+      .deleteFrom("Store")
+      .where("tenant_id", "=", tenantId)
+      .where("id", "!=", storeId)
+      .execute();
   });
 
   it("shows cash as Always on with no Edit, creates a method available everywhere by default, and shows no delete anywhere", async () => {
@@ -90,8 +118,7 @@ describe("the Payment methods screen — as an admin", () => {
     const cashRow = screen.getAllByText("Cash")[0]!.closest("tr")!;
     expect(within(cashRow).getByText("All stores")).toBeTruthy();
     expect(within(cashRow).getByText("Always on")).toBeTruthy();
-    expect(within(cashRow).queryByRole("button", { name: /^Edit/ })).toBeNull();
-    expect(within(cashRow).queryByRole("button", { name: /^Deactivate/ })).toBeNull();
+    expect(within(cashRow).queryByRole("button", { name: /^Actions for/ })).toBeNull();
 
     await expectNoAxeViolations(container);
 
@@ -284,7 +311,8 @@ describe("the Payment methods screen — as an admin", () => {
 
     await waitFor(() => expect(screen.getByText("Bank transfer")).toBeTruthy());
     const row = screen.getByText("Bank transfer").closest("tr")!;
-    fireEvent.click(within(row).getByRole("button", { name: /^Edit/ }));
+    const menu = await openRowMenu(row);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Edit" }));
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Edit Bank transfer" })).toBeTruthy(),
@@ -299,6 +327,244 @@ describe("the Payment methods screen — as an admin", () => {
     );
     await waitFor(() => expect(screen.getByText("Bank Transfer (Local)")).toBeTruthy());
     const updatedRow = screen.getByText("Bank Transfer (Local)").closest("tr")!;
-    expect(within(updatedRow).getByText("None")).toBeTruthy();
+    // Active and offered nowhere: the reach the lifecycle badge never shows.
+    expect(within(updatedRow).getByText("No stores")).toBeTruthy();
+    expect(within(updatedRow).getByText("Active")).toBeTruthy();
+  });
+
+  it("filters by the reach the Available at column computes, and the choice lands in the URL", async () => {
+    const liveId = randomUUID();
+    const strandedId = randomUUID();
+    const offId = randomUUID();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethod")
+        .values([
+          { id: liveId, tenant_id: tenantId, name: "Live method", kind: "recorded" },
+          { id: strandedId, tenant_id: tenantId, name: "Stranded method", kind: "recorded" },
+          { id: offId, tenant_id: tenantId, name: "Off method", kind: "recorded", active: false },
+        ])
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethodAvailability")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          payment_method_id: liveId,
+          store_id: storeId,
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Stranded method")).toBeTruthy());
+    // The subtitle carries the counts, so the pills stay bare.
+    expect(screen.getByText(/4 methods · 2 live/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show no stores" }));
+    await waitFor(() => expect(screen.queryByText("Live method")).toBeNull());
+    expect(screen.getByText("Stranded method")).toBeTruthy();
+    expect(screen.queryByText("Off method")).toBeNull();
+    expect(window.location.search).toContain("reach=nostores");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show deactivated" }));
+    await waitFor(() => expect(screen.getByText("Off method")).toBeTruthy());
+    expect(screen.queryByText("Stranded method")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show live" }));
+    await waitFor(() => expect(screen.getByText("Live method")).toBeTruthy());
+    expect(screen.queryByText("Off method")).toBeNull();
+  });
+
+  it("lands a shared ?reach= link on the same set", async () => {
+    const strandedId = randomUUID();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethod")
+        .values({ id: strandedId, tenant_id: tenantId, name: "Stranded method", kind: "recorded" })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods?reach=nostores",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Stranded method")).toBeTruthy());
+    // Cash is live at Downtown, so it is filtered out by the same link.
+    expect(screen.queryByRole("cell", { name: "Cash" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show no stores" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("shows no Store control for a single-store tenant, and filters by store once there are two", async () => {
+    const uptownId = randomUUID();
+    const uptownOnlyId = randomUUID();
+    const first = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    await waitFor(() => expect(screen.getByLabelText("Search methods")).toBeTruthy());
+    expect(screen.queryByText("Store")).toBeNull();
+    await first.db.destroy();
+    unmountAll();
+
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Store")
+        .values({ id: uptownId, tenant_id: tenantId, name: "Uptown" })
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethod")
+        .values({ id: uptownOnlyId, tenant_id: tenantId, name: "Uptown only", kind: "recorded" })
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethodAvailability")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          payment_method_id: uptownOnlyId,
+          store_id: uptownId,
+        })
+        .execute(),
+    );
+
+    const second = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: `/payment-methods?store=${uptownId}`,
+    });
+    cleanup = () => second.db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Uptown only")).toBeTruthy());
+    expect(screen.getByText("Store")).toBeTruthy();
+    // Cash is offered at every store, so it survives a per-store filter.
+    expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
+  });
+
+  it("shows two store names and folds the rest into a +N that names them", async () => {
+    const wideId = randomUUID();
+    const extraIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("Store")
+        .values(
+          extraIds.map((id, index) => ({
+            id,
+            tenant_id: tenantId,
+            name: `Branch ${String(index + 1)}`,
+          })),
+        )
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethod")
+        .values({ id: wideId, tenant_id: tenantId, name: "Wide method", kind: "recorded" })
+        .execute(),
+    );
+    // Four of the five stores, so the cell never collapses to `All stores`.
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethodAvailability")
+        .values(
+          [storeId, ...extraIds.slice(0, 3)].map((store_id) => ({
+            id: randomUUID(),
+            tenant_id: tenantId,
+            payment_method_id: wideId,
+            store_id,
+          })),
+        )
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Wide method")).toBeTruthy());
+    const row = screen.getByText("Wide method").closest("tr")!;
+    const more = within(row).getByRole("button", { name: /^Also at / });
+    expect(more.textContent).toBe("+2");
+
+    // The two folded names are on the trigger, and nowhere in the visible row.
+    const folded = more.getAttribute("aria-label")!.replace("Also at ", "").split(", ");
+    expect(folded).toHaveLength(2);
+    for (const name of folded) expect(row.textContent).not.toContain(name);
+  });
+
+  it("searches the stores a method is offered at, not just its name", async () => {
+    const gcashId = randomUUID();
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethod")
+        .values([
+          { id: gcashId, tenant_id: tenantId, name: "GCash", kind: "recorded" },
+          { id: randomUUID(), tenant_id: tenantId, name: "Stranded method", kind: "recorded" },
+        ])
+        .execute(),
+    );
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("PaymentMethodAvailability")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          payment_method_id: gcashId,
+          store_id: storeId,
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: adminId,
+      role: "admin",
+      initialLocation: "/payment-methods",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Stranded method")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Search methods"), { target: { value: "Downtown" } });
+    // GCash is offered at Downtown and never says so in its own name.
+    await waitFor(() => expect(screen.queryByText("Stranded method")).toBeNull());
+    expect(screen.getByText("GCash")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Search methods"), { target: { value: "Nowhere" } });
+    await waitFor(() =>
+      expect(screen.getByText("No payment methods match these filters")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(screen.getByText("GCash")).toBeTruthy());
   });
 });

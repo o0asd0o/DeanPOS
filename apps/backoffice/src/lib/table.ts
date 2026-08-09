@@ -45,6 +45,8 @@ export function useTableView<T, K extends string>(
 
   return {
     rows: sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE),
+    pageSize: PAGE_SIZE,
+    totalItems: sorted.length,
     page: current,
     pageCount,
     setPage,

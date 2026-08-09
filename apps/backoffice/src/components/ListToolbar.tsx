@@ -5,7 +5,8 @@ import { cn, Input } from "ui";
 export type StatusFilter = "all" | "active" | "deactivated";
 export type HealthFilter = "all" | "online" | "stale" | "offline";
 export type RoleFilter = "all" | "cashier" | "manager" | "admin";
-export type ListFilter = StatusFilter | HealthFilter | RoleFilter;
+export type ReachFilter = "all" | "live" | "nostores" | "deactivated";
+export type ListFilter = StatusFilter | HealthFilter | RoleFilter | ReachFilter;
 
 // The pills read bare — the label above the group carries what the
 // `Status:`/`Health:` prefix used to say on each one. The deactivated pill is
@@ -37,6 +38,24 @@ const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
   { value: "admin", label: "Admin" },
 ];
 
+// The Payment methods list's pills: whether a cashier can actually take money
+// with a method, which is what its Available at column already computes. A
+// method active but offered at no store reaches no till — the lifecycle badge
+// never shows that, and Deactivated is the same nil reach chosen on purpose.
+const REACH_FILTERS: { value: ReachFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "live", label: "Live" },
+  { value: "nostores", label: "No stores" },
+  { value: "deactivated", label: "Deactivated" },
+];
+
+const VARIANTS = {
+  status: { label: "Status", options: STATUS_FILTERS },
+  health: { label: "Health", options: HEALTH_FILTERS },
+  role: { label: "Role", options: ROLE_FILTERS },
+  reach: { label: "Availability", options: REACH_FILTERS },
+} satisfies Record<string, { label: string; options: { value: ListFilter; label: string }[] }>;
+
 // The list card's own toolbar (record 044 §§1–2): pills left, search right,
 // both inside the card so the page header stays title and one action. A
 // `children` slot lets a list add its own dimension — Devices drops a Store
@@ -59,34 +78,26 @@ export function ListToolbar<F extends ListFilter>({
   searchLabel: string;
   searchExample: string;
   deactivatedLabel?: string;
-  variant?: "status" | "health" | "role";
+  variant?: keyof typeof VARIANTS;
   children?: ReactNode;
 }) {
   const statusId = useId();
   const searchId = useId();
-  const isHealth = variant === "health";
-  const isRole = variant === "role";
+  // Only the status pills rename their deactivated end per list.
   const filters = (
-    isHealth
-      ? HEALTH_FILTERS
-      : isRole
-        ? ROLE_FILTERS
-        : STATUS_FILTERS.map((filter) =>
-            filter.value === "deactivated"
-              ? { ...filter, label: deactivatedLabel }
-              : filter,
-          )
+    variant === "status"
+      ? VARIANTS.status.options.map((filter) =>
+          filter.value === "deactivated" ? { ...filter, label: deactivatedLabel } : filter,
+        )
+      : VARIANTS[variant].options
   ) as { value: F; label: string }[];
 
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
-          <span
-            id={statusId}
-            className="text-xs font-medium text-muted-foreground"
-          >
-            {isHealth ? "Health" : isRole ? "Role" : "Status"}
+          <span id={statusId} className="text-xs font-medium text-muted-foreground">
+            {VARIANTS[variant].label}
           </span>
           <div
             role="group"
@@ -117,10 +128,7 @@ export function ListToolbar<F extends ListFilter>({
         {children}
       </div>
       <div className="flex w-full flex-col gap-1.5 sm:w-72">
-        <label
-          htmlFor={searchId}
-          className="text-xs font-medium text-muted-foreground"
-        >
+        <label htmlFor={searchId} className="text-xs font-medium text-muted-foreground">
           {searchLabel}
         </label>
         <div className="relative">

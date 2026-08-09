@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { formatPaginationSummary } from "@/components/TablePagination.tsx";
 import { nextSort, pageWindow, sortRows } from "@/lib/table.ts";
 
 describe("the list tables' sort and page rules", () => {
@@ -26,5 +27,10 @@ describe("the list tables' sort and page rules", () => {
     expect(sortRows(rows, (row) => row.n, "desc").map((row) => row.n)).toEqual([10, 2, 1]);
     // The input is left alone — the caller's list is still filter order.
     expect(rows.map((row) => row.n)).toEqual([10, 2, 1]);
+  });
+
+  it("formats the visible range for the shared pagination strip", () => {
+    expect(formatPaginationSummary(2, 10, 10, 42)).toBe("Showing 11–20 of 42");
+    expect(formatPaginationSummary(1, 10, 0, 0)).toBe("Showing 0 of 0");
   });
 });

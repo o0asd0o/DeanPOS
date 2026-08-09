@@ -297,24 +297,15 @@ export function UserListCard({
                 ))}
               </TableBody>
             </Table>
-            <div
-              className={cn(
-                "flex flex-wrap items-center justify-between gap-2",
-                pageCount < 2 && "mt-3",
-              )}
-            >
-              <p className="text-sm text-muted-foreground">
-                Showing {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + 1}–
-                {((data?.page ?? 1) - 1) * (data?.perPage ?? 1) + users.length} of{" "}
-                {data?.count ?? 0}
-              </p>
-              <TablePagination
-                page={data?.page ?? 1}
-                pageCount={pageCount}
-                onPageChange={onPageChange}
-                label="Employees pages"
-              />
-            </div>
+            <TablePagination
+              page={data?.page ?? 1}
+              pageCount={pageCount}
+              onPageChange={onPageChange}
+              label="Employees pages"
+              pageSize={data?.perPage ?? 1}
+              itemCount={users.length}
+              totalItems={data?.count ?? 0}
+            />
           </div>
         )}
       </CardContent>

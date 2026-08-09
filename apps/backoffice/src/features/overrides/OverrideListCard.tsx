@@ -86,7 +86,7 @@ export function OverrideListCard({
               </TableHeader>
               <TableBody>
                 {table.rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.id} className="last:!border-b">
                     <TableCell>{row.approvedAt.toLocaleString()}</TableCell>
                     <TableCell>{row.storeName}</TableCell>
                     <TableCell>{ACTION_TYPE_LABEL[row.actionType]}</TableCell>
@@ -102,6 +102,9 @@ export function OverrideListCard({
               pageCount={table.pageCount}
               onPageChange={table.setPage}
               label="Overrides pages"
+              pageSize={table.pageSize}
+              itemCount={table.rows.length}
+              totalItems={table.totalItems}
             />
           </div>
         )}

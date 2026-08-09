@@ -142,6 +142,7 @@ export function StoreListCard({
                 {table.rows.map((store) => (
                   <TableRow
                     key={store.id}
+                    className="last:!border-b"
                     data-state={store.id === editingId ? "selected" : undefined}
                   >
                     <TableCell>{store.name}</TableCell>
@@ -214,6 +215,9 @@ export function StoreListCard({
               pageCount={table.pageCount}
               onPageChange={table.setPage}
               label="Stores pages"
+              pageSize={table.pageSize}
+              itemCount={table.rows.length}
+              totalItems={table.totalItems}
             />
           </div>
         )}

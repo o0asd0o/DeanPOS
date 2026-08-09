@@ -1,16 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ArchiveIcon,
-  GripVerticalIcon,
-  RotateCcwIcon,
-} from "lucide-react";
+import { ArchiveIcon, GripVerticalIcon, RotateCcwIcon } from "lucide-react";
 import { Badge, Button, cn, TableCell, TableRow } from "ui";
 
-import {
-  type ModifierGroupOutput,
-  SELECTION_RULE_LABEL,
-} from "./helpers.ts";
+import { type ModifierGroupOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
 
 export function SortableModifierGroupRow({
   group,
@@ -31,7 +24,14 @@ export function SortableModifierGroupRow({
   onReactivateGroup: (group: ModifierGroupOutput) => void;
   onOpenModifiers: (group: ModifierGroupOutput) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: group.id,
     disabled,
   });
@@ -43,7 +43,10 @@ export function SortableModifierGroupRow({
       ref={setNodeRef}
       // design-exempt: dnd-kit needs live transform and transition while dragging
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(isDragging && "relative z-10 bg-background shadow-md")}
+      className={cn(
+        "last:border-b!",
+        isDragging && "relative z-10 bg-background shadow-md",
+      )}
       data-state={editingGroupId === group.id ? "selected" : undefined}
     >
       <TableCell className="w-10">

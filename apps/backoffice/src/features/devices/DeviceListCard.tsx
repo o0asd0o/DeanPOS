@@ -37,11 +37,7 @@ import { ErrorState } from "@/components/ErrorState.tsx";
 import type { HealthFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import type {
-  DeviceListOutput,
-  DeviceListSortKey,
-  DeviceOutput,
-} from "./helpers.ts";
+import type { DeviceListOutput, DeviceListSortKey, DeviceOutput } from "./helpers.ts";
 import { deviceHealthColor, relativeLastSeen } from "./helpers.ts";
 import useGetDeviceName from "./__hooks/useGetDeviceName.ts";
 
@@ -99,12 +95,8 @@ export function DeviceListCard({
   const getName = useGetDeviceName({ storeNameById, userNameById });
 
   const devices = data?.items ?? [];
-  const pageCount = Math.max(
-    1,
-    Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)),
-  );
-  const sorted = (key: DeviceListSortKey) =>
-    sort.key === key ? sort.direction : undefined;
+  const pageCount = Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? 1)));
+  const sorted = (key: DeviceListSortKey) => (sort.key === key ? sort.direction : undefined);
 
   return (
     <Card className="gap-4">
@@ -122,17 +114,11 @@ export function DeviceListCard({
               single-store tenant filters nothing (record 056 Q5). */}
           {storeNameById.size > 1 && (
             <div className="flex flex-col gap-1.5">
-              <span
-                id={storeLabelId}
-                className="text-xs font-medium text-muted-foreground"
-              >
+              <span id={storeLabelId} className="text-xs font-medium text-muted-foreground">
                 Store
               </span>
               <Select value={store} onValueChange={onStoreChange}>
-                <SelectTrigger
-                  aria-labelledby={storeLabelId}
-                  className="rounded-full"
-                >
+                <SelectTrigger aria-labelledby={storeLabelId} className="rounded-full">
                   <SelectValue placeholder="All stores" />
                 </SelectTrigger>
                 <SelectContent>
@@ -173,16 +159,10 @@ export function DeviceListCard({
             <Table aria-label="Devices">
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    sorted={sorted("name")}
-                    onSort={() => onSortChange("name")}
-                  >
+                  <TableHead sorted={sorted("name")} onSort={() => onSortChange("name")}>
                     Device
                   </TableHead>
-                  <TableHead
-                    sorted={sorted("store")}
-                    onSort={() => onSortChange("store")}
-                  >
+                  <TableHead sorted={sorted("store")} onSort={() => onSortChange("store")}>
                     Store
                   </TableHead>
                   <TableHead
@@ -191,16 +171,10 @@ export function DeviceListCard({
                   >
                     Assigned to
                   </TableHead>
-                  <TableHead
-                    sorted={sorted("lastSeen")}
-                    onSort={() => onSortChange("lastSeen")}
-                  >
+                  <TableHead sorted={sorted("lastSeen")} onSort={() => onSortChange("lastSeen")}>
                     Last seen
                   </TableHead>
-                  <TableHead
-                    sorted={sorted("status")}
-                    onSort={() => onSortChange("status")}
-                  >
+                  <TableHead sorted={sorted("status")} onSort={() => onSortChange("status")}>
                     Status
                   </TableHead>
                   {isAdmin && (
@@ -218,7 +192,7 @@ export function DeviceListCard({
                     device.revokedAt !== null,
                   );
                   return (
-                    <TableRow key={device.id}>
+                    <TableRow key={device.id} className="last:!border-b">
                       <TableCell>
                         <div className="flex flex-col">
                           <span>{device.name}</span>
@@ -229,26 +203,15 @@ export function DeviceListCard({
                       </TableCell>
                       <TableCell>{getName(device, "storeName")}</TableCell>
                       <TableCell
-                        className={cn(
-                          !getName(device, "userName") &&
-                            "text-muted-foreground",
-                        )}
+                        className={cn(!getName(device, "userName") && "text-muted-foreground")}
                       >
                         <div className="flex items-center gap-2">
                           {getName(device, "userName") ? (
-                            <UserRoundIcon
-                              aria-hidden="true"
-                              className="size-4 shrink-0"
-                            />
+                            <UserRoundIcon aria-hidden="true" className="size-4 shrink-0" />
                           ) : (
-                            <UsersRoundIcon
-                              aria-hidden="true"
-                              className="size-4 shrink-0"
-                            />
+                            <UsersRoundIcon aria-hidden="true" className="size-4 shrink-0" />
                           )}
-                          <span>
-                            {getName(device, "userName") || "Open to all"}
-                          </span>
+                          <span>{getName(device, "userName") || "Open to all"}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -289,9 +252,7 @@ export function DeviceListCard({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              onCloseAutoFocus={(event) =>
-                                event.preventDefault()
-                              }
+                              onCloseAutoFocus={(event) => event.preventDefault()}
                             >
                               <DropdownMenuItem onSelect={() => onEdit(device)}>
                                 <PencilIcon />
@@ -325,6 +286,9 @@ export function DeviceListCard({
               pageCount={pageCount}
               onPageChange={onPageChange}
               label="Devices pages"
+              pageSize={data?.perPage ?? 1}
+              itemCount={data?.items.length ?? 0}
+              totalItems={data?.count ?? 0}
             />
           </div>
         )}

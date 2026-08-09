@@ -23,6 +23,7 @@ export function SortableMenuItemRow({
   return (
     <TableRow
       ref={setNodeRef}
+      className="last:!border-b"
       // design-exempt: dnd-kit needs live transform and transition while dragging
       style={{
         transform: CSS.Transform.toString(transform),
