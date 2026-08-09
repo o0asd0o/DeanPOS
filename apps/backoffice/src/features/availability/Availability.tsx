@@ -6,6 +6,12 @@ import {
   Card,
   CardContent,
   CardFooter,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   Input,
   Switch,
@@ -15,6 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  toast,
 } from "ui";
 import { ErrorState } from "@/components/ErrorState.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
@@ -33,8 +40,14 @@ export function Availability() {
   const stores = storesQuery.data?.items ?? [];
   const activeStore = store || stores[0]?.id || "";
   const [draft, setDraft] = useState<Map<string, boolean>>(new Map());
-  const [saved, setSaved] = useState("");
   const [error, setError] = useState(false);
+  const [announcement, setAnnouncement] = useState<{
+    text: string;
+    slot: 0 | 1;
+  }>({
+    text: "",
+    slot: 0,
+  });
   const listQuery = useAvailabilityQuery({
     storeId: activeStore,
     page,
@@ -43,25 +56,38 @@ export function Availability() {
     sort,
   });
   const mutation = useSetAvailabilityMutation();
-  const effective = (row: { kind: "variant" | "menuItem"; id: string; available: boolean }) =>
-    draft.get(draftKey(row.kind, row.id)) ?? row.available;
+  const effective = (row: {
+    kind: "variant" | "menuItem";
+    id: string;
+    available: boolean;
+  }) => draft.get(draftKey(row.kind, row.id)) ?? row.available;
   const dirtyRows = useMemo(() => [...draft.entries()], [draft]);
-  const storeName = stores.find((item) => item.id === activeStore)?.name ?? "this store";
-  useBlocker({
+  const storeName =
+    stores.find((item) => item.id === activeStore)?.name ?? "this store";
+  const blocker = useBlocker({
     withResolver: true,
     enableBeforeUnload: () => draft.size > 0,
     shouldBlockFn: ({ current, next }) => {
       if (draft.size === 0) return false;
-      if (current.routeId !== "/_shell/availability" || next.routeId !== "/_shell/availability")
+      if (
+        current.routeId !== "/_shell/availability" ||
+        next.routeId !== "/_shell/availability"
+      )
         return true;
-      const readStore = (value: unknown) => (value as { store?: string } | undefined)?.store ?? "";
+      const readStore = (value: unknown) =>
+        (value as { store?: string } | undefined)?.store ?? "";
       return readStore(next.search) !== readStore(current.search);
     },
   });
   const setSearch = (next: { store?: string; q?: string; page?: number }) =>
     navigate({
       to: "/availability",
-      search: { store: next.store ?? activeStore, q: next.q ?? q, page: next.page ?? 1, sort },
+      search: {
+        store: next.store ?? activeStore,
+        q: next.q ?? q,
+        page: next.page ?? 1,
+        sort,
+      },
       replace: true,
     });
   const save = async () => {
@@ -70,12 +96,14 @@ export function Availability() {
       const [kind, id] = key.split(":") as ["variant" | "menuItem", string];
       return { target: { kind, id }, available };
     });
-    const result = await mutation.mutateAsync({ storeId: activeStore, changes }).catch(() => null);
+    const result = await mutation
+      .mutateAsync({ storeId: activeStore, changes })
+      .catch(() => null);
     if (!result) {
       setError(true);
       return;
     }
-    setSaved(SAVED_LINE(result.version));
+    toast.success(SAVED_LINE(result.version));
     setDraft(new Map());
   };
   const markAll = () => {
@@ -83,6 +111,13 @@ export function Availability() {
     for (const target of listQuery.data?.unavailableInScope ?? [])
       if (effective({ ...target, available: false }) === false)
         next.set(draftKey(target.kind, target.id), true);
+    if (next.size === draft.size) {
+      setAnnouncement((current) => ({
+        text: `Everything is already available at ${storeName}`,
+        slot: current.slot === 0 ? 1 : 0,
+      }));
+      return;
+    }
     setDraft(next);
   };
   const pageCount = Math.max(
@@ -92,9 +127,11 @@ export function Availability() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <p role="status" className="sr-only">
-        {saved}
+        {announcement.slot === 0 ? announcement.text : ""}
       </p>
-      <p role="status" className="sr-only" />
+      <p role="status" className="sr-only">
+        {announcement.slot === 1 ? announcement.text : ""}
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Availability</h1>
@@ -128,7 +165,9 @@ export function Availability() {
               </div>
             </div>
             <div className="flex w-full max-w-xs flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Store</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Store
+              </label>
               <StoreCombobox
                 stores={stores}
                 value={activeStore}
@@ -143,7 +182,10 @@ export function Availability() {
             </Button>
           </div>
           {error && (
-            <div role="alert" className="mx-4 rounded-md bg-status-danger-tint p-3 text-sm">
+            <div
+              role="alert"
+              className="mx-4 rounded-md bg-status-danger-tint p-3 text-sm"
+            >
               Couldn&rsquo;t save availability
             </div>
           )}
@@ -191,11 +233,15 @@ export function Availability() {
                       <TableRow
                         key={`${row.kind}:${row.id}`}
                         data-state={dirty ? "selected" : undefined}
-                        className="last:!border-b"
+                        className="last:border-b!"
                       >
-                        <TableCell>{row.kind === "variant" ? row.name : "—"}</TableCell>
+                        <TableCell>
+                          {row.kind === "variant" ? row.name : "—"}
+                        </TableCell>
                         <TableCell>{row.menuItemName ?? row.name}</TableCell>
-                        <TableCell>₱{(row.priceCentavos / 100).toFixed(2)}</TableCell>
+                        <TableCell>
+                          ₱{(row.priceCentavos / 100).toFixed(2)}
+                        </TableCell>
                         <TableCell className="w-40 whitespace-nowrap">
                           <label className="tap-target inline-flex items-center gap-3">
                             <Switch
@@ -203,12 +249,21 @@ export function Availability() {
                               aria-label={`${row.name} at ${storeName}`}
                               onCheckedChange={(checked) =>
                                 setDraft((current) =>
-                                  new Map(current).set(draftKey(row.kind, row.id), checked),
+                                  new Map(current).set(
+                                    draftKey(row.kind, row.id),
+                                    checked,
+                                  ),
                                 )
                               }
                             />
-                            <span aria-hidden="true">{available ? "On" : "Off"}</span>
-                            {dirty && <span className="text-xs text-primary">Unsaved</span>}
+                            <span aria-hidden="true">
+                              {available ? "On" : "Off"}
+                            </span>
+                            {dirty && (
+                              <span className="text-xs text-primary">
+                                Unsaved
+                              </span>
+                            )}
                           </label>
                         </TableCell>
                       </TableRow>
@@ -231,7 +286,8 @@ export function Availability() {
         {dirtyRows.length > 0 && (
           <CardFooter className="sticky bottom-0 justify-between gap-4 border-t border-border bg-card pb-4 shadow-[0_-4px_12px_rgb(0_0_0/0.04)]">
             <span className="text-sm">
-              {dirtyRows.length} unsaved change{dirtyRows.length === 1 ? "" : "s"}
+              {dirtyRows.length} unsaved change
+              {dirtyRows.length === 1 ? "" : "s"}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -244,13 +300,36 @@ export function Availability() {
               >
                 Cancel
               </Button>
-              <Button onClick={save} disabled={mutation.isPending} aria-busy={mutation.isPending}>
+              <Button
+                onClick={save}
+                disabled={mutation.isPending}
+                aria-busy={mutation.isPending}
+              >
                 {mutation.isPending ? "Saving…" : "Save changes"}
               </Button>
             </div>
           </CardFooter>
         )}
       </Card>
+      {blocker.status === "blocked" && (
+        <Dialog open onOpenChange={(open) => !open && blocker.reset()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Leave without saving?</DialogTitle>
+              <DialogDescription>
+                Your staged availability changes will be lost if you leave this
+                page.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => blocker.reset()}>
+                Stay here
+              </Button>
+              <Button onClick={() => blocker.proceed()}>Leave page</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

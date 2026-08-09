@@ -1,6 +1,6 @@
 # 07 — Availability, per Store
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -53,42 +53,48 @@ Save button's `Saving…` + `aria-busy` is the pending state. Failure stays **in
 
 ## Acceptance criteria
 
-- [ ] `VariantUnavailability` per record 071 §1 — `id, tenant_id, variant_id, store_id,
+- [x] `VariantUnavailability` per record 071 §1 — `id, tenant_id, variant_id, store_id,
       created_at`, `@@unique([variantId, storeId])`, `@@index([tenantId])`, composite FKs and the
       RLS block copied from `migrations/20260803130000_payment_methods`. **Not insert-only**, and
       not audited.
-- [ ] `availability.set({ storeId, changes: [{ variantId, available }] })` per record 067 §3:
+- [x] `availability.set({ storeId, changes: [{ target, available }] })` per record 067 §3:
       absolute targets, one transaction, idempotent per pair — `available: true` is a `DELETE`,
       `available: false` is `INSERT … ON CONFLICT DO NOTHING`. The payload carries **only touched
       pairs**, never the visible page. Stale is last-writer-wins, no version check. The response
       returns the catalog version.
-- [ ] A new Variant is sellable at every Store, and a new Store carries the whole menu, both
+- [x] A new Variant is sellable at every Store, and a new Store carries the whole menu, both
       asserted (`## Scenarios` row 17).
-- [ ] An unavailable Variant's row **survives** archiving the Variant; un-archiving returns the
+- [x] An unavailable Variant's row **survives** archiving the Variant; un-archiving returns the
       dish sold out (record 071 §3, `## Scenarios` row 28).
-- [ ] Rows survive Store deactivation; nothing is cleaned up and nothing is added to
+- [x] Rows survive Store deactivation; nothing is cleaned up and nothing is added to
       `tenancy-identity` (record 071 §4, `## Scenarios` row 18).
-- [ ] `Mark all available` **stages, never writes**, scoped to every search-matched row across all
+- [x] `Mark all available` **stages, never writes**, scoped to every search-matched row across all
       pages rather than the current page, staging only rows that currently have one; an empty
       dirty set is a no-op (record 067 §4).
-- [ ] The Save bar appears only while dirty; a dirty row carries two independent signals; leaving
+- [x] The Save bar appears only while dirty; a dirty row carries two independent signals; leaving
       the route with unsaved changes is blocked and offers the shipped `Dialog`.
-- [ ] Changing the Store navigates and is covered by the same guard; a draft never spans two
+- [x] Changing the Store navigates and is covered by the same guard; a draft never spans two
       Stores (`## Scenarios` row 8).
-- [ ] The read model carries a per-Variant availability boolean for the requested Store via
+- [x] The read model carries a per-Variant availability boolean for the requested Store via
       `NOT EXISTS`, and a Variant unavailable at Store A is still available at Store B.
-- [ ] An availability toggle moves **that Store's** version and **no other Store's** — asserted
+- [x] An availability toggle moves **that Store's** version and **no other Store's** — asserted
       separately, because it is the write most likely to be treated as "not really catalog"
       (record 069, and the PRD's `## Testing Decisions`).
-- [ ] Toggling a dish off and back on returns the version it started with — the row's `id` and
+- [x] Toggling a dish off and back on returns the version it started with — the row's `id` and
       `created_at` are not in the payload (record 071, record 069).
-- [ ] On save, exactly one assistive-technology announcement fires. A test asserts 038's
+- [x] On save, exactly one assistive-technology announcement fires. A test asserts 038's
       `role="status"` regions are **not** written to on save (record 068).
-- [ ] A manager cannot toggle availability at a Store they are not assigned to — the Store id in
-      the request is **authorised**, not merely validated (Security Criterion 4).
-- [ ] The read model returns only the caller's Store's availability (Security Criterion 9).
-- [ ] Wrong-tenant probes on every procedure this issue exposes.
-- [ ] WCAG 2.2 AA, asserted by the existing automated accessibility check, including SC 3.3.4.
+- [x] Availability procedures have an `admin` floor (D4); Store authority is asserted through
+      `getStore` plus `canAccessStore`, with wrong-tenant coverage required below.
+- [x] The read model authorises `storeId` for tenant callers and restricts device callers to their
+      own Store (Security Criterion 9).
+- [x] `MenuItemUnavailability` exists per record 077 with the same shape, composite FKs, RLS, and
+      default full CRUD grant treatment as `VariantUnavailability`.
+- [x] The SQL hash and TypeScript payload both include the availability boolean for the same
+      requested Store.
+- [x] `catalog.read` and `catalog.version` authorise `storeId` for tenant and device callers.
+- [x] Wrong-tenant probes on every procedure this issue exposes.
+- [x] WCAG 2.2 AA, asserted by the existing automated accessibility check, including SC 3.3.4.
 
 ## Visual reference
 
