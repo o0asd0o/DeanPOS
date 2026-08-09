@@ -64,6 +64,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
             ? "menuItemName"
             : "name";
     const direction = input.sort?.direction === "desc" ? "desc" : "asc";
+    // Keep this raw: the typed builder does not model this heterogeneous UNION ALL
+    // CTE cleanly while preserving the shared aliases used by filtering and sorting.
     const rows = await sql<Row>`with rows as (
       select 'menuItem'::text kind, m.id, m.name, null::text "menuItemName", m.price_centavos "priceCentavos", not exists (select 1 from "MenuItemUnavailability" u where u.menu_item_id=m.id and u.store_id=${input.storeId}) available
       from "MenuItem" m join "Category" c on c.id=m.category_id and c.tenant_id=m.tenant_id where m.archived_at is null and c.archived_at is null

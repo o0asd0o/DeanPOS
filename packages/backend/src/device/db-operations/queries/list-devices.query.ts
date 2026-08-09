@@ -55,6 +55,8 @@ export const listDevices = async (
         .onRef("User.id", "=", "Device.assigned_user_id"),
     );
 
+  // PostgreSQL interval arithmetic and normalized concatenation have no clean
+  // Kysely expression equivalent.
   if (health === "online") {
     qb = qb.where(
       sql<SqlBool>`"Device"."revoked_at" IS NULL AND "Device"."last_seen_at" >= now() - interval '5 minutes'`,

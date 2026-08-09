@@ -36,6 +36,7 @@ const withScope = <T>(
 ): Promise<T> =>
   db.transaction().execute(async (trx) => {
     if (value !== null) {
+      // Keep raw: set_config is a PostgreSQL session command, not a table query.
       await sql`select set_config(${setting}, ${value}, true)`.execute(trx);
     }
     return fn(trx);

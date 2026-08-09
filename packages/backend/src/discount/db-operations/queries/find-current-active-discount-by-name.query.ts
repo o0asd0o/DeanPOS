@@ -1,23 +1,24 @@
-import { sql } from "../../../db/client.ts";
 import type { DatabaseInstance } from "../../../db/client.ts";
-import type { Discount } from "../../../db/prisma/generated/types.ts";
 
-export const findCurrentActiveDiscountByName = async (
+export const findCurrentActiveDiscountByName = (
   db: DatabaseInstance,
   name: string,
   excludedDiscountId: string,
 ) => {
-  const result = await sql<Discount>`
-    SELECT current.*
-    FROM (
-      SELECT DISTINCT ON (discount_id) *
-      FROM "Discount"
-      ORDER BY discount_id, effective_from DESC, created_at DESC
-    ) current
-    WHERE current.name = ${name}
-      AND current.archived_at IS NULL
-      AND current.discount_id <> ${excludedDiscountId}
-    LIMIT 1
-  `.execute(db);
-  return result.rows[0];
+  const current = db
+    .selectFrom("Discount")
+    .selectAll()
+    .distinctOn("discount_id")
+    .orderBy("discount_id")
+    .orderBy("effective_from", "desc")
+    .orderBy("created_at", "desc");
+
+  return db
+    .selectFrom(current.as("current"))
+    .selectAll()
+    .where("current.name", "=", name)
+    .where("current.archived_at", "is", null)
+    .where("current.discount_id", "<>", excludedDiscountId)
+    .limit(1)
+    .executeTakeFirst();
 };

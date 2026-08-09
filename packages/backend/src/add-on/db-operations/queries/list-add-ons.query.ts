@@ -30,6 +30,7 @@ export const listAddOns = async (
     usage = "all",
     sort = { key: "name", direction: "asc" },
   } = input;
+  // Typed SQL remains necessary for this correlated aggregate projection.
   const linkedToCount = sql<number>`(
     SELECT COUNT(*)::int FROM "MenuItemAddOn" imao
     JOIN "MenuItem" mi ON mi.tenant_id = imao.tenant_id AND mi.id = imao.menu_item_id

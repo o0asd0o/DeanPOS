@@ -33,6 +33,8 @@ export const listModifierGroups = async (
     usage = "all",
     sort = { key: "name", direction: "asc" },
   } = input;
+  // Typed SQL remains necessary for correlated aggregate projections; Kysely
+  // cannot express this scalar subquery without dropping to sql fragments.
   const linkedToCount = sql<number>`(
     SELECT COUNT(*)::int
     FROM "MenuItemModifierGroup" immg

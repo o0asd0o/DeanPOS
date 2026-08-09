@@ -1,12 +1,11 @@
-import { sql } from "../../../db/client.ts";
-import type { Selectable } from "kysely";
 import type { DatabaseInstance } from "../../../db/client.ts";
-import type { Discount } from "../../../db/prisma/generated/types.ts";
 
-export const listCurrentDiscounts = async (db: DatabaseInstance) => {
-  const result = await sql<Discount>`
-    SELECT DISTINCT ON (discount_id) * FROM "Discount"
-    ORDER BY discount_id, effective_from DESC, created_at DESC
-  `.execute(db);
-  return result.rows as unknown as Selectable<Discount>[];
-};
+export const listCurrentDiscounts = (db: DatabaseInstance) =>
+  db
+    .selectFrom("Discount")
+    .selectAll()
+    .distinctOn("discount_id")
+    .orderBy("discount_id")
+    .orderBy("effective_from", "desc")
+    .orderBy("created_at", "desc")
+    .execute();

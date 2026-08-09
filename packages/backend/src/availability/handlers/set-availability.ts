@@ -30,21 +30,51 @@ export const handler: Handler<Input, { version: string } | null> = async ({ ctx,
       .filter((c) => c.target.kind === "menuItem" && c.available)
       .map((c) => c.target.id);
     if (variantsOn.length)
-      await sql`delete from "VariantUnavailability" where store_id = ${input.storeId} and variant_id in (${sql.join(variantsOn)})`.execute(
-        db,
-      );
+      await db
+        .deleteFrom("VariantUnavailability")
+        .where("store_id", "=", input.storeId)
+        .where("variant_id", "in", variantsOn)
+        .execute();
     if (variantsOff.length)
-      await sql`insert into "VariantUnavailability" (id, tenant_id, variant_id, store_id) select gen_random_uuid()::text, ${tenantId}, v.id, ${input.storeId} from "Variant" v where v.id in (${sql.join(variantsOff)}) on conflict (variant_id, store_id) do nothing`.execute(
-        db,
-      );
+      await db
+        .insertInto("VariantUnavailability")
+        .columns(["id", "tenant_id", "variant_id", "store_id"])
+        .expression(
+          db
+            .selectFrom("Variant")
+            .select(({ ref }) => [
+              sql<string>`gen_random_uuid()::text`.as("id"),
+              sql<string>`${tenantId}`.as("tenant_id"),
+              ref("Variant.id").as("variant_id"),
+              sql<string>`${input.storeId}`.as("store_id"),
+            ])
+            .where("Variant.id", "in", variantsOff),
+        )
+        .onConflict((oc) => oc.columns(["variant_id", "store_id"]).doNothing())
+        .execute();
     if (itemsOn.length)
-      await sql`delete from "MenuItemUnavailability" where store_id = ${input.storeId} and menu_item_id in (${sql.join(itemsOn)})`.execute(
-        db,
-      );
+      await db
+        .deleteFrom("MenuItemUnavailability")
+        .where("store_id", "=", input.storeId)
+        .where("menu_item_id", "in", itemsOn)
+        .execute();
     if (itemsOff.length)
-      await sql`insert into "MenuItemUnavailability" (id, tenant_id, menu_item_id, store_id) select gen_random_uuid()::text, ${tenantId}, m.id, ${input.storeId} from "MenuItem" m where m.id in (${sql.join(itemsOff)}) on conflict (menu_item_id, store_id) do nothing`.execute(
-        db,
-      );
+      await db
+        .insertInto("MenuItemUnavailability")
+        .columns(["id", "tenant_id", "menu_item_id", "store_id"])
+        .expression(
+          db
+            .selectFrom("MenuItem")
+            .select(({ ref }) => [
+              sql<string>`gen_random_uuid()::text`.as("id"),
+              sql<string>`${tenantId}`.as("tenant_id"),
+              ref("MenuItem.id").as("menu_item_id"),
+              sql<string>`${input.storeId}`.as("store_id"),
+            ])
+            .where("MenuItem.id", "in", itemsOff),
+        )
+        .onConflict((oc) => oc.columns(["menu_item_id", "store_id"]).doNothing())
+        .execute();
     return { version: await catalogVersion(db, tenantId, input.storeId) };
   });
 };

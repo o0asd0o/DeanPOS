@@ -46,6 +46,7 @@ export const listStores = async (
   if (status === "active") qb = qb.where("Store.active", "=", true);
   if (status === "deactivated") qb = qb.where("Store.active", "=", false);
   if (search) {
+    // PostgreSQL array unnest/cardinality have no clean Kysely equivalents.
     const like = `%${search.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
     qb = qb.where(sql<SqlBool>`("Store"."name" ILIKE ${like} OR EXISTS (
       SELECT 1 FROM unnest("Store"."table_labels") label WHERE label ILIKE ${like}

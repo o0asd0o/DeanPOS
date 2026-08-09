@@ -87,6 +87,8 @@ export const listUsers = async (
   } = input;
   const manager = callerRole === "manager";
 
+  // Typed fragments remain for CTE-backed EXISTS/ANY visibility and normalized
+  // name expressions; forcing these through the builder obscures the policy.
   const visible = sql<SqlBool>`(
     "User"."id" = ${callerUserId} OR EXISTS (
       SELECT 1 FROM "latest_assignment" la

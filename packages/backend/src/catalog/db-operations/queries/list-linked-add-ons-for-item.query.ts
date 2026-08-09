@@ -5,6 +5,7 @@ export const listLinkedAddOnsForItem = (db: DatabaseInstance, menuItemId: string
   db
     .selectFrom("AddOn")
     .selectAll("AddOn")
+    // Typed SQL remains necessary for this correlated count projection.
     .select(
       sql<number>`(SELECT COUNT(*)::int FROM "MenuItemAddOn" imao2 JOIN "MenuItem" mi ON mi.tenant_id = imao2.tenant_id AND mi.id = imao2.menu_item_id WHERE imao2.add_on_id = "AddOn".id AND mi.archived_at IS NULL)`.as(
         "linked_to_count",
