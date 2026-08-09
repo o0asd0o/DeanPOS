@@ -127,4 +127,57 @@ describe("sale screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear order" }));
     expect(screen.queryByRole("dialog", { name: "Clear this order?" })).toBeNull();
   });
+
+  it("customizes a required modifier and bounded add-on in an accessible picker", async () => {
+    const optionsCatalog = {
+      ...catalog,
+      menuItems: [
+        {
+          ...catalog.menuItems[0]!,
+          id: "adobo-options",
+          name: "Adobo options",
+          variants: [{ id: "half-options", name: "Half", priceCentavos: 8_000, available: true }],
+          modifierGroups: [
+            {
+              id: "size",
+              name: "Size",
+              selectionRule: "required-one" as const,
+              maximum: 1,
+              defaultModifierId: "regular",
+              modifiers: [
+                {
+                  id: "regular",
+                  name: "Regular",
+                  delta: { kind: "absolute" as const, amountCentavos: 0 },
+                },
+              ],
+            },
+          ],
+          addOns: [
+            {
+              id: "rice",
+              name: "Extra rice",
+              delta: { kind: "absolute" as const, amountCentavos: 125 },
+              maximum: 2,
+            },
+          ],
+        },
+      ],
+    };
+    const { container } = render(<SaleWorkspace catalog={optionsCatalog} />);
+    await expectNoAxeViolations(container);
+    fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
+    const dialog = screen.getByRole("dialog", { name: /Customize Adobo options/ });
+    expect(screen.getByRole("button", { name: "Regular" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByText("Size (required)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
+    expect(screen.getByRole("button", { name: "Add one Extra rice" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(dialog).toBeTruthy();
+  });
 });

@@ -4,9 +4,16 @@ import type { Draft } from "./draft-store.ts";
 import { formatPeso } from "./helpers.ts";
 import { Cart } from "./Cart.tsx";
 
-type Props = { draft: Draft | null; onClear: () => void };
+type Props = {
+  draft: Draft | null;
+  onClear: () => void;
+  onEdit: (line: Draft["lines"][number]) => void;
+  onQuantityChange: (lineId: string, quantity: number) => void;
+  onRemove: (lineId: string) => void;
+};
 
-export function MobileCart({ draft, onClear }: Props) {
+export function MobileCart(props: Props) {
+  const { draft } = props;
   const lineCount = draft?.lines.length ?? 0;
   const total = draft?.totalCentavos ?? 0;
   return (
@@ -22,7 +29,7 @@ export function MobileCart({ draft, onClear }: Props) {
             <SheetTitle>Order</SheetTitle>
           </SheetHeader>
           <div className="mt-4 h-full pb-12">
-            <Cart draft={draft} onClear={onClear} />
+            <Cart {...props} />
           </div>
         </SheetContent>
       </Sheet>

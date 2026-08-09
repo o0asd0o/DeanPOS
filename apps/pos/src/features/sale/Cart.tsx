@@ -13,9 +13,15 @@ import {
 import type { Draft } from "./draft-store.ts";
 import { formatPeso } from "./helpers.ts";
 
-type Props = { draft: Draft | null; onClear: () => void };
+type Props = {
+  draft: Draft | null;
+  onClear: () => void;
+  onEdit: (line: Draft["lines"][number]) => void;
+  onQuantityChange: (lineId: string, quantity: number) => void;
+  onRemove: (lineId: string) => void;
+};
 
-export function Cart({ draft, onClear }: Props) {
+export function Cart({ draft, onClear, onEdit, onQuantityChange, onRemove }: Props) {
   const lines = draft?.lines ?? [];
   const total = draft?.totalCentavos ?? 0;
   return (
@@ -37,11 +43,51 @@ export function Cart({ draft, onClear }: Props) {
         ) : (
           lines.map((line) => (
             <div key={line.id} className="flex items-start justify-between gap-3 py-2">
-              <span>
-                {line.menuItemName}
-                {line.variantName ? ` · ${line.variantName}` : ""}
-              </span>
-              <span className="shrink-0 font-medium">{formatPeso(line.unitPriceCentavos)}</span>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 flex-col items-start text-left"
+                onClick={() => onEdit(line)}
+              >
+                <span>
+                  {line.quantity} × {line.menuItemName}
+                  {line.variantName ? ` · ${line.variantName}` : ""}
+                </span>
+                <span className="text-xs text-muted-foreground">Edit modifiers and add-ons</span>
+              </button>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span className="font-medium">{formatPeso(line.totalCentavos)}</span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-xs"
+                    aria-label={`Decrease ${line.menuItemName} quantity`}
+                    onClick={() => onQuantityChange(line.id, Math.max(1, line.quantity - 1))}
+                  >
+                    −
+                  </Button>
+                  <span aria-label={`${line.menuItemName} quantity`}>{line.quantity}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-xs"
+                    aria-label={`Increase ${line.menuItemName} quantity`}
+                    onClick={() => onQuantityChange(line.id, line.quantity + 1)}
+                  >
+                    +
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    danger
+                    aria-label={`Remove ${line.menuItemName}`}
+                    onClick={() => onRemove(line.id)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
             </div>
           ))
         )}

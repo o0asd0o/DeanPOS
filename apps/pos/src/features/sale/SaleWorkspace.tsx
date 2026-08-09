@@ -12,13 +12,18 @@ import {
 import { Cart } from "./Cart.tsx";
 import {
   addOptionlessLine,
+  addLine,
   clearDraft,
+  composeLine,
   createDraft,
+  removeLine,
   readDraft,
+  updateLine,
   writeDraft,
   type Draft,
 } from "./draft-store.ts";
 import { MobileCart } from "./MobileCart.tsx";
+import { ModifierAddonModal } from "./ModifierAddonModal.tsx";
 import { SaleGrid } from "./SaleGrid.tsx";
 import type { SaleCatalog, SaleMenuItem } from "./types.ts";
 import { VariantGrid } from "./VariantGrid.tsx";
@@ -31,6 +36,11 @@ export function SaleWorkspace({ catalog }: Props) {
   const [selectedItem, setSelectedItem] = useState<SaleMenuItem | null>(null);
   const [draft, setDraft] = useState<Draft | null>(() => readDraft());
   const [clearOpen, setClearOpen] = useState(false);
+  const [picker, setPicker] = useState<{
+    item: SaleMenuItem;
+    variantId: string;
+    lineId?: string;
+  } | null>(null);
 
   const visibleItems = catalog.menuItems.filter(
     (item) =>
@@ -46,8 +56,11 @@ export function SaleWorkspace({ catalog }: Props) {
   };
   const addVariant = (item: SaleMenuItem, variantId: string) => {
     const variant = item.variants.find((entry) => entry.id === variantId);
-    if (!variant || !variant.available || item.modifierGroups.length > 0 || item.addOns.length > 0)
+    if (!variant || !variant.available) return;
+    if (item.modifierGroups.length > 0 || item.addOns.length > 0) {
+      setPicker({ item, variantId: variant.id });
       return;
+    }
     const next = addOptionlessLine(ensureDraft(), {
       menuItemId: item.id,
       menuItemName: item.name,
@@ -58,6 +71,49 @@ export function SaleWorkspace({ catalog }: Props) {
     writeDraft(next);
     setDraft(next);
     setSelectedItem(null);
+  };
+  const submitPicker = (input: Parameters<typeof composeLine>[0]) => {
+    if (!picker) return;
+    const next = picker.lineId
+      ? updateLine(
+          ensureDraft(),
+          picker.lineId,
+          input,
+          picker.item.modifierGroups.flatMap((g) => g.modifiers),
+          picker.item.addOns,
+        )
+      : addLine(
+          ensureDraft(),
+          composeLine(
+            input,
+            picker.item.modifierGroups.flatMap((g) => g.modifiers),
+            picker.item.addOns,
+          ),
+        );
+    writeDraft(next);
+    setDraft(next);
+    setPicker(null);
+    setSelectedItem(null);
+  };
+  const editLine = (line: Draft["lines"][number]) => {
+    const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
+    const variant = item?.variants.find((entry) => entry.id === line.variantId);
+    if (item && variant) setPicker({ item, variantId: variant.id, lineId: line.id });
+  };
+  const changeQuantity = (lineId: string, quantity: number) => {
+    const line = draft?.lines.find((entry) => entry.id === lineId);
+    if (!draft || !line) return;
+    const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
+    if (!item) return;
+    const next = updateLine(
+      draft,
+      lineId,
+      { ...line, quantity },
+      item.modifierGroups.flatMap((g) => g.modifiers),
+      item.addOns,
+    );
+    writeDraft(next);
+    setDraft(next);
   };
   const addBaseItem = (item: SaleMenuItem) => {
     if (item.modifierGroups.length > 0 || item.addOns.length > 0) return;
@@ -115,10 +171,49 @@ export function SaleWorkspace({ catalog }: Props) {
           />
         )}
         <div className="hidden min-h-0 self-start md:flex">
-          <Cart draft={draft} onClear={requestClear} />
+          <Cart
+            draft={draft}
+            onClear={requestClear}
+            onEdit={editLine}
+            onQuantityChange={changeQuantity}
+            onRemove={(lineId) => {
+              const next = draft ? removeLine(draft, lineId) : null;
+              if (next) {
+                writeDraft(next);
+                setDraft(next);
+              }
+            }}
+          />
         </div>
       </div>
-      <MobileCart draft={draft} onClear={requestClear} />
+      <MobileCart
+        draft={draft}
+        onClear={requestClear}
+        onEdit={editLine}
+        onQuantityChange={changeQuantity}
+        onRemove={(lineId) => {
+          const next = draft ? removeLine(draft, lineId) : null;
+          if (next) {
+            writeDraft(next);
+            setDraft(next);
+          }
+        }}
+      />
+      {picker && (
+        <ModifierAddonModal
+          key={`${picker.lineId ?? "new"}-${picker.variantId}`}
+          item={picker.item}
+          variant={picker.item.variants.find((entry) => entry.id === picker.variantId)!}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPicker(null);
+          }}
+          initial={
+            picker.lineId ? draft?.lines.find((line) => line.id === picker.lineId) : undefined
+          }
+          onSubmit={submitPicker}
+        />
+      )}
       <Dialog open={clearOpen} onOpenChange={setClearOpen}>
         <DialogContent>
           <DialogHeader>
