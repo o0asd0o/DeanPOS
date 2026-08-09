@@ -100,7 +100,7 @@ describe("the Options screen", () => {
     expect(window.location.search).toContain("q=");
   });
 
-  it("lists groups with Linked to from the query, delta radios + affix, live regions, axe clean", async () => {
+  it("lists groups with variant usage from the query, delta radios + affix, live regions, axe clean", async () => {
     const { container, db } = renderRoute({
       router,
       tenantId,

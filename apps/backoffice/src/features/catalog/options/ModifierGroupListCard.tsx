@@ -217,7 +217,7 @@ export function ModifierGroupListCard({
                       <TableHead>Group</TableHead>
                       <TableHead>Rule</TableHead>
                       <TableHead>Modifiers</TableHead>
-                      <TableHead>Linked to</TableHead>
+                      <TableHead>Used by variants</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -280,7 +280,7 @@ export function ModifierGroupListCard({
                     sorted={table.sortedBy("linked")}
                     onSort={() => table.sortBy("linked")}
                   >
-                    Linked to
+                    Used by variants
                   </TableHead>
                   <TableHead
                     sorted={table.sortedBy("status")}

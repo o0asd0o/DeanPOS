@@ -75,17 +75,26 @@ export function SortableModifierGroupRow({
       <TableCell className="font-medium">{group.name}</TableCell>
       <TableCell>{SELECTION_RULE_LABEL[group.selectionRule]}</TableCell>
       <TableCell>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="tabular-nums"
-          onClick={() => onOpenModifiers(group)}
-        >
-          {activeModCount} modifier{activeModCount !== 1 ? "s" : ""}
-        </Button>
+        <span className="inline-flex items-center gap-2">
+          <span className="tabular-nums">
+            {activeModCount} modifier{activeModCount !== 1 ? "s" : ""}
+          </span>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className="tap-target"
+            aria-label={`${canMutate ? "Edit" : "View"} modifiers for ${group.name}`}
+            title={`${canMutate ? "Edit" : "View"} modifiers`}
+            onClick={() => onOpenModifiers(group)}
+          >
+            <PencilIcon />
+          </Button>
+        </span>
       </TableCell>
-      <TableCell className="tabular-nums">{group.linkedToCount}</TableCell>
+      <TableCell className="tabular-nums">
+        {group.linkedToCount} variant{group.linkedToCount !== 1 ? "s" : ""}
+      </TableCell>
       <TableCell>
         {group.archivedAt ? (
           <Badge variant="secondary">Archived</Badge>
