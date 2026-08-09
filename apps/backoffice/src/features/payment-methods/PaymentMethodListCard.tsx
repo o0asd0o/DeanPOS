@@ -32,6 +32,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import type { ReachFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
@@ -164,7 +165,7 @@ export function PaymentMethodListCard({
           </div>
         )}
         {isPending ? (
-          <p role="status">Loading…</p>
+          <TableSkeleton variant="paymentMethods" isAdmin={isAdmin} />
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : visible.length === 0 ? (

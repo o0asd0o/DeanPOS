@@ -1,9 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 
-export function useStoresQuery() {
+import type { StoreListSort } from "@/features/stores/helpers.ts";
+
+export type StoresQueryInput = {
+  page: number;
+  perPage: number;
+  status: "all" | "active" | "deactivated";
+  search?: string;
+  sort: StoreListSort;
+};
+
+export function useStoresQuery(input: StoresQueryInput) {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
-  return useQuery(orpc.store.list.queryOptions());
+  return useQuery({
+    ...orpc.store.list.queryOptions({ input }),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useMeQuery() {
@@ -16,7 +29,8 @@ export function useMeQuery() {
 function useInvalidateStores() {
   const { orpc } = useRouteContext({ from: "/_shell/stores" });
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: orpc.store.list.queryKey() });
+  const path = orpc.store.list.queryKey({ input: {} })[0];
+  return () => queryClient.invalidateQueries({ queryKey: [path] });
 }
 
 export function useCreateStoreMutation() {

@@ -14,8 +14,8 @@ const os = implement(contract).$context<Ctx>();
 export const storeGetRoute = os.store.get.handler(({ context, input }) =>
   getStoreHandler({ ctx: context, input }),
 );
-export const storeListRoute = os.store.list.handler(({ context }) =>
-  listStoresHandler({ ctx: context, input: undefined }),
+export const storeListRoute = os.store.list.handler(({ context, input }) =>
+  listStoresHandler({ ctx: context, input }),
 );
 export const storeCreateRoute = os.store.create.handler(({ context, input }) =>
   createStoreHandler({ ctx: context, input }),

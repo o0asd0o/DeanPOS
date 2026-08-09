@@ -34,6 +34,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import type { HealthFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
@@ -134,7 +135,7 @@ export function DeviceListCard({
           )}
         </ListToolbar>
         {isPending ? (
-          <p role="status">Loading…</p>
+          <TableSkeleton variant="devices" isAdmin={isAdmin} />
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : devices.length === 0 ? (

@@ -12,6 +12,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
 import { useTableView } from "@/lib/table.ts";
 import { ACTION_TYPE_LABEL } from "./helpers.ts";
@@ -48,7 +49,7 @@ export function OverrideListCard({
     <Card className="gap-4">
       <CardContent className="flex flex-col gap-4">
         {isPending ? (
-          <p role="status">Loading…</p>
+          <TableSkeleton variant="overrides" />
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : !overrides || overrides.length === 0 ? (

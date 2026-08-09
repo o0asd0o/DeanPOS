@@ -82,7 +82,10 @@ export function MenuItemDetail() {
     orpc.catalog.listVariants.queryOptions({ input: { menuItemId: id } }),
   );
   const categoriesQuery = useQuery(orpc.catalog.listCategories.queryOptions());
-  const storesQuery = useQuery(orpc.store.list.queryOptions());
+  const storesQuery = useQuery({
+    ...orpc.store.list.queryOptions({ input: { perPage: 1000 } }),
+    select: (page) => page.items,
+  });
   const storeId = storesQuery.data?.[0]?.id ?? null;
   const versionQuery = useQuery({
     ...orpc.catalog.version.queryOptions({ input: { storeId: storeId ?? "" } }),

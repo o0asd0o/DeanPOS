@@ -1,10 +1,21 @@
-import { useState } from "react";
-import { PencilIcon, PowerOffIcon, RotateCcwIcon, SearchXIcon, StoreIcon } from "lucide-react";
+import {
+  EllipsisVerticalIcon,
+  PencilIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+  SearchXIcon,
+  StoreIcon,
+} from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
   Table,
   TableBody,
@@ -17,25 +28,16 @@ import {
 import { ErrorState } from "@/components/ErrorState.tsx";
 import type { StatusFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import { TablePagination } from "@/components/TablePagination.tsx";
-import { useTableView } from "@/lib/table.ts";
-import type { StoreOutput } from "./helpers.ts";
-
-type SortKey = "name" | "businessDayStart" | "tableLabels" | "status";
-
-const SORT_VALUES: Record<SortKey, (store: StoreOutput) => string | number> = {
-  name: (store) => store.name.toLowerCase(),
-  businessDayStart: (store) => store.businessDayStart,
-  tableLabels: (store) => store.tableLabels.length,
-  status: (store) => (store.active ? 0 : 1),
-};
+import type { StoreListOutput, StoreListSort, StoreListSortKey, StoreOutput } from "./helpers.ts";
 
 // The list (record 038 §§2–3, 6), in the Users list's shape: the card holds
 // the toolbar and the table only, the title and `Add store` sit in the page
 // header above it. A deactivated Store stays inline, at full contrast,
 // badged, with `Reactivate` as its only row action — never hidden or dimmed.
 export function StoreListCard({
-  stores,
+  data,
   isPending,
   isError,
   isFetching,
@@ -47,8 +49,17 @@ export function StoreListCard({
   onEdit,
   onDeactivate,
   onReactivate,
+  status,
+  onStatusChange,
+  query,
+  onQueryChange,
+  sort,
+  onSortChange,
+  onPageChange,
+  onClearFilters,
+  openCreate,
 }: {
-  stores: StoreOutput[] | undefined;
+  data: StoreListOutput | undefined;
   isPending: boolean;
   isError: boolean;
   isFetching: boolean;
@@ -60,27 +71,27 @@ export function StoreListCard({
   onEdit: (store: StoreOutput) => void;
   onDeactivate: (store: StoreOutput) => void;
   onReactivate: (store: StoreOutput) => void;
+  status: StatusFilter;
+  onStatusChange: (status: StatusFilter) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
+  sort: StoreListSort;
+  onSortChange: (key: StoreListSortKey) => void;
+  onPageChange: (page: number) => void;
+  onClearFilters: () => void;
+  openCreate: () => void;
 }) {
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [query, setQuery] = useState("");
-
-  const term = query.trim().toLowerCase();
-  const visible = (stores ?? []).filter(
-    (store) =>
-      (status === "all" || (status === "active") === store.active) &&
-      (term === "" || store.name.toLowerCase().includes(term)),
-  );
-
-  const table = useTableView(visible, SORT_VALUES, "name");
+  const stores = data?.items ?? [];
+  const sorted = (key: StoreListSortKey) => (sort.key === key ? sort.direction : undefined);
 
   return (
     <Card className="gap-4">
       <CardContent className="flex flex-col gap-4">
         <ListToolbar
           status={status}
-          onStatusChange={setStatus}
+          onStatusChange={onStatusChange}
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={onQueryChange}
           searchLabel="Search stores"
           searchExample="Downtown"
         />
@@ -93,16 +104,31 @@ export function StoreListCard({
           </div>
         )}
         {isPending ? (
-          <p role="status">Loading…</p>
+          <TableSkeleton variant="stores" isAdmin={isAdmin} />
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
-        ) : !stores || stores.length === 0 ? (
+        ) : data?.totalCount === 0 ? (
           <EmptyState
             icon={<StoreIcon aria-hidden="true" />}
             title="No stores yet"
-            description={
-              isAdmin &&
-              "A store is one outlet — its own sales, its own devices, and its own table labels. Use Add store above to create the first one."
+            description="A store is one outlet — its own sales, devices, and table labels."
+            action={
+              isAdmin ? (
+                <Button variant="outline" onClick={openCreate}>
+                  Add your first store
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : stores.length === 0 ? (
+          <EmptyState
+            icon={<SearchXIcon aria-hidden="true" />}
+            title="No stores match these filters"
+            description="Try another status, or clear the search."
+            action={
+              <Button variant="outline" onClick={onClearFilters}>
+                Clear filters
+              </Button>
             }
           />
         ) : (
@@ -110,25 +136,22 @@ export function StoreListCard({
             <Table aria-label="Stores">
               <TableHeader>
                 <TableRow>
-                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
+                  <TableHead sorted={sorted("name")} onSort={() => onSortChange("name")}>
                     Name
                   </TableHead>
                   <TableHead
-                    sorted={table.sortedBy("businessDayStart")}
-                    onSort={() => table.sortBy("businessDayStart")}
+                    sorted={sorted("businessDayStart")}
+                    onSort={() => onSortChange("businessDayStart")}
                   >
                     Business-day start
                   </TableHead>
                   <TableHead
-                    sorted={table.sortedBy("tableLabels")}
-                    onSort={() => table.sortBy("tableLabels")}
+                    sorted={sorted("tableLabels")}
+                    onSort={() => onSortChange("tableLabels")}
                   >
                     Table labels
                   </TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("status")}
-                    onSort={() => table.sortBy("status")}
-                  >
+                  <TableHead sorted={sorted("status")} onSort={() => onSortChange("status")}>
                     Status
                   </TableHead>
                   {isAdmin && (
@@ -139,15 +162,39 @@ export function StoreListCard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {table.rows.map((store) => (
+                {stores.map((store) => (
                   <TableRow
                     key={store.id}
                     className="last:!border-b"
                     data-state={store.id === editingId ? "selected" : undefined}
                   >
-                    <TableCell>{store.name}</TableCell>
-                    <TableCell>{store.businessDayStart}</TableCell>
-                    <TableCell>{store.tableLabels.length || "None"}</TableCell>
+                    <TableCell className="font-medium">{store.name}</TableCell>
+                    <TableCell>
+                      {store.businessDayStart}{" "}
+                      <span className="text-muted-foreground">
+                        –{" "}
+                        {(() => {
+                          const [h, m] = store.businessDayStart.split(":").map(Number);
+                          const end = (h * 60 + m + 1439) % 1440;
+                          return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+                        })()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {store.tableLabels.length === 0 ? (
+                        <span className="text-muted-foreground">None</span>
+                      ) : (
+                        <>
+                          {store.tableLabels.slice(0, 3).join(" · ")}
+                          {store.tableLabels.length > 3 && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · +{store.tableLabels.length - 3}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {store.active ? (
                         <Badge variant="success">Active</Badge>
@@ -157,67 +204,61 @@ export function StoreListCard({
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {store.active && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="tap-target"
-                                aria-label={`Edit ${store.name}`}
-                                onClick={() => onEdit(store)}
-                              >
-                                <PencilIcon />
-                                Edit
-                              </Button>
-                              <Button
-                                variant="outline"
-                                danger
-                                size="sm"
-                                className="tap-target"
-                                aria-label={`Deactivate ${store.name}`}
-                                onClick={() => onDeactivate(store)}
-                              >
-                                <PowerOffIcon />
-                                Deactivate
-                              </Button>
-                            </>
-                          )}
-                          {!store.active && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
-                              variant="outline"
-                              size="sm"
+                              variant="ghost"
+                              size="icon-sm"
                               className="tap-target"
-                              aria-label={`Reactivate ${store.name}`}
-                              aria-disabled={reactivatingId === store.id}
-                              onClick={() => onReactivate(store)}
+                              aria-label={`Actions for ${store.name}`}
                             >
-                              <RotateCcwIcon />
-                              Reactivate
+                              <EllipsisVerticalIcon />
                             </Button>
-                          )}
-                        </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            onCloseAutoFocus={(event) => event.preventDefault()}
+                          >
+                            {store.active ? (
+                              <>
+                                <DropdownMenuItem onSelect={() => onEdit(store)}>
+                                  <PencilIcon />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onSelect={() => onDeactivate(store)}
+                                >
+                                  <PowerOffIcon />
+                                  Deactivate
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <DropdownMenuItem
+                                disabled={reactivatingId === store.id}
+                                onSelect={() => onReactivate(store)}
+                              >
+                                <RotateCcwIcon />
+                                Reactivate
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            {visible.length === 0 && (
-              <EmptyState
-                icon={<SearchXIcon aria-hidden="true" />}
-                title="No stores match these filters"
-                description="Try another status, or clear the search."
-              />
-            )}
             <TablePagination
-              page={table.page}
-              pageCount={table.pageCount}
-              onPageChange={table.setPage}
+              page={data?.page ?? 1}
+              pageCount={Math.max(1, Math.ceil((data?.count ?? 0) / (data?.perPage ?? 10)))}
+              onPageChange={onPageChange}
               label="Stores pages"
-              pageSize={table.pageSize}
-              itemCount={table.rows.length}
-              totalItems={table.totalItems}
+              pageSize={data?.perPage ?? 10}
+              itemCount={stores.length}
+              totalItems={data?.count ?? 0}
             />
           </div>
         )}

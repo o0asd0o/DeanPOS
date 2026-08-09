@@ -29,3 +29,27 @@ export const storeFieldsInputSchema = z.object({
 export const storeCreateInputSchema = storeFieldsInputSchema;
 export const storeUpdateInputSchema = storeFieldsInputSchema.extend({ id: z.string() });
 export const storeIdInputSchema = z.object({ id: z.string() });
+
+export const storeListInputSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(1000).default(10),
+  status: z.enum(["all", "active", "deactivated"]).default("all"),
+  search: z.string().max(100).optional(),
+  sort: z
+    .object({
+      key: z.enum(["name", "businessDayStart", "tableLabels", "status"]),
+      direction: z.enum(["asc", "desc"]),
+    })
+    .default({ key: "name", direction: "asc" }),
+});
+
+export const storeListOutputSchema = z.object({
+  items: z.array(storeOutputSchema),
+  count: z.number(),
+  page: z.number(),
+  perPage: z.number(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+  totalCount: z.number(),
+  activeCount: z.number(),
+});

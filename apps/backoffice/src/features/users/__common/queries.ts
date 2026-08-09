@@ -38,7 +38,10 @@ export function useUsersQuery(input: UsersQueryInput) {
 
 export function useStoresQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/employees" });
-  return useQuery(orpc.store.list.queryOptions());
+  return useQuery({
+    ...orpc.store.list.queryOptions({ input: { perPage: 1000 } }),
+    select: (page) => page.items,
+  });
 }
 
 export function useMeQuery() {

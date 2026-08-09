@@ -30,7 +30,10 @@ export function useDevicesQuery(input: DevicesQueryInput) {
 
 export function useStoresQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/devices" });
-  return useQuery(orpc.store.list.queryOptions());
+  return useQuery({
+    ...orpc.store.list.queryOptions({ input: { perPage: 1000 } }),
+    select: (page) => page.items,
+  });
 }
 
 export function useMeQuery() {

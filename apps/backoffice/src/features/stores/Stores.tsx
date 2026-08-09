@@ -1,3 +1,4 @@
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { Button, Sheet, SheetContent } from "ui";
 
@@ -6,6 +7,9 @@ import { useMeQuery, useReactivateStoreMutation, useStoresQuery } from "./__comm
 import type { StoreOutput } from "./helpers.ts";
 import { StoreEditor } from "./StoreEditor.tsx";
 import { StoreListCard } from "./StoreListCard.tsx";
+import type { StatusFilter } from "@/components/ListToolbar.tsx";
+import type { StoreListSortKey } from "./helpers.ts";
+import { STORES_PAGE_SIZE } from "./helpers.ts";
 
 type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; store: StoreOutput };
 
@@ -13,9 +17,28 @@ type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; sto
 // region, the list `Card`, then the editor `Card` when open. No lofi mock —
 // records 038/039/040 are the contract.
 export function Stores() {
-  const storesQuery = useStoresQuery();
+  const { status, q, sort, page } = useSearch({ from: "/_shell/stores" });
+  const navigate = useNavigate();
+  const updateSearch = (next: {
+    status: StatusFilter;
+    q: string;
+    sort: typeof sort;
+    page: number;
+  }) => navigate({ to: "/stores", search: next, replace: true });
+  const storesQuery = useStoresQuery({
+    page,
+    perPage: STORES_PAGE_SIZE,
+    status,
+    search: q || undefined,
+    sort,
+  });
   const meQuery = useMeQuery();
   const isAdmin = meQuery.data?.authenticated === true && meQuery.data.role === "admin";
+  const loaded = !storesQuery.isPending && !storesQuery.isError;
+  const subtitle =
+    loaded && storesQuery.data
+      ? `${storesQuery.data.totalCount} store${storesQuery.data.totalCount === 1 ? "" : "s"} · ${storesQuery.data.activeCount} active`
+      : "Each outlet, when its business day starts, and the tables it seats.";
 
   // Two alternating regions, not one string (finding 4): identical
   // consecutive messages ("Label removed", "Label removed") would otherwise
@@ -91,9 +114,7 @@ export function Stores() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Stores</h1>
-          <p className="text-sm text-muted-foreground">
-            Each outlet, when its business day starts, and the tables it seats.
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         {isAdmin && (
           <Button onClick={openCreate} className="tap-target">
@@ -102,7 +123,7 @@ export function Stores() {
         )}
       </div>
       <StoreListCard
-        stores={storesQuery.data}
+        data={storesQuery.data}
         isPending={storesQuery.isPending}
         isError={storesQuery.isError}
         isFetching={storesQuery.isFetching}
@@ -114,6 +135,22 @@ export function Stores() {
         onEdit={openEdit}
         onDeactivate={setDeactivateTarget}
         onReactivate={handleReactivate}
+        status={status}
+        onStatusChange={(next) => updateSearch({ status: next, q, sort, page: 1 })}
+        query={q}
+        onQueryChange={(next) => updateSearch({ status, q: next, sort, page: 1 })}
+        sort={sort}
+        onSortChange={(key: StoreListSortKey) =>
+          updateSearch({
+            status,
+            q,
+            sort: { key, direction: sort.key === key && sort.direction === "asc" ? "desc" : "asc" },
+            page: 1,
+          })
+        }
+        onPageChange={(next) => updateSearch({ status, q, sort, page: next })}
+        onClearFilters={() => updateSearch({ status: "all", q: "", sort, page: 1 })}
+        openCreate={openCreate}
       />
       {/* Not modal: the list behind stays clickable, so one row's editor can be
           swapped straight for another's (record 039 finding 1). */}

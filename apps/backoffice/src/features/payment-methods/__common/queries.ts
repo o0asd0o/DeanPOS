@@ -8,7 +8,10 @@ export function usePaymentMethodsQuery() {
 
 export function useStoresQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/payment-methods" });
-  return useQuery(orpc.store.list.queryOptions());
+  return useQuery({
+    ...orpc.store.list.queryOptions({ input: { perPage: 1000 } }),
+    select: (page) => page.items,
+  });
 }
 
 // Fetched only when the editor opens for edit (issue 14) — never rides

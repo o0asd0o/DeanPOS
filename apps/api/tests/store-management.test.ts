@@ -289,14 +289,14 @@ describe("store.update", () => {
 
     const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.store.list();
-    expect(listAsA.map((store) => store.id)).not.toContain(createdAsB!.id);
+      .client.store.list({});
+    expect(listAsA.items.map((store) => store.id)).not.toContain(createdAsB!.id);
 
     const listAsB = await seam.actors
       .asTenant(tenantB, { userId: randomUUID(), role: "admin" })
-      .client.store.list();
-    expect(listAsB.map((store) => store.id)).not.toContain(createdAsA!.id);
-    expect(listAsB.map((store) => store.id)).toContain(createdAsB!.id);
+      .client.store.list({});
+    expect(listAsB.items.map((store) => store.id)).not.toContain(createdAsA!.id);
+    expect(listAsB.items.map((store) => store.id)).toContain(createdAsB!.id);
 
     await expectWrongTenantRefusal({
       path: "store.create",
@@ -429,9 +429,9 @@ describe("store.list", () => {
   it("an admin sees every Store in their own Tenant, and none of another Tenant's", async () => {
     const list = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.store.list();
+      .client.store.list({});
 
-    const ids = list.map((store) => store.id);
+    const ids = list.items.map((store) => store.id);
     expect(ids).toContain(storeA);
     expect(ids).not.toContain(storeB);
   });
@@ -444,9 +444,9 @@ describe("store.list", () => {
 
     const listAsA = await seam.actors
       .asTenant(tenantA, { userId: adminA, role: "admin" })
-      .client.store.list();
-    expect(listAsA.map((store) => store.id)).not.toContain(storeB);
-    const ownAsA = listAsA.find((store) => store.id === storeA);
+      .client.store.list({});
+    expect(listAsA.items.map((store) => store.id)).not.toContain(storeB);
+    const ownAsA = listAsA.items.find((store) => store.id === storeA);
     expect(ownAsA).toBeTruthy();
 
     await expectWrongTenantRefusal({
@@ -461,22 +461,22 @@ describe("store.list", () => {
   it("a manager sees only their assigned Stores", async () => {
     const list = await seam.actors
       .asTenant(tenantA, { userId: managerA, role: "manager" })
-      .client.store.list();
+      .client.store.list({});
 
-    expect(list.map((store) => store.id)).toStrictEqual([storeA]);
+    expect(list.items.map((store) => store.id)).toStrictEqual([storeA]);
   });
 
   it("a cashier is refused, server-side, and sees no Store at all", async () => {
     const list = await seam.actors
       .asTenant(tenantA, { userId: cashierA, role: "cashier" })
-      .client.store.list();
+      .client.store.list({});
 
-    expect(list).toStrictEqual([]);
+    expect(list.items).toStrictEqual([]);
   });
 
   it("an unauthenticated caller sees no Store at all", async () => {
-    const list = await seam.actors.asUnauthenticated().client.store.list();
+    const list = await seam.actors.asUnauthenticated().client.store.list({});
 
-    expect(list).toStrictEqual([]);
+    expect(list.items).toStrictEqual([]);
   });
 });

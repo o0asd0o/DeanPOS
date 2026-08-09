@@ -14,3 +14,17 @@ export type StoreOutput = {
   active: boolean;
   createdAt: Date;
 };
+
+export type StoreListSortKey = "name" | "businessDayStart" | "tableLabels" | "status";
+export type StoreListSort = { key: StoreListSortKey; direction: "asc" | "desc" };
+export type StoreListOutput = {
+  items: StoreOutput[];
+  count: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  totalCount: number;
+  activeCount: number;
+};
+export const STORES_PAGE_SIZE = 10;

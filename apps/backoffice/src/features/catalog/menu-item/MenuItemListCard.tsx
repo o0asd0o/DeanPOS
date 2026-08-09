@@ -132,7 +132,7 @@ export function MenuItemListCard({
   };
 
   const body = () => {
-    if (isPending) return <p role="status">Loading…</p>;
+    if (isPending) return <TableSkeleton variant="menuItems" />;
     if (isError) return <ErrorState onRetry={refetch} isFetching={isFetching} />;
     if (!category) {
       return (
@@ -313,3 +313,4 @@ export function MenuItemListCard({
     </Card>
   );
 }
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";

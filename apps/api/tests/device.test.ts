@@ -751,9 +751,9 @@ describe("the Device token principal", () => {
     if (!exchanged.ok) throw new Error("setup failed");
 
     const client = seam.actors.withBearerToken(exchanged.token);
-    const stores = await client.store.list();
+    const stores = await client.store.list({});
     // A Device Ctx is not "tenant" — the handler's own guard returns [].
-    expect(stores).toStrictEqual([]);
+    expect(stores.items).toStrictEqual([]);
   });
 
   it("a Device-token request is exempt from the Origin gate: withBearerToken never sets Origin, and still succeeds", async () => {

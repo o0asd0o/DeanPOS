@@ -33,6 +33,7 @@ import {
 } from "ui";
 
 import { ErrorState } from "@/components/ErrorState.tsx";
+import { TableSkeleton } from "@/components/TableSkeleton.tsx";
 import { initials } from "@/components/helpers.ts";
 import type { RoleFilter } from "@/components/ListToolbar.tsx";
 import { ListToolbar } from "@/components/ListToolbar.tsx";
@@ -150,7 +151,7 @@ export function UserListCard({
           )}
         </ListToolbar>
         {isPending ? (
-          <p role="status">Loading…</p>
+          <TableSkeleton variant="employees" isAdmin={isAdmin} />
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : users.length === 0 ? (
