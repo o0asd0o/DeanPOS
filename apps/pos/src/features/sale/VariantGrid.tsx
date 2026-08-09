@@ -53,7 +53,7 @@ export function VariantGrid({
                   type="button"
                   variant="ghost"
                   disabled={!variant.available}
-                  className="h-full min-h-32 w-full flex-col gap-2 whitespace-normal"
+                  className="h-full min-h-32 w-full flex-col gap-2 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
                   onClick={() => onVariantSelect(variant.id)}
                 >
                   <span>{variant.name}</span>
