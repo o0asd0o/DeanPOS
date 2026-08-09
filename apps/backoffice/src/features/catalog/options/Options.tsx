@@ -58,20 +58,17 @@ export function Options() {
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const lastOpenEditor = useRef<EditorState>({ mode: "group", group: null });
   if (editor.mode !== "closed") lastOpenEditor.current = editor;
-  const shownEditor =
-    editor.mode === "closed" ? lastOpenEditor.current : editor;
+  const shownEditor = editor.mode === "closed" ? lastOpenEditor.current : editor;
   const opener = useRef<HTMLElement | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const [modifierSheetGroupId, setModifierSheetGroupId] = useState<
-    string | null
-  >(null);
+  const [modifierSheetGroupId, setModifierSheetGroupId] = useState<string | null>(null);
+  const [modifierSheetOpen, setModifierSheetOpen] = useState(false);
   const modifierSheetGroup = modifierSheetGroupId
     ? (groupsQuery.data?.find((g) => g.id === modifierSheetGroupId) ?? null)
     : null;
 
-  const [pendingArchiveGroup, setPendingArchiveGroup] =
-    useState<ModifierGroupOutput | null>(null);
+  const [pendingArchiveGroup, setPendingArchiveGroup] = useState<ModifierGroupOutput | null>(null);
 
   const archiveGroup = useArchiveModifierGroupMutation();
   const reactivateGroup = useReactivateModifierGroupMutation();
@@ -142,9 +139,7 @@ export function Options() {
             isFetching={groupsQuery.isFetching}
             refetch={() => groupsQuery.refetch()}
             canMutate={canMutate}
-            editingGroupId={
-              editor.mode === "group" && editor.group ? editor.group.id : null
-            }
+            editingGroupId={editor.mode === "group" && editor.group ? editor.group.id : null}
             onEditGroup={openEditGroup}
             onArchiveGroup={setPendingArchiveGroup}
             onReactivateGroup={async (group) => {
@@ -158,7 +153,10 @@ export function Options() {
               }
               announce(`${group.name} reactivated`);
             }}
-            onOpenModifiers={(group) => setModifierSheetGroupId(group.id)}
+            onOpenModifiers={(group) => {
+              setModifierSheetGroupId(group.id);
+              setModifierSheetOpen(true);
+            }}
             inlineError={inlineError}
           />
         </TabsContent>
@@ -170,9 +168,7 @@ export function Options() {
                 Manage optional extras linked from menu items.
               </p>
             </div>
-            {canMutate ? (
-              <Button onClick={openCreateAddOn}>Add add-on</Button>
-            ) : null}
+            {canMutate ? <Button onClick={openCreateAddOn}>Add add-on</Button> : null}
           </div>
           <AddOnListCard
             addOns={addOnsQuery.data}
@@ -182,12 +178,8 @@ export function Options() {
             refetch={() => void addOnsQuery.refetch()}
             canMutate={canMutate}
             onEdit={(addOn) => setEditor({ mode: "addon", addOn })}
-            onArchive={(addOn) =>
-              void archiveAddOn.mutateAsync({ id: addOn.id })
-            }
-            onReactivate={(addOn) =>
-              void reactivateAddOn.mutateAsync({ id: addOn.id })
-            }
+            onArchive={(addOn) => void archiveAddOn.mutateAsync({ id: addOn.id })}
+            onReactivate={(addOn) => void reactivateAddOn.mutateAsync({ id: addOn.id })}
           />
         </TabsContent>
       </Tabs>
@@ -206,11 +198,7 @@ export function Options() {
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
           {shownEditor.mode === "addon" ? (
-            <AddOnForm
-              addOn={shownEditor.addOn}
-              onSaved={handleSaved}
-              onCancel={closeEditor}
-            />
+            <AddOnForm addOn={shownEditor.addOn} onSaved={handleSaved} onCancel={closeEditor} />
           ) : (
             shownEditor.mode !== "closed" && (
               <ModifierGroupEditor
@@ -238,9 +226,9 @@ export function Options() {
       {modifierSheetGroup ? (
         <ModifierListSheet
           group={modifierSheetGroup}
-          open={true}
+          open={modifierSheetOpen}
           onOpenChange={(open) => {
-            if (!open) setModifierSheetGroupId(null);
+            setModifierSheetOpen(open);
           }}
           onAnnounce={announce}
           canMutate={canMutate}
@@ -258,15 +246,11 @@ export function Options() {
           <DialogHeader>
             <DialogTitle>Archive {pendingArchiveGroup?.name}?</DialogTitle>
             <DialogDescription>
-              This modifier group will be hidden from new orders. You can
-              reactivate it later.
+              This modifier group will be hidden from new orders. You can reactivate it later.
             </DialogDescription>
           </DialogHeader>
           {archiveGroup.isError ? (
-            <div
-              role="alert"
-              className="rounded-md bg-status-danger-tint p-3 text-sm"
-            >
+            <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
               Couldn't archive the group.
             </div>
           ) : null}

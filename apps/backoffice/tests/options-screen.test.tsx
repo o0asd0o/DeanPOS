@@ -166,6 +166,44 @@ describe("the Options screen", () => {
     await expectNoAxeViolations(container);
   }, 20_000);
 
+  it("keeps the modifier sheet mounted while it exits", async () => {
+    await withTenantScope(ownerDb, tenantId, (db) =>
+      db
+        .insertInto("ModifierGroup")
+        .values({
+          id: randomUUID(),
+          tenant_id: tenantId,
+          name: "Sauces",
+          selection_rule: "optional-one",
+          sort_order: 0,
+        })
+        .execute(),
+    );
+
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: managerId,
+      role: "manager",
+      initialLocation: "/add-ons",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByText("Sauces")).toBeTruthy());
+    const row = screen.getByText("Sauces").closest("tr");
+    expect(row).toBeTruthy();
+
+    fireEvent.click(within(row!).getByRole("button", { name: /modifiers for Sauces/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Modifiers · Sauces ·/i })).toBeTruthy(),
+    );
+
+    const sheet = document.querySelector('[data-slot="sheet-content"]');
+    expect(sheet).toBeTruthy();
+    fireEvent.click(within(sheet as HTMLElement).getAllByRole("button", { name: "Close" })[1]!);
+    expect(sheet?.getAttribute("data-state")).toBe("closed");
+  }, 20_000);
+
   it("cashier cannot see Add modifier group", async () => {
     const { db } = renderRoute({
       router,
