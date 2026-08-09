@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SaleWorkspace } from "@/features/sale/SaleWorkspace.tsx";
 
 const catalog = {
-  categories: [{ id: "drinks", name: "Drinks" }],
+  categories: [
+    { id: "drinks", name: "Drinks" },
+    { id: "food", name: "Food" },
+  ],
   menuItems: [
     {
       id: "water",
@@ -18,7 +21,7 @@ const catalog = {
     },
     {
       id: "juice",
-      categoryId: "drinks",
+      categoryId: "food",
       name: "Juice",
       priceCentavos: 3_000,
       available: true,
@@ -77,7 +80,6 @@ describe("sale screen", () => {
     const { container } = render(<SaleWorkspace catalog={catalog} />);
 
     expect(screen.getByRole("group", { name: "Categories" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Menu" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Water/ }));
     fireEvent.click(screen.getByRole("button", { name: /Juice/ }));
     fireEvent.click(screen.getByRole("button", { name: /Tea/ }));
@@ -112,17 +114,19 @@ describe("sale screen", () => {
     expect(localStorage.getItem("deanpos.sale.draft")).toContain("rice");
   });
 
-  it("searches by name and confirms only a non-empty clear", () => {
+  it("reveals search, searches across categories, and confirms only a non-empty clear", () => {
     render(<SaleWorkspace catalog={catalog} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Search menu" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Search menu" }), {
-      target: { value: "water" },
+      target: { value: "juice" },
     });
-    expect(screen.getByRole("button", { name: /Water/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Juice/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Juice/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Water/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Water/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Clear order" }));
+    fireEvent.click(screen.getByRole("button", { name: /Juice/ }));
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clear order" }));
     expect(screen.getByRole("dialog", { name: "Clear this order?" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear order" }));
     expect(screen.queryByRole("dialog", { name: "Clear this order?" })).toBeNull();
@@ -179,5 +183,58 @@ describe("sale screen", () => {
       true,
     );
     expect(dialog).toBeTruthy();
+  });
+
+  it("edits a plain line through the universal modal and preserves its line id", () => {
+    render(<SaleWorkspace catalog={catalog} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Rice/ }));
+    const original = JSON.parse(localStorage.getItem("deanpos.sale.draft")!).lines[0].id;
+    fireEvent.click(screen.getByRole("button", { name: /1 × Rice/ }));
+    expect(screen.getByRole("dialog", { name: /Edit Rice/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Increase Rice quantity" }));
+    fireEvent.click(screen.getByRole("button", { name: /Save ₱30\.00/ }));
+
+    const line = JSON.parse(localStorage.getItem("deanpos.sale.draft")!).lines[0];
+    expect(line.id).toBe(original);
+    expect(line.quantity).toBe(2);
+    expect(screen.getByText("1 items · ₱30.00 · Open cart")).toBeTruthy();
+  });
+
+  it("shows signed option deltas and persists list view", () => {
+    const optionsCatalog = {
+      ...catalog,
+      menuItems: [
+        {
+          ...catalog.menuItems[0]!,
+          name: "Adobo options",
+          modifierGroups: [
+            {
+              id: "portion",
+              name: "Portion",
+              selectionRule: "optional-one" as const,
+              maximum: 1,
+              defaultModifierId: null,
+              modifiers: [
+                { id: "half", name: "Half", delta: { kind: "multiplier" as const, perMille: 500 } },
+              ],
+            },
+          ],
+          addOns: [
+            { id: "rice", name: "Extra rice", delta: { kind: "absolute" as const, amountCentavos: 1_500 }, maximum: 1 },
+          ],
+        },
+      ],
+    };
+    const { unmount } = render(<SaleWorkspace catalog={optionsCatalog} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
+    expect(screen.getByRole("button", { name: /Half −₱10\.00/ })).toBeTruthy();
+    expect(screen.getByText("Extra rice +₱15.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("button", { name: /Adobo options.*₱20\.00/ })).toBeTruthy();
+    unmount();
+    render(<SaleWorkspace catalog={optionsCatalog} />);
+    expect(screen.getByRole("button", { name: /Adobo options.*₱20\.00/ })).toBeTruthy();
   });
 });

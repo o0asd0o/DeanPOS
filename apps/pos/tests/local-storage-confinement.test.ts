@@ -8,7 +8,13 @@ import { describe, expect, it } from "vite-plus/test";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const srcRoot = join(repoRoot, "apps/pos/src");
 
-const ALLOWED = ["device-token.ts", "draft-store.ts", "pin-roster.ts", "pin-throttle.ts"];
+const ALLOWED = [
+  "device-token.ts",
+  "draft-store.ts",
+  "pin-roster.ts",
+  "pin-throttle.ts",
+  "view-mode.ts",
+];
 
 function collectSourceFiles(path: string): string[] {
   if (!statSync(path).isDirectory()) return /\.tsx?$/.test(path) ? [path] : [];
