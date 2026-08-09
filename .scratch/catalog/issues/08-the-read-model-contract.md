@@ -1,6 +1,6 @@
 # 08 — The read model contract
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -49,26 +49,26 @@ shot is the point, and pagination moves the complexity into `offline-sync`'s cac
       can tell *"none configured"* from *"old payload shape"*.
 - [x] `catalog.version({ storeId })` returns a value identical to `catalog.read`'s and **selects
       only the hash column**; a test asserts the payload is not transferred (record 070).
-- [ ] Equal versions mean equal payloads, asserted in **both** directions.
+- [x] Equal versions mean equal payloads, asserted in **both** directions.
 - [x] A no-op save on a Variant does not move the version; a price moved up and back down between
       two fetches leaves the version equal at both ends, and a terminal that fetched *during* the
       window holds a different one and re-fetches (`## Scenarios` rows 11, 22 — and read record
       069's Discount carve-out: use a Variant or an availability toggle, never a Discount).
-- [ ] A grep proves no timestamp, `updated_at`, `created_at`, request id or clock value is in the
+- [x] A grep proves no timestamp, `updated_at`, `created_at`, request id or clock value is in the
       payload — a standing assertion, not a one-time check.
 - [x] An availability toggle at one Store moves that Store's version and leaves every other
       Store's unchanged.
-- [ ] A tenant-level change — a Discount, an Add-on, a ModifierGroup — moves **every** Store's
+- [x] A tenant-level change — a Discount, an Add-on, a ModifierGroup — moves **every** Store's
       version, falling out of the mechanism rather than through a special case (record 069 §4).
 - [x] Archiving a Category moves the version through the computed payload, not a row scan — the
       exclusion chain is parent-computed and a naive scan misses it (record 069 §5).
-- [ ] A tenant with 400 Variants produces a payload within a stated size bound, asserted with a
+- [x] A tenant with 400 Variants produces a payload within a stated size bound, asserted with a
       seeded fixture at that size (`## Scenarios` row 9). The read model is **not** paginated.
-- [ ] A brand-new Tenant's Device fetches a read model with zero Categories successfully
+- [x] A brand-new Tenant's Device fetches a read model with zero Categories successfully
       (`## Scenarios` row 19).
 - [x] Archived MenuItems and Variants are **absent** from the read model; sold-out Variants are
       **present and flagged** (record 071 §6, stories 32 and 40).
-- [ ] A `cashier` and an enrolled Device may read the read model and mutate nothing.
+- [x] A `cashier` and an enrolled Device may read the read model and mutate nothing.
 - [x] Wrong-tenant probes on **every** procedure in this area, the read model included — a catalog
       leak is a pricing leak to a competitor on the same platform. Record 062's coverage guard must
       pass with no exemptions added for this area.
@@ -103,4 +103,11 @@ shot is the point, and pagination moves the complexity into `offline-sync`'s cac
 - AC12 ticked — `catalog-variants.test.ts` archive cases plus `catalog-availability.test.ts` sold-out flag assertions.
 - AC14 ticked — `catalog-wrong-tenant.test.ts` has tagged probes for `catalog.read` and `catalog.version`; coverage guard wiring remains present.
 - AC15 ticked — opaque version documentation added beside the catalog procedures in `packages/contract/src/routes/catalog/contract.ts`.
-- AC4/AC6/AC8/AC10/AC11/AC13 remain unticked pending dedicated proving tests for bidirectional payload/hash equality, standing forbidden-field scan, tenant-wide mutation coverage, 400-Variant size, fresh-device read, and cashier/device read-only behavior.
+- AC4 ticked — `catalog-read-model-contract.test.ts` "AC4: the reported version hashes the delivered payload" proves canonical hash equality, no-op equality, change inequality, and restoration equality.
+- AC6 ticked — `catalog-read-model-contract.test.ts` "AC6: the payload builder and read schema contain no time or request fields" is the standing source/schema guard.
+- AC8 ticked — `catalog-read-model-contract.test.ts` "AC8: Discount, Add-on, and ModifierGroup changes move every Store version".
+- AC10 ticked — `catalog-read-model-contract.test.ts` "AC10: 400 Variants fit one bounded, unpaginated payload".
+- AC11 ticked — `catalog-read-model-contract.test.ts` "AC11: a fresh Device reads an empty catalog".
+- AC13 ticked — `catalog-read-model-contract.test.ts` "AC13: a cashier reads but cannot mutate, and a Device cannot mutate".
+- AC14 completed — `wrong-tenant-probe-coverage.test.ts` and tagged availability probes pass with zero missing paths.
+- Issue 08 marked done after the full contract suite passed: 5 files, 45 tests.

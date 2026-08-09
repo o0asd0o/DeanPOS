@@ -5,6 +5,7 @@ import { createDb } from "backend/src/db/client.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createTestSeam } from "../src/test-seam.ts";
+import { expectWrongTenantRefusal } from "../src/wrong-tenant-probe.ts";
 
 const seam = createTestSeam();
 const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
@@ -15,6 +16,9 @@ const otherAdminId = randomUUID();
 const cashierId = randomUUID();
 const storeA = randomUUID();
 const storeB = randomUUID();
+const otherStore = randomUUID();
+const otherCategory = randomUUID();
+const otherItem = randomUUID();
 let itemId = "";
 let variantId = "";
 
@@ -59,6 +63,7 @@ beforeAll(async () => {
     .values([
       { id: storeA, tenant_id: tenantId, name: "Availability A" },
       { id: storeB, tenant_id: tenantId, name: "Availability B" },
+      { id: otherStore, tenant_id: otherTenantId, name: "Other Availability" },
     ])
     .execute();
   const client = seam.actors.asTenant(tenantId, { userId: adminId, role: "admin" }).client;
@@ -75,6 +80,21 @@ beforeAll(async () => {
     priceCentavos: 10000,
   });
   variantId = variant!.id;
+  await ownerDb
+    .insertInto("Category")
+    .values({ id: otherCategory, tenant_id: otherTenantId, name: "Other", sort_order: 0 })
+    .execute();
+  await ownerDb
+    .insertInto("MenuItem")
+    .values({
+      id: otherItem,
+      tenant_id: otherTenantId,
+      category_id: otherCategory,
+      name: "Other Item",
+      price_centavos: 10000,
+      sort_order: 0,
+    })
+    .execute();
 });
 
 afterAll(async () => {
@@ -83,7 +103,10 @@ afterAll(async () => {
   await ownerDb.deleteFrom("Variant").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("MenuItem").where("tenant_id", "=", otherTenantId).execute();
+  await ownerDb.deleteFrom("Category").where("tenant_id", "=", otherTenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("Store").where("tenant_id", "=", otherTenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", otherTenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -153,9 +176,27 @@ describe("availability", () => {
     expect(await admin().availability.set({ storeId: randomUUID(), changes: [] })).toBeNull();
   });
 
-  it("confines both availability procedures to the caller's Tenant", async () => {
-    const list = await otherAdmin().availability.list({ storeId: storeA });
-    expect(list.items).toStrictEqual([]);
-    expect(await otherAdmin().availability.set({ storeId: storeA, changes: [] })).toBeNull();
+  it("wrong-tenant probe [availability.list]: another Tenant cannot list this Store's availability", async () => {
+    await expectWrongTenantRefusal({
+      path: "availability.list",
+      mode: "confined",
+      ownerSees: await admin().availability.list({ storeId: storeA }),
+      otherGets: async () => {
+        expect((await otherAdmin().availability.list({ storeId: storeA })).items).toStrictEqual([]);
+        return otherAdmin().availability.list({ storeId: otherStore });
+      },
+      otherOwn: await otherAdmin().availability.list({ storeId: otherStore }),
+      why: "Store availability must stay confined to its owning Tenant.",
+    });
+  });
+
+  it("wrong-tenant probe [availability.set]: another Tenant cannot toggle this Store", async () => {
+    await expectWrongTenantRefusal({
+      path: "availability.set",
+      mode: "refusal",
+      ownerSees: await admin().availability.set({ storeId: storeA, changes: [] }),
+      otherGets: () => otherAdmin().availability.set({ storeId: storeA, changes: [] }),
+      why: "Store availability writes must stay confined to its owning Tenant.",
+    });
   });
 });
