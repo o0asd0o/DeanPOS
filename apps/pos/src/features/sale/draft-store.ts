@@ -2,7 +2,7 @@ export type DraftLine = {
   id: string;
   menuItemId: string;
   menuItemName: string;
-  variantId: string;
+  variantId: string | null;
   variantName: string;
   unitPriceCentavos: number;
 };

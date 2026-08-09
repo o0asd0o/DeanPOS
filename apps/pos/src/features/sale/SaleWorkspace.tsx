@@ -46,12 +46,7 @@ export function SaleWorkspace({ catalog }: Props) {
   };
   const addVariant = (item: SaleMenuItem, variantId: string) => {
     const variant = item.variants.find((entry) => entry.id === variantId);
-    if (
-      !variant ||
-      !variant.available ||
-      item.modifierGroups.length > 0 ||
-      item.addOns.length > 0
-    )
+    if (!variant || !variant.available || item.modifierGroups.length > 0 || item.addOns.length > 0)
       return;
     const next = addOptionlessLine(ensureDraft(), {
       menuItemId: item.id,
@@ -64,10 +59,23 @@ export function SaleWorkspace({ catalog }: Props) {
     setDraft(next);
     setSelectedItem(null);
   };
+  const addBaseItem = (item: SaleMenuItem) => {
+    if (item.modifierGroups.length > 0 || item.addOns.length > 0) return;
+    const next = addOptionlessLine(ensureDraft(), {
+      menuItemId: item.id,
+      menuItemName: item.name,
+      variantId: null,
+      variantName: "",
+      unitPriceCentavos: item.priceCentavos,
+    });
+    writeDraft(next);
+    setDraft(next);
+  };
   const selectItem = (item: SaleMenuItem) => {
     if (!item.available) return;
     ensureDraft();
-    if (item.variants.length === 1) addVariant(item, item.variants[0]!.id);
+    if (item.variants.length === 0) addBaseItem(item);
+    else if (item.variants.length === 1) addVariant(item, item.variants[0]!.id);
     else setSelectedItem(item);
   };
   const requestClear = () => {
@@ -115,16 +123,10 @@ export function SaleWorkspace({ catalog }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear this order?</DialogTitle>
-            <DialogDescription>
-              All lines in this draft will be removed.
-            </DialogDescription>
+            <DialogDescription>All lines in this draft will be removed.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setClearOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setClearOpen(false)}>
               Cancel
             </Button>
             <Button type="button" danger onClick={confirmClear}>

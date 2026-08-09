@@ -49,6 +49,16 @@ const catalog = {
       modifierGroups: [],
       addOns: [],
     },
+    {
+      id: "rice",
+      categoryId: "drinks",
+      name: "Rice",
+      priceCentavos: 1_500,
+      available: true,
+      variants: [],
+      modifierGroups: [],
+      addOns: [],
+    },
   ],
   discounts: [],
   version: "0".repeat(64),
@@ -88,6 +98,18 @@ describe("sale screen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Drinks" }));
     expect(screen.getByRole("button", { name: /Water/ })).toBeTruthy();
+  });
+
+  it("adds an optionless selected variant and a menu item without variants", () => {
+    render(<SaleWorkspace catalog={catalog} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Adobo/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Half/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Rice/ }));
+
+    expect(screen.getByText("2 items · ₱95.00 · Open cart")).toBeTruthy();
+    expect(localStorage.getItem("deanpos.sale.draft")).toContain("half");
+    expect(localStorage.getItem("deanpos.sale.draft")).toContain("rice");
   });
 
   it("searches by name and confirms only a non-empty clear", () => {

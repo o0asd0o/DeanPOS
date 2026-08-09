@@ -20,10 +20,7 @@ export function VariantGrid({
   onVariantSelect,
 }: Props) {
   return (
-    <section
-      aria-label={`${item.name} variants`}
-      className="flex min-w-0 flex-1 flex-col gap-4"
-    >
+    <section aria-label={`${item.name} variants`} className="flex min-w-0 flex-1 flex-col gap-4">
       <Card>
         <CardContent className="flex flex-col gap-3 pt-0">
           <CategoryTabs
@@ -31,12 +28,7 @@ export function VariantGrid({
             selectedCategoryId={item.categoryId}
             onCategorySelect={onCategorySelect}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            className="justify-start"
-            onClick={onBack}
-          >
+          <Button type="button" variant="ghost" className="justify-start" onClick={onBack}>
             ‹ {item.name} — choose a variant
           </Button>
         </CardContent>
@@ -58,9 +50,7 @@ export function VariantGrid({
               >
                 <span>{variant.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {variant.available
-                    ? formatPeso(variant.priceCentavos)
-                    : "Sold out"}
+                  {variant.available ? formatPeso(variant.priceCentavos) : "Sold out"}
                 </span>
               </Button>
             </CardContent>
