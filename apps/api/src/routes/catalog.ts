@@ -5,6 +5,7 @@ import { handler as archiveMenuItemHandler } from "backend/src/catalog/handlers/
 import { handler as archiveModifierHandler } from "backend/src/modifier/handlers/archive-modifier.ts";
 import { handler as archiveModifierGroupHandler } from "backend/src/modifier-group/handlers/archive-modifier-group.ts";
 import { handler as archiveAddOnHandler } from "backend/src/add-on/handlers/archive-add-on.ts";
+import { handler as archiveDiscountHandler } from "backend/src/discount/handlers/archive-discount.ts";
 import { handler as archiveVariantHandler } from "backend/src/variant/handlers/archive-variant.ts";
 import { handler as catalogVersionHandler } from "backend/src/catalog/handlers/catalog-version.ts";
 import { handler as createCategoryHandler } from "backend/src/catalog/handlers/create-category.ts";
@@ -12,6 +13,7 @@ import { handler as createMenuItemHandler } from "backend/src/catalog/handlers/c
 import { handler as createModifierHandler } from "backend/src/modifier/handlers/create-modifier.ts";
 import { handler as createModifierGroupHandler } from "backend/src/modifier-group/handlers/create-modifier-group.ts";
 import { handler as createAddOnHandler } from "backend/src/add-on/handlers/create-add-on.ts";
+import { handler as createDiscountHandler } from "backend/src/discount/handlers/create-discount.ts";
 import { handler as createVariantHandler } from "backend/src/variant/handlers/create-variant.ts";
 import { handler as getMenuItemHandler } from "backend/src/catalog/handlers/get-menu-item.ts";
 import { handler as getVariantHandler } from "backend/src/variant/handlers/get-variant.ts";
@@ -19,6 +21,7 @@ import { handler as listCategoriesHandler } from "backend/src/catalog/handlers/l
 import { handler as listMenuItemsHandler } from "backend/src/catalog/handlers/list-menu-items.ts";
 import { handler as listModifierGroupsHandler } from "backend/src/modifier-group/handlers/list-modifier-groups.ts";
 import { handler as listAddOnsHandler } from "backend/src/add-on/handlers/list-add-ons.ts";
+import { handler as listDiscountsHandler } from "backend/src/discount/handlers/list-discounts.ts";
 import { handler as listModifiersHandler } from "backend/src/modifier/handlers/list-modifiers.ts";
 import { handler as listVariantsHandler } from "backend/src/variant/handlers/list-variants.ts";
 import { handler as moveMenuItemHandler } from "backend/src/catalog/handlers/move-menu-item.ts";
@@ -28,6 +31,7 @@ import { handler as reactivateMenuItemHandler } from "backend/src/catalog/handle
 import { handler as reactivateModifierHandler } from "backend/src/modifier/handlers/reactivate-modifier.ts";
 import { handler as reactivateModifierGroupHandler } from "backend/src/modifier-group/handlers/reactivate-modifier-group.ts";
 import { handler as reactivateAddOnHandler } from "backend/src/add-on/handlers/reactivate-add-on.ts";
+import { handler as reactivateDiscountHandler } from "backend/src/discount/handlers/reactivate-discount.ts";
 import { handler as reactivateVariantHandler } from "backend/src/variant/handlers/reactivate-variant.ts";
 import { handler as readCatalogHandler } from "backend/src/catalog/handlers/read-catalog.ts";
 import { handler as renameCategoryHandler } from "backend/src/catalog/handlers/rename-category.ts";
@@ -43,6 +47,7 @@ import { handler as setVariantPriceHandler } from "backend/src/variant/handlers/
 import { handler as updateModifierHandler } from "backend/src/modifier/handlers/update-modifier.ts";
 import { handler as updateModifierGroupHandler } from "backend/src/modifier-group/handlers/update-modifier-group.ts";
 import { handler as updateAddOnHandler } from "backend/src/add-on/handlers/update-add-on.ts";
+import { handler as updateDiscountHandler } from "backend/src/discount/handlers/update-discount.ts";
 import { handler as linkModifierGroupToItemHandler } from "backend/src/catalog/handlers/link-modifier-group-to-item.ts";
 import { handler as unlinkModifierGroupFromItemHandler } from "backend/src/catalog/handlers/unlink-modifier-group-from-item.ts";
 import { handler as listLinkedModifierGroupsForItemHandler } from "backend/src/catalog/handlers/list-linked-modifier-groups-for-item.ts";
@@ -185,6 +190,21 @@ export const catalogArchiveAddOnRoute = os.catalog.archiveAddOn.handler(({ conte
 );
 export const catalogReactivateAddOnRoute = os.catalog.reactivateAddOn.handler(
   ({ context, input }) => reactivateAddOnHandler({ ctx: context, input }),
+);
+export const catalogListDiscountsRoute = os.catalog.listDiscounts.handler(({ context }) =>
+  listDiscountsHandler({ ctx: context, input: undefined }),
+);
+export const catalogCreateDiscountRoute = os.catalog.createDiscount.handler(({ context, input }) =>
+  createDiscountHandler({ ctx: context, input }),
+);
+export const catalogUpdateDiscountRoute = os.catalog.updateDiscount.handler(({ context, input }) =>
+  updateDiscountHandler({ ctx: context, input }),
+);
+export const catalogArchiveDiscountRoute = os.catalog.archiveDiscount.handler(
+  ({ context, input }) => archiveDiscountHandler({ ctx: context, input }),
+);
+export const catalogReactivateDiscountRoute = os.catalog.reactivateDiscount.handler(
+  ({ context, input }) => reactivateDiscountHandler({ ctx: context, input }),
 );
 export const catalogReorderAddOnRoute = os.catalog.reorderAddOn.handler(({ context, input }) =>
   reorderAddOnHandler({ ctx: context, input }),

@@ -158,9 +158,21 @@ export const catalogVariantSetPriceInputSchema = z.object({
 export const catalogListVariantsInputSchema = z.object({ menuItemId: z.string() });
 
 export const catalogReadInputSchema = z.object({ storeId: z.string() });
+export const catalogReadDiscountSchema = z.object({
+  id: z.string(),
+  name: catalogNameSchema,
+  type: z.enum(["percent", "amount"]),
+  scope: z.enum(["order", "line"]),
+  value: z.number().int().nullable(),
+  requiresOverride: z.boolean(),
+  vatExempt: z.boolean(),
+  requiresReference: z.boolean(),
+  referenceLabel: z.string().nullable(),
+});
 export const catalogReadOutputSchema = z.object({
   categories: z.array(categoryOutputSchema),
   menuItems: z.array(catalogReadMenuItemSchema),
+  discounts: z.array(catalogReadDiscountSchema),
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export const catalogVersionOutputSchema = z.object({
@@ -286,6 +298,53 @@ export const catalogAddOnCreateInputSchema = z.object({
 export const catalogAddOnUpdateInputSchema = catalogAddOnCreateInputSchema.extend({
   id: z.string(),
 });
+
+const catalogDiscountTypeSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("percent"),
+    value: z.number().int().min(1).max(10_000).nullable(),
+    scope: z.enum(["order", "line"]),
+  }),
+  z.object({
+    type: z.literal("amount"),
+    value: z.number().int().positive().nullable(),
+    scope: z.literal("order"),
+  }),
+]);
+
+export const discountOutputSchema = z.object({
+  id: z.string(),
+  discountId: z.string(),
+  tenantId: z.string(),
+  name: catalogNameSchema,
+  type: z.enum(["percent", "amount"]),
+  scope: z.enum(["order", "line"]),
+  value: z.number().int().nullable(),
+  requiresOverride: z.boolean(),
+  vatExempt: z.boolean(),
+  requiresReference: z.boolean(),
+  referenceLabel: z.string().nullable(),
+  archivedAt: z.date().nullable(),
+  effectiveFrom: z.date(),
+  createdAt: z.date(),
+});
+const catalogDiscountFieldsSchema = z.object({
+  name: catalogNameSchema,
+  requiresOverride: z.boolean(),
+  vatExempt: z.boolean(),
+  requiresReference: z.boolean(),
+  referenceLabel: z.string().trim().max(100).nullable(),
+});
+export const catalogDiscountCreateInputSchema = catalogDiscountFieldsSchema
+  .and(catalogDiscountTypeSchema)
+  .refine((input) => !input.requiresReference || Boolean(input.referenceLabel?.trim()), {
+    message: "Reference label is required",
+    path: ["referenceLabel"],
+  });
+// `id` is the lineage discountId, never a version-row id.
+export const catalogDiscountUpdateInputSchema = z
+  .object({ id: z.string() })
+  .and(catalogDiscountCreateInputSchema);
 export const catalogMenuItemAddOnInputSchema = z.object({
   menuItemId: z.string(),
   addOnId: z.string(),

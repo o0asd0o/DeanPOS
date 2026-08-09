@@ -12,6 +12,8 @@ import { listActiveModifiersForGroup } from "../../modifier/db-operations/querie
 import { toCategoryOutput } from "../helpers.ts";
 import { deltaFromStored } from "../../modifier/delta.ts";
 import { listLinkedAddOnsForItem } from "../db-operations/queries/list-linked-add-ons-for-item.query.ts";
+import { listCurrentDiscounts } from "../../discount/db-operations/queries/list-current-discounts.query.ts";
+import { toDiscountReadShape } from "../../discount/helpers.ts";
 
 export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
@@ -25,11 +27,14 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
         ? ctx.device.tenantId
         : null;
   if (!tenantId) {
-    return { categories: [], menuItems: [], version: "0".repeat(64) };
+    return { categories: [], menuItems: [], discounts: [], version: "0".repeat(64) };
   }
 
   return withTenantScope(ctx.db, tenantId, async (db) => {
     const categories = (await listActiveCategories(db)).map(toCategoryOutput);
+    const discounts = (await listCurrentDiscounts(db))
+      .filter((row) => !row.archived_at)
+      .map(toDiscountReadShape);
     const sellable = await listSellableMenuItems(db);
     const toGroupShape = async (group: {
       id: string;
@@ -99,6 +104,6 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       }),
     );
     const version = await catalogVersion(db, tenantId, input.storeId);
-    return { categories, menuItems, version };
+    return { categories, menuItems, discounts, version };
   });
 };

@@ -15,6 +15,17 @@ export const catalogVersion = async (db: DatabaseInstance, tenantId: string, sto
           ) order by c."sort_order", c."id")
           from "Category" c where c."archived_at" is null
         ), '[]'::jsonb),
+        'discounts', coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'id', d."id", 'name', d."name", 'type', d."type", 'scope', d."scope",
+            'value', d."value", 'requiresOverride', d."requires_override", 'vatExempt', d."vat_exempt",
+            'requiresReference', d."requires_reference", 'referenceLabel', d."reference_label"
+          ) order by d."name", d."id")
+          from (
+            select distinct on (discount_id) * from "Discount"
+            order by discount_id, effective_from desc, created_at desc
+          ) d where d."archived_at" is null
+        ), '[]'::jsonb),
         'menuItems', coalesce((
           select jsonb_agg(jsonb_build_object(
             'id', m."id",

@@ -51,6 +51,8 @@ model Tenant {
   modifiers                             Modifier[]
   menuItemModifierGroups                MenuItemModifierGroup[]
   addOns                                AddOn[]
+  discounts                             Discount[]
+  discountAudits                        DiscountAudit[]
   menuItemAddOns                        MenuItemAddOn[]
 }
 
@@ -108,6 +110,7 @@ model User {
   userRoles            UserRole[]
   userStores           UserStore[]
   tenantSettingsAudits TenantSettingsAudit[]
+  discountAudits       DiscountAudit[]
   paymentMethodAudits  PaymentMethodAudit[]
   deviceAudits         DeviceAudit[]
   overridesApproved    Override[]            @relation("overridesApproved")
@@ -389,6 +392,44 @@ model AddOn {
 
   @@unique([tenantId, id])
   @@index([tenantId])
+}
+
+// Versioned definition: edits and archive/reactivate actions append a full snapshot.
+model Discount {
+  id                String    @id
+  tenantId          String    @map("tenant_id")
+  discountId        String    @map("discount_id")
+  name              String
+  type              String
+  scope             String
+  value             Int?
+  requiresOverride  Boolean   @map("requires_override")
+  vatExempt         Boolean   @map("vat_exempt")
+  requiresReference Boolean   @map("requires_reference")
+  referenceLabel    String?   @map("reference_label")
+  archivedAt        DateTime? @map("archived_at")
+  effectiveFrom     DateTime  @map("effective_from")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([discountId, effectiveFrom])
+  @@index([tenantId])
+  @@index([tenantId, discountId])
+}
+
+model DiscountAudit {
+  id           String   @id
+  tenantId     String   @map("tenant_id")
+  actorUserId  String   @map("actor_user_id")
+  discountId   String   @map("discount_id")
+  field        String
+  createdAt    DateTime @default(now()) @map("created_at")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  actor        User     @relation(fields: [tenantId, actorUserId], references: [tenantId, id])
+
+  @@index([tenantId])
+  @@index([tenantId, discountId])
 }
 
 model MenuItemAddOn {

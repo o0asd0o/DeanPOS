@@ -4,6 +4,9 @@ import {
   addOnOutputSchema,
   catalogAddOnCreateInputSchema,
   catalogAddOnUpdateInputSchema,
+  catalogDiscountCreateInputSchema,
+  catalogDiscountUpdateInputSchema,
+  discountOutputSchema,
   catalogCategoryCreateInputSchema,
   catalogCategoryRenameInputSchema,
   catalogEntityIdInputSchema,
@@ -135,6 +138,16 @@ export const catalogContract = {
   listLinkedAddOnsForMenuItem: oc
     .input(catalogListLinkedAddOnsForItemInputSchema)
     .output(z.array(addOnOutputSchema)),
+
+  listDiscounts: oc.input(z.void()).output(z.array(discountOutputSchema)),
+  createDiscount: oc
+    .input(catalogDiscountCreateInputSchema)
+    .output(discountOutputSchema.nullable()),
+  updateDiscount: oc
+    .input(catalogDiscountUpdateInputSchema)
+    .output(discountOutputSchema.nullable()),
+  archiveDiscount: oc.input(catalogEntityIdInputSchema).output(discountOutputSchema.nullable()),
+  reactivateDiscount: oc.input(catalogEntityIdInputSchema).output(discountOutputSchema.nullable()),
 
   read: oc.input(catalogReadInputSchema).output(catalogReadOutputSchema),
   version: oc.input(catalogReadInputSchema).output(catalogVersionOutputSchema),

@@ -97,7 +97,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         label: "Discounts",
         icon: TagsIcon,
         to: "/discounts",
-        minRole: "admin",
+        minRole: "manager",
       },
       {
         label: "Availability",
