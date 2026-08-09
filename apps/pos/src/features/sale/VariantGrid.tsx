@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardAction, CardContent, CardHeader, CardTitle } from "ui";
+import { Badge, Button, Card, CardContent } from "ui";
 
 import { CategoryTabs } from "./CategoryTabs.tsx";
 import { formatPeso } from "./helpers.ts";
@@ -36,36 +36,30 @@ export function VariantGrid({
           </Button>
         </CardContent>
       </Card>
-      <Card className="flex-1">
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            {item.name}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="secondary">{item.variants.length} choices</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {item.variants.map((variant) => (
-            <Card key={variant.id} className="min-h-32 py-0">
-              <CardContent className="flex h-full p-0">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={!variant.available}
-                  className="h-full min-h-32 w-full flex-col gap-2 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
-                  onClick={() => onVariantSelect(variant.id)}
-                >
-                  <span>{variant.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {variant.available ? formatPeso(variant.priceCentavos) : "Sold out"}
-                  </span>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between px-3 sm:px-4">
+        <h2 className="text-base font-semibold">{item.name}</h2>
+        <Badge variant="secondary">{item.variants.length} choices</Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {item.variants.map((variant) => (
+          <Card key={variant.id} className="min-h-32 py-0">
+            <CardContent className="flex h-full p-0">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!variant.available}
+                className="h-full min-h-32 w-full flex-col gap-2 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
+                onClick={() => onVariantSelect(variant.id)}
+              >
+                <span>{variant.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {variant.available ? formatPeso(variant.priceCentavos) : "Sold out"}
+                </span>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </section>
   );
 }
