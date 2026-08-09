@@ -23,12 +23,17 @@ export const createContext = (
   platformAdmin: PlatformAdminPrincipal | null = null,
   device: DevicePrincipal | null = null,
 ): Ctx => {
-  const actors = [principal, platformAdmin, device].filter((actor) => actor !== null);
+  const actors = [principal, platformAdmin, device].filter(
+    (actor) => actor !== null,
+  );
   if (actors.length > 1) {
-    throw new Error("Ctx cannot carry more than one of principal/platformAdmin/device");
+    throw new Error(
+      "Ctx cannot carry more than one of principal/platformAdmin/device",
+    );
   }
   if (principal) return { db, clientIp, kind: "tenant", principal };
-  if (platformAdmin) return { db, clientIp, kind: "platform-admin", platformAdmin };
+  if (platformAdmin)
+    return { db, clientIp, kind: "platform-admin", platformAdmin };
   if (device) return { db, clientIp, kind: "device", device };
   return { db, clientIp, kind: "unauthenticated" };
 };
@@ -43,10 +48,12 @@ export const buildContextFromSession = async (
   if (!sessionId) return { db, clientIp, kind: "unauthenticated" };
 
   const session = await findSessionById(db, sessionId);
-  if (!session || session.revoked_at) return { db, clientIp, kind: "unauthenticated" };
+  if (!session || session.revoked_at)
+    return { db, clientIp, kind: "unauthenticated" };
 
   const now = Date.now();
-  if (session.expires_at.getTime() < now) return { db, clientIp, kind: "unauthenticated" };
+  if (session.expires_at.getTime() < now)
+    return { db, clientIp, kind: "unauthenticated" };
   if (now - session.last_seen_at.getTime() > SESSION_IDLE_TTL_MS)
     return { db, clientIp, kind: "unauthenticated" };
 
@@ -90,7 +97,8 @@ export const buildContextFromDeviceToken = async (
 
   const tokenHash = hashDeviceToken(token);
   const device = await findDeviceByTokenHash(db, tokenHash);
-  if (!device || device.revoked_at) return { db, clientIp, kind: "unauthenticated" };
+  if (!device || device.revoked_at)
+    return { db, clientIp, kind: "unauthenticated" };
 
   return withTenantScope(db, device.tenant_id, async (scopedDb) => {
     const touched = await touchDevice(scopedDb, device.id);

@@ -1,4 +1,5 @@
 import { authContract } from "./routes/auth/contract.ts";
+import { availabilityContract } from "./routes/availability/contract.ts";
 import { catalogContract } from "./routes/catalog/contract.ts";
 import { deviceContract } from "./routes/device/contract.ts";
 import { overrideContract } from "./routes/override/contract.ts";
@@ -26,4 +27,5 @@ export const contract = {
   device: deviceContract,
   terminal: terminalContract,
   override: overrideContract,
+  availability: availabilityContract,
 };

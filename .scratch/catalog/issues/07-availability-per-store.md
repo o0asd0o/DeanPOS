@@ -116,6 +116,8 @@ prevent.
 
 ## Comments
 
+Record 077 settles the widening to MenuItems plus Variants, server pagination, the admin floor, and the one changed empty-state string. The implementation follows the repository's flat `availability/handlers` layout rather than the stale `catalog/handlers/commands` path named below.
+
 Record 071 names a re-check trigger the orchestrator must honour: **before this issue's migration
 merges**, re-read 071 §1. After the merge the reversal costs more than the build — undoing the
 negative join means a data migration inserting the full `variants × stores` complement.

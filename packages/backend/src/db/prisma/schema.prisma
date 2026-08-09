@@ -37,6 +37,8 @@ model Tenant {
   tenantSettingsAudits                  TenantSettingsAudit[]
   paymentMethods                        PaymentMethod[]
   paymentMethodAvailabilities           PaymentMethodAvailability[]
+  variantUnavailabilities               VariantUnavailability[]
+  menuItemUnavailabilities              MenuItemUnavailability[]
   paymentMethodAudits                   PaymentMethodAudit[]
   paymentMethodPaymentDetails           PaymentMethodPaymentDetails[]
   devices                               Device[]
@@ -73,6 +75,8 @@ model Store {
   tenant                      Tenant                        @relation(fields: [tenantId], references: [id])
   userStores                  UserStore[]
   paymentMethodAvailabilities PaymentMethodAvailability[]
+  variantUnavailabilities      VariantUnavailability[]
+  menuItemUnavailabilities     MenuItemUnavailability[]
   paymentMethodAudits         PaymentMethodAudit[]
   paymentMethodPaymentDetails PaymentMethodPaymentDetails[]
   devices                     Device[]
@@ -259,6 +263,36 @@ model PaymentMethodAvailability {
   @@index([tenantId])
 }
 
+// A row means this Variant is sold out at this Store; absence means available.
+model VariantUnavailability {
+  id        String   @id
+  tenantId  String   @map("tenant_id")
+  variantId String   @map("variant_id")
+  storeId   String   @map("store_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  variant   Variant  @relation(fields: [tenantId, variantId], references: [tenantId, id])
+  store     Store    @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@unique([variantId, storeId])
+  @@index([tenantId])
+}
+
+// A row means this MenuItem is sold out at this Store; absence means available.
+model MenuItemUnavailability {
+  id         String   @id
+  tenantId   String   @map("tenant_id")
+  menuItemId String   @map("menu_item_id")
+  storeId    String   @map("store_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  menuItem   MenuItem @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+  store      Store    @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@unique([menuItemId, storeId])
+  @@index([tenantId])
+}
+
 // Categories determine the terminal's grid order. They are archived rather
 // than deleted so historical orders can continue resolving their references.
 model Category {
@@ -287,6 +321,7 @@ model MenuItem {
   tenant                Tenant                  @relation(fields: [tenantId], references: [id])
   category              Category                @relation(fields: [tenantId, categoryId], references: [tenantId, id])
   variants              Variant[]
+  unavailabilities      MenuItemUnavailability[]
   menuItemModifierGroups MenuItemModifierGroup[]
   menuItemAddOns         MenuItemAddOn[]
 
@@ -307,6 +342,7 @@ model Variant {
   createdAt      DateTime  @default(now()) @map("created_at")
   tenant                Tenant                 @relation(fields: [tenantId], references: [id])
   menuItem              MenuItem               @relation(fields: [tenantId, menuItemId], references: [tenantId, id])
+  unavailabilities      VariantUnavailability[]
 
   @@unique([tenantId, id])
   @@index([tenantId])

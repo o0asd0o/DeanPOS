@@ -9,3 +9,4 @@ export * from "./device/index.ts";
 export * from "./override/index.ts";
 export * from "./terminal/index.ts";
 export * from "./platform-admin/index.ts";
+export * from "./availability/index.ts";

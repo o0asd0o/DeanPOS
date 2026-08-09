@@ -43,7 +43,7 @@ export function TablePagination({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
       <p className="text-sm text-muted-foreground">
         {formatPaginationSummary(page, pageSize, itemCount, totalItems)}
       </p>

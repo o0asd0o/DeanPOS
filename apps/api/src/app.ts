@@ -14,11 +14,19 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 
-import { buildContextFromDeviceToken, buildContextFromSession, createContext } from "./context.ts";
+import {
+  buildContextFromDeviceToken,
+  buildContextFromSession,
+  createContext,
+} from "./context.ts";
 import { parseSessionCookie } from "./cookies.ts";
 import { allowedOrigins } from "./middlewares/cors.ts";
 import { isMustChangePasswordExempt } from "./middlewares/must-change-password.ts";
 import { createAuthRoutes } from "./routes/auth.ts";
+import {
+  availabilityListRoute,
+  availabilitySetRoute,
+} from "./routes/availability.ts";
 import {
   catalogArchiveCategoryRoute,
   catalogArchiveMenuItemRoute,
@@ -90,7 +98,10 @@ import {
   terminalPinSyncRoute,
 } from "./routes/device.ts";
 import { healthRoute } from "./routes/health.ts";
-import { overrideListRoute, terminalRecordOverrideRoute } from "./routes/override.ts";
+import {
+  overrideListRoute,
+  terminalRecordOverrideRoute,
+} from "./routes/override.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import {
   paymentMethodCreateRoute,
@@ -241,8 +252,10 @@ export const createApp = ({
         reactivateModifier: catalogReactivateModifierRoute,
         reorderModifier: catalogReorderModifierRoute,
         linkModifierGroupToMenuItem: catalogLinkModifierGroupToMenuItemRoute,
-        unlinkModifierGroupFromMenuItem: catalogUnlinkModifierGroupFromMenuItemRoute,
-        listLinkedModifierGroupsForMenuItem: catalogListLinkedModifierGroupsForMenuItemRoute,
+        unlinkModifierGroupFromMenuItem:
+          catalogUnlinkModifierGroupFromMenuItemRoute,
+        listLinkedModifierGroupsForMenuItem:
+          catalogListLinkedModifierGroupsForMenuItemRoute,
         listAddOns: catalogListAddOnsRoute,
         createAddOn: catalogCreateAddOnRoute,
         updateAddOn: catalogUpdateAddOnRoute,
@@ -285,6 +298,7 @@ export const createApp = ({
       // The Override review list (issue 12, record 060 Q5). Cookie/admin
       // or manager — never accepts a Device token.
       override: { list: overrideListRoute },
+      availability: { list: availabilityListRoute, set: availabilitySetRoute },
     });
   const rpcHandler = new RPCHandler(router, {
     plugins: [new ResponseHeadersPlugin()],
@@ -315,7 +329,11 @@ export const createApp = ({
         // Scheme matched case-insensitively; anything else resolves to
         // unauthenticated rather than an error (record 056 Q2).
         const match = /^bearer\s+(.+)$/i.exec(authHeader);
-        ctx = await buildContextFromDeviceToken(db, match ? match[1]! : null, clientIp);
+        ctx = await buildContextFromDeviceToken(
+          db,
+          match ? match[1]! : null,
+          clientIp,
+        );
       } else {
         const sessionId = parseSessionCookie(c.req.header("Cookie"));
         if (sessionId) {

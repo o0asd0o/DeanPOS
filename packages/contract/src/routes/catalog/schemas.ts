@@ -104,6 +104,7 @@ export const catalogReadVariantSchema = z.object({
   name: z.string(),
   priceCentavos: z.number().int(),
   sortOrder: z.number().int(),
+  available: z.boolean(),
 });
 
 export const catalogReadMenuItemSchema = z.object({
@@ -116,6 +117,7 @@ export const catalogReadMenuItemSchema = z.object({
   modifierGroups: z.array(catalogReadModifierGroupSchema),
   addOns: z.array(catalogReadAddOnSchema),
   variants: z.array(catalogReadVariantSchema),
+  available: z.boolean(),
 });
 
 export const catalogCategoryCreateInputSchema = z.object({ name: catalogNameSchema });

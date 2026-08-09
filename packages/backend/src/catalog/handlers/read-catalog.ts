@@ -14,6 +14,9 @@ import { deltaFromStored } from "../../modifier/delta.ts";
 import { listLinkedAddOnsForItem } from "../db-operations/queries/list-linked-add-ons-for-item.query.ts";
 import { listCurrentDiscounts } from "../../discount/db-operations/queries/list-current-discounts.query.ts";
 import { toDiscountReadShape } from "../../discount/helpers.ts";
+import { getStore } from "../../store/db-operations/queries/get-store.query.ts";
+import { canAccessStore } from "../../common/authorize.ts";
+import { sql } from "../../db/client.ts";
 
 export const inputSchema = catalogReadInputSchema;
 type Input = z.infer<typeof inputSchema>;
@@ -31,6 +34,31 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
   }
 
   return withTenantScope(ctx.db, tenantId, async (db) => {
+    const store = await getStore(db, input.storeId);
+    const authorized =
+      ctx.kind === "device"
+        ? ctx.device.storeId === input.storeId
+        : ctx.kind === "tenant"
+          ? !!ctx.principal.userId &&
+            !!ctx.principal.role &&
+            (await canAccessStore(db, ctx.principal.userId, ctx.principal.role, input.storeId))
+          : false;
+    if (!store || !authorized)
+      return { categories: [], menuItems: [], discounts: [], version: "0".repeat(64) };
+    const [variantRows, itemRows] = await Promise.all([
+      sql<{
+        id: string;
+      }>`select variant_id id from "VariantUnavailability" where store_id=${input.storeId}`.execute(
+        db,
+      ),
+      sql<{
+        id: string;
+      }>`select menu_item_id id from "MenuItemUnavailability" where store_id=${input.storeId}`.execute(
+        db,
+      ),
+    ]);
+    const unavailableVariants = new Set(variantRows.rows.map((row) => row.id));
+    const unavailableItems = new Set(itemRows.rows.map((row) => row.id));
     const categories = (await listActiveCategories(db)).map(toCategoryOutput);
     const discounts = (await listCurrentDiscounts(db))
       .filter((row) => !row.archived_at)
@@ -89,6 +117,7 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
           name: variant.name,
           priceCentavos: variant.price_centavos,
           sortOrder: variant.sort_order,
+          available: !unavailableVariants.has(variant.id),
         }));
         return {
           id: item.id,
@@ -100,6 +129,7 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
           modifierGroups,
           addOns,
           variants: variantsWithGroups,
+          available: !unavailableItems.has(item.id),
         };
       }),
     );

@@ -4,7 +4,7 @@
 - **Stakes:** high — a data shape with a merged migration behind it, and it deliberately reverses a settled record's polarity
 - **Date:** 2026-08-04
 - **Asked by:** the human, on the question [067](067-the-availability-screen-stages-toggles-and-saves-once.md) §3 routed out; `.scratch/catalog/PRD.md` `## Scenarios` row 17 (*"Needs its own record before the availability slice"*)
-- **Relates to:** [054](054-payment-method-availability-and-its-audit.md) (whose polarity this reverses, on purpose, for a different object — **054 is not overturned**); [067](067-the-availability-screen-stages-toggles-and-saves-once.md) §3/§4 (the procedure this confirms); [069](069-the-catalog-version-is-a-sha256-of-the-payload-per-store.md) and [070](070-the-catalog-version-is-derived-per-request.md) (binding on §6); [046](046-how-tenant-settings-are-stored-and-audited.md) §3, [055](055-availability-enforcement-belongs-to-checkout.md), [038](038-the-store-management-screen.md)
+- **Relates to:** [054](054-payment-method-availability-and-its-audit.md) (whose polarity this reverses, on purpose, for a different object — **054 is not overturned**); [067](067-the-availability-screen-stages-toggles-and-saves-once.md) §3/§4 (the procedure this confirms); [069](069-the-catalog-version-is-a-sha256-of-the-payload-per-store.md) and [070](070-the-catalog-version-is-derived-per-request.md) (binding on §6); [077](077-availability-covers-menu-items-and-variants.md); [046](046-how-tenant-settings-are-stored-and-audited.md) §3, [055](055-availability-enforcement-belongs-to-checkout.md), [038](038-the-store-management-screen.md)
 
 ## The question
 

@@ -5,7 +5,7 @@
 - **Date:** 2026-08-04
 - **Amended:** 2026-08-04 — §6 replaced; `## Direction` prohibition 5 overridden for this screen. See Amendments.
 - **Asked by:** the human, at the `## Direction` checkpoint on `.scratch/catalog/PRD.md` ("Collisions to route, not resolve here", first bullet)
-- **Relates to:** [054](054-payment-method-availability-and-its-audit.md) §Q3 (the refusal this is the named successor to); [040](040-the-store-editor.md); [038](038-the-store-management-screen.md); 009, 013, 030, 041, 045, 055
+- **Relates to:** [054](054-payment-method-availability-and-its-audit.md) §Q3 (the refusal this is the named successor to); [040](040-the-store-editor.md); [038](038-the-store-management-screen.md); [077](077-availability-covers-menu-items-and-variants.md); 009, 013, 030, 041, 045, 055
 
 ## Amendments
 

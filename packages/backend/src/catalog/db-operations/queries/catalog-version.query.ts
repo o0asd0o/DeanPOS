@@ -77,13 +77,15 @@ export const catalogVersion = async (db: DatabaseInstance, tenantId: string, sto
                 'id', v."id",
                 'name', v."name",
                 'priceCentavos', v."price_centavos",
-                'sortOrder', v."sort_order"
+                'sortOrder', v."sort_order",
+                'available', NOT EXISTS (SELECT 1 FROM "VariantUnavailability" u WHERE u."tenant_id" = v."tenant_id" AND u."variant_id" = v."id" AND u."store_id" = ${storeId})
               ) order by v."sort_order", v."id")
               from "Variant" v
               where v."menu_item_id" = m."id"
                 and v."tenant_id" = m."tenant_id"
                 and v."archived_at" is null
-            ), '[]'::jsonb)
+            ), '[]'::jsonb),
+            'available', NOT EXISTS (SELECT 1 FROM "MenuItemUnavailability" u WHERE u."tenant_id" = m."tenant_id" AND u."menu_item_id" = m."id" AND u."store_id" = ${storeId})
           ) order by c."sort_order", m."sort_order", m."id")
           from "MenuItem" m
           inner join "Category" c

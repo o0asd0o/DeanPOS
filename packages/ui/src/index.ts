@@ -91,6 +91,7 @@ export {
 } from "./components/dropdown-menu.tsx";
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./components/tooltip.tsx";
 export { Input } from "./components/input.tsx";
+export { Switch } from "./components/switch.tsx";
 export { PasswordInput } from "./components/password-input.tsx";
 export { Toaster } from "./components/sonner.tsx";
 export { toast } from "sonner";
