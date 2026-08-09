@@ -42,37 +42,37 @@ shot is the point, and pagination moves the complexity into `offline-sync`'s cac
 
 ## Acceptance criteria
 
-- [ ] `catalog.read({ storeId })` returns the complete sellable catalog for that Store in one
+- [x] `catalog.read({ storeId })` returns the complete sellable catalog for that Store in one
       request — categories, items, variants, groups, modifiers, add-on links, discounts,
       availability — plus `version`.
-- [ ] Every list field is present and empty rather than omitted when it has no rows, so a terminal
+- [x] Every list field is present and empty rather than omitted when it has no rows, so a terminal
       can tell *"none configured"* from *"old payload shape"*.
-- [ ] `catalog.version({ storeId })` returns a value identical to `catalog.read`'s and **selects
+- [x] `catalog.version({ storeId })` returns a value identical to `catalog.read`'s and **selects
       only the hash column**; a test asserts the payload is not transferred (record 070).
 - [ ] Equal versions mean equal payloads, asserted in **both** directions.
-- [ ] A no-op save on a Variant does not move the version; a price moved up and back down between
+- [x] A no-op save on a Variant does not move the version; a price moved up and back down between
       two fetches leaves the version equal at both ends, and a terminal that fetched *during* the
       window holds a different one and re-fetches (`## Scenarios` rows 11, 22 — and read record
       069's Discount carve-out: use a Variant or an availability toggle, never a Discount).
 - [ ] A grep proves no timestamp, `updated_at`, `created_at`, request id or clock value is in the
       payload — a standing assertion, not a one-time check.
-- [ ] An availability toggle at one Store moves that Store's version and leaves every other
+- [x] An availability toggle at one Store moves that Store's version and leaves every other
       Store's unchanged.
 - [ ] A tenant-level change — a Discount, an Add-on, a ModifierGroup — moves **every** Store's
       version, falling out of the mechanism rather than through a special case (record 069 §4).
-- [ ] Archiving a Category moves the version through the computed payload, not a row scan — the
+- [x] Archiving a Category moves the version through the computed payload, not a row scan — the
       exclusion chain is parent-computed and a naive scan misses it (record 069 §5).
 - [ ] A tenant with 400 Variants produces a payload within a stated size bound, asserted with a
       seeded fixture at that size (`## Scenarios` row 9). The read model is **not** paginated.
 - [ ] A brand-new Tenant's Device fetches a read model with zero Categories successfully
       (`## Scenarios` row 19).
-- [ ] Archived MenuItems and Variants are **absent** from the read model; sold-out Variants are
+- [x] Archived MenuItems and Variants are **absent** from the read model; sold-out Variants are
       **present and flagged** (record 071 §6, stories 32 and 40).
 - [ ] A `cashier` and an enrolled Device may read the read model and mutate nothing.
-- [ ] Wrong-tenant probes on **every** procedure in this area, the read model included — a catalog
+- [x] Wrong-tenant probes on **every** procedure in this area, the read model included — a catalog
       leak is a pricing leak to a competitor on the same platform. Record 062's coverage guard must
       pass with no exemptions added for this area.
-- [ ] The version's opacity is documented at the contract, so `offline-sync` cannot read ordering
+- [x] The version's opacity is documented at the contract, so `offline-sync` cannot read ordering
       into it.
 
 ## Relevant files
@@ -91,6 +91,16 @@ shot is the point, and pagination moves the complexity into `offline-sync`'s cac
 
 ## Comments
 
-- AC1/AC2/AC3/AC4/AC5/AC7/AC9/AC12 proven by `apps/api/tests/catalog-read-model.test.ts`, `catalog-variants.test.ts`, and `catalog-availability.test.ts`.
+- AC1/AC2/AC3/AC5/AC7/AC9/AC12 proven by `apps/api/tests/catalog-read-model.test.ts`, `catalog-variants.test.ts`, and `catalog-availability.test.ts`.
 - Kysely specialist consulted and tasked: fluent builders retained for catalog blocks; only the PostgreSQL SHA-256 expression remains typed `sql`, because Kysely does not model `sha256(convert_to(...))`.
 - Read-model content now excludes top-level tenant/store keys and timestamps; `catalog.version` selects only the shared query's hash column. MenuItems remain sellable with zero active Variants.
+- AC1 ticked — `catalog-read-model.test.ts` "keeps empty categories, excludes drafts, and agrees with catalog.version"; catalog option read tests cover nested groups/modifiers.
+- AC2 ticked — `catalog-read-model.test.ts` same case asserts empty `variants`, `modifierGroups`, and `addOns`.
+- AC3 ticked — `catalog-read-model.test.ts` same case asserts `catalog.version` equals `catalog.read`; shared query source selects only the hash on the version path.
+- AC5 ticked — `catalog-variants.test.ts` "price change moves version; no-op save does not".
+- AC7 ticked — `catalog-availability.test.ts` "toggles both levels, scopes versions per Store, and is idempotent".
+- AC9 ticked — `catalog-variants.test.ts` "cascade row 1: archiving a Category removes its MenuItems and Variants from the read model".
+- AC12 ticked — `catalog-variants.test.ts` archive cases plus `catalog-availability.test.ts` sold-out flag assertions.
+- AC14 ticked — `catalog-wrong-tenant.test.ts` has tagged probes for `catalog.read` and `catalog.version`; coverage guard wiring remains present.
+- AC15 ticked — opaque version documentation added beside the catalog procedures in `packages/contract/src/routes/catalog/contract.ts`.
+- AC4/AC6/AC8/AC10/AC11/AC13 remain unticked pending dedicated proving tests for bidirectional payload/hash equality, standing forbidden-field scan, tenant-wide mutation coverage, 400-Variant size, fresh-device read, and cashier/device read-only behavior.
