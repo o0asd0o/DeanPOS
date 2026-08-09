@@ -153,17 +153,18 @@ const staffUsers = staff.map((user) => ({
   email: `${user.key}@deanpos.local`,
 }));
 
-const baseCategories = ["Coffee", "Breakfast", "Rice meals", "Pasta", "Desserts"].map(
-  (name, index) => ({ id: seedId("category", name), name, sortOrder: index }),
-);
-const categories = [
-  ...baseCategories,
-  ...Array.from({ length: 95 }, (_, index) => {
-    const number = index + 6;
-    const name = `${["Seasonal", "Chef's", "Weekend", "Family", "Classic"][index % 5]} picks ${String(number).padStart(2, "0")}`;
-    return { id: seedId("category", name), name, sortOrder: number - 1 };
-  }),
-];
+const baseCategoryNames = ["Coffee", "Breakfast", "Rice meals", "Pasta", "Desserts"];
+const baseCategories = baseCategoryNames.map((name, index) => ({
+  id: seedId("category", name),
+  name,
+  sortOrder: index,
+}));
+const legacyGeneratedCategoryNames = Array.from({ length: 95 }, (_, index) => {
+  const number = index + 6;
+  return `${["Seasonal", "Chef's", "Weekend", "Family", "Classic"][index % 5]} picks ${String(number).padStart(2, "0")}`;
+});
+const legacyCatalogCategoryNames = [...baseCategoryNames, ...legacyGeneratedCategoryNames];
+const categories = baseCategories;
 
 const baseMenuItems = [
   ["Coffee", "House latte", 16500],
@@ -190,7 +191,7 @@ const baseMenuItems = [
 const menuItems: Array<[string, string, number]> = [
   ...baseMenuItems,
   ...Array.from({ length: 380 }, (_, index) => {
-    const category = categories[index % categories.length]!.name;
+    const category = legacyCatalogCategoryNames[index % legacyCatalogCategoryNames.length]!;
     const number = index + 1;
     return [
       category,
@@ -394,13 +395,39 @@ await withTenantScope(db, tenantId, async (scopedDb) => {
     )
     .onConflict((oc) => oc.column("id").doNothing())
     .execute();
+  for (const [index, [, name]] of menuItems.entries()) {
+    if (index < baseMenuItems.length) continue;
+    await scopedDb
+      .updateTable("MenuItem")
+      .set({
+        category_id: seedId(
+          "category",
+          categories[(index - baseMenuItems.length) % categories.length]!.name,
+        ),
+      })
+      .where("id", "=", seedId("menu-item", name))
+      .execute();
+  }
+  await scopedDb
+    .deleteFrom("Category")
+    .where(
+      "id",
+      "in",
+      legacyGeneratedCategoryNames.map((name) => seedId("category", name)),
+    )
+    .execute();
   await scopedDb
     .insertInto("MenuItem")
     .values(
       menuItems.map(([categoryName, name, priceCentavos], index) => ({
         id: seedId("menu-item", name),
         tenant_id: tenantId,
-        category_id: seedId("category", categoryName),
+        category_id: seedId(
+          "category",
+          index < baseMenuItems.length
+            ? categoryName
+            : categories[(index - baseMenuItems.length) % categories.length]!.name,
+        ),
         name,
         price_centavos: priceCentavos,
         sort_order: index,
