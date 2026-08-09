@@ -17,13 +17,7 @@ import {
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useRouteContext } from "@tanstack/react-router";
-import {
-  ArrowLeftIcon,
-  CheckIcon,
-  PencilIcon,
-  PlusIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import {
   Badge,
   Button,
@@ -69,6 +63,7 @@ import {
   type VariantOutput,
 } from "@/features/catalog/helpers.ts";
 import { ModifierGroupPicker } from "@/features/catalog/variant/ModifierGroupPicker.tsx";
+import { AddOnPicker } from "@/features/catalog/variant/AddOnPicker.tsx";
 import { SortableVariantRow } from "@/features/catalog/variant/SortableVariantRow.tsx";
 import { VariantEditorSheet } from "@/features/catalog/variant/VariantEditorSheet.tsx";
 
@@ -84,9 +79,7 @@ export function MenuItemDetail() {
   const { id } = useParams({ from: "/_shell/catalog_/$id" });
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
 
-  const menuItemQuery = useQuery(
-    orpc.catalog.getMenuItem.queryOptions({ input: { id } }),
-  );
+  const menuItemQuery = useQuery(orpc.catalog.getMenuItem.queryOptions({ input: { id } }));
   const variantsQuery = useQuery(
     orpc.catalog.listVariants.queryOptions({ input: { menuItemId: id } }),
   );
@@ -125,41 +118,28 @@ export function MenuItemDetail() {
     mode: "closed",
   });
   const lastVariantEditor = useRef<VariantEditorState>({ mode: "create" });
-  if (variantEditor.mode !== "closed")
-    lastVariantEditor.current = variantEditor;
+  if (variantEditor.mode !== "closed") lastVariantEditor.current = variantEditor;
   const shownVariantEditor =
     variantEditor.mode === "closed" ? lastVariantEditor.current : variantEditor;
 
   const [variantFailed, setVariantFailed] = useState(false);
   const [itemFailed, setItemFailed] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<VariantOutput | null>(
-    null,
-  );
+  const [archiveTarget, setArchiveTarget] = useState<VariantOutput | null>(null);
   const [archiveFailed, setArchiveFailed] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState(false);
-  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(
-    null,
-  );
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
-  const itemBusy =
-    renameMenuItem.isPending ||
-    moveMenuItem.isPending ||
-    setMenuItemPrice.isPending;
+  const itemBusy = renameMenuItem.isPending || moveMenuItem.isPending || setMenuItemPrice.isPending;
   const variantBusy =
-    createVariant.isPending ||
-    renameVariant.isPending ||
-    setVariantPrice.isPending;
+    createVariant.isPending || renameVariant.isPending || setVariantPrice.isPending;
   const reordering = reorderVariant.isPending;
 
   const menuItem = menuItemQuery.data ?? null;
   const categories = categoriesQuery.data ?? [];
-  const activeCategories = categories.filter(
-    (category) => category.archivedAt === null,
-  );
-  const categoryName =
-    categories.find((c) => c.id === menuItem?.categoryId)?.name ?? "Unknown";
+  const activeCategories = categories.filter((category) => category.archivedAt === null);
+  const categoryName = categories.find((c) => c.id === menuItem?.categoryId)?.name ?? "Unknown";
 
   const variants = useMemo(() => {
     const rows = variantsQuery.data ?? [];
@@ -234,11 +214,7 @@ export function MenuItemDetail() {
   const gate = useSubmitGate(form, { busy: itemBusy });
 
   const handleCategorySave = async () => {
-    if (
-      !menuItem ||
-      !pendingCategoryId ||
-      pendingCategoryId === menuItem.categoryId
-    ) {
+    if (!menuItem || !pendingCategoryId || pendingCategoryId === menuItem.categoryId) {
       setEditingCategory(false);
       setPendingCategoryId(null);
       return;
@@ -270,10 +246,7 @@ export function MenuItemDetail() {
     opener.current?.focus();
   };
 
-  const handleVariantSave = async (value: {
-    name: string;
-    priceCentavos: number;
-  }) => {
+  const handleVariantSave = async (value: { name: string; priceCentavos: number }) => {
     setVariantFailed(false);
     if (shownVariantEditor.mode === "create") {
       const created = await createVariant.mutateAsync({
@@ -334,11 +307,7 @@ export function MenuItemDetail() {
     void versionQuery.refetch();
   };
 
-  const handleReorder = async (
-    variantId: string,
-    fromIndex: number,
-    toIndex: number,
-  ) => {
+  const handleReorder = async (variantId: string, fromIndex: number, toIndex: number) => {
     const plan = reorderSteps(fromIndex, toIndex);
     if (!plan || reordering) return;
     for (let step = 0; step < plan.steps; step += 1) {
@@ -394,12 +363,7 @@ export function MenuItemDetail() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-fit tap-target"
-            asChild
-          >
+          <Button variant="ghost" size="sm" className="w-fit tap-target" asChild>
             <Link to="/catalog" search={{ status: "all", q: "", category: "" }}>
               <ArrowLeftIcon />
               Catalog
@@ -546,6 +510,16 @@ export function MenuItemDetail() {
 
       <Card>
         <CardContent className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold">Add-ons</h2>
+          <p className="text-sm text-muted-foreground">
+            Apply to this item regardless of which variant is chosen.
+          </p>
+          <AddOnPicker menuItemId={id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Modifier groups</h2>
           <p className="text-sm text-muted-foreground">
             Apply to this item regardless of which variant is chosen.
@@ -645,16 +619,8 @@ export function MenuItemDetail() {
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
           <VariantEditorSheet
-            key={
-              shownVariantEditor.mode === "edit"
-                ? shownVariantEditor.variant.id
-                : "create"
-            }
-            variant={
-              shownVariantEditor.mode === "edit"
-                ? shownVariantEditor.variant
-                : null
-            }
+            key={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant.id : "create"}
+            variant={shownVariantEditor.mode === "edit" ? shownVariantEditor.variant : null}
             busy={variantBusy}
             failed={variantFailed}
             onSave={handleVariantSave}

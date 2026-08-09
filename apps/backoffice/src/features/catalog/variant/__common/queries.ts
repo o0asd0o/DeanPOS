@@ -74,6 +74,54 @@ export function useAllModifierGroupsQuery() {
   return useQuery(orpc.catalog.listModifierGroups.queryOptions());
 }
 
+export function useAllAddOnsQuery() {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  return useQuery(orpc.catalog.listAddOns.queryOptions());
+}
+
+export function useLinkedAddOnsForItemQuery(menuItemId: string | null) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  return useQuery({
+    ...orpc.catalog.listLinkedAddOnsForMenuItem.queryOptions({
+      input: { menuItemId: menuItemId ?? "" },
+    }),
+    enabled: Boolean(menuItemId),
+  });
+}
+
+function useInvalidateAddOnsForItem(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.listLinkedAddOnsForMenuItem.queryKey({ input: { menuItemId } }),
+    });
+    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listAddOns.queryKey() });
+  };
+}
+
+export function useLinkAddOnToItemMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateAddOnsForItem(menuItemId);
+  return useMutation(
+    orpc.catalog.linkAddOnToMenuItem.mutationOptions({
+      onSuccess: invalidate,
+      meta: { silent: true },
+    }),
+  );
+}
+
+export function useUnlinkAddOnFromItemMutation(menuItemId: string) {
+  const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
+  const invalidate = useInvalidateAddOnsForItem(menuItemId);
+  return useMutation(
+    orpc.catalog.unlinkAddOnFromMenuItem.mutationOptions({
+      onSuccess: invalidate,
+      meta: { silent: true },
+    }),
+  );
+}
+
 export function useLinkedModifierGroupsForItemQuery(menuItemId: string | null) {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
   return useQuery({
@@ -89,7 +137,9 @@ function useInvalidateLinkedForItem(menuItemId: string) {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({
-      queryKey: orpc.catalog.listLinkedModifierGroupsForMenuItem.queryKey({ input: { menuItemId } }),
+      queryKey: orpc.catalog.listLinkedModifierGroupsForMenuItem.queryKey({
+        input: { menuItemId },
+      }),
     });
     void queryClient.invalidateQueries({
       queryKey: orpc.catalog.listModifierGroups.queryKey(),
