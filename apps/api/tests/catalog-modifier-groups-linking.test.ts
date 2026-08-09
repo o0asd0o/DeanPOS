@@ -315,14 +315,14 @@ describe("linkedToCount excludes archived Items (scenario 26)", () => {
       modifierGroupId: group.id,
     });
 
-    const before = await client.catalog.listModifierGroups();
-    const row = before.find((g) => g.id === group.id);
+    const before = await client.catalog.listModifierGroups({});
+    const row = before.items.find((g) => g.id === group.id);
     expect(row?.linkedToCount).toBe(2);
 
     await client.catalog.archiveMenuItem({ id: i2.id });
 
-    const after = await client.catalog.listModifierGroups();
-    const rowAfter = after.find((g) => g.id === group.id);
+    const after = await client.catalog.listModifierGroups({});
+    const rowAfter = after.items.find((g) => g.id === group.id);
     expect(rowAfter?.linkedToCount).toBe(1);
   });
 });
@@ -418,8 +418,8 @@ describe("scenario 2: concurrency — last-writer-wins", () => {
       selectionRule: "required-one",
     });
 
-    const groups = await client.catalog.listModifierGroups();
-    const row = groups.find((g) => g.id === group!.id);
+    const groups = await client.catalog.listModifierGroups({});
+    const row = groups.items.find((g) => g.id === group!.id);
     expect(row?.name).toBe("Writer B");
   });
 });
@@ -544,9 +544,7 @@ describe("cashier cannot mutate link operations", () => {
     ).toStrictEqual({ ok: false });
 
     expect(
-      (
-        await cashier.catalog.listLinkedModifierGroupsForMenuItem({ menuItemId: item.id })
-      ).length,
+      (await cashier.catalog.listLinkedModifierGroupsForMenuItem({ menuItemId: item.id })).length,
     ).toBe(0);
   });
 });

@@ -123,8 +123,8 @@ export const catalogReactivateVariantRoute = os.catalog.reactivateVariant.handle
 export const catalogReorderVariantRoute = os.catalog.reorderVariant.handler(({ context, input }) =>
   reorderVariantHandler({ ctx: context, input }),
 );
-export const catalogListModifierGroupsRoute = os.catalog.listModifierGroups.handler(({ context }) =>
-  listModifierGroupsHandler({ ctx: context, input: undefined }),
+export const catalogListModifierGroupsRoute = os.catalog.listModifierGroups.handler(
+  ({ context, input }) => listModifierGroupsHandler({ ctx: context, input }),
 );
 export const catalogCreateModifierGroupRoute = os.catalog.createModifierGroup.handler(
   ({ context, input }) => createModifierGroupHandler({ ctx: context, input }),
@@ -171,8 +171,8 @@ export const catalogListLinkedModifierGroupsForMenuItemRoute =
   os.catalog.listLinkedModifierGroupsForMenuItem.handler(({ context, input }) =>
     listLinkedModifierGroupsForItemHandler({ ctx: context, input }),
   );
-export const catalogListAddOnsRoute = os.catalog.listAddOns.handler(({ context }) =>
-  listAddOnsHandler({ ctx: context, input: undefined }),
+export const catalogListAddOnsRoute = os.catalog.listAddOns.handler(({ context, input }) =>
+  listAddOnsHandler({ ctx: context, input }),
 );
 export const catalogCreateAddOnRoute = os.catalog.createAddOn.handler(({ context, input }) =>
   createAddOnHandler({ ctx: context, input }),

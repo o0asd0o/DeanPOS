@@ -37,23 +37,8 @@ import { reorderSteps } from "@/features/catalog/helpers.ts";
 import { useTableView } from "@/lib/table.ts";
 
 import { useReorderModifierGroupMutation } from "./__common/queries.ts";
-import {
-  getModifierGroupSignals,
-  type ModifierGroupOutput,
-} from "./helpers.ts";
+import { getModifierGroupSignals, type ModifierGroupOutput } from "./helpers.ts";
 import { SortableModifierGroupRow } from "./SortableModifierGroupRow.tsx";
-
-type SortKey = "name" | "rule" | "linked" | "status";
-
-const SORT_VALUES: Record<
-  SortKey,
-  (group: ModifierGroupOutput) => string | number
-> = {
-  name: (g) => g.name.toLowerCase(),
-  rule: (g) => g.selectionRule,
-  linked: (g) => g.linkedToCount,
-  status: (g) => (g.archivedAt ? 1 : 0),
-};
 
 export function ModifierGroupListCard({
   groups,
@@ -85,7 +70,11 @@ export function ModifierGroupListCard({
   const { usage: status, q: query } = useSearch({ from: "/_shell/add-ons" });
   const navigate = useNavigate();
   const setSearch = (next: { usage: UsageFilter; q: string }) =>
-    navigate({ to: "/add-ons", search: next, replace: true });
+    navigate({
+      to: "/add-ons",
+      search: { ...next, page: 1, sort: { key: "name", direction: "asc" } },
+      replace: true,
+    });
   const reorderGroup = useReorderModifierGroupMutation();
 
   const term = query.trim().toLowerCase();
@@ -108,17 +97,20 @@ export function ModifierGroupListCard({
     (group) =>
       (status === "all" ||
         (status === "inuse" && getModifierGroupSignals(group).inUse) ||
-        (status === "needsattention" &&
-          getModifierGroupSignals(group).needsAttention) ||
+        (status === "needsattention" && getModifierGroupSignals(group).needsAttention) ||
         (status === "unused" && getModifierGroupSignals(group).unused)) &&
       (term === "" ||
         group.name.toLowerCase().includes(term) ||
         group.modifiers.some((m) => m.name.toLowerCase().includes(term))),
   );
-
   const table = useTableView(
     visible,
-    SORT_VALUES,
+    {
+      name: (group) => group.name.toLowerCase(),
+      rule: (group) => group.selectionRule,
+      linked: (group) => group.linkedToCount,
+      status: (group) => (group.archivedAt ? 1 : 0),
+    },
     "name",
     `${status}:${query}`,
   );
@@ -162,10 +154,7 @@ export function ModifierGroupListCard({
           variant="usage"
         />
         {inlineError ? (
-          <div
-            role="alert"
-            className="rounded-md bg-status-danger-tint p-3 text-sm"
-          >
+          <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
             {inlineError}
           </div>
         ) : null}
@@ -174,9 +163,7 @@ export function ModifierGroupListCard({
         ) : isError ? (
           <ErrorState onRetry={refetch} isFetching={isFetching} />
         ) : canDrag && ordered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No modifier groups yet.
-          </p>
+          <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
         ) : !canDrag && table.rows.length === 0 ? (
           hasFilters ? (
             <EmptyState
@@ -184,18 +171,13 @@ export function ModifierGroupListCard({
               title="No modifier groups match these filters"
               description="Try another usage or clear the search."
               action={
-                <Button
-                  variant="outline"
-                  onClick={() => setSearch({ usage: "all", q: "" })}
-                >
+                <Button variant="outline" onClick={() => setSearch({ usage: "all", q: "" })}>
                   Clear filters
                 </Button>
               }
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              No modifier groups yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No modifier groups yet.</p>
           )
         ) : canDrag ? (
           <DndContext
@@ -263,16 +245,10 @@ export function ModifierGroupListCard({
             <Table aria-label="Modifier groups">
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    sorted={table.sortedBy("name")}
-                    onSort={() => table.sortBy("name")}
-                  >
+                  <TableHead sorted={table.sortedBy("name")} onSort={() => table.sortBy("name")}>
                     Group
                   </TableHead>
-                  <TableHead
-                    sorted={table.sortedBy("rule")}
-                    onSort={() => table.sortBy("rule")}
-                  >
+                  <TableHead sorted={table.sortedBy("rule")} onSort={() => table.sortBy("rule")}>
                     Rule
                   </TableHead>
                   <TableHead>Modifiers</TableHead>

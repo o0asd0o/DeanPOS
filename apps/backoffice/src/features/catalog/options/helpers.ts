@@ -47,6 +47,20 @@ export type ModifierGroupOutput = {
   modifiers: ModifierOutput[];
 };
 
+export type OptionListSort = {
+  key: "name" | "rule" | "delta" | "maximum" | "linked" | "status";
+  direction: "asc" | "desc";
+};
+
+export type OptionListPage<T> = {
+  items: T[];
+  count: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
+
 export const SELECTION_RULE_LABEL: Record<ModifierGroupOutput["selectionRule"], string> = {
   "required-one": "Required one",
   "optional-one": "Optional one",

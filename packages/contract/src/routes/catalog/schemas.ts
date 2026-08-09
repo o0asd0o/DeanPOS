@@ -21,20 +21,19 @@ export const menuItemOutputSchema = categoryOutputSchema.extend({
   activeVariantCount: z.number().int().nonnegative(),
 });
 
-export const catalogMenuItemListInputSchema = z
-  .object({
-    categoryId: z.string().optional(),
-    page: z.number().int().min(1).default(1),
-    perPage: z.number().int().min(1).max(100).default(10),
-    status: z.enum(["all", "live", "draft", "archived"]).default("all"),
-    search: z.string().max(100).optional(),
-    sort: z
-      .object({
-        key: z.enum(["name", "price", "sortOrder"]),
-        direction: z.enum(["asc", "desc"]),
-      })
-      .default({ key: "sortOrder", direction: "asc" }),
-  });
+export const catalogMenuItemListInputSchema = z.object({
+  categoryId: z.string().optional(),
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(100).default(10),
+  status: z.enum(["all", "live", "draft", "archived"]).default("all"),
+  search: z.string().max(100).optional(),
+  sort: z
+    .object({
+      key: z.enum(["name", "price", "sortOrder"]),
+      direction: z.enum(["asc", "desc"]),
+    })
+    .default({ key: "sortOrder", direction: "asc" }),
+});
 
 export const menuItemListOutputSchema = z.object({
   items: z.array(menuItemOutputSchema),
@@ -179,6 +178,27 @@ export const modifierOutputSchema = z.object({
   createdAt: z.date(),
 });
 
+const catalogOptionListPageSchema = z.object({
+  items: z.array(z.unknown()),
+  count: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  perPage: z.number().int().positive(),
+  hasNextPage: z.boolean(),
+  hasPrevPage: z.boolean(),
+});
+
+export const catalogOptionUsageSchema = z.enum(["all", "inuse", "needsattention", "unused"]);
+const catalogOptionPageInputSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(100).default(100),
+  search: z.string().max(100).optional(),
+  usage: catalogOptionUsageSchema.default("all"),
+});
+const catalogOptionSortSchema = z.object({
+  key: z.enum(["name", "rule", "delta", "maximum", "linked", "status"]),
+  direction: z.enum(["asc", "desc"]),
+});
+
 export const modifierGroupOutputSchema = z.object({
   id: z.string(),
   tenantId: z.string(),
@@ -192,6 +212,12 @@ export const modifierGroupOutputSchema = z.object({
   // Query-sourced count of Variant links. Zero until issue 04 builds linking.
   linkedToCount: z.number().int().nonnegative(),
   modifiers: z.array(modifierOutputSchema),
+});
+export const modifierGroupListInputSchema = catalogOptionPageInputSchema.extend({
+  sort: catalogOptionSortSchema.default({ key: "name", direction: "asc" }),
+});
+export const modifierGroupListOutputSchema = catalogOptionListPageSchema.extend({
+  items: z.array(modifierGroupOutputSchema),
 });
 
 export const catalogModifierGroupCreateInputSchema = z.object({
@@ -217,7 +243,14 @@ export const catalogModifierUpdateInputSchema = z.object({
   name: catalogNameSchema,
   delta: catalogDeltaSchema,
 });
-export const catalogListModifiersInputSchema = z.object({ groupId: z.string() });
+export const catalogListModifiersInputSchema = z.object({
+  groupId: z.string(),
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(100).default(100),
+});
+export const modifierListOutputSchema = catalogOptionListPageSchema.extend({
+  items: z.array(modifierOutputSchema),
+});
 
 export const catalogMenuItemModifierGroupInputSchema = z.object({
   menuItemId: z.string(),
@@ -237,6 +270,12 @@ export const addOnOutputSchema = z.object({
   archivedAt: z.date().nullable(),
   createdAt: z.date(),
   linkedToCount: z.number().int().nonnegative(),
+});
+export const addOnListInputSchema = catalogOptionPageInputSchema.extend({
+  sort: catalogOptionSortSchema.default({ key: "name", direction: "asc" }),
+});
+export const addOnListOutputSchema = catalogOptionListPageSchema.extend({
+  items: z.array(addOnOutputSchema),
 });
 
 export const catalogAddOnCreateInputSchema = z.object({

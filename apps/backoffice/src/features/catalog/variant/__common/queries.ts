@@ -71,12 +71,14 @@ export function useReorderVariantMutation(menuItemId: string) {
 
 export function useAllModifierGroupsQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
-  return useQuery(orpc.catalog.listModifierGroups.queryOptions());
+  return useQuery(
+    orpc.catalog.listModifierGroups.queryOptions({ input: { page: 1, perPage: 100 } }),
+  );
 }
 
 export function useAllAddOnsQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/catalog_/$id" });
-  return useQuery(orpc.catalog.listAddOns.queryOptions());
+  return useQuery(orpc.catalog.listAddOns.queryOptions({ input: { page: 1, perPage: 100 } }));
 }
 
 export function useLinkedAddOnsForItemQuery(menuItemId: string | null) {
@@ -96,7 +98,9 @@ function useInvalidateAddOnsForItem(menuItemId: string) {
     void queryClient.invalidateQueries({
       queryKey: orpc.catalog.listLinkedAddOnsForMenuItem.queryKey({ input: { menuItemId } }),
     });
-    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listAddOns.queryKey() });
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.listAddOns.queryKey({ input: {} }),
+    });
   };
 }
 
@@ -142,7 +146,7 @@ function useInvalidateLinkedForItem(menuItemId: string) {
       }),
     });
     void queryClient.invalidateQueries({
-      queryKey: orpc.catalog.listModifierGroups.queryKey(),
+      queryKey: orpc.catalog.listModifierGroups.queryKey({ input: {} }),
     });
   };
 }

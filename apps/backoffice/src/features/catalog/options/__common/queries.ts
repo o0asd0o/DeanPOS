@@ -1,14 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
+import { useSearch } from "@tanstack/react-router";
 
 export function useModifierGroupsQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
-  return useQuery(orpc.catalog.listModifierGroups.queryOptions());
+  return useQuery(
+    orpc.catalog.listModifierGroups.queryOptions({
+      input: { page: 1, perPage: 100, usage: "all", sort: { key: "name", direction: "asc" } },
+    }),
+  );
 }
 
 export function useAddOnsQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
-  return useQuery(orpc.catalog.listAddOns.queryOptions());
+  const { usage, q, page, sort } = useSearch({ from: "/_shell/add-ons" });
+  return useQuery(
+    orpc.catalog.listAddOns.queryOptions({
+      input: { page, perPage: 10, usage, search: q || undefined, sort },
+    }),
+  );
 }
 
 export function useMeQuery() {
@@ -20,8 +30,12 @@ function useInvalidateOptions() {
   const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
   const queryClient = useQueryClient();
   return () => {
-    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listModifierGroups.queryKey() });
-    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listAddOns.queryKey() });
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.listModifierGroups.queryKey({ input: {} }),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: orpc.catalog.listAddOns.queryKey({ input: {} }),
+    });
   };
 }
 

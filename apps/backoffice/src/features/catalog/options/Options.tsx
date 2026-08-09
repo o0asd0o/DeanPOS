@@ -65,7 +65,7 @@ export function Options() {
   const [modifierSheetGroupId, setModifierSheetGroupId] = useState<string | null>(null);
   const [modifierSheetOpen, setModifierSheetOpen] = useState(false);
   const modifierSheetGroup = modifierSheetGroupId
-    ? (groupsQuery.data?.find((g) => g.id === modifierSheetGroupId) ?? null)
+    ? (groupsQuery.data?.items.find((g) => g.id === modifierSheetGroupId) ?? null)
     : null;
 
   const [pendingArchiveGroup, setPendingArchiveGroup] = useState<ModifierGroupOutput | null>(null);
@@ -133,7 +133,7 @@ export function Options() {
             ) : null}
           </div>
           <ModifierGroupListCard
-            groups={groupsQuery.data}
+            groups={groupsQuery.data?.items}
             isPending={groupsQuery.isPending}
             isError={groupsQuery.isError}
             isFetching={groupsQuery.isFetching}
@@ -171,7 +171,7 @@ export function Options() {
             {canMutate ? <Button onClick={openCreateAddOn}>Add add-on</Button> : null}
           </div>
           <AddOnListCard
-            addOns={addOnsQuery.data}
+            data={addOnsQuery.data}
             isPending={addOnsQuery.isPending}
             isError={addOnsQuery.isError}
             isFetching={addOnsQuery.isFetching}

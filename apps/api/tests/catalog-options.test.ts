@@ -47,6 +47,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await ownerDb.deleteFrom("Modifier").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("ModifierGroup").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("AddOn").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
   await ownerDb.destroy();
@@ -60,6 +61,49 @@ const asCashier = () =>
   seam.actors.asTenant(tenantId, { userId: cashierId, role: "cashier" }).client;
 
 describe("catalog options library", () => {
+  it("paginates modifier groups and add-ons on the server", async () => {
+    const client = asManager();
+    const suffix = randomUUID().slice(0, 8);
+    for (const letter of ["A", "B", "C"]) {
+      await client.catalog.createModifierGroup({
+        name: `Page group ${suffix} ${letter}`,
+        selectionRule: "optional-one",
+      });
+      await client.catalog.createAddOn({
+        name: `Page add-on ${suffix} ${letter}`,
+        delta: { kind: "absolute", amountCentavos: 100 },
+      });
+    }
+
+    const groupPage = await client.catalog.listModifierGroups({
+      page: 2,
+      perPage: 2,
+      search: `Page group ${suffix}`,
+      sort: { key: "name", direction: "asc" },
+    });
+    expect(groupPage.items).toHaveLength(1);
+    expect(groupPage).toMatchObject({ page: 2, perPage: 2, count: 3 });
+    expect(groupPage.items[0]?.name).toBe(`Page group ${suffix} C`);
+    expect(groupPage.page).toBe(2);
+    expect(groupPage.perPage).toBe(2);
+    expect(groupPage.count).toBe(3);
+    expect(groupPage.hasNextPage).toBe(false);
+    expect(groupPage.hasPrevPage).toBe(true);
+
+    const addOnPage = await client.catalog.listAddOns({
+      page: 2,
+      perPage: 2,
+      search: `Page add-on ${suffix}`,
+      sort: { key: "name", direction: "asc" },
+    });
+    expect(addOnPage.items).toHaveLength(1);
+    expect(addOnPage.items[0]?.name).toBe(`Page add-on ${suffix} C`);
+    expect(addOnPage.page).toBe(2);
+    expect(addOnPage.count).toBe(3);
+    expect(addOnPage.hasNextPage).toBe(false);
+    expect(addOnPage.hasPrevPage).toBe(true);
+  });
+
   it("manager creates a group with modifiers; linkedToCount comes from the query as 0", async () => {
     const client = asManager();
     const group = await client.catalog.createModifierGroup({
@@ -83,8 +127,8 @@ describe("catalog options library", () => {
     expect(whole?.delta).toEqual({ kind: "multiplier", perMille: 1000 });
     expect(half?.delta).toEqual({ kind: "multiplier", perMille: 500 });
 
-    const listed = await client.catalog.listModifierGroups();
-    const row = listed.find((g) => g.id === group!.id);
+    const listed = await client.catalog.listModifierGroups({});
+    const row = listed.items.find((g) => g.id === group!.id);
     expect(row?.linkedToCount).toBe(0);
     expect(row?.modifiers.map((m) => m.name).sort()).toEqual(["Half", "Whole"]);
   });
@@ -178,7 +222,9 @@ describe("catalog options library", () => {
     });
     await client.catalog.reorderModifier({ id: b!.id, direction: "up" });
     const listed = await client.catalog.listModifiers({ groupId: group!.id });
-    const active = listed.filter((m) => !m.archivedAt).sort((x, y) => x.sortOrder - y.sortOrder);
+    const active = listed.items
+      .filter((m) => !m.archivedAt)
+      .sort((x, y) => x.sortOrder - y.sortOrder);
     expect(active.map((m) => m.id)).toEqual([b!.id, a!.id]);
   });
 
@@ -211,7 +257,7 @@ describe("catalog options library", () => {
         delta: { kind: "absolute", amountCentavos: 1 },
       }),
     ).toBeNull();
-    expect(await cashier.catalog.listModifierGroups()).toEqual([]);
+    expect((await cashier.catalog.listModifierGroups({})).items).toEqual([]);
   });
 
   it("stores no floats on modifier delta columns", async () => {

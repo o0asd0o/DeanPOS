@@ -10,6 +10,11 @@ import {
   catalogListLinkedModifierGroupsForItemInputSchema,
   catalogListLinkedAddOnsForItemInputSchema,
   catalogListModifiersInputSchema,
+  modifierGroupListInputSchema,
+  modifierGroupListOutputSchema,
+  modifierListOutputSchema,
+  addOnListInputSchema,
+  addOnListOutputSchema,
   catalogListVariantsInputSchema,
   catalogMenuItemCreateInputSchema,
   catalogMenuItemModifierGroupInputSchema,
@@ -77,7 +82,7 @@ export const catalogContract = {
   reactivateVariant: oc.input(catalogEntityIdInputSchema).output(variantOutputSchema.nullable()),
   reorderVariant: oc.input(catalogReorderInputSchema).output(variantOutputSchema.nullable()),
 
-  listModifierGroups: oc.input(z.void()).output(z.array(modifierGroupOutputSchema)),
+  listModifierGroups: oc.input(modifierGroupListInputSchema).output(modifierGroupListOutputSchema),
   createModifierGroup: oc
     .input(catalogModifierGroupCreateInputSchema)
     .output(modifierGroupOutputSchema.nullable()),
@@ -94,7 +99,7 @@ export const catalogContract = {
     .input(catalogReorderInputSchema)
     .output(modifierGroupOutputSchema.nullable()),
 
-  listModifiers: oc.input(catalogListModifiersInputSchema).output(z.array(modifierOutputSchema)),
+  listModifiers: oc.input(catalogListModifiersInputSchema).output(modifierListOutputSchema),
   createModifier: oc
     .input(catalogModifierCreateInputSchema)
     .output(modifierOutputSchema.nullable()),
@@ -115,7 +120,7 @@ export const catalogContract = {
     .input(catalogListLinkedModifierGroupsForItemInputSchema)
     .output(z.array(modifierGroupOutputSchema)),
 
-  listAddOns: oc.input(z.void()).output(z.array(addOnOutputSchema)),
+  listAddOns: oc.input(addOnListInputSchema).output(addOnListOutputSchema),
   createAddOn: oc.input(catalogAddOnCreateInputSchema).output(addOnOutputSchema.nullable()),
   updateAddOn: oc.input(catalogAddOnUpdateInputSchema).output(addOnOutputSchema.nullable()),
   archiveAddOn: oc.input(catalogEntityIdInputSchema).output(addOnOutputSchema.nullable()),

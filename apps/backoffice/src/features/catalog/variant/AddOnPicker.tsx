@@ -13,7 +13,7 @@ export function AddOnPicker({ menuItemId }: { menuItemId: string }) {
   const link = useLinkAddOnToItemMutation(menuItemId);
   const unlink = useUnlinkAddOnFromItemMutation(menuItemId);
   const [announcement, setAnnouncement] = useState("");
-  const available = (allAddOns.data ?? []).filter((addOn) => !addOn.archivedAt);
+  const available = (allAddOns.data?.items ?? []).filter((addOn) => !addOn.archivedAt);
   const linked = new Set((linkedAddOns.data ?? []).map((addOn) => addOn.id));
   if (available.length === 0) return null;
   return (

@@ -23,7 +23,7 @@ export function ModifierGroupPicker({ menuItemId }: Props) {
   const announce = (text: string) =>
     setAnnouncement((prev) => ({ text, slot: prev.slot === 0 ? 1 : 0 }));
 
-  const available = (allGroupsQuery.data ?? []).filter((g) => !g.archivedAt);
+  const available = (allGroupsQuery.data?.items ?? []).filter((g) => !g.archivedAt);
   const linkedIds = new Set((linkedQuery.data ?? []).map((g) => g.id));
 
   if (available.length === 0) return null;
