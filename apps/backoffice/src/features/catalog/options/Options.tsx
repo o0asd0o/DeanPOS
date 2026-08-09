@@ -176,6 +176,10 @@ export function Options() {
           </div>
           <AddOnListCard
             addOns={addOnsQuery.data}
+            isPending={addOnsQuery.isPending}
+            isError={addOnsQuery.isError}
+            isFetching={addOnsQuery.isFetching}
+            refetch={() => void addOnsQuery.refetch()}
             canMutate={canMutate}
             onEdit={(addOn) => setEditor({ mode: "addon", addOn })}
             onArchive={(addOn) =>
