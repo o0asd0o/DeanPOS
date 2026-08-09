@@ -91,7 +91,7 @@ export function ListToolbar<F extends ListFilter>({
           <div
             role="group"
             aria-labelledby={statusId}
-            className="inline-flex items-center gap-1 rounded-full bg-tab-list p-1.5"
+            className="inline-flex h-11 items-center gap-1 rounded-full bg-tab-list p-0"
           >
             {filters.map((filter) => (
               <button
@@ -103,7 +103,7 @@ export function ListToolbar<F extends ListFilter>({
                 aria-pressed={status === filter.value}
                 onClick={() => onStatusChange(filter.value)}
                 className={cn(
-                  "tap-target rounded-full px-4 py-2.5 text-sm font-medium transition-colors",
+                  "tap-target h-full rounded-full px-4 py-0 text-sm font-medium transition-colors",
                   status === filter.value
                     ? "bg-card text-foreground shadow-sm"
                     : "text-foreground/60 hover:text-foreground",
