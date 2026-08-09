@@ -76,7 +76,7 @@ describe("the Options screen", () => {
           id: randomUUID(),
           tenant_id: tenantId,
           name: "Filter target",
-          selection_rule: "single",
+          selection_rule: "optional-one",
           sort_order: 0,
         })
         .execute(),
@@ -137,7 +137,8 @@ describe("the Options screen", () => {
     expect(row).toBeTruthy();
     expect(within(row!).getByText("0")).toBeTruthy();
 
-    fireEvent.click(within(row!).getByRole("button", { name: "Modifier" }));
+    fireEvent.click(within(row!).getByRole("button", { name: /More actions/i }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add modifier" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: /New modifier/i })).toBeTruthy(),
     );

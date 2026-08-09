@@ -45,7 +45,10 @@ export function Options() {
   const meQuery = useMeQuery();
   const role = meQuery.data?.authenticated === true ? meQuery.data.role : null;
   const canMutate = role === "admin" || role === "manager";
-  const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
+  const [announcement, setAnnouncement] = useState<{
+    text: string;
+    slot: 0 | 1;
+  }>({
     text: "",
     slot: 0,
   });
@@ -55,16 +58,20 @@ export function Options() {
   const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
   const lastOpenEditor = useRef<EditorState>({ mode: "group", group: null });
   if (editor.mode !== "closed") lastOpenEditor.current = editor;
-  const shownEditor = editor.mode === "closed" ? lastOpenEditor.current : editor;
+  const shownEditor =
+    editor.mode === "closed" ? lastOpenEditor.current : editor;
   const opener = useRef<HTMLElement | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
 
-  const [modifierSheetGroupId, setModifierSheetGroupId] = useState<string | null>(null);
+  const [modifierSheetGroupId, setModifierSheetGroupId] = useState<
+    string | null
+  >(null);
   const modifierSheetGroup = modifierSheetGroupId
     ? (groupsQuery.data?.find((g) => g.id === modifierSheetGroupId) ?? null)
     : null;
 
-  const [pendingArchiveGroup, setPendingArchiveGroup] = useState<ModifierGroupOutput | null>(null);
+  const [pendingArchiveGroup, setPendingArchiveGroup] =
+    useState<ModifierGroupOutput | null>(null);
 
   const archiveGroup = useArchiveModifierGroupMutation();
   const reactivateGroup = useReactivateModifierGroupMutation();
@@ -115,7 +122,7 @@ export function Options() {
           <TabsTrigger value="addons">Add-ons</TabsTrigger>
         </TabsList>
         <TabsContent value="groups">
-          <div className="flex items-center justify-between gap-3 pb-2">
+          <div className="flex items-center justify-between gap-3 pb-4">
             <div>
               <h2 className="font-medium">Modifier groups</h2>
               <p className="text-sm text-muted-foreground">
@@ -135,12 +142,16 @@ export function Options() {
             isFetching={groupsQuery.isFetching}
             refetch={() => groupsQuery.refetch()}
             canMutate={canMutate}
-            editingGroupId={editor.mode === "group" && editor.group ? editor.group.id : null}
+            editingGroupId={
+              editor.mode === "group" && editor.group ? editor.group.id : null
+            }
             onEditGroup={openEditGroup}
             onArchiveGroup={setPendingArchiveGroup}
             onReactivateGroup={async (group) => {
               setInlineError(null);
-              const result = await reactivateGroup.mutateAsync({ id: group.id });
+              const result = await reactivateGroup.mutateAsync({
+                id: group.id,
+              });
               if (!result) {
                 setInlineError("Couldn't reactivate the group.");
                 return;
@@ -152,21 +163,27 @@ export function Options() {
           />
         </TabsContent>
         <TabsContent value="addons">
-          <div className="flex items-center justify-between gap-3 pb-2">
+          <div className="flex items-center justify-between gap-3 pb-4">
             <div>
               <h2 className="font-medium">Add-ons</h2>
               <p className="text-sm text-muted-foreground">
                 Manage optional extras linked from menu items.
               </p>
             </div>
-            {canMutate ? <Button onClick={openCreateAddOn}>Add add-on</Button> : null}
+            {canMutate ? (
+              <Button onClick={openCreateAddOn}>Add add-on</Button>
+            ) : null}
           </div>
           <AddOnListCard
             addOns={addOnsQuery.data}
             canMutate={canMutate}
             onEdit={(addOn) => setEditor({ mode: "addon", addOn })}
-            onArchive={(addOn) => void archiveAddOn.mutateAsync({ id: addOn.id })}
-            onReactivate={(addOn) => void reactivateAddOn.mutateAsync({ id: addOn.id })}
+            onArchive={(addOn) =>
+              void archiveAddOn.mutateAsync({ id: addOn.id })
+            }
+            onReactivate={(addOn) =>
+              void reactivateAddOn.mutateAsync({ id: addOn.id })
+            }
           />
         </TabsContent>
       </Tabs>
@@ -185,7 +202,11 @@ export function Options() {
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
           {shownEditor.mode === "addon" ? (
-            <AddOnForm addOn={shownEditor.addOn} onSaved={handleSaved} onCancel={closeEditor} />
+            <AddOnForm
+              addOn={shownEditor.addOn}
+              onSaved={handleSaved}
+              onCancel={closeEditor}
+            />
           ) : (
             shownEditor.mode !== "closed" && (
               <ModifierGroupEditor
@@ -233,11 +254,15 @@ export function Options() {
           <DialogHeader>
             <DialogTitle>Archive {pendingArchiveGroup?.name}?</DialogTitle>
             <DialogDescription>
-              This modifier group will be hidden from new orders. You can reactivate it later.
+              This modifier group will be hidden from new orders. You can
+              reactivate it later.
             </DialogDescription>
           </DialogHeader>
           {archiveGroup.isError ? (
-            <div role="alert" className="rounded-md bg-status-danger-tint p-3 text-sm">
+            <div
+              role="alert"
+              className="rounded-md bg-status-danger-tint p-3 text-sm"
+            >
               Couldn't archive the group.
             </div>
           ) : null}
@@ -251,7 +276,9 @@ export function Options() {
               onClick={async () => {
                 if (!pendingArchiveGroup || archiveGroup.isPending) return;
                 setInlineError(null);
-                const result = await archiveGroup.mutateAsync({ id: pendingArchiveGroup.id });
+                const result = await archiveGroup.mutateAsync({
+                  id: pendingArchiveGroup.id,
+                });
                 if (!result) {
                   setInlineError("Couldn't archive the group.");
                   return;

@@ -24,6 +24,8 @@ let itemA: string;
 let itemB: string;
 let archivedCategoryB: string;
 let archivedItemB: string;
+let addOnA: string;
+let addOnB: string;
 
 beforeAll(async () => {
   const passwordHash = await hashPassword("irrelevant");
@@ -100,10 +102,25 @@ beforeAll(async () => {
   });
   archivedItemB = extraItemB!.id;
   await clientB.catalog.archiveMenuItem({ id: archivedItemB });
+
+  const createdAddOnA = await clientA.catalog.createAddOn({
+    name: "A Extra",
+    delta: { kind: "absolute", amountCentavos: 1500 },
+    maximum: 2,
+  });
+  const createdAddOnB = await clientB.catalog.createAddOn({
+    name: "B Extra",
+    delta: { kind: "absolute", amountCentavos: 1500 },
+    maximum: 2,
+  });
+  addOnA = createdAddOnA!.id;
+  addOnB = createdAddOnB!.id;
 });
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Modifier").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("MenuItemAddOn").where("tenant_id", "in", [tenantA, tenantB]).execute();
+  await ownerDb.deleteFrom("AddOn").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("ModifierGroup").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("Variant").where("tenant_id", "in", [tenantA, tenantB]).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "in", [tenantA, tenantB]).execute();
@@ -810,6 +827,64 @@ describe("catalog options wrong-tenant probes", () => {
 });
 
 describe("catalog options cashier refusal", () => {
+  it("wrong-tenant probe [catalog.listAddOns]: Tenant B's add-ons never appear in Tenant A's list", async () => {
+    const b = (await asB().catalog.listAddOns()).find((row) => row.id === addOnB);
+    const a = (await asA().catalog.listAddOns()).find((row) => row.id === addOnA);
+    await expectWrongTenantRefusal({ path: "catalog.listAddOns", mode: "confined", ownerSees: b, otherGets: async () => a, otherOwn: a });
+  });
+
+  it("wrong-tenant probe [catalog.createAddOn]: creates remain tenant-confined", async () => {
+    const a = await asA().catalog.createAddOn({ name: `A ${randomUUID()}`, delta: { kind: "absolute", amountCentavos: 100 } });
+    const b = await asB().catalog.createAddOn({ name: `B ${randomUUID()}`, delta: { kind: "absolute", amountCentavos: 100 } });
+    await expectWrongTenantRefusal({ path: "catalog.createAddOn", mode: "confined", ownerSees: a, otherGets: async () => b, otherOwn: b });
+  });
+
+  it("wrong-tenant probe [catalog.updateAddOn]: Tenant A cannot update Tenant B's add-on", async () => {
+    const before = await asB().catalog.updateAddOn({ id: addOnB, name: "B Updated", delta: { kind: "absolute", amountCentavos: 1500 }, maximum: 2 });
+    await expectWrongTenantRefusal({ path: "catalog.updateAddOn", mode: "refusal", ownerSees: before, otherGets: () => asA().catalog.updateAddOn({ id: addOnB, name: "Hijacked", delta: { kind: "absolute", amountCentavos: 1 } }) });
+  });
+
+  it("wrong-tenant probe [catalog.archiveAddOn]: Tenant A cannot archive Tenant B's add-on", async () => {
+    await expectWrongTenantRefusal({ path: "catalog.archiveAddOn", mode: "refusal", ownerSees: await asB().catalog.listAddOns(), otherGets: () => asA().catalog.archiveAddOn({ id: addOnB }) });
+  });
+
+  it("wrong-tenant probe [catalog.reactivateAddOn]: Tenant A cannot reactivate Tenant B's add-on", async () => {
+    await asB().catalog.archiveAddOn({ id: addOnB });
+    const before = await asB().catalog.reactivateAddOn({ id: addOnB });
+    await asB().catalog.archiveAddOn({ id: addOnB });
+    await expectWrongTenantRefusal({ path: "catalog.reactivateAddOn", mode: "refusal", ownerSees: before, otherGets: () => asA().catalog.reactivateAddOn({ id: addOnB }) });
+  });
+
+  it("wrong-tenant probe [catalog.reorderAddOn]: Tenant A cannot reorder Tenant B's add-on", async () => {
+    const before = await asB().catalog.reorderAddOn({ id: addOnB, direction: "up" });
+    await expectWrongTenantRefusal({ path: "catalog.reorderAddOn", mode: "refusal", ownerSees: before, otherGets: () => asA().catalog.reorderAddOn({ id: addOnB, direction: "down" }) });
+  });
+
+  it("wrong-tenant probe [catalog.linkAddOnToMenuItem]: Tenant A cannot link Tenant B's add-on", async () => {
+    await asB().catalog.linkAddOnToMenuItem({ addOnId: addOnB, menuItemId: itemB });
+    await expectWrongTenantRefusal({ path: "catalog.linkAddOnToMenuItem", mode: "refusal", ownerSees: await asB().catalog.listLinkedAddOnsForMenuItem({ menuItemId: itemB }), otherGets: () => asA().catalog.linkAddOnToMenuItem({ addOnId: addOnB, menuItemId: itemB }) });
+  });
+
+  it("wrong-tenant probe [catalog.unlinkAddOnFromMenuItem]: Tenant A cannot unlink Tenant B's link", async () => {
+    await expectWrongTenantRefusal({ path: "catalog.unlinkAddOnFromMenuItem", mode: "refusal", ownerSees: { ok: true }, otherGets: () => asA().catalog.unlinkAddOnFromMenuItem({ addOnId: addOnB, menuItemId: itemB }) });
+  });
+
+  it("wrong-tenant probe [catalog.listLinkedAddOnsForMenuItem]: linked add-ons stay confined", async () => {
+    const b = await asB().catalog.listLinkedAddOnsForMenuItem({ menuItemId: itemB });
+    const a = await asA().catalog.listLinkedAddOnsForMenuItem({ menuItemId: itemA });
+    await expectWrongTenantRefusal({ path: "catalog.listLinkedAddOnsForMenuItem", mode: "confined", ownerSees: b, otherGets: async () => a, otherOwn: a });
+  });
+
+  it("cashier cannot mutate add-ons or links", async () => {
+    expect(await asCashierA().catalog.createAddOn({ name: "Nope", delta: { kind: "absolute", amountCentavos: 1 } })).toBeNull();
+    expect(await asCashierA().catalog.updateAddOn({ id: addOnA, name: "Nope", delta: { kind: "absolute", amountCentavos: 1 } })).toBeNull();
+    expect(await asCashierA().catalog.archiveAddOn({ id: addOnA })).toBeNull();
+    expect(await asCashierA().catalog.reactivateAddOn({ id: addOnA })).toBeNull();
+    expect(await asCashierA().catalog.reorderAddOn({ id: addOnA, direction: "up" })).toBeNull();
+    expect(await asCashierA().catalog.linkAddOnToMenuItem({ addOnId: addOnA, menuItemId: itemA })).toBeNull();
+    expect(await asCashierA().catalog.unlinkAddOnFromMenuItem({ addOnId: addOnA, menuItemId: itemA })).toEqual({ ok: false });
+  });
+
   it("cashier cannot mutate modifier groups or modifiers", async () => {
     const groupA = await asA().catalog.createModifierGroup({
       name: `A Cash ${randomUUID().slice(0, 6)}`,
