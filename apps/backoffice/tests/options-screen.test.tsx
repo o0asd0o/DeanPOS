@@ -179,4 +179,20 @@ describe("the Options screen", () => {
       expect(screen.queryByRole("button", { name: "Add modifier group" })).toBeNull();
     });
   });
+
+  it("separates modifier groups and add-ons into accessible tabs", async () => {
+    const { db } = renderRoute({
+      router,
+      tenantId,
+      userId: managerId,
+      role: "manager",
+      initialLocation: "/add-ons",
+    });
+    cleanup = () => db.destroy();
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Modifier groups" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("tab", { name: "Add-ons" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add add-on" })).toBeTruthy());
+    expect(screen.queryByRole("combobox", { name: /variant/i })).toBeNull();
+  });
 });
