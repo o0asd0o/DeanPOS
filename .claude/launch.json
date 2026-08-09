@@ -5,6 +5,12 @@
       "name": "backoffice",
       "url": "http://localhost:6004",
       "port": 6004
+    },
+    {
+      "name": "pos",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--filter", "pos", "dev"],
+      "port": 6003
     }
   ]
 }
