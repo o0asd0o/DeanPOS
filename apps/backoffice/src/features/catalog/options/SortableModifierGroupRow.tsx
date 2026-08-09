@@ -1,7 +1,24 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArchiveIcon, GripVerticalIcon, RotateCcwIcon } from "lucide-react";
-import { Badge, Button, cn, TableCell, TableRow } from "ui";
+import {
+  ArchiveIcon,
+  EllipsisVerticalIcon,
+  GripVerticalIcon,
+  PencilIcon,
+  RotateCcwIcon,
+} from "lucide-react";
+import {
+  Badge,
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  TableCell,
+  TableRow,
+} from "ui";
 
 import { type ModifierGroupOutput, SELECTION_RULE_LABEL } from "./helpers.ts";
 
@@ -78,40 +95,42 @@ export function SortableModifierGroupRow({
       </TableCell>
       <TableCell className="text-right">
         {canMutate ? (
-          <div className="inline-flex flex-wrap items-center justify-end gap-1">
-            {!group.archivedAt ? (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onEditGroup(group)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  danger
-                  aria-label={`Archive modifier group ${group.name}`}
-                  onClick={() => onArchiveGroup(group)}
-                >
-                  <ArchiveIcon />
-                </Button>
-              </>
-            ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 type="button"
-                size="sm"
                 variant="ghost"
-                onClick={() => onReactivateGroup(group)}
+                size="icon-sm"
+                className="tap-target"
+                aria-label={`Actions for ${group.name}`}
               >
-                <RotateCcwIcon />
-                Reactivate
+                <EllipsisVerticalIcon />
               </Button>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onCloseAutoFocus={(event) => event.preventDefault()}>
+              {group.archivedAt ? (
+                <DropdownMenuItem onSelect={() => onReactivateGroup(group)}>
+                  <RotateCcwIcon />
+                  Reactivate
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem onSelect={() => onEditGroup(group)}>
+                    <PencilIcon />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => onArchiveGroup(group)}
+                  >
+                    <ArchiveIcon />
+                    Archive
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </TableCell>
     </TableRow>

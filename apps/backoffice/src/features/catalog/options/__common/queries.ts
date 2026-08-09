@@ -6,6 +6,11 @@ export function useModifierGroupsQuery() {
   return useQuery(orpc.catalog.listModifierGroups.queryOptions());
 }
 
+export function useAddOnsQuery() {
+  const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
+  return useQuery(orpc.catalog.listAddOns.queryOptions());
+}
+
 export function useMeQuery() {
   const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
   return useQuery(orpc.auth.me.queryOptions());
@@ -16,7 +21,40 @@ function useInvalidateOptions() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: orpc.catalog.listModifierGroups.queryKey() });
+    void queryClient.invalidateQueries({ queryKey: orpc.catalog.listAddOns.queryKey() });
   };
+}
+
+export function useCreateAddOnMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
+  const invalidate = useInvalidateOptions();
+  return useMutation(
+    orpc.catalog.createAddOn.mutationOptions({ onSuccess: invalidate, meta: silent }),
+  );
+}
+
+export function useUpdateAddOnMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
+  const invalidate = useInvalidateOptions();
+  return useMutation(
+    orpc.catalog.updateAddOn.mutationOptions({ onSuccess: invalidate, meta: silent }),
+  );
+}
+
+export function useArchiveAddOnMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
+  const invalidate = useInvalidateOptions();
+  return useMutation(
+    orpc.catalog.archiveAddOn.mutationOptions({ onSuccess: invalidate, meta: silent }),
+  );
+}
+
+export function useReactivateAddOnMutation() {
+  const { orpc } = useRouteContext({ from: "/_shell/add-ons" });
+  const invalidate = useInvalidateOptions();
+  return useMutation(
+    orpc.catalog.reactivateAddOn.mutationOptions({ onSuccess: invalidate, meta: silent }),
+  );
 }
 
 const silent = { silent: true as const };

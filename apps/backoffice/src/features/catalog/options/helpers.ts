@@ -17,6 +17,22 @@ export type ModifierOutput = {
   createdAt: Date;
 };
 
+export type AddOnOutput = {
+  id: string;
+  tenantId: string;
+  name: string;
+  delta: DeltaOutput;
+  maximum: number | null;
+  sortOrder: number;
+  archivedAt: Date | null;
+  createdAt: Date;
+  linkedToCount: number;
+};
+
+export function getAddOnSignals(addOn: AddOnOutput) {
+  return { unused: !addOn.archivedAt && addOn.linkedToCount === 0 };
+}
+
 export type ModifierGroupOutput = {
   id: string;
   tenantId: string;

@@ -10,33 +10,41 @@ import {
   DialogTitle,
   Sheet,
   SheetContent,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "ui";
 
 import {
   useArchiveModifierGroupMutation,
   useMeQuery,
   useModifierGroupsQuery,
+  useAddOnsQuery,
+  useArchiveAddOnMutation,
+  useReactivateAddOnMutation,
   useReactivateModifierGroupMutation,
 } from "./__common/queries.ts";
 import type { ModifierGroupOutput } from "./helpers.ts";
-import { getModifierGroupSignals } from "./helpers.ts";
 import { ModifierGroupEditor } from "./ModifierGroupEditor.tsx";
 import { ModifierGroupListCard } from "./ModifierGroupListCard.tsx";
 import { ModifierListSheet } from "./ModifierListSheet.tsx";
+import { AddOnListCard } from "./AddOnListCard.tsx";
+import { AddOnForm } from "./AddOnForm.tsx";
 
-type EditorState = { mode: "closed" } | { mode: "group"; group: ModifierGroupOutput | null };
+type EditorState =
+  | { mode: "closed" }
+  | { mode: "group"; group: ModifierGroupOutput | null }
+  | { mode: "addon"; addOn: import("./helpers.ts").AddOnOutput | null };
 
 // Options screen (catalog issue 03): tenant-level ModifierGroups library.
 // List shape from record 038; editor is 049/050 SheetForm. No toast — live regions.
 export function Options() {
   const groupsQuery = useModifierGroupsQuery();
+  const addOnsQuery = useAddOnsQuery();
   const meQuery = useMeQuery();
   const role = meQuery.data?.authenticated === true ? meQuery.data.role : null;
   const canMutate = role === "admin" || role === "manager";
-  const groupSignals = (groupsQuery.data ?? []).map(getModifierGroupSignals);
-  const inUseCount = groupSignals.filter((signal) => signal.inUse).length;
-  const needsAttentionCount = groupSignals.filter((signal) => signal.needsAttention).length;
-
   const [announcement, setAnnouncement] = useState<{ text: string; slot: 0 | 1 }>({
     text: "",
     slot: 0,
@@ -60,10 +68,16 @@ export function Options() {
 
   const archiveGroup = useArchiveModifierGroupMutation();
   const reactivateGroup = useReactivateModifierGroupMutation();
+  const archiveAddOn = useArchiveAddOnMutation();
+  const reactivateAddOn = useReactivateAddOnMutation();
 
   const openCreateGroup = () => {
     opener.current = document.activeElement as HTMLElement;
     setEditor({ mode: "group", group: null });
+  };
+  const openCreateAddOn = () => {
+    opener.current = document.activeElement as HTMLElement;
+    setEditor({ mode: "addon", addOn: null });
   };
   const openEditGroup = (group: ModifierGroupOutput) => {
     opener.current = document.activeElement as HTMLElement;
@@ -91,38 +105,71 @@ export function Options() {
         <div>
           <h1 className="text-xl font-semibold">Options</h1>
           <p className="text-sm text-muted-foreground">
-            {(groupsQuery.data ?? []).length} groups · {inUseCount} in use · {needsAttentionCount}{" "}
-            need attention
+            Manage the choices and extras available on menu items.
           </p>
         </div>
-        {canMutate ? (
-          <Button onClick={openCreateGroup} className="tap-target">
-            Add modifier group
-          </Button>
-        ) : null}
       </div>
-      <ModifierGroupListCard
-        groups={groupsQuery.data}
-        isPending={groupsQuery.isPending}
-        isError={groupsQuery.isError}
-        isFetching={groupsQuery.isFetching}
-        refetch={() => groupsQuery.refetch()}
-        canMutate={canMutate}
-        editingGroupId={editor.mode === "group" && editor.group ? editor.group.id : null}
-        onEditGroup={openEditGroup}
-        onArchiveGroup={setPendingArchiveGroup}
-        onReactivateGroup={async (group) => {
-          setInlineError(null);
-          const result = await reactivateGroup.mutateAsync({ id: group.id });
-          if (!result) {
-            setInlineError("Couldn't reactivate the group.");
-            return;
-          }
-          announce(`${group.name} reactivated`);
-        }}
-        onOpenModifiers={(group) => setModifierSheetGroupId(group.id)}
-        inlineError={inlineError}
-      />
+      <Tabs defaultValue="groups" className="flex flex-col gap-4">
+        <TabsList variant="underline" aria-label="Options library">
+          <TabsTrigger value="groups">Modifier groups</TabsTrigger>
+          <TabsTrigger value="addons">Add-ons</TabsTrigger>
+        </TabsList>
+        <TabsContent value="groups">
+          <div className="flex items-center justify-between gap-3 pb-2">
+            <div>
+              <h2 className="font-medium">Modifier groups</h2>
+              <p className="text-sm text-muted-foreground">
+                Set the choices available for each menu item.
+              </p>
+            </div>
+            {canMutate ? (
+              <Button onClick={openCreateGroup} className="tap-target">
+                Add modifier group
+              </Button>
+            ) : null}
+          </div>
+          <ModifierGroupListCard
+            groups={groupsQuery.data}
+            isPending={groupsQuery.isPending}
+            isError={groupsQuery.isError}
+            isFetching={groupsQuery.isFetching}
+            refetch={() => groupsQuery.refetch()}
+            canMutate={canMutate}
+            editingGroupId={editor.mode === "group" && editor.group ? editor.group.id : null}
+            onEditGroup={openEditGroup}
+            onArchiveGroup={setPendingArchiveGroup}
+            onReactivateGroup={async (group) => {
+              setInlineError(null);
+              const result = await reactivateGroup.mutateAsync({ id: group.id });
+              if (!result) {
+                setInlineError("Couldn't reactivate the group.");
+                return;
+              }
+              announce(`${group.name} reactivated`);
+            }}
+            onOpenModifiers={(group) => setModifierSheetGroupId(group.id)}
+            inlineError={inlineError}
+          />
+        </TabsContent>
+        <TabsContent value="addons">
+          <div className="flex items-center justify-between gap-3 pb-2">
+            <div>
+              <h2 className="font-medium">Add-ons</h2>
+              <p className="text-sm text-muted-foreground">
+                Manage optional extras linked from menu items.
+              </p>
+            </div>
+            {canMutate ? <Button onClick={openCreateAddOn}>Add add-on</Button> : null}
+          </div>
+          <AddOnListCard
+            addOns={addOnsQuery.data}
+            canMutate={canMutate}
+            onEdit={(addOn) => setEditor({ mode: "addon", addOn })}
+            onArchive={(addOn) => void archiveAddOn.mutateAsync({ id: addOn.id })}
+            onReactivate={(addOn) => void reactivateAddOn.mutateAsync({ id: addOn.id })}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Group editor sheet */}
       <Sheet
@@ -137,23 +184,27 @@ export function Options() {
           showCloseButton={false}
           className="detached-panel inset-y-4 right-4 h-auto rounded-2xl border-0 bg-transparent p-0 shadow-none sm:max-w-lg"
         >
-          {shownEditor.mode !== "closed" && (
-            <ModifierGroupEditor
-              key={
-                shownEditor.mode === "group"
-                  ? shownEditor.group
-                    ? `group-${shownEditor.group.id}`
+          {shownEditor.mode === "addon" ? (
+            <AddOnForm addOn={shownEditor.addOn} onSaved={handleSaved} onCancel={closeEditor} />
+          ) : (
+            shownEditor.mode !== "closed" && (
+              <ModifierGroupEditor
+                key={
+                  shownEditor.mode === "group"
+                    ? shownEditor.group
+                      ? `group-${shownEditor.group.id}`
+                      : "group-create"
                     : "group-create"
-                  : "group-create"
-              }
-              mode={
-                shownEditor.mode === "group"
-                  ? { kind: "group", group: shownEditor.group }
-                  : { kind: "group", group: null }
-              }
-              onSaved={handleSaved}
-              onCancel={closeEditor}
-            />
+                }
+                mode={
+                  shownEditor.mode === "group"
+                    ? { kind: "group", group: shownEditor.group }
+                    : { kind: "group", group: null }
+                }
+                onSaved={handleSaved}
+                onCancel={closeEditor}
+              />
+            )
           )}
         </SheetContent>
       </Sheet>
