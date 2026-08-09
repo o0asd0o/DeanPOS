@@ -42,6 +42,46 @@ afterAll(async () => {
 });
 
 describe("catalog.read", () => {
+  it("returns a filtered category as a server page", async () => {
+    const client = seam.actors.asTenant(tenantId, {
+      userId: adminId,
+      role: "admin",
+    }).client;
+    const category = await client.catalog.createCategory({ name: `Paged ${randomUUID()}` });
+    const otherCategory = await client.catalog.createCategory({ name: `Other ${randomUUID()}` });
+
+    for (const name of ["Gamma", "Alpha", "Beta"]) {
+      await client.catalog.createMenuItem({
+        categoryId: category!.id,
+        name,
+        priceCentavos: 10_000,
+      });
+    }
+    await client.catalog.createMenuItem({
+      categoryId: otherCategory!.id,
+      name: "Excluded",
+      priceCentavos: 10_000,
+    });
+
+    const page = await client.catalog.listMenuItems({
+      categoryId: category!.id,
+      page: 2,
+      perPage: 2,
+      sort: { key: "name", direction: "asc" },
+    });
+
+    expect(page.items.map((item) => item.name)).toStrictEqual(["Gamma"]);
+    expect(page).toMatchObject({
+      count: 3,
+      page: 2,
+      perPage: 2,
+      hasNextPage: false,
+      hasPrevPage: true,
+      totalCount: 3,
+      liveCount: 0,
+    });
+  });
+
   it("keeps empty categories, excludes drafts, and agrees with catalog.version", async () => {
     const client = seam.actors.asTenant(tenantId, {
       userId: adminId,
