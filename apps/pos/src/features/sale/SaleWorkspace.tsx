@@ -151,7 +151,7 @@ export function SaleWorkspace({ catalog }: Props) {
     setViewMode(nextViewMode);
   };
   const headerActions = (
-    <span data-sale-actions className="flex min-w-0 flex-1 items-center gap-1">
+    <span data-sale-actions className="flex min-w-0 flex-1 items-center justify-end gap-1">
       {selectedItem && (
         <Button
           type="button"
