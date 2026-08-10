@@ -5,42 +5,57 @@ import { formatPeso } from "./helpers.ts";
 
 type Props = {
   draft: Draft | null;
+  optionNames: ReadonlyMap<string, string>;
   onEdit: (line: Draft["lines"][number]) => void;
 };
 
-export function Cart({ draft, onEdit }: Props) {
+export function Cart({ draft, optionNames, onEdit }: Props) {
   const lines = draft?.lines ?? [];
   const total = draft?.totalCentavos ?? 0;
   return (
-    <Card className="flex h-full min-h-0 flex-col md:w-96 md:shrink-0">
+    <Card className="flex h-full min-h-0 flex-col md:w-72 md:shrink-0">
       <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
         {lines.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">
             Choose a menu item to start an order.
           </p>
         ) : (
-          lines.map((line) => (
-            <Button
-              key={line.id}
-              type="button"
-              variant="ghost"
-              className="min-h-11 w-full justify-between whitespace-normal"
-              onClick={() => onEdit(line)}
-            >
-              <span className="flex min-w-0 flex-col items-start gap-1 text-left">
-                <span>
-                  {line.quantity} × {line.menuItemName}
-                  {line.variantName ? ` · ${line.variantName}` : ""}
-                </span>
-                {(line.modifierIds.length > 0 || line.addOnIds.length > 0) && (
-                  <span className="text-xs text-muted-foreground">
-                    {[...line.modifierIds, ...line.addOnIds].join(", ")}
+          lines.map((line) => {
+            const modifiers = line.modifierIds
+              .map((id) => optionNames.get(id))
+              .filter((name): name is string => Boolean(name));
+            const addOns = [...new Set(line.addOnIds)].map((id) => {
+              const count = line.addOnIds.filter((entry) => entry === id).length;
+              return `${count}× ${optionNames.get(id) ?? "Add-on"}`;
+            });
+            return (
+              <Button
+                key={line.id}
+                type="button"
+                variant="ghost"
+                className="min-h-11 w-full justify-between whitespace-normal"
+                onClick={() => onEdit(line)}
+              >
+                <span className="flex min-w-0 flex-col items-start gap-1 text-left">
+                  <span>
+                    {line.quantity} × {line.menuItemName}
+                    {line.variantName ? ` · ${line.variantName}` : ""}
                   </span>
-                )}
-              </span>
-              <span className="shrink-0 font-medium">{formatPeso(line.totalCentavos)}</span>
-            </Button>
-          ))
+                  {modifiers.map((name) => (
+                    <span key={name} className="text-xs text-muted-foreground">
+                      {name}
+                    </span>
+                  ))}
+                  {addOns.map((label) => (
+                    <span key={label} className="text-xs text-muted-foreground">
+                      + {label}
+                    </span>
+                  ))}
+                </span>
+                <span className="shrink-0 font-medium">{formatPeso(line.totalCentavos)}</span>
+              </Button>
+            );
+          })
         )}
       </CardContent>
       <CardFooter className="flex flex-col gap-3">

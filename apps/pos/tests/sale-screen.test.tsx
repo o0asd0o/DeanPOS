@@ -95,7 +95,8 @@ describe("sale screen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Adobo/ }));
     expect(localStorage.getItem("deanpos.sale.draft")).toMatch(/"lines":\[\]/);
-    expect(screen.getByRole("button", { name: /Adobo — choose a variant/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "‹ Adobo" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Adobo" })).toBeNull();
     expect(screen.getByRole("button", { name: /Whole/ })).toHaveProperty("disabled", true);
 
     fireEvent.click(screen.getByRole("button", { name: "Drinks" }));
@@ -118,7 +119,9 @@ describe("sale screen", () => {
     render(<SaleWorkspace catalog={catalog} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Search menu" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Search menu" }), {
+    const searchInput = screen.getByRole("textbox", { name: "Search menu" });
+    expect(searchInput.closest('[data-slot="card"]')).toBeNull();
+    fireEvent.change(searchInput, {
       target: { value: "juice" },
     });
     expect(screen.getByRole("button", { name: /Juice/ })).toBeTruthy();
@@ -184,6 +187,9 @@ describe("sale screen", () => {
       true,
     );
     expect(dialog).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add to order ₱82.50" }));
+    expect(screen.getByText("Regular")).toBeTruthy();
+    expect(screen.getByText("+ 2× Extra rice")).toBeTruthy();
   });
 
   it("edits a plain line through the universal modal and preserves its line id", () => {

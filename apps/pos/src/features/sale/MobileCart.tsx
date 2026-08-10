@@ -6,6 +6,7 @@ import { Cart } from "./Cart.tsx";
 
 type Props = {
   draft: Draft | null;
+  optionNames: ReadonlyMap<string, string>;
   onEdit: (line: Draft["lines"][number]) => void;
 };
 

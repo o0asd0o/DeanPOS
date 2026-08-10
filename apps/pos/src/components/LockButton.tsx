@@ -9,7 +9,7 @@ export function LockButton() {
     <Button
       variant="ghost"
       size="sm"
-      className="w-full justify-start"
+      className="w-full justify-start text-background hover:bg-background/20 hover:text-background"
       onClick={() => setActingUser(null)}
     >
       Lock

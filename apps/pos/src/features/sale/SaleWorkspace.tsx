@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
 } from "ui";
 
 import { Cart } from "./Cart.tsx";
@@ -52,6 +53,12 @@ export function SaleWorkspace({ catalog }: Props) {
       (search !== "" || categoryId === null || item.categoryId === categoryId) &&
       item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
+  const optionNames = new Map<string, string>();
+  for (const item of catalog.menuItems) {
+    for (const group of item.modifierGroups)
+      for (const modifier of group.modifiers) optionNames.set(modifier.id, modifier.name);
+    for (const addOn of item.addOns) optionNames.set(addOn.id, addOn.name);
+  }
   const ensureDraft = () => {
     if (draft) return draft;
     const next = createDraft();
@@ -145,6 +152,27 @@ export function SaleWorkspace({ catalog }: Props) {
   };
   const headerActions = (
     <span data-sale-actions className="flex items-center gap-1">
+      {selectedItem && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-background hover:bg-background/20 hover:text-background"
+          onClick={() => setSelectedItem(null)}
+        >
+          ‹ {selectedItem.name}
+        </Button>
+      )}
+      {searchOpen && (
+        <Input
+          autoFocus
+          aria-label="Search menu"
+          placeholder="Search menu…"
+          className="h-9 w-56 bg-background text-foreground sm:w-80"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -179,29 +207,27 @@ export function SaleWorkspace({ catalog }: Props) {
           <VariantGrid
             item={selectedItem}
             categories={catalog.categories}
-            onBack={() => setSelectedItem(null)}
+            viewMode={viewMode}
             onCategorySelect={selectCategory}
+            onViewModeChange={setSavedViewMode}
             onVariantSelect={(variantId) => addVariant(selectedItem, variantId)}
           />
         ) : (
           <SaleGrid
             categories={catalog.categories}
             items={visibleItems}
-            search={search}
-            searchOpen={searchOpen}
             selectedCategoryId={categoryId}
             viewMode={viewMode}
-            onSearchChange={setSearch}
             onViewModeChange={setSavedViewMode}
             onCategorySelect={selectCategory}
             onItemSelect={selectItem}
           />
         )}
         <div className="hidden min-h-0 md:flex">
-          <Cart draft={draft} onEdit={editLine} />
+          <Cart draft={draft} optionNames={optionNames} onEdit={editLine} />
         </div>
       </div>
-      <MobileCart draft={draft} onEdit={editLine} />
+      <MobileCart draft={draft} optionNames={optionNames} onEdit={editLine} />
       {picker && (
         <ModifierAddonModal
           key={`${picker.lineId ?? "new"}-${picker.variantId}`}

@@ -1,4 +1,4 @@
-import { Button, Card, CardContent, Input } from "ui";
+import { Button, Card, CardContent } from "ui";
 
 import { formatPeso } from "./helpers.ts";
 import { SaleGridBottomBar } from "./SaleGridBottomBar.tsx";
@@ -9,11 +9,8 @@ import type { ViewMode } from "./view-mode.ts";
 type Props = {
   categories: { id: string; name: string }[];
   items: SaleMenuItem[];
-  search: string;
-  searchOpen: boolean;
   selectedCategoryId: string | null;
   viewMode: ViewMode;
-  onSearchChange: (value: string) => void;
   onViewModeChange: (viewMode: ViewMode) => void;
   onCategorySelect: (categoryId: string | null) => void;
   onItemSelect: (item: SaleMenuItem) => void;
@@ -22,29 +19,14 @@ type Props = {
 export function SaleGrid({
   categories,
   items,
-  search,
-  searchOpen,
   selectedCategoryId,
   viewMode,
-  onSearchChange,
   onViewModeChange,
   onCategorySelect,
   onItemSelect,
 }: Props) {
   return (
     <section aria-label="Menu" className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      {searchOpen && (
-        <Card>
-          <CardContent className="p-2">
-            <Input
-              aria-label="Search menu"
-              placeholder="Search menu…"
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-          </CardContent>
-        </Card>
-      )}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {viewMode === "list" ? (
           <SaleList items={items} onItemSelect={onItemSelect} />

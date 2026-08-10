@@ -16,7 +16,13 @@ export function SaleKebabMenu({ disabled, onClear }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label="More actions">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="More actions"
+          className="text-background hover:bg-background/20 hover:text-background"
+        >
           ⋮
         </Button>
       </DropdownMenuTrigger>
