@@ -151,7 +151,7 @@ export function SaleWorkspace({ catalog }: Props) {
     setViewMode(nextViewMode);
   };
   const headerActions = (
-    <span data-sale-actions className="flex items-center gap-1">
+    <span data-sale-actions className="flex min-w-0 flex-1 items-center gap-1">
       {selectedItem && (
         <Button
           type="button"
@@ -168,7 +168,7 @@ export function SaleWorkspace({ catalog }: Props) {
           autoFocus
           aria-label="Search menu"
           placeholder="Search menu…"
-          className="h-9 w-56 bg-background text-foreground sm:w-80"
+          className="h-9 min-w-0 flex-1 bg-background text-foreground"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -194,6 +194,18 @@ export function SaleWorkspace({ catalog }: Props) {
     lockAction?.classList.add("hidden");
     return () => lockAction?.classList.remove("hidden");
   }, []);
+  useEffect(() => {
+    const context = document.getElementById("shell-header-context");
+    const actionArea = document.getElementById("shell-header-action-area");
+    context?.classList.toggle("hidden", searchOpen);
+    actionArea?.classList.toggle("flex-1", searchOpen);
+    actionArea?.classList.toggle("ml-auto", !searchOpen);
+    return () => {
+      context?.classList.remove("hidden");
+      actionArea?.classList.remove("flex-1");
+      actionArea?.classList.add("ml-auto");
+    };
+  }, [searchOpen]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-muted/40 md:p-4">
