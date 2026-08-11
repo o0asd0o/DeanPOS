@@ -1,6 +1,6 @@
 ---
 name: implement-scratch-issue
-description: Implement one local engineering ticket from this repository's `.scratch` issue tracker end-to-end on `main`. Use when the user invokes `$implement-scratch-issue` with an issue path, issue number, or unique issue title and wants Codex to clarify the ticket, recommend defaults, obtain implementation confirmation, write and test the code, update only proven acceptance-criteria checkboxes, and commit the result. The ticket and repository laws replace any separately pasted implementation plan. Human reviewers own all visual checks.
+description: Implement one local engineering ticket from this repository's `.scratch` issue tracker end-to-end on `main`. Use when the user invokes `$implement-scratch-issue` with an issue path, issue number, or unique issue title and wants Codex to inspect the repository, run a mandatory `$grilling` gate for vague data or feature decisions, recommend defaults, obtain implementation confirmation, write and test the code, update only proven acceptance-criteria checkboxes, and commit the result. The ticket and repository laws replace any separately pasted implementation plan. Human reviewers own all visual checks.
 ---
 
 # Implement Scratch Issue
@@ -32,26 +32,40 @@ ask for the exact target and do not edit product code.
 Do not use an attachment, chat plan, or invented roadmap as a second specification. User
 instructions given with the invocation may override the ticket explicitly.
 
-## Align before implementation
+## Run the Grilling Gate before implementation
 
-Inspect the repository enough to distinguish discoverable facts from actual product decisions.
-Then give a layman's summary containing:
+Load and follow the installed `$grilling` skill after grounding the ticket and before editing product
+code. Always run this gate, even when the ticket initially appears complete.
+
+First inspect the repository enough to distinguish discoverable facts from actual product
+decisions. Then give a layman's summary containing:
 
 - what will change;
 - what will remain out of scope;
 - important behavior on success and failure;
 - any material assumptions or conflicts.
 
-Ask only questions whose answers materially change behavior, data, API shape, security, or scope.
-For every question, recommend one option and state its tradeoff. Ask dependency-ordered questions;
-do not ask downstream questions before upstream choices are resolved.
+Build the dependency-ordered decision model required by `$grilling`. Treat vague data semantics,
+feature behavior, ownership, permissions, lifecycle, failure recovery, compatibility, migration,
+API shape, security, scope, and proof criteria as implementation-blocking decisions when their
+answers could materially change the result.
 
-Accept replies such as `do reco` as approval of the stated recommendation. Continue clarification
-until no material ambiguity remains. Present the final implementation decisions and require an
-explicit confirmation such as `confirm` or `continue` before editing product code.
+Ask only questions whose answers materially change the implementation. For every question,
+recommend one option and state its tradeoff. Ask dependent questions one at a time; batch at most
+three only when their answers are independent.
+
+Accept replies such as `do reco` as approval of the stated recommendation. Continue grilling until
+all applicable completion-gate areas are explicit or remaining uncertainty is explicitly accepted
+as an assumption. If repository evidence proves there are no material decisions, complete the gate
+with a zero-question synthesis rather than inventing questions.
+
+Present the final decision model: resolved decisions, accepted assumptions, open risks, scope, and
+proof conditions. Require an explicit `confirm` or `continue` that ends grilling and authorizes
+execution before editing product code.
 
 Do not ask about facts that repository inspection can answer. Do not begin implementation merely
-because the ticket exists.
+because the ticket exists, because recommendations were offered, or while the grilling workflow is
+still open.
 
 ## Implement on main
 

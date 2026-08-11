@@ -1,4 +1,4 @@
 interface:
   display_name: "Implement Scratch Issue"
   short_description: "Implement a local .scratch issue safely"
-  default_prompt: "Use $implement-scratch-issue on this .scratch issue path, verify non-visual criteria, and leave visual approval to me."
+  default_prompt: "Use $implement-scratch-issue on this .scratch issue path, run $grilling before implementation, verify non-visual criteria, and leave visual approval to me."
