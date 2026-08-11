@@ -8,11 +8,15 @@ type Props = {
 
 export function CategoryTabs({ categories, selectedCategoryId, onCategorySelect }: Props) {
   return (
-    <div aria-label="Categories" role="group" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+    <div
+      aria-label="Categories"
+      role="group"
+      className="scrollbar-slim flex min-w-0 flex-1 gap-2 overflow-x-auto"
+    >
       <Button
         type="button"
         variant="outline"
-        className="h-12 shrink-0 px-5 text-base"
+        className="h-12 shrink-0 bg-card px-5 text-base shadow-none"
         aria-pressed={selectedCategoryId === null}
         onClick={() => onCategorySelect(null)}
       >
@@ -23,7 +27,7 @@ export function CategoryTabs({ categories, selectedCategoryId, onCategorySelect 
           key={category.id}
           type="button"
           variant="outline"
-          className="h-12 shrink-0 px-5 text-base"
+          className="h-12 shrink-0 bg-card px-5 text-base shadow-none"
           aria-pressed={selectedCategoryId === category.id}
           onClick={() => onCategorySelect(category.id)}
         >

@@ -36,3 +36,5 @@ __pycache__/
 
 # TanStack Router scratch dir, regenerated on every dev run
 .tanstack/
+
+.playwright-cli

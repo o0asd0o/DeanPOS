@@ -263,11 +263,11 @@ export function SaleWorkspace({ catalog }: Props) {
   }, [headerTarget]);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-muted/40 md:p-2">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-background p-2 md:p-3">
       {headerTarget ? (
         createPortal(header, headerTarget)
       ) : (
-        <div className="flex h-12 shrink-0 items-center gap-2 bg-foreground px-3 text-background">
+        <div className="mb-2 flex h-12 shrink-0 items-center gap-2 rounded-xl bg-foreground px-3 text-background">
           {header}
         </div>
       )}
@@ -292,7 +292,7 @@ export function SaleWorkspace({ catalog }: Props) {
           }}
         />
       ) : (
-        <div className="flex min-h-0 min-w-0 flex-1 md:gap-2">
+        <div className="flex min-h-0 min-w-0 flex-1 pb-20 md:gap-3 md:pb-0">
           {selectedItem ? (
             <VariantGrid
               item={selectedItem}

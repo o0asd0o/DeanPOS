@@ -21,7 +21,7 @@ export function SaleGridBottomBar({
 }: Props) {
   const nextViewMode = viewMode === "tile" ? "list" : "tile";
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2 bg-muted/70 p-2 md:p-3">
       <CategoryTabs
         categories={categories}
         selectedCategoryId={selectedCategoryId}
@@ -31,6 +31,7 @@ export function SaleGridBottomBar({
         type="button"
         variant="outline"
         size="icon-lg"
+        className="bg-card shadow-none"
         aria-label={nextViewMode === "list" ? "List view" : "Tile view"}
         onClick={() => onViewModeChange(nextViewMode)}
       >

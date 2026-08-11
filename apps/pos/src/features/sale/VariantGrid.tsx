@@ -1,3 +1,5 @@
+import { Card } from "ui";
+
 import { SaleGridBottomBar } from "./SaleGridBottomBar.tsx";
 import { SaleList } from "./SaleList.tsx";
 import { SaleTile } from "./SaleTile.tsx";
@@ -24,37 +26,40 @@ export function VariantGrid({
   onVariantSelect,
 }: Props) {
   return (
-    <section
+    <Card
       aria-label={`${item.name} variants`}
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
+      role="region"
+      className="@container/menu min-h-0 min-w-0 flex-1 gap-0 overflow-hidden rounded-2xl py-0"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {viewMode === "list" ? (
-          <SaleList
-            items={item.variants}
-            onItemSelect={(variant, source) => onVariantSelect(variant.id, source)}
-          />
-        ) : (
-          <div className="grid grid-cols-3 gap-2 md:grid-cols-4 2xl:grid-cols-5">
-            {item.variants.map((variant) => (
-              <SaleTile
-                key={variant.id}
-                name={variant.name}
-                priceCentavos={variant.priceCentavos}
-                available={variant.available}
-                onSelect={(source) => onVariantSelect(variant.id, source)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      <SaleGridBottomBar
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        viewMode={viewMode}
-        onCategorySelect={onCategorySelect}
-        onViewModeChange={onViewModeChange}
-      />
-    </section>
+      <section className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2 md:p-3">
+          {viewMode === "list" ? (
+            <SaleList
+              items={item.variants}
+              onItemSelect={(variant, source) => onVariantSelect(variant.id, source)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-2 @3xs/menu:grid-cols-2 @sm/menu:grid-cols-3 @2xl/menu:grid-cols-4 @4xl/menu:grid-cols-5">
+              {item.variants.map((variant) => (
+                <SaleTile
+                  key={variant.id}
+                  name={variant.name}
+                  priceCentavos={variant.priceCentavos}
+                  available={variant.available}
+                  onSelect={(source) => onVariantSelect(variant.id, source)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        <SaleGridBottomBar
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          viewMode={viewMode}
+          onCategorySelect={onCategorySelect}
+          onViewModeChange={onViewModeChange}
+        />
+      </section>
+    </Card>
   );
 }

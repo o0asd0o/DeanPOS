@@ -16,14 +16,14 @@ type Props<Item extends SaleListItem> = {
 
 export function SaleList<Item extends SaleListItem>({ items, onItemSelect }: Props<Item>) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl bg-card">
+    <div className="flex flex-col gap-1">
       {items.map((item) => (
         <Button
           key={item.id}
           type="button"
           variant="ghost"
           disabled={!item.available}
-          className="h-12 justify-between rounded-none border-b border-border px-4 text-base last:border-b-0"
+          className="h-12 justify-between rounded-lg bg-muted/60 px-4 text-base"
           onClick={(event) => onItemSelect(item, event.currentTarget)}
         >
           <span className="truncate">{item.name}</span>

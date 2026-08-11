@@ -105,21 +105,28 @@ describe("sale screen", () => {
     expect(screen.getByText("1 items · ₱20.00 · Open cart")).toBeTruthy();
   });
 
-  it("matches Variant A's tablet and desktop composition", () => {
+  it("uses the touch-first menu and decisive checkout composition", () => {
     render(<SaleWorkspace catalog={catalog} />);
 
     expect(screen.getByText("All items")).toBeTruthy();
     expect(screen.getByText("5 items")).toBeTruthy();
 
     const menu = screen.getByRole("region", { name: "Menu" });
-    expect(menu.parentElement?.className).toContain("md:gap-2");
+    expect(menu.parentElement?.className).toContain("md:gap-3");
+    expect(menu.getAttribute("data-slot")).toBe("card");
+    expect(menu.className).toContain("@container/menu");
 
     const water = screen.getByRole("button", { name: /Water/ });
-    expect(water.className).toContain("h-20");
+    expect(water.className).toContain("h-24");
     expect(water.className).toContain("items-start");
     expect(water.className).toContain("justify-between");
-    expect(water.className).toContain("p-3");
-    expect(water.closest('[data-slot="card"]')).toBeNull();
+    expect(water.className).toContain("p-4");
+    expect(water.closest('[data-slot="card"]')).toBe(menu);
+    expect(water.parentElement?.className).toContain("grid-cols-1");
+    expect(water.parentElement?.className).toContain("@3xs/menu:grid-cols-2");
+    expect(water.parentElement?.className).toContain("@sm/menu:grid-cols-3");
+    expect(water.parentElement?.className).toContain("@2xl/menu:grid-cols-4");
+    expect(water.parentElement?.className).toContain("@4xl/menu:grid-cols-5");
 
     const allItems = screen.getByRole("button", { name: "All" });
     expect(allItems.className).toContain("h-12");
@@ -127,9 +134,10 @@ describe("sale screen", () => {
     expect(allItems.className).toContain("text-base");
 
     const cart = screen.getByRole("region", { name: "Current order" });
-    expect(cart.className).toContain("w-72");
+    expect(cart.className).toContain("w-80");
     expect(cart.className).toContain("gap-0");
-    expect(cart.className).toContain("p-3");
+    expect(cart.className).toContain("p-0");
+    expect(screen.getByText("Your order is empty")).toBeTruthy();
   });
 
   it("drills into variants, refuses unavailable choices, and category selection returns to the menu", () => {
