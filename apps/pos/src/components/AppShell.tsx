@@ -10,18 +10,21 @@ export function AppShell() {
   return (
     <ActingUserProvider>
       <div className="flex h-dvh flex-col bg-background text-foreground">
-        <header className="flex h-12 shrink-0 items-center gap-3 bg-foreground px-4 text-background">
-          <div id="shell-header-context" className="flex items-center gap-3">
-            <span className="font-semibold">All items</span>
-            <span className="text-sm text-background/70">80 items</span>
-          </div>
-          {/* SaleWorkspace portals terminal actions here so the shell owns the header. */}
-          <div id="shell-header-action-area" className="ml-auto flex min-w-0 items-center gap-1">
-            <span id="shell-lock-action">
+        <header className="flex h-12 shrink-0 items-stretch">
+          <div
+            id="shell-default-header"
+            className="flex min-w-0 flex-1 items-center justify-between gap-2 border-b border-border bg-card px-3 text-foreground"
+          >
+            <span className="font-semibold">DeanPOS</span>
+            <span>
               <LockButton />
             </span>
-            <div id="shell-header-actions" className="flex items-center gap-1" />
           </div>
+          <div
+            id="shell-sale-header"
+            hidden
+            className="flex min-w-0 flex-1 items-center gap-2 bg-foreground px-3 text-background"
+          />
         </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-visible">
           <main id="main-content" className="flex-1 md:overflow-y-auto">

@@ -1,8 +1,6 @@
-import { Button, Card, CardContent } from "ui";
-
-import { formatPeso } from "./helpers.ts";
 import { SaleGridBottomBar } from "./SaleGridBottomBar.tsx";
 import { SaleList } from "./SaleList.tsx";
+import { SaleTile } from "./SaleTile.tsx";
 import type { SaleMenuItem } from "./types.ts";
 import type { ViewMode } from "./view-mode.ts";
 
@@ -31,24 +29,15 @@ export function SaleGrid({
         {viewMode === "list" ? (
           <SaleList items={items} onItemSelect={onItemSelect} />
         ) : (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-4 2xl:grid-cols-5">
             {items.map((item) => (
-              <Card key={item.id} className="min-h-11 py-0">
-                <CardContent className="flex h-full p-0">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={!item.available}
-                    className="min-h-20 w-full flex-col gap-1 rounded-xl whitespace-normal hover:bg-transparent hover:text-foreground hover:shadow-xs"
-                    onClick={() => onItemSelect(item)}
-                  >
-                    <span>{item.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {item.available ? formatPeso(item.priceCentavos) : "Sold out"}
-                    </span>
-                  </Button>
-                </CardContent>
-              </Card>
+              <SaleTile
+                key={item.id}
+                name={item.name}
+                priceCentavos={item.priceCentavos}
+                available={item.available}
+                onSelect={() => onItemSelect(item)}
+              />
             ))}
           </div>
         )}

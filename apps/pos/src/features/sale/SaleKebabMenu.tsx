@@ -1,3 +1,4 @@
+import { MoreVertical, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,7 @@ export function SaleKebabMenu({ disabled, onClear }: Props) {
           aria-label="More actions"
           className="text-background hover:bg-background/20 hover:text-background"
         >
-          ⋮
+          <MoreVertical aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -33,6 +34,7 @@ export function SaleKebabMenu({ disabled, onClear }: Props) {
           </DropdownMenuItem>
         )}
         <DropdownMenuItem disabled={disabled} onSelect={onClear}>
+          <Trash2 aria-hidden="true" />
           Clear order
         </DropdownMenuItem>
       </DropdownMenuContent>

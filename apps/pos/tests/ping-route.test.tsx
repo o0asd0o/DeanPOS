@@ -147,7 +147,8 @@ describe("the terminal shell's ping route, behind the unlock screen", () => {
     expect(screen.getByText(message)).toBeTruthy();
 
     expect(container.querySelectorAll("header")).toHaveLength(1);
-    expect(container.querySelector("header")?.textContent).toContain("All items");
+    expect(container.querySelector("header")?.textContent).toContain("DeanPOS");
+    expect(container.querySelector("header")?.textContent).not.toContain("All items");
     expect(container.querySelectorAll("main")).toHaveLength(1);
     expect(container.querySelector("main")?.id).toBe("main-content");
 

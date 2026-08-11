@@ -90,12 +90,39 @@ describe("sale screen", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("matches Variant A's tablet and desktop composition", () => {
+    render(<SaleWorkspace catalog={catalog} />);
+
+    expect(screen.getByText("All items")).toBeTruthy();
+    expect(screen.getByText("5 items")).toBeTruthy();
+
+    const menu = screen.getByRole("region", { name: "Menu" });
+    expect(menu.parentElement?.className).toContain("md:gap-2");
+
+    const water = screen.getByRole("button", { name: /Water/ });
+    expect(water.className).toContain("h-20");
+    expect(water.className).toContain("items-start");
+    expect(water.className).toContain("justify-between");
+    expect(water.className).toContain("p-3");
+    expect(water.closest('[data-slot="card"]')).toBeNull();
+
+    const allItems = screen.getByRole("button", { name: "All" });
+    expect(allItems.className).toContain("h-12");
+    expect(allItems.className).toContain("px-5");
+    expect(allItems.className).toContain("text-base");
+
+    const cart = screen.getByRole("region", { name: "Current order" });
+    expect(cart.className).toContain("w-72");
+    expect(cart.className).toContain("gap-0");
+    expect(cart.className).toContain("p-3");
+  });
+
   it("drills into variants, refuses unavailable choices, and category selection returns to the menu", () => {
     render(<SaleWorkspace catalog={catalog} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Adobo/ }));
     expect(localStorage.getItem("deanpos.sale.draft")).toMatch(/"lines":\[\]/);
-    expect(screen.getByRole("button", { name: "‹ Adobo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Adobo" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Adobo" })).toBeNull();
     expect(screen.getByRole("button", { name: /Whole/ })).toHaveProperty("disabled", true);
 
@@ -174,11 +201,22 @@ describe("sale screen", () => {
     const { container } = render(<SaleWorkspace catalog={optionsCatalog} />);
     await expectNoAxeViolations(container);
     fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
-    const dialog = screen.getByRole("dialog", { name: /Customize Adobo options/ });
-    expect(screen.getByRole("button", { name: /Regular/ }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    expect(screen.getByText("Size (required)")).toBeTruthy();
+    const dialog = screen.getByRole("dialog", { name: "Adobo options · Half ₱80.00" });
+    expect(dialog.className).toContain("sm:max-w-3xl");
+    expect(screen.getByText("Choose options for this line.")).toBeTruthy();
+
+    const modifier = screen.getByRole("button", { name: /Regular/ });
+    expect(modifier.getAttribute("aria-pressed")).toBe("true");
+    expect(modifier.className).toContain("h-12");
+    expect(modifier.className).toContain("rounded-xl");
+    expect(modifier.className).not.toContain("rounded-full");
+    expect(screen.getByText("Size · required")).toBeTruthy();
+
+    const addOnRow = screen.getByText("Extra rice").parentElement;
+    expect(addOnRow?.className).toContain("h-14");
+    expect(addOnRow?.className).toContain("rounded-xl");
+    expect(addOnRow?.className).toContain("bg-muted/60");
+    expect(addOnRow?.className).not.toContain("rounded-full");
     await expectNoAxeViolations(dialog);
     fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
     fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
@@ -197,7 +235,7 @@ describe("sale screen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Rice/ }));
     const original = JSON.parse(localStorage.getItem("deanpos.sale.draft")!).lines[0].id;
-    fireEvent.click(screen.getByRole("button", { name: /1 × Rice/ }));
+    fireEvent.click(screen.getByRole("button", { name: /1× Rice/ }));
     expect(screen.getByRole("dialog", { name: /Edit Rice/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Increase Rice quantity" }));
     fireEvent.click(screen.getByRole("button", { name: /Save ₱30\.00/ }));
@@ -206,7 +244,7 @@ describe("sale screen", () => {
     expect(line.id).toBe(original);
     expect(line.quantity).toBe(2);
     expect(screen.getByText("1 items · ₱30.00 · Open cart")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /2 × Rice/ }));
+    fireEvent.click(screen.getByRole("button", { name: /2× Rice/ }));
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(screen.getByText("0 items · ₱0.00 · Open cart")).toBeTruthy();
   });
@@ -245,7 +283,8 @@ describe("sale screen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Adobo options/ }));
     expect(screen.getByRole("button", { name: /Half −₱10\.00/ })).toBeTruthy();
-    expect(screen.getByText("Extra rice +₱15.00")).toBeTruthy();
+    expect(screen.getByText("Extra rice")).toBeTruthy();
+    expect(screen.getByText("+₱15.00")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Half −₱10\.00/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add one Extra rice" }));
     expect(screen.getByRole("button", { name: "Add to order ₱25.00" })).toBeTruthy();

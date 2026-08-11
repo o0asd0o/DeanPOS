@@ -1,4 +1,5 @@
-import { Button, Card, CardContent } from "ui";
+import { LayoutGrid, List } from "lucide-react";
+import { Button } from "ui";
 
 import { CategoryTabs } from "./CategoryTabs.tsx";
 import type { ViewMode } from "./view-mode.ts";
@@ -20,25 +21,21 @@ export function SaleGridBottomBar({
 }: Props) {
   const nextViewMode = viewMode === "tile" ? "list" : "tile";
   return (
-    <Card>
-      <CardContent className="flex items-center gap-2 p-2">
-        <div className="min-w-0 flex-1">
-          <CategoryTabs
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            onCategorySelect={onCategorySelect}
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          aria-label={nextViewMode === "list" ? "List view" : "Tile view"}
-          onClick={() => onViewModeChange(nextViewMode)}
-        >
-          {nextViewMode === "list" ? "☰" : "▦"}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex shrink-0 items-center gap-2">
+      <CategoryTabs
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        onCategorySelect={onCategorySelect}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-lg"
+        aria-label={nextViewMode === "list" ? "List view" : "Tile view"}
+        onClick={() => onViewModeChange(nextViewMode)}
+      >
+        {nextViewMode === "list" ? <List aria-hidden="true" /> : <LayoutGrid aria-hidden="true" />}
+      </Button>
+    </div>
   );
 }

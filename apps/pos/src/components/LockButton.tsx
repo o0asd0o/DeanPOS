@@ -1,3 +1,4 @@
+import { LockKeyhole } from "lucide-react";
 import { Button } from "ui";
 
 import { useActingUser } from "@/lib/acting-user.tsx";
@@ -9,9 +10,10 @@ export function LockButton() {
     <Button
       variant="ghost"
       size="sm"
-      className="w-full justify-start text-background hover:bg-background/20 hover:text-background"
+      className="w-full justify-start text-popover-foreground hover:bg-accent hover:text-accent-foreground"
       onClick={() => setActingUser(null)}
     >
+      <LockKeyhole aria-hidden="true" />
       Lock
     </Button>
   );

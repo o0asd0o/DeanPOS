@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { ChevronLeftIcon, SearchIcon, XIcon } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -34,6 +35,21 @@ import { readViewMode, writeViewMode, type ViewMode } from "./view-mode.ts";
 
 type Props = { catalog: SaleCatalog };
 
+function createOptionNames(menuItems: readonly SaleMenuItem[]) {
+  const optionNames = new Map<string, string>();
+
+  for (const item of menuItems) {
+    for (const modifier of item.modifierGroups.flatMap((group) => group.modifiers)) {
+      optionNames.set(modifier.id, modifier.name);
+    }
+    for (const addOn of item.addOns) {
+      optionNames.set(addOn.id, addOn.name);
+    }
+  }
+
+  return optionNames;
+}
+
 export function SaleWorkspace({ catalog }: Props) {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -53,12 +69,10 @@ export function SaleWorkspace({ catalog }: Props) {
       (search !== "" || categoryId === null || item.categoryId === categoryId) &&
       item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
-  const optionNames = new Map<string, string>();
-  for (const item of catalog.menuItems) {
-    for (const group of item.modifierGroups)
-      for (const modifier of group.modifiers) optionNames.set(modifier.id, modifier.name);
-    for (const addOn of item.addOns) optionNames.set(addOn.id, addOn.name);
-  }
+  const categoryName =
+    catalog.categories.find((category) => category.id === categoryId)?.name ?? "All items";
+  const tileCount = selectedItem ? selectedItem.variants.length : visibleItems.length;
+  const optionNames = useMemo(() => createOptionNames(catalog.menuItems), [catalog.menuItems]);
   const ensureDraft = () => {
     if (draft) return draft;
     const next = createDraft();
@@ -150,9 +164,9 @@ export function SaleWorkspace({ catalog }: Props) {
     writeViewMode(nextViewMode);
     setViewMode(nextViewMode);
   };
-  const headerActions = (
-    <span data-sale-actions className="flex min-w-0 flex-1 items-center justify-end gap-1">
-      {selectedItem && (
+  const header = (
+    <>
+      {selectedItem ? (
         <Button
           type="button"
           variant="ghost"
@@ -160,65 +174,67 @@ export function SaleWorkspace({ catalog }: Props) {
           className="text-background hover:bg-background/20 hover:text-background"
           onClick={() => setSelectedItem(null)}
         >
-          ‹ {selectedItem.name}
+          <ChevronLeftIcon className="mr-1 size-4 shrink-0" />
+          <span>{selectedItem.name}</span>
         </Button>
+      ) : (
+        <span className="shrink-0 font-semibold whitespace-nowrap">{categoryName}</span>
       )}
-      {searchOpen && (
+      {searchOpen ? (
         <Input
           autoFocus
           aria-label="Search menu"
-          placeholder="Search menu…"
-          className="h-9 min-w-0 flex-1 bg-background text-foreground"
+          placeholder="Search the whole menu…"
+          className="h-9 bg-background text-foreground"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
+      ) : (
+        <span className="flex-1 text-sm text-background/70">{tileCount} items</span>
       )}
       <Button
         type="button"
         variant="ghost"
         size="icon"
         aria-label="Search menu"
+        className="text-background hover:bg-background/20 hover:text-background"
         onClick={() => {
           setSearchOpen((current) => !current);
           if (searchOpen) setSearch("");
         }}
       >
-        {searchOpen ? "×" : "⌕"}
+        {searchOpen ? <XIcon aria-hidden="true" /> : <SearchIcon aria-hidden="true" />}
       </Button>
       <SaleKebabMenu disabled={(draft?.lines.length ?? 0) === 0} onClear={requestClear} />
-    </span>
+    </>
   );
-  const headerTarget = document.getElementById("shell-header-actions");
-  useEffect(() => {
-    const lockAction = document.getElementById("shell-lock-action");
-    lockAction?.classList.add("hidden");
-    return () => lockAction?.classList.remove("hidden");
-  }, []);
-  useEffect(() => {
-    const context = document.getElementById("shell-header-context");
-    const actionArea = document.getElementById("shell-header-action-area");
-    context?.classList.toggle("hidden", searchOpen);
-    actionArea?.classList.toggle("flex-1", searchOpen);
-    actionArea?.classList.toggle("ml-auto", !searchOpen);
+  const headerTarget = document.getElementById("shell-sale-header");
+  useLayoutEffect(() => {
+    const defaultHeader = document.getElementById("shell-default-header");
+    if (!headerTarget) return;
+    defaultHeader?.setAttribute("hidden", "");
+    headerTarget.removeAttribute("hidden");
     return () => {
-      context?.classList.remove("hidden");
-      actionArea?.classList.remove("flex-1");
-      actionArea?.classList.add("ml-auto");
+      defaultHeader?.removeAttribute("hidden");
+      headerTarget.setAttribute("hidden", "");
     };
-  }, [searchOpen]);
+  }, [headerTarget]);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-muted/40 md:p-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-muted/40 md:p-2">
       {headerTarget ? (
-        createPortal(headerActions, headerTarget)
+        createPortal(header, headerTarget)
       ) : (
-        <div className="flex justify-end gap-1">{headerActions}</div>
+        <div className="flex h-12 shrink-0 items-center gap-2 bg-foreground px-3 text-background">
+          {header}
+        </div>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 md:gap-4">
+      <div className="flex min-h-0 min-w-0 flex-1 md:gap-2">
         {selectedItem ? (
           <VariantGrid
             item={selectedItem}
             categories={catalog.categories}
+            selectedCategoryId={categoryId}
             viewMode={viewMode}
             onCategorySelect={selectCategory}
             onViewModeChange={setSavedViewMode}
@@ -236,7 +252,12 @@ export function SaleWorkspace({ catalog }: Props) {
           />
         )}
         <div className="hidden min-h-0 md:flex">
-          <Cart draft={draft} optionNames={optionNames} onEdit={editLine} />
+          <Cart
+            ariaLabel="Current order"
+            draft={draft}
+            optionNames={optionNames}
+            onEdit={editLine}
+          />
         </div>
       </div>
       <MobileCart draft={draft} optionNames={optionNames} onEdit={editLine} />

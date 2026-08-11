@@ -55,12 +55,29 @@ export function ModifierAddonModal({
   onSubmit,
   onRemove,
 }: Props) {
+  const basePrice = variant?.priceCentavos ?? item.priceCentavos;
   const [modifierIds, setModifierIds] = useState(
     () => initial?.modifierIds ?? defaultModifierIds(item.modifierGroups),
   );
   const [addOnIds, setAddOnIds] = useState(() => initial?.addOnIds ?? []);
   const [quantity, setQuantity] = useState(() => initial?.quantity ?? 1);
   const [error, setError] = useState("");
+  const line: DraftLineInput = {
+    menuItemId: item.id,
+    menuItemName: item.name,
+    variantId: variant?.id ?? null,
+    variantName: variant?.name ?? "",
+    unitPriceCentavos: basePrice,
+    quantity,
+    modifierIds,
+    addOnIds,
+  };
+  const runningTotal = composeLine(
+    line,
+    item.modifierGroups.flatMap((group) => group.modifiers),
+    item.addOns,
+  ).totalCentavos;
+
   const toggleModifier = (group: SaleModifierGroup, id: string) => {
     setModifierIds((current) => {
       const withoutGroup = current.filter(
@@ -96,33 +113,28 @@ export function ModifierAddonModal({
       return;
     }
     setError("");
-    onSubmit({
-      menuItemId: item.id,
-      menuItemName: item.name,
-      variantId: variant?.id ?? null,
-      variantName: variant?.name ?? "",
-      unitPriceCentavos: variant?.priceCentavos ?? item.priceCentavos,
-      quantity,
-      modifierIds,
-      addOnIds,
-    });
+    onSubmit(line);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-screen overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="flex max-h-screen flex-col overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {initial ? "Edit" : "Customize"} {item.name}
-            {variant ? ` · ${variant.name}` : ""}
+            {initial ? "Edit " : ""}
+            {item.name}
+            {variant ? ` · ${variant.name}` : ""} {formatPeso(basePrice)}
           </DialogTitle>
-          <DialogDescription>Choose modifiers and add-ons for this line.</DialogDescription>
+          <DialogDescription>
+            {initial ? "Edit this line." : "Choose options for this line."}
+          </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-5">
+
+        <div className="flex flex-col gap-6">
           {item.modifierGroups.map((group) => (
             <fieldset key={group.id} className="flex flex-col gap-2">
-              <legend className="font-semibold">
+              <legend className="pb-2 text-sm font-semibold text-muted-foreground">
                 {group.name}
-                {group.selectionRule === "required-one" ? " (required)" : ""}
+                {group.selectionRule === "required-one" ? " · required" : ""}
               </legend>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {group.modifiers.map((modifier) => (
@@ -130,73 +142,92 @@ export function ModifierAddonModal({
                     key={modifier.id}
                     type="button"
                     variant="outline"
+                    className="h-12 justify-between rounded-xl"
                     aria-pressed={modifierIds.includes(modifier.id)}
                     onClick={() => toggleModifier(group, modifier.id)}
                   >
-                    {modifier.name}{" "}
-                    {formatDelta(modifier.delta, variant?.priceCentavos ?? item.priceCentavos)}
+                    <span className="truncate">{modifier.name}</span>
+                    <span className="text-xs">{formatDelta(modifier.delta, basePrice)}</span>
                   </Button>
                 ))}
               </div>
             </fieldset>
           ))}
+
           {item.addOns.length > 0 && (
             <fieldset className="flex flex-col gap-2">
-              <legend className="font-semibold">Add-ons</legend>
-              {item.addOns.map((addOn) => {
-                const count = addOnIds.filter((id) => id === addOn.id).length;
-                return (
-                  <div key={addOn.id} className="flex items-center justify-between gap-3">
-                    <span>
-                      {addOn.name}{" "}
-                      {formatDelta(addOn.delta, variant?.priceCentavos ?? item.priceCentavos)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={`Remove one ${addOn.name}`}
-                        disabled={count === 0}
-                        onClick={() => changeAddOn(addOn, count - 1)}
-                      >
-                        −
-                      </Button>
-                      <span aria-label={`${addOn.name} quantity`}>{count}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={`Add one ${addOn.name}`}
-                        disabled={!canAddOn(addOn, addOnIds)}
-                        onClick={() => changeAddOn(addOn, count + 1)}
-                      >
-                        +
-                      </Button>
+              <legend className="pb-2 text-sm font-semibold text-muted-foreground">Add-ons</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {item.addOns.map((addOn) => {
+                  const count = addOnIds.filter((id) => id === addOn.id).length;
+                  return (
+                    <div
+                      key={addOn.id}
+                      className="flex h-14 items-center justify-between gap-3 rounded-xl bg-muted/60 px-3"
+                    >
+                      <span className="min-w-0 truncate">{addOn.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDelta(addOn.delta, basePrice)}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-lg"
+                          className="text-xl"
+                          aria-label={`Remove one ${addOn.name}`}
+                          disabled={count === 0}
+                          onClick={() => changeAddOn(addOn, count - 1)}
+                        >
+                          −
+                        </Button>
+                        <span aria-label={`${addOn.name} quantity`} className="w-4 text-center">
+                          {count}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-lg"
+                          className="text-xl"
+                          aria-label={`Add one ${addOn.name}`}
+                          disabled={!canAddOn(addOn, addOnIds)}
+                          onClick={() => changeAddOn(addOn, count + 1)}
+                        >
+                          +
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </fieldset>
           )}
-          <fieldset className="flex items-center justify-between gap-3">
-            <legend className="font-semibold">Quantity</legend>
-            <div className="flex items-center gap-2">
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="pb-2 text-sm font-semibold text-muted-foreground">Quantity</legend>
+            <div className="flex items-center gap-6">
               <Button
                 type="button"
                 variant="outline"
-                size="icon-sm"
+                size="icon-lg"
+                className="text-2xl"
                 aria-label={`Decrease ${item.name} quantity`}
                 disabled={quantity === 1}
                 onClick={() => setQuantity((current) => Math.max(1, current - 1))}
               >
                 −
               </Button>
-              <span aria-label={`${item.name} quantity`}>{quantity}</span>
+              <span
+                aria-label={`${item.name} quantity`}
+                className="w-8 text-center text-xl font-semibold"
+              >
+                {quantity}
+              </span>
               <Button
                 type="button"
                 variant="outline"
-                size="icon-sm"
+                size="icon-lg"
+                className="text-2xl"
                 aria-label={`Increase ${item.name} quantity`}
                 onClick={() => setQuantity((current) => current + 1)}
               >
@@ -210,33 +241,18 @@ export function ModifierAddonModal({
             </p>
           )}
         </div>
+
         <DialogFooter>
           {initial && (
-            <Button type="button" variant="outline" danger onClick={onRemove}>
+            <Button type="button" variant="ghost" danger className="mr-auto" onClick={onRemove}>
               Remove
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={submit}>
-            {initial ? "Save" : "Add to order"}{" "}
-            {formatPeso(
-              composeLine(
-                {
-                  menuItemId: item.id,
-                  menuItemName: item.name,
-                  variantId: variant?.id ?? null,
-                  variantName: variant?.name ?? "",
-                  unitPriceCentavos: variant?.priceCentavos ?? item.priceCentavos,
-                  quantity,
-                  modifierIds,
-                  addOnIds,
-                },
-                item.modifierGroups.flatMap((group) => group.modifiers),
-                item.addOns,
-              ).totalCentavos,
-            )}
+          <Button type="button" size="lg" onClick={submit}>
+            {initial ? "Save" : "Add to order"} {formatPeso(runningTotal)}
           </Button>
         </DialogFooter>
       </DialogContent>

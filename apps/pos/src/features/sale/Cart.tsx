@@ -1,24 +1,27 @@
-import { Button, Card, CardContent, CardFooter } from "ui";
+import { Button, Card } from "ui";
 
 import type { Draft } from "./draft-store.ts";
 import { formatPeso } from "./helpers.ts";
 
 type Props = {
+  ariaLabel?: string;
   draft: Draft | null;
   optionNames: ReadonlyMap<string, string>;
   onEdit: (line: Draft["lines"][number]) => void;
 };
 
-export function Cart({ draft, optionNames, onEdit }: Props) {
+export function Cart({ ariaLabel, draft, optionNames, onEdit }: Props) {
   const lines = draft?.lines ?? [];
   const total = draft?.totalCentavos ?? 0;
   return (
-    <Card className="flex h-full min-h-0 flex-col md:w-72 md:shrink-0">
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+    <Card
+      aria-label={ariaLabel}
+      role={ariaLabel ? "region" : undefined}
+      className="flex h-full w-full min-h-0 flex-col gap-0 p-3 md:w-72 md:shrink-0"
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {lines.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">
-            Choose a menu item to start an order.
-          </p>
+          <p className="py-6 text-sm text-muted-foreground">Choose a menu item to start.</p>
         ) : (
           lines.map((line) => {
             const modifiers = line.modifierIds
@@ -33,44 +36,43 @@ export function Cart({ draft, optionNames, onEdit }: Props) {
                 key={line.id}
                 type="button"
                 variant="ghost"
-                className="min-h-11 w-full justify-between whitespace-normal"
+                className="h-auto w-full items-start justify-between gap-2 rounded-lg px-2 py-2 whitespace-normal active:scale-98 active:bg-secondary"
                 onClick={() => onEdit(line)}
               >
-                <span className="flex min-w-0 flex-col items-start gap-1 text-left">
-                  <span>
-                    {line.quantity} × {line.menuItemName}
-                    {line.variantName ? ` · ${line.variantName}` : ""}
+                <span className="flex min-w-0 gap-2 text-left">
+                  <span className="shrink-0 font-semibold tabular-nums">{line.quantity}×</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {line.menuItemName}
+                      {line.variantName ? ` · ${line.variantName}` : ""}
+                    </span>
+                    {modifiers.map((name) => (
+                      <span key={name} className="block text-xs text-muted-foreground">
+                        {name}
+                      </span>
+                    ))}
+                    {addOns.map((label) => (
+                      <span key={label} className="block text-xs text-muted-foreground">
+                        + {label}
+                      </span>
+                    ))}
                   </span>
-                  {modifiers.map((name) => (
-                    <span key={name} className="text-xs text-muted-foreground">
-                      {name}
-                    </span>
-                  ))}
-                  {addOns.map((label) => (
-                    <span key={label} className="text-xs text-muted-foreground">
-                      + {label}
-                    </span>
-                  ))}
                 </span>
-                <span className="shrink-0 font-medium">{formatPeso(line.totalCentavos)}</span>
+                <span className="shrink-0 font-medium tabular-nums">
+                  {formatPeso(line.totalCentavos)}
+                </span>
               </Button>
             );
           })
         )}
-      </CardContent>
-      <CardFooter className="flex flex-col gap-3">
-        <div className="flex w-full items-center justify-between rounded-xl bg-secondary px-4 py-3">
-          <span className="text-xs font-semibold tracking-wide text-secondary-foreground">
-            TOTAL
-          </span>
-          <span className="text-lg font-semibold text-secondary-foreground">
-            {formatPeso(total)}
-          </span>
-        </div>
-        <Button type="button" size="lg" className="w-full" disabled={lines.length === 0}>
-          Pay {formatPeso(total)}
-        </Button>
-      </CardFooter>
+      </div>
+      <div className="flex shrink-0 items-center justify-between px-2 py-3">
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground">TOTAL</span>
+        <span className="text-xl font-semibold tabular-nums">{formatPeso(total)}</span>
+      </div>
+      <Button type="button" size="lg" className="w-full" disabled={lines.length === 0}>
+        Pay {formatPeso(total)}
+      </Button>
     </Card>
   );
 }
