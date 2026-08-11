@@ -16,7 +16,7 @@ import {
   hasRequiredModifiers,
   type DraftLineInput,
 } from "./draft-store.ts";
-import { formatPeso } from "./helpers.ts";
+import { formatPeso } from "@/features/helpers.ts";
 import type {
   SaleAddOn,
   SaleDelta,

@@ -13,6 +13,7 @@ import {
 } from "ui";
 
 import { Cart } from "./Cart.tsx";
+import { PaymentFlow } from "@/features/payment/PaymentFlow.tsx";
 import {
   addOptionlessLine,
   addLine,
@@ -58,6 +59,7 @@ export function SaleWorkspace({ catalog }: Props) {
   const [selectedItem, setSelectedItem] = useState<SaleMenuItem | null>(null);
   const [draft, setDraft] = useState<Draft | null>(() => readDraft());
   const [clearOpen, setClearOpen] = useState(false);
+  const [workspace, setWorkspace] = useState<"sale" | "payment">("sale");
   const [picker, setPicker] = useState<{
     item: SaleMenuItem;
     variantId: string | null;
@@ -164,50 +166,56 @@ export function SaleWorkspace({ catalog }: Props) {
     writeViewMode(nextViewMode);
     setViewMode(nextViewMode);
   };
-  const header = (
-    <>
-      {selectedItem ? (
+  const header =
+    workspace === "payment" ? (
+      <>
+        <span className="shrink-0 font-semibold">Payment</span>
+        <span className="flex-1 text-sm text-background/70">Cash</span>
+      </>
+    ) : (
+      <>
+        {selectedItem ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-background hover:bg-background/20 hover:text-background"
+            onClick={() => setSelectedItem(null)}
+          >
+            <ChevronLeftIcon className="mr-1 size-4 shrink-0" />
+            <span>{selectedItem.name}</span>
+          </Button>
+        ) : (
+          <span className="shrink-0 font-semibold whitespace-nowrap">{categoryName}</span>
+        )}
+        {searchOpen ? (
+          <Input
+            autoFocus
+            aria-label="Search menu"
+            placeholder="Search the whole menu…"
+            className="h-9 bg-background text-foreground"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        ) : (
+          <span className="flex-1 text-sm text-background/70">{tileCount} items</span>
+        )}
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="text-background hover:bg-background/20 hover:text-background"
-          onClick={() => setSelectedItem(null)}
-        >
-          <ChevronLeftIcon className="mr-1 size-4 shrink-0" />
-          <span>{selectedItem.name}</span>
-        </Button>
-      ) : (
-        <span className="shrink-0 font-semibold whitespace-nowrap">{categoryName}</span>
-      )}
-      {searchOpen ? (
-        <Input
-          autoFocus
+          size="icon"
           aria-label="Search menu"
-          placeholder="Search the whole menu…"
-          className="h-9 bg-background text-foreground"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      ) : (
-        <span className="flex-1 text-sm text-background/70">{tileCount} items</span>
-      )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Search menu"
-        className="text-background hover:bg-background/20 hover:text-background"
-        onClick={() => {
-          setSearchOpen((current) => !current);
-          if (searchOpen) setSearch("");
-        }}
-      >
-        {searchOpen ? <XIcon aria-hidden="true" /> : <SearchIcon aria-hidden="true" />}
-      </Button>
-      <SaleKebabMenu disabled={(draft?.lines.length ?? 0) === 0} onClear={requestClear} />
-    </>
-  );
+          className="text-background hover:bg-background/20 hover:text-background"
+          onClick={() => {
+            setSearchOpen((current) => !current);
+            if (searchOpen) setSearch("");
+          }}
+        >
+          {searchOpen ? <XIcon aria-hidden="true" /> : <SearchIcon aria-hidden="true" />}
+        </Button>
+        <SaleKebabMenu disabled={(draft?.lines.length ?? 0) === 0} onClear={requestClear} />
+      </>
+    );
   const headerTarget = document.getElementById("shell-sale-header");
   useLayoutEffect(() => {
     const defaultHeader = document.getElementById("shell-default-header");
@@ -229,38 +237,58 @@ export function SaleWorkspace({ catalog }: Props) {
           {header}
         </div>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 md:gap-2">
-        {selectedItem ? (
-          <VariantGrid
-            item={selectedItem}
-            categories={catalog.categories}
-            selectedCategoryId={categoryId}
-            viewMode={viewMode}
-            onCategorySelect={selectCategory}
-            onViewModeChange={setSavedViewMode}
-            onVariantSelect={(variantId) => addVariant(selectedItem, variantId)}
-          />
-        ) : (
-          <SaleGrid
-            categories={catalog.categories}
-            items={visibleItems}
-            selectedCategoryId={categoryId}
-            viewMode={viewMode}
-            onViewModeChange={setSavedViewMode}
-            onCategorySelect={selectCategory}
-            onItemSelect={selectItem}
-          />
-        )}
-        <div className="hidden min-h-0 md:flex">
-          <Cart
-            ariaLabel="Current order"
-            draft={draft}
-            optionNames={optionNames}
-            onEdit={editLine}
-          />
+      {workspace === "payment" && draft ? (
+        <PaymentFlow
+          draft={draft}
+          catalog={catalog}
+          onBack={() => setWorkspace("sale")}
+          onCompleted={() => {
+            setDraft(null);
+            setWorkspace("sale");
+          }}
+        />
+      ) : (
+        <div className="flex min-h-0 min-w-0 flex-1 md:gap-2">
+          {selectedItem ? (
+            <VariantGrid
+              item={selectedItem}
+              categories={catalog.categories}
+              selectedCategoryId={categoryId}
+              viewMode={viewMode}
+              onCategorySelect={selectCategory}
+              onViewModeChange={setSavedViewMode}
+              onVariantSelect={(variantId) => addVariant(selectedItem, variantId)}
+            />
+          ) : (
+            <SaleGrid
+              categories={catalog.categories}
+              items={visibleItems}
+              selectedCategoryId={categoryId}
+              viewMode={viewMode}
+              onViewModeChange={setSavedViewMode}
+              onCategorySelect={selectCategory}
+              onItemSelect={selectItem}
+            />
+          )}
+          <div className="hidden min-h-0 md:flex">
+            <Cart
+              ariaLabel="Current order"
+              draft={draft}
+              optionNames={optionNames}
+              onEdit={editLine}
+              onPay={() => setWorkspace("payment")}
+            />
+          </div>
         </div>
-      </div>
-      <MobileCart draft={draft} optionNames={optionNames} onEdit={editLine} />
+      )}
+      {workspace === "sale" && (
+        <MobileCart
+          draft={draft}
+          optionNames={optionNames}
+          onEdit={editLine}
+          onPay={() => setWorkspace("payment")}
+        />
+      )}
       {picker && (
         <ModifierAddonModal
           key={`${picker.lineId ?? "new"}-${picker.variantId}`}

@@ -1,6 +1,6 @@
 import { Button } from "ui";
 
-import { formatPeso } from "./helpers.ts";
+import { formatPeso } from "@/features/helpers.ts";
 
 type SaleListItem = {
   id: string;

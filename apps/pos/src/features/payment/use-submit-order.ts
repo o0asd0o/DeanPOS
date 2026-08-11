@@ -1,0 +1,73 @@
+import { useMutation } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
+
+import { clearDraft, type Draft } from "@/features/sale/draft-store.ts";
+import type { SaleCatalog, SaleDelta } from "@/features/sale/types.ts";
+
+type Snapshot = {
+  id: string;
+  name: string;
+  deltaKind: "absolute" | "multiplier";
+  deltaValue: number;
+};
+
+function toSnapshot(id: string, name: string, delta: SaleDelta): Snapshot {
+  return delta.kind === "absolute"
+    ? { id, name, deltaKind: "absolute", deltaValue: delta.amountCentavos }
+    : { id, name, deltaKind: "multiplier", deltaValue: delta.perMille };
+}
+
+export function buildSubmitOrderInput(
+  draft: Draft,
+  catalog: SaleCatalog,
+  amountTenderedCentavos: number,
+) {
+  return {
+    id: draft.id,
+    lines: draft.lines.map((line) => {
+      const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
+      if (!item) throw new Error("The order contains an item that is no longer available.");
+      const modifiers = item.modifierGroups.flatMap((group) => group.modifiers);
+      return {
+        menuItemId: line.menuItemId,
+        menuItemName: line.menuItemName,
+        variantId: line.variantId,
+        variantName: line.variantName,
+        unitPriceCentavos: line.unitPriceCentavos,
+        quantity: line.quantity,
+        lineTotalCentavos: line.totalCentavos,
+        modifiers: line.modifierIds.map((id) => {
+          const modifier = modifiers.find((candidate) => candidate.id === id);
+          if (!modifier)
+            throw new Error("The order contains a modifier that is no longer available.");
+          return toSnapshot(modifier.id, modifier.name, modifier.delta);
+        }),
+        addOns: line.addOnIds.map((id) => {
+          const addOn = item.addOns.find((candidate) => candidate.id === id);
+          if (!addOn) throw new Error("The order contains an add-on that is no longer available.");
+          return toSnapshot(addOn.id, addOn.name, addOn.delta);
+        }),
+      };
+    }),
+    totalCentavos: draft.totalCentavos,
+    amountTenderedCentavos,
+  };
+}
+
+export function useSubmitOrder(onCompleted: () => void) {
+  const { orpc } = useRouteContext({ from: "/" });
+  return useMutation(
+    orpc.terminal.submitOrder.mutationOptions({
+      onSuccess: (result) => {
+        if (!result.ok) return;
+        clearDraft();
+        onCompleted();
+      },
+      meta: {
+        success: "Sale completed",
+        successDescription: "The paid order was saved.",
+        error: "Couldn't complete the sale",
+      },
+    }),
+  );
+}

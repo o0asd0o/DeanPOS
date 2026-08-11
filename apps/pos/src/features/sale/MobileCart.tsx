@@ -1,13 +1,14 @@
 import { Button, Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "ui";
 
+import { formatPeso } from "@/features/helpers.ts";
 import type { Draft } from "./draft-store.ts";
-import { formatPeso } from "./helpers.ts";
 import { Cart } from "./Cart.tsx";
 
 type Props = {
   draft: Draft | null;
   optionNames: ReadonlyMap<string, string>;
   onEdit: (line: Draft["lines"][number]) => void;
+  onPay: () => void;
 };
 
 export function MobileCart(props: Props) {

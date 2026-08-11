@@ -1,16 +1,17 @@
 import { Button, Card } from "ui";
 
+import { formatPeso } from "@/features/helpers.ts";
 import type { Draft } from "./draft-store.ts";
-import { formatPeso } from "./helpers.ts";
 
 type Props = {
   ariaLabel?: string;
   draft: Draft | null;
   optionNames: ReadonlyMap<string, string>;
   onEdit: (line: Draft["lines"][number]) => void;
+  onPay: () => void;
 };
 
-export function Cart({ ariaLabel, draft, optionNames, onEdit }: Props) {
+export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
   const lines = draft?.lines ?? [];
   const total = draft?.totalCentavos ?? 0;
   return (
@@ -70,7 +71,13 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit }: Props) {
         <span className="text-xs font-semibold tracking-wide text-muted-foreground">TOTAL</span>
         <span className="text-xl font-semibold tabular-nums">{formatPeso(total)}</span>
       </div>
-      <Button type="button" size="lg" className="w-full" disabled={lines.length === 0}>
+      <Button
+        type="button"
+        size="lg"
+        className="w-full"
+        disabled={lines.length === 0}
+        onClick={onPay}
+      >
         Pay {formatPeso(total)}
       </Button>
     </Card>

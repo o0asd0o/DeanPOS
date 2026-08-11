@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button, Card, Input } from "ui";
 
 import type { Draft } from "@/features/sale/draft-store.ts";
-import { formatPeso } from "@/features/sale/helpers.ts";
+import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 
 type Props = {
