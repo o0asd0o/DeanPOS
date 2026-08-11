@@ -85,9 +85,22 @@ describe("sale screen", () => {
     fireEvent.click(screen.getByRole("button", { name: /Tea/ }));
 
     expect(screen.getByText("3 items · ₱90.00 · Open cart")).toBeTruthy();
+    expect(screen.getAllByTestId("cart-flight")).toHaveLength(3);
+    expect(screen.getAllByTestId("cart-flight")[0]).toHaveAttribute("aria-hidden", "true");
     expect(transport).not.toHaveBeenCalled();
     expect(localStorage.getItem("deanpos.sale.draft")).toContain("water");
     await expectNoAxeViolations(container);
+  });
+
+  it("removes a completed cart flight without changing the order", () => {
+    render(<SaleWorkspace catalog={catalog} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Water/ }));
+    const flight = screen.getByTestId("cart-flight");
+    fireEvent.animationEnd(flight);
+
+    expect(screen.queryByTestId("cart-flight")).toBeNull();
+    expect(screen.getByText("1 items · ₱20.00 · Open cart")).toBeTruthy();
   });
 
   it("matches Variant A's tablet and desktop composition", () => {
@@ -228,6 +241,7 @@ describe("sale screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add to order ₱82.50" }));
     expect(screen.getByText("Regular")).toBeTruthy();
     expect(screen.getByText("+ 2× Extra rice")).toBeTruthy();
+    expect(screen.getByTestId("cart-flight")).toHaveTextContent("Adobo options");
   });
 
   it("edits a plain line through the universal modal and preserves its line id", () => {
