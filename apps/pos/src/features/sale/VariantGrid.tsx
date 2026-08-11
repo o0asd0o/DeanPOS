@@ -11,7 +11,7 @@ type Props = {
   viewMode: ViewMode;
   onCategorySelect: (categoryId: string | null) => void;
   onViewModeChange: (viewMode: ViewMode) => void;
-  onVariantSelect: (variantId: string) => void;
+  onVariantSelect: (variantId: string, source: HTMLButtonElement) => void;
 };
 
 export function VariantGrid({
@@ -30,7 +30,10 @@ export function VariantGrid({
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         {viewMode === "list" ? (
-          <SaleList items={item.variants} onItemSelect={(variant) => onVariantSelect(variant.id)} />
+          <SaleList
+            items={item.variants}
+            onItemSelect={(variant, source) => onVariantSelect(variant.id, source)}
+          />
         ) : (
           <div className="grid grid-cols-3 gap-2 md:grid-cols-4 2xl:grid-cols-5">
             {item.variants.map((variant) => (
@@ -39,7 +42,7 @@ export function VariantGrid({
                 name={variant.name}
                 priceCentavos={variant.priceCentavos}
                 available={variant.available}
-                onSelect={() => onVariantSelect(variant.id)}
+                onSelect={(source) => onVariantSelect(variant.id, source)}
               />
             ))}
           </div>

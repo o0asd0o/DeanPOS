@@ -33,6 +33,7 @@ import { SaleGrid } from "./SaleGrid.tsx";
 import type { SaleCatalog, SaleMenuItem } from "./types.ts";
 import { VariantGrid } from "./VariantGrid.tsx";
 import { readViewMode, writeViewMode, type ViewMode } from "./view-mode.ts";
+import { CartFlightLayer, type CartFlight } from "./CartFlightLayer.tsx";
 
 type Props = { catalog: SaleCatalog };
 
@@ -65,6 +66,7 @@ export function SaleWorkspace({ catalog }: Props) {
     variantId: string | null;
     lineId?: string;
   } | null>(null);
+  const [flights, setFlights] = useState<CartFlight[]>([]);
 
   const visibleItems = catalog.menuItems.filter(
     (item) =>
@@ -82,7 +84,30 @@ export function SaleWorkspace({ catalog }: Props) {
     setDraft(next);
     return next;
   };
-  const addVariant = (item: SaleMenuItem, variantId: string) => {
+  const beginFlight = (source: HTMLElement, label: string) => {
+    const target = window.matchMedia?.("(min-width: 768px)").matches
+      ? document.querySelector<HTMLElement>('[data-cart-target="desktop"]')
+      : document.querySelector<HTMLElement>('[data-cart-target="mobile"]');
+    if (!target) return;
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+    setFlights((current) => [
+      ...current.slice(-3),
+      {
+        id: crypto.randomUUID(),
+        label,
+        sourceX,
+        sourceY,
+        deltaX: targetX - sourceX,
+        deltaY: targetY - sourceY,
+      },
+    ]);
+  };
+  const addVariant = (item: SaleMenuItem, variantId: string, source?: HTMLElement) => {
     const variant = item.variants.find((entry) => entry.id === variantId);
     if (!variant || !variant.available) return;
     if (item.modifierGroups.length > 0 || item.addOns.length > 0) {
@@ -99,9 +124,11 @@ export function SaleWorkspace({ catalog }: Props) {
     writeDraft(next);
     setDraft(next);
     setSelectedItem(null);
+    if (source) beginFlight(source, item.name);
   };
-  const submitPicker = (input: Parameters<typeof composeLine>[0]) => {
+  const submitPicker = (input: Parameters<typeof composeLine>[0], source: HTMLElement) => {
     if (!picker) return;
+    const isNewLine = !picker.lineId;
     const next = picker.lineId
       ? updateLine(
           ensureDraft(),
@@ -122,12 +149,13 @@ export function SaleWorkspace({ catalog }: Props) {
     setDraft(next);
     setPicker(null);
     setSelectedItem(null);
+    if (isNewLine) beginFlight(source, picker.item.name);
   };
   const editLine = (line: Draft["lines"][number]) => {
     const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
     if (item) setPicker({ item, variantId: line.variantId, lineId: line.id });
   };
-  const addBaseItem = (item: SaleMenuItem) => {
+  const addBaseItem = (item: SaleMenuItem, source?: HTMLElement) => {
     if (item.modifierGroups.length > 0 || item.addOns.length > 0) {
       setPicker({ item, variantId: null });
       return;
@@ -141,12 +169,13 @@ export function SaleWorkspace({ catalog }: Props) {
     });
     writeDraft(next);
     setDraft(next);
+    if (source) beginFlight(source, item.name);
   };
-  const selectItem = (item: SaleMenuItem) => {
+  const selectItem = (item: SaleMenuItem, source: HTMLElement) => {
     if (!item.available) return;
     ensureDraft();
-    if (item.variants.length === 0) addBaseItem(item);
-    else if (item.variants.length === 1) addVariant(item, item.variants[0]!.id);
+    if (item.variants.length === 0) addBaseItem(item, source);
+    else if (item.variants.length === 1) addVariant(item, item.variants[0]!.id, source);
     else setSelectedItem(item);
   };
   const requestClear = () => {
@@ -257,7 +286,7 @@ export function SaleWorkspace({ catalog }: Props) {
               viewMode={viewMode}
               onCategorySelect={selectCategory}
               onViewModeChange={setSavedViewMode}
-              onVariantSelect={(variantId) => addVariant(selectedItem, variantId)}
+              onVariantSelect={(variantId, source) => addVariant(selectedItem, variantId, source)}
             />
           ) : (
             <SaleGrid
@@ -289,6 +318,10 @@ export function SaleWorkspace({ catalog }: Props) {
           onPay={() => setWorkspace("payment")}
         />
       )}
+      <CartFlightLayer
+        flights={flights}
+        onComplete={(id) => setFlights((current) => current.filter((flight) => flight.id !== id))}
+      />
       {picker && (
         <ModifierAddonModal
           key={`${picker.lineId ?? "new"}-${picker.variantId}`}

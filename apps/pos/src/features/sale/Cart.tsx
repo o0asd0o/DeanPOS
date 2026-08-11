@@ -18,6 +18,7 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
     <Card
       aria-label={ariaLabel}
       role={ariaLabel ? "region" : undefined}
+      data-cart-target="desktop"
       className="flex h-full w-full min-h-0 flex-col gap-0 p-3 md:w-72 md:shrink-0"
     >
       <div className="min-h-0 flex-1 overflow-y-auto">

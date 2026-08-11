@@ -19,7 +19,7 @@ export function MobileCart(props: Props) {
     <div className="fixed inset-x-0 bottom-0 z-10 bg-background p-3 md:hidden">
       <Sheet>
         <SheetTrigger asChild>
-          <Button type="button" variant="outline" className="w-full">
+          <Button type="button" variant="outline" className="w-full" data-cart-target="mobile">
             {lineCount} items · {formatPeso(total)} · Open cart
           </Button>
         </SheetTrigger>

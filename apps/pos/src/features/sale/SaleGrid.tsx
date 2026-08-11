@@ -11,7 +11,7 @@ type Props = {
   viewMode: ViewMode;
   onViewModeChange: (viewMode: ViewMode) => void;
   onCategorySelect: (categoryId: string | null) => void;
-  onItemSelect: (item: SaleMenuItem) => void;
+  onItemSelect: (item: SaleMenuItem, source: HTMLButtonElement) => void;
 };
 
 export function SaleGrid({
@@ -36,7 +36,7 @@ export function SaleGrid({
                 name={item.name}
                 priceCentavos={item.priceCentavos}
                 available={item.available}
-                onSelect={() => onItemSelect(item)}
+                onSelect={(source) => onItemSelect(item, source)}
               />
             ))}
           </div>

@@ -11,7 +11,7 @@ type SaleListItem = {
 
 type Props<Item extends SaleListItem> = {
   items: Item[];
-  onItemSelect: (item: Item) => void;
+  onItemSelect: (item: Item, source: HTMLButtonElement) => void;
 };
 
 export function SaleList<Item extends SaleListItem>({ items, onItemSelect }: Props<Item>) {
@@ -24,7 +24,7 @@ export function SaleList<Item extends SaleListItem>({ items, onItemSelect }: Pro
           variant="ghost"
           disabled={!item.available}
           className="h-12 justify-between rounded-none border-b border-border px-4 text-base last:border-b-0"
-          onClick={() => onItemSelect(item)}
+          onClick={(event) => onItemSelect(item, event.currentTarget)}
         >
           <span className="truncate">{item.name}</span>
           <span className="text-sm text-muted-foreground">

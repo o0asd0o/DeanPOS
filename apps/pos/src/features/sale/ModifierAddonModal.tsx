@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   Button,
   Dialog,
@@ -31,7 +31,7 @@ type Props = {
   open: boolean;
   initial?: DraftLineInput;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (line: DraftLineInput) => void;
+  onSubmit: (line: DraftLineInput, source: HTMLButtonElement) => void;
   onRemove: () => void;
 };
 
@@ -107,13 +107,13 @@ export function ModifierAddonModal({
       return [...current, addOn.id];
     });
   };
-  const submit = () => {
+  const submit = (event: MouseEvent<HTMLButtonElement>) => {
     if (!hasRequiredModifiers(item.modifierGroups, modifierIds)) {
       setError("Choose an option in every required group.");
       return;
     }
     setError("");
-    onSubmit(line);
+    onSubmit(line, event.currentTarget);
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

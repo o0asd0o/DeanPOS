@@ -86,7 +86,9 @@ describe("sale screen", () => {
 
     expect(screen.getByText("3 items · ₱90.00 · Open cart")).toBeTruthy();
     expect(screen.getAllByTestId("cart-flight")).toHaveLength(3);
-    expect(screen.getAllByTestId("cart-flight")[0]).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getAllByTestId("cart-flight")[0]?.parentElement?.getAttribute("aria-hidden"),
+    ).toBe("true");
     expect(transport).not.toHaveBeenCalled();
     expect(localStorage.getItem("deanpos.sale.draft")).toContain("water");
     await expectNoAxeViolations(container);
@@ -241,7 +243,7 @@ describe("sale screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add to order ₱82.50" }));
     expect(screen.getByText("Regular")).toBeTruthy();
     expect(screen.getByText("+ 2× Extra rice")).toBeTruthy();
-    expect(screen.getByTestId("cart-flight")).toHaveTextContent("Adobo options");
+    expect(screen.getByTestId("cart-flight").textContent).toContain("Adobo options");
   });
 
   it("edits a plain line through the universal modal and preserves its line id", () => {
