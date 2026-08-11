@@ -14,6 +14,8 @@ import {
 
 import { Cart } from "./Cart.tsx";
 import { PaymentFlow } from "@/features/payment/PaymentFlow.tsx";
+import { ReceiptView } from "@/features/receipt/ReceiptView.tsx";
+import type { Receipt } from "contract/src/contract.ts";
 import {
   addOptionlessLine,
   addLine,
@@ -60,7 +62,8 @@ export function SaleWorkspace({ catalog }: Props) {
   const [selectedItem, setSelectedItem] = useState<SaleMenuItem | null>(null);
   const [draft, setDraft] = useState<Draft | null>(() => readDraft());
   const [clearOpen, setClearOpen] = useState(false);
-  const [workspace, setWorkspace] = useState<"sale" | "payment">("sale");
+  const [workspace, setWorkspace] = useState<"sale" | "payment" | "receipt">("sale");
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [picker, setPicker] = useState<{
     item: SaleMenuItem;
     variantId: string | null;
@@ -201,6 +204,8 @@ export function SaleWorkspace({ catalog }: Props) {
         <span className="shrink-0 font-semibold">Payment</span>
         <span className="flex-1 text-sm text-background/70">Cash</span>
       </>
+    ) : workspace === "receipt" ? (
+      <span className="shrink-0 font-semibold">Receipt</span>
     ) : (
       <>
         {selectedItem ? (
@@ -266,14 +271,24 @@ export function SaleWorkspace({ catalog }: Props) {
           {header}
         </div>
       )}
-      {workspace === "payment" && draft ? (
+      {workspace === "receipt" && receipt ? (
+        <ReceiptView
+          receipt={receipt}
+          onNewOrder={() => {
+            setReceipt(null);
+            setWorkspace("sale");
+          }}
+        />
+      ) : workspace === "payment" && draft ? (
         <PaymentFlow
           draft={draft}
           catalog={catalog}
           onBack={() => setWorkspace("sale")}
-          onCompleted={() => {
+          onDraftChanged={setDraft}
+          onCompleted={(completedReceipt) => {
+            setReceipt(completedReceipt);
             setDraft(null);
-            setWorkspace("sale");
+            setWorkspace("receipt");
           }}
         />
       ) : (

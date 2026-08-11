@@ -168,6 +168,9 @@ describe("paid cash order flow", () => {
 
     await waitFor(() => expect(screen.getByText("Sale completed")).toBeTruthy());
     expect(localStorage.getItem("deanpos.sale.draft")).toBeNull();
+    expect(screen.getByRole("region", { name: "Receipt" })).toBeTruthy();
+    expect(screen.getByText("Order C2-0001")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "New order" }));
     expect(screen.getByText("0 items · ₱0.00 · Open cart")).toBeTruthy();
 
     const order = await ownerDb
@@ -178,6 +181,8 @@ describe("paid cash order flow", () => {
     expect(order).toMatchObject({
       store_id: storeId,
       device_id: deviceId,
+      device_sequence: 1,
+      order_number: "C2-0001",
       status: "paid",
       total_centavos: 15_000,
     });

@@ -10,6 +10,7 @@ type Props = {
   draft: Draft;
   catalog: SaleCatalog;
   pending: boolean;
+  error?: string | null;
   onBack: () => void;
   onSubmit: (amountTenderedCentavos: number) => void | Promise<void>;
 };
@@ -29,7 +30,7 @@ function formatTenderInput(centavos: number): string {
   return remainder === 0 ? String(pesos) : `${pesos}.${String(remainder).padStart(2, "0")}`;
 }
 
-export function PaymentPanel({ draft, catalog, pending, onBack, onSubmit }: Props) {
+export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit }: Props) {
   const [tenderedInput, setTenderedInput] = useState("");
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
   const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - draft.totalCentavos);
@@ -175,6 +176,7 @@ export function PaymentPanel({ draft, catalog, pending, onBack, onSubmit }: Prop
             {pending ? "Completing sale…" : "Complete sale"}
           </Button>
         </div>
+        {error ? <p role="alert">{error}</p> : null}
       </Card>
     </form>
   );

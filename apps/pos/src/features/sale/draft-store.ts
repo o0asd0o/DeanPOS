@@ -24,7 +24,14 @@ export type DraftLine = DraftLineInput & {
   addOnIds: string[];
   totalCentavos: number;
 };
-export type Draft = { id: string; lines: DraftLine[]; totalCentavos: number };
+export type Draft = {
+  id: string;
+  lines: DraftLine[];
+  totalCentavos: number;
+  orderDeviceId?: string;
+  deviceSequence?: number;
+  orderNumber?: string;
+};
 
 const DRAFT_KEY = "deanpos.sale.draft";
 const toMoneyDelta = (delta: SaleDelta): Delta =>

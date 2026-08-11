@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   recordOverrideInputSchema,
   recordOverrideOutputSchema,
+  receiptInputSchema,
+  receiptOutputSchema,
   submitOrderInputSchema,
   submitOrderOutputSchema,
   terminalEnrolInputSchema,
@@ -19,4 +21,5 @@ export const terminalContract = {
   pinSync: oc.input(z.void()).output(terminalPinSyncOutputSchema),
   recordOverride: oc.input(recordOverrideInputSchema).output(recordOverrideOutputSchema),
   submitOrder: oc.input(submitOrderInputSchema).output(submitOrderOutputSchema),
+  receipt: oc.input(receiptInputSchema).output(receiptOutputSchema),
 };

@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
+import type { Receipt } from "contract/src/contract.ts";
 
 import { clearDraft, type Draft } from "@/features/sale/draft-store.ts";
 import type { SaleCatalog, SaleDelta } from "@/features/sale/types.ts";
@@ -22,8 +23,13 @@ export function buildSubmitOrderInput(
   catalog: SaleCatalog,
   amountTenderedCentavos: number,
 ) {
+  if (!draft.deviceSequence || !draft.orderNumber) {
+    throw new Error("The Order number must be assigned before submission.");
+  }
   return {
     id: draft.id,
+    deviceSequence: draft.deviceSequence,
+    orderNumber: draft.orderNumber,
     lines: draft.lines.map((line) => {
       const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
       if (!item) throw new Error("The order contains an item that is no longer available.");
@@ -54,14 +60,14 @@ export function buildSubmitOrderInput(
   };
 }
 
-export function useSubmitOrder(onCompleted: () => void) {
+export function useSubmitOrder(onCompleted: (receipt: Receipt) => void) {
   const { orpc } = useRouteContext({ from: "/" });
   return useMutation(
     orpc.terminal.submitOrder.mutationOptions({
       onSuccess: (result) => {
         if (!result.ok) return;
         clearDraft();
-        onCompleted();
+        onCompleted(result.receipt);
       },
       meta: {
         success: "Sale completed",

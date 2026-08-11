@@ -7,6 +7,8 @@ export const insertOrder = (
     tenantId: string;
     storeId: string;
     deviceId: string;
+    deviceSequence: number;
+    orderNumber: string;
     totalCentavos: number;
   },
 ) =>
@@ -17,10 +19,12 @@ export const insertOrder = (
       tenant_id: values.tenantId,
       store_id: values.storeId,
       device_id: values.deviceId,
+      device_sequence: values.deviceSequence,
+      order_number: values.orderNumber,
       drawer_session_id: null,
       status: "paid",
       total_centavos: values.totalCentavos,
     })
-    .onConflict((conflict) => conflict.columns(["tenant_id", "id"]).doNothing())
+    .onConflict((conflict) => conflict.doNothing())
     .returning("id")
     .executeTakeFirst();

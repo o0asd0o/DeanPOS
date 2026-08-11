@@ -659,6 +659,8 @@ model Order {
   tenantId        String      @map("tenant_id")
   storeId         String      @map("store_id")
   deviceId        String      @map("device_id")
+  deviceSequence  Int         @map("device_sequence")
+  orderNumber     String      @map("order_number")
   drawerSessionId String?     @map("drawer_session_id")
   status          String
   totalCentavos   Int         @map("total_centavos")
@@ -670,6 +672,7 @@ model Order {
   payments        Payment[]
 
   @@unique([tenantId, id])
+  @@unique([tenantId, deviceId, deviceSequence])
   @@index([tenantId])
 }
 

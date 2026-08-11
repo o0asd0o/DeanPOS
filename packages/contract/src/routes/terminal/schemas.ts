@@ -62,6 +62,7 @@ export const recordOverrideOutputSchema = z.discriminatedUnion("ok", [
 
 const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
 const orderIdSchema = z.string().uuid();
+const deviceSequenceSchema = z.number().int().min(1).max(2_147_483_647);
 
 export const submitOrderOptionSnapshotSchema = z.object({
   id: orderIdSchema,
@@ -84,16 +85,42 @@ export const submitOrderLineSchema = z.object({
 
 export const submitOrderInputSchema = z.object({
   id: orderIdSchema,
+  deviceSequence: deviceSequenceSchema,
+  orderNumber: z.string().regex(/^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}-[0-9]{4,}$/),
   lines: z.array(submitOrderLineSchema).min(1).max(1_000),
   totalCentavos: postgresIntegerSchema,
   amountTenderedCentavos: postgresIntegerSchema,
 });
 
+export const receiptLineSchema = z.object({
+  menuItemName: z.string(),
+  variantName: z.string(),
+  unitPriceCentavos: postgresIntegerSchema,
+  quantity: z.number().int().min(1),
+  lineTotalCentavos: postgresIntegerSchema,
+  modifiers: z.array(submitOrderOptionSnapshotSchema),
+  addOns: z.array(submitOrderOptionSnapshotSchema),
+});
+
+export const receiptSchema = z.object({
+  orderId: orderIdSchema,
+  orderNumber: z.string(),
+  deviceCode: z.string(),
+  deviceName: z.string(),
+  totalCentavos: postgresIntegerSchema,
+  amountTenderedCentavos: postgresIntegerSchema,
+  changeCentavos: postgresIntegerSchema,
+  lines: z.array(receiptLineSchema),
+});
+export type Receipt = z.infer<typeof receiptSchema>;
+
 export const submitOrderOutputSchema = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
-    orderId: orderIdSchema,
-    changeCentavos: postgresIntegerSchema,
+    receipt: receiptSchema,
   }),
   z.object({ ok: z.literal(false) }),
 ]);
+
+export const receiptInputSchema = z.object({ id: orderIdSchema });
+export const receiptOutputSchema = receiptSchema.nullable();

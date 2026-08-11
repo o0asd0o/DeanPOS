@@ -11,6 +11,7 @@ const srcRoot = join(repoRoot, "apps/pos/src");
 const ALLOWED = [
   "device-token.ts",
   "draft-store.ts",
+  "order-number-sequence.ts",
   "pin-roster.ts",
   "pin-throttle.ts",
   "view-mode.ts",

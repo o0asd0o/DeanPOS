@@ -1,0 +1,56 @@
+import { expectNoAxeViolations, fireEvent, render, screen } from "api/src/test-seam-react.tsx";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import { ReceiptView } from "@/features/receipt/ReceiptView.tsx";
+
+const receipt = {
+  orderId: "10000000-0000-4000-8000-000000000001",
+  orderNumber: "C2-0421",
+  deviceCode: "C2",
+  deviceName: "Counter 2",
+  totalCentavos: 25_500,
+  amountTenderedCentavos: 30_000,
+  changeCentavos: 4_500,
+  lines: [
+    {
+      menuItemName: "Adobo",
+      variantName: "Whole",
+      unitPriceCentavos: 12_000,
+      quantity: 2,
+      lineTotalCentavos: 25_500,
+      modifiers: [{ id: "modifier", name: "Spicy", deltaKind: "absolute" as const, deltaValue: 0 }],
+      addOns: [
+        {
+          id: "addon",
+          name: "Extra rice",
+          deltaKind: "absolute" as const,
+          deltaValue: 750,
+        },
+      ],
+    },
+  ],
+};
+
+describe("ReceiptView", () => {
+  it("confirms completion, itemises snapshots, omits future rows, and starts the next Order", async () => {
+    const onNewOrder = vi.fn();
+    const { container } = render(<ReceiptView receipt={receipt} onNewOrder={onNewOrder} />);
+
+    expect(screen.getByRole("region", { name: "Receipt" })).toBeTruthy();
+    expect(screen.getByText("Sale complete")).toBeTruthy();
+    expect(screen.getByText("Order C2-0421")).toBeTruthy();
+    expect(screen.getByText("Device C2 · Counter 2")).toBeTruthy();
+    expect(screen.getByText("Adobo · Whole ×2")).toBeTruthy();
+    expect(screen.getByText("Modifier · Spicy")).toBeTruthy();
+    expect(screen.getByText("Add-on · Extra rice")).toBeTruthy();
+    expect(screen.getAllByText("₱255.00")).toHaveLength(2);
+    expect(screen.getByText("₱300.00")).toBeTruthy();
+    expect(screen.getByText("₱45.00")).toBeTruthy();
+    expect(screen.queryByText(/VAT/i)).toBeNull();
+    expect(screen.queryByText(/Discount/i)).toBeNull();
+    await expectNoAxeViolations(container);
+
+    fireEvent.click(screen.getByRole("button", { name: "New order" }));
+    expect(onNewOrder).toHaveBeenCalledOnce();
+  });
+});

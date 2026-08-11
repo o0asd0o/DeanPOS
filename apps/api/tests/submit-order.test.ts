@@ -26,6 +26,7 @@ const modifierId = randomUUID();
 const addOnId = randomUUID();
 const cashMethodId = randomUUID();
 const otherCashMethodId = randomUUID();
+let nextDeviceSequence = 1;
 
 const device = {
   tenantId,
@@ -54,38 +55,43 @@ const secondStoreDevice = {
   assignedUserId: null,
 };
 
-const makeInput = (orderId = randomUUID()) => ({
-  id: orderId,
-  lines: [
-    {
-      menuItemId,
-      menuItemName: "Recorded Adobo",
-      variantId,
-      variantName: "Recorded Whole",
-      unitPriceCentavos: 12_000,
-      quantity: 2,
-      lineTotalCentavos: 25_500,
-      modifiers: [
-        {
-          id: modifierId,
-          name: "Recorded Spicy",
-          deltaKind: "absolute" as const,
-          deltaValue: 0,
-        },
-      ],
-      addOns: [
-        {
-          id: addOnId,
-          name: "Recorded Extra rice",
-          deltaKind: "absolute" as const,
-          deltaValue: 750,
-        },
-      ],
-    },
-  ],
-  totalCentavos: 25_500,
-  amountTenderedCentavos: 30_000,
-});
+const makeInput = (orderId = randomUUID()) => {
+  const deviceSequence = nextDeviceSequence++;
+  return {
+    id: orderId,
+    deviceSequence,
+    orderNumber: `${device.code}-${String(deviceSequence).padStart(4, "0")}`,
+    lines: [
+      {
+        menuItemId,
+        menuItemName: "Recorded Adobo",
+        variantId,
+        variantName: "Recorded Whole",
+        unitPriceCentavos: 12_000,
+        quantity: 2,
+        lineTotalCentavos: 25_500,
+        modifiers: [
+          {
+            id: modifierId,
+            name: "Recorded Spicy",
+            deltaKind: "absolute" as const,
+            deltaValue: 0,
+          },
+        ],
+        addOns: [
+          {
+            id: addOnId,
+            name: "Recorded Extra rice",
+            deltaKind: "absolute" as const,
+            deltaValue: 750,
+          },
+        ],
+      },
+    ],
+    totalCentavos: 25_500,
+    amountTenderedCentavos: 30_000,
+  };
+};
 
 beforeAll(async () => {
   await ownerDb
@@ -263,10 +269,18 @@ const client = () => seam.actors.asDevice(device).client;
 describe("terminal.submitOrder", () => {
   it("stores one paid Order, its sale-time line snapshot, and its cash Payment", async () => {
     const input = makeInput();
-    expect(await client().terminal.submitOrder(input)).toEqual({
+    const result = await client().terminal.submitOrder(input);
+    expect(result).toMatchObject({
       ok: true,
-      orderId: input.id,
-      changeCentavos: 4_500,
+      receipt: {
+        orderId: input.id,
+        orderNumber: input.orderNumber,
+        deviceCode: device.code,
+        deviceName: device.name,
+        totalCentavos: 25_500,
+        amountTenderedCentavos: 30_000,
+        changeCentavos: 4_500,
+      },
     });
 
     const order = await ownerDb
@@ -291,6 +305,8 @@ describe("terminal.submitOrder", () => {
       device_id: deviceId,
       drawer_session_id: null,
       status: "paid",
+      device_sequence: input.deviceSequence,
+      order_number: input.orderNumber,
       total_centavos: 25_500,
     });
     expect(line).toMatchObject({
@@ -355,11 +371,7 @@ describe("terminal.submitOrder", () => {
 
     await expect(
       withTenantScope(appDb, tenantId, (db) =>
-        db
-          .updateTable("Order")
-          .set({ total_centavos: 1 })
-          .where("id", "=", serial.id)
-          .execute(),
+        db.updateTable("Order").set({ total_centavos: 1 }).where("id", "=", serial.id).execute(),
       ),
     ).rejects.toThrow();
   });
@@ -384,6 +396,19 @@ describe("terminal.submitOrder", () => {
     const mismatchedTotal = makeInput();
     mismatchedTotal.totalCentavos += 1;
     expect(await client().terminal.submitOrder(mismatchedTotal)).toEqual({ ok: false });
+  });
+
+  it("refuses a number that does not match the authenticated Device and a reused Device sequence", async () => {
+    const mismatched = makeInput();
+    mismatched.orderNumber = `B1-${String(mismatched.deviceSequence).padStart(4, "0")}`;
+    expect(await client().terminal.submitOrder(mismatched)).toEqual({ ok: false });
+
+    const first = makeInput();
+    expect((await client().terminal.submitOrder(first)).ok).toBe(true);
+    const collision = makeInput();
+    collision.deviceSequence = first.deviceSequence;
+    collision.orderNumber = first.orderNumber;
+    expect(await client().terminal.submitOrder(collision)).toEqual({ ok: false });
   });
 
   it("refuses an archived Variant", async () => {
@@ -460,6 +485,71 @@ describe("terminal.submitOrder", () => {
       ownerSees: await client().terminal.submitOrder(input),
       otherGets: () => seam.actors.asDevice(otherDevice).client.terminal.submitOrder(makeInput()),
       why: "An Order may only use catalog records belonging to its Device Tenant.",
+    });
+  });
+});
+
+describe("terminal.receipt", () => {
+  it("reads the persisted receipt projection after catalog names and prices change", async () => {
+    const input = makeInput();
+    const submitted = await client().terminal.submitOrder(input);
+    expect(submitted.ok).toBe(true);
+
+    await ownerDb
+      .updateTable("MenuItem")
+      .set({ name: "Renamed after sale", price_centavos: 1 })
+      .where("id", "=", menuItemId)
+      .execute();
+    await ownerDb
+      .updateTable("Variant")
+      .set({ name: "Archived after sale", price_centavos: 1, archived_at: new Date() })
+      .where("id", "=", variantId)
+      .execute();
+
+    const receipt = await client().terminal.receipt({ id: input.id });
+    expect(receipt).toMatchObject({
+      orderId: input.id,
+      orderNumber: input.orderNumber,
+      lines: [
+        {
+          menuItemName: "Recorded Adobo",
+          variantName: "Recorded Whole",
+          lineTotalCentavos: 25_500,
+          modifiers: [{ name: "Recorded Spicy" }],
+          addOns: [{ name: "Recorded Extra rice" }],
+        },
+      ],
+    });
+
+    await ownerDb
+      .updateTable("MenuItem")
+      .set({ name: "Adobo", price_centavos: 12_000 })
+      .where("id", "=", menuItemId)
+      .execute();
+    await ownerDb
+      .updateTable("Variant")
+      .set({ name: "Whole", price_centavos: 12_000, archived_at: null })
+      .where("id", "=", variantId)
+      .execute();
+  });
+
+  it("returns the same opaque result for a wrong Store and a missing Order", async () => {
+    const input = makeInput();
+    await client().terminal.submitOrder(input);
+    expect(
+      await seam.actors.asDevice(secondStoreDevice).client.terminal.receipt({ id: input.id }),
+    ).toBeNull();
+    expect(await client().terminal.receipt({ id: randomUUID() })).toBeNull();
+  });
+
+  it("wrong-tenant probe [terminal.receipt]: another Tenant cannot read this Tenant's receipt", async () => {
+    const input = makeInput();
+    await client().terminal.submitOrder(input);
+    await expectWrongTenantRefusal({
+      path: "terminal.receipt",
+      mode: "refusal",
+      ownerSees: await client().terminal.receipt({ id: input.id }),
+      otherGets: () => seam.actors.asDevice(otherDevice).client.terminal.receipt({ id: input.id }),
     });
   });
 });

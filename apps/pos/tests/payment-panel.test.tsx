@@ -114,4 +114,21 @@ describe("PaymentPanel", () => {
       true,
     );
   });
+
+  it("shows an explicit Device sequence refusal", () => {
+    render(
+      <PaymentPanel
+        draft={draft}
+        catalog={catalog}
+        pending={false}
+        error="This Device cannot assign another Order number. Contact an administrator."
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "This Device cannot assign another Order number",
+    );
+  });
 });

@@ -102,7 +102,7 @@ import {
   overrideListRoute,
   terminalRecordOverrideRoute,
 } from "./routes/override.ts";
-import { terminalSubmitOrderRoute } from "./routes/terminal-order.ts";
+import { terminalReceiptRoute, terminalSubmitOrderRoute } from "./routes/terminal-order.ts";
 import { provisionTenantRoute } from "./routes/platform-admin.ts";
 import {
   paymentMethodCreateRoute,
@@ -296,6 +296,7 @@ export const createApp = ({
         pinSync: terminalPinSyncRoute,
         recordOverride: terminalRecordOverrideRoute,
         submitOrder: terminalSubmitOrderRoute,
+        receipt: terminalReceiptRoute,
       },
       // The Override review list (issue 12, record 060 Q5). Cookie/admin
       // or manager — never accepts a Device token.

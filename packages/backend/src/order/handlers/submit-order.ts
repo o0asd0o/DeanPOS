@@ -1,5 +1,5 @@
 import type { catalogReadOutputSchema, submitOrderOutputSchema } from "contract/src/contract.ts";
-import { submitOrderInputSchema } from "contract/src/contract.ts";
+import { receiptSchema, submitOrderInputSchema } from "contract/src/contract.ts";
 import type { z } from "zod";
 
 import { selectCatalogRead } from "../../catalog/db-operations/queries/catalog-version.query.ts";
@@ -10,7 +10,7 @@ import { insertOrder } from "../db-operations/commands/insert-order.command.ts";
 import { insertOrderLines } from "../db-operations/commands/insert-order-lines.command.ts";
 import { insertPayment } from "../db-operations/commands/insert-payment.command.ts";
 import { getCashPaymentMethod } from "../db-operations/queries/get-cash-payment-method.query.ts";
-import { getOrderById } from "../db-operations/queries/get-order-by-id.query.ts";
+import { getReceiptById } from "../db-operations/queries/get-receipt-by-id.query.ts";
 import { isValidSubmittedLine } from "../helpers.ts";
 
 export const inputSchema = submitOrderInputSchema;
@@ -38,6 +38,17 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
 
   const { device } = deviceContext;
   const result = await withTenantScope(ctx.db, device.tenantId, async (db) => {
+    const existingReceipt = await getReceiptById(db, { id: input.id, storeId: device.storeId });
+    if (existingReceipt) {
+      return {
+        output: { ok: true, receipt: receiptSchema.parse(existingReceipt) } as const,
+        outcome: "duplicate" as const,
+      };
+    }
+    const expectedOrderNumber = `${device.code}-${String(input.deviceSequence).padStart(4, "0")}`;
+    if (input.orderNumber !== expectedOrderNumber) {
+      return { output: { ok: false } as const, outcome: "refused" as const };
+    }
     if (input.amountTenderedCentavos < input.totalCentavos) {
       return { output: { ok: false } as const, outcome: "refused" as const };
     }
@@ -64,17 +75,15 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       tenantId: device.tenantId,
       storeId: device.storeId,
       deviceId: device.deviceId,
+      deviceSequence: input.deviceSequence,
+      orderNumber: input.orderNumber,
       totalCentavos: input.totalCentavos,
     });
     if (!created) {
-      const existing = await getOrderById(db, input.id);
+      const existing = await getReceiptById(db, { id: input.id, storeId: device.storeId });
       return existing
         ? {
-            output: {
-              ok: true,
-              orderId: existing.id,
-              changeCentavos: existing.change_centavos,
-            } as const,
+            output: { ok: true, receipt: receiptSchema.parse(existing) } as const,
             outcome: "duplicate" as const,
           }
         : { output: { ok: false } as const, outcome: "refused" as const };
@@ -92,8 +101,10 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       amountTenderedCentavos: input.amountTenderedCentavos,
       changeCentavos,
     });
+    const receipt = await getReceiptById(db, { id: input.id, storeId: device.storeId });
+    if (!receipt) throw new Error("Created Order receipt projection is unavailable");
     return {
-      output: { ok: true, orderId: input.id, changeCentavos } as const,
+      output: { ok: true, receipt: receiptSchema.parse(receipt) } as const,
       outcome: "created" as const,
     };
   });

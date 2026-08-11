@@ -6,6 +6,8 @@ const id = "10000000-0000-4000-8000-000000000001";
 
 const validInput = {
   id,
+  deviceSequence: 421,
+  orderNumber: "C2-0421",
   lines: [
     {
       menuItemId: "10000000-0000-4000-8000-000000000002",
@@ -49,6 +51,8 @@ describe("submitOrderInputSchema", () => {
     ["negative tender", { ...validInput, amountTenderedCentavos: -1 }],
     ["fractional tender", { ...validInput, amountTenderedCentavos: 25_500.5 }],
     ["unsafe centavos", { ...validInput, totalCentavos: 2_147_483_648 }],
+    ["zero Device sequence", { ...validInput, deviceSequence: 0 }],
+    ["malformed Order number", { ...validInput, orderNumber: "C2-421" }],
     ["empty lines", { ...validInput, lines: [] }],
   ])("rejects %s", (_label, input) => {
     expect(submitOrderInputSchema.safeParse(input).success).toBe(false);

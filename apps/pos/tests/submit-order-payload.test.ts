@@ -8,6 +8,9 @@ describe("buildSubmitOrderInput", () => {
     const addOnId = "10000000-0000-4000-8000-000000000005";
     const draft = {
       id: "10000000-0000-4000-8000-000000000001",
+      orderDeviceId: "device-a",
+      deviceSequence: 421,
+      orderNumber: "C2-0421",
       lines: [
         {
           id: "draft-line",
@@ -71,6 +74,8 @@ describe("buildSubmitOrderInput", () => {
 
     expect(buildSubmitOrderInput(draft, catalog, 30_000)).toEqual({
       id: draft.id,
+      deviceSequence: 421,
+      orderNumber: "C2-0421",
       lines: [
         {
           menuItemId: draft.lines[0].menuItemId,
