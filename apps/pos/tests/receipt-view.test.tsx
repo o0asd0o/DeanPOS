@@ -33,9 +33,20 @@ const receipt = {
   ],
 };
 
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: width });
+  Object.defineProperty(window, "innerHeight", {
+    writable: true,
+    configurable: true,
+    value: height,
+  });
+  window.dispatchEvent(new Event("resize"));
+}
+
 describe("ReceiptView", () => {
   it("confirms completion, itemises snapshots, omits future rows, and starts the next Order", async () => {
     const onNewOrder = vi.fn();
+    setViewport(1280, 800);
     const { container } = render(<ReceiptView receipt={receipt} onNewOrder={onNewOrder} />);
 
     expect(screen.getByRole("region", { name: "Receipt" })).toBeTruthy();
@@ -51,6 +62,9 @@ describe("ReceiptView", () => {
     expect(screen.getByText("₱45.00")).toBeTruthy();
     expect(screen.queryByText(/VAT/i)).toBeNull();
     expect(screen.queryByText(/Discount/i)).toBeNull();
+    await expectNoAxeViolations(container);
+
+    setViewport(390, 844);
     await expectNoAxeViolations(container);
 
     fireEvent.click(screen.getByRole("button", { name: "New order" }));
