@@ -20,6 +20,9 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
           <p className="text-sm text-muted-foreground">
             Device {receipt.deviceCode} · {receipt.deviceName}
           </p>
+          <p className="text-sm text-muted-foreground">
+            Cashier · {receipt.cashierName ?? "Unknown"}
+          </p>
         </CardHeader>
         <CardContent>
           <ul className="space-y-4">

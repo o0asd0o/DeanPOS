@@ -3,6 +3,7 @@ import type { Receipt } from "contract/src/contract.ts";
 
 import type { Draft } from "@/features/sale/draft-store.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
+import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
 import { ORDER_SEQUENCE_EXHAUSTED_MESSAGE } from "@/lib/order-number-sequence.ts";
 
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onCompleted }: Props) {
+  const { actingUser } = useActingUser();
   const submissionDraft = useRef(draft);
   const [preparationError, setPreparationError] = useState<string | null>(null);
   if (submissionDraft.current.id !== draft.id) submissionDraft.current = draft;
@@ -33,6 +35,7 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
       onSubmit={async (amountTenderedCentavos) => {
         const identity = readDeviceIdentity();
         if (!identity) throw new Error("This Device must be enrolled before taking payment.");
+        if (!actingUser) throw new Error("Unlock the Device before taking payment.");
         setPreparationError(null);
         try {
           await submitNumberedDraft({
@@ -44,7 +47,12 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
             },
             transport: (numberedDraft) =>
               submitOrder.mutateAsync(
-                buildSubmitOrderInput(numberedDraft, catalog, amountTenderedCentavos),
+                buildSubmitOrderInput(
+                  numberedDraft,
+                  catalog,
+                  amountTenderedCentavos,
+                  actingUser.userId,
+                ),
               ),
           });
         } catch (error) {

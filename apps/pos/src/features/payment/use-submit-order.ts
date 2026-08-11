@@ -22,12 +22,14 @@ export function buildSubmitOrderInput(
   draft: Draft,
   catalog: SaleCatalog,
   amountTenderedCentavos: number,
+  cashierUserId: string,
 ) {
   if (!draft.deviceSequence || !draft.orderNumber) {
     throw new Error("The Order number must be assigned before submission.");
   }
   return {
     id: draft.id,
+    cashierUserId,
     deviceSequence: draft.deviceSequence,
     orderNumber: draft.orderNumber,
     lines: draft.lines.map((line) => {

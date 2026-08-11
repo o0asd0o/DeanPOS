@@ -19,6 +19,8 @@ export async function getReceiptById(
     .select([
       "order.id as order_id",
       "order.order_number",
+      "order.cashier_user_id",
+      "order.cashier_name",
       "order.total_centavos",
       "device.code as device_code",
       "device.name as device_name",
@@ -50,6 +52,8 @@ export async function getReceiptById(
     orderNumber: order.order_number,
     deviceCode: order.device_code,
     deviceName: order.device_name,
+    cashierUserId: order.cashier_user_id,
+    cashierName: order.cashier_name,
     totalCentavos: order.total_centavos,
     amountTenderedCentavos: order.amount_tendered_centavos,
     changeCentavos: order.change_centavos,

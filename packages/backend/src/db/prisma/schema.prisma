@@ -123,6 +123,7 @@ model User {
   deviceAudits         DeviceAudit[]
   overridesApproved    Override[]            @relation("overridesApproved")
   assignedDevices      Device[]              @relation("deviceAssignedUser")
+  cashierOrders        Order[]               @relation("orderCashier")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -661,6 +662,8 @@ model Order {
   deviceId        String      @map("device_id")
   deviceSequence  Int         @map("device_sequence")
   orderNumber     String      @map("order_number")
+  cashierUserId   String?     @map("cashier_user_id")
+  cashierName     String?     @map("cashier_name")
   drawerSessionId String?     @map("drawer_session_id")
   status          String
   totalCentavos   Int         @map("total_centavos")
@@ -668,6 +671,7 @@ model Order {
   tenant          Tenant      @relation(fields: [tenantId], references: [id])
   store           Store       @relation(fields: [tenantId, storeId], references: [tenantId, id])
   device          Device      @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  cashier         User?       @relation("orderCashier", fields: [tenantId, cashierUserId], references: [tenantId, id])
   lines           OrderLine[]
   payments        Payment[]
 

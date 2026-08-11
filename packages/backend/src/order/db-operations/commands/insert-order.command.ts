@@ -9,6 +9,8 @@ export const insertOrder = (
     deviceId: string;
     deviceSequence: number;
     orderNumber: string;
+    cashierUserId: string;
+    cashierName: string;
     totalCentavos: number;
   },
 ) =>
@@ -21,6 +23,8 @@ export const insertOrder = (
       device_id: values.deviceId,
       device_sequence: values.deviceSequence,
       order_number: values.orderNumber,
+      cashier_user_id: values.cashierUserId,
+      cashier_name: values.cashierName,
       drawer_session_id: null,
       status: "paid",
       total_centavos: values.totalCentavos,
