@@ -170,6 +170,7 @@ describe("paid cash order flow", () => {
     expect(localStorage.getItem("deanpos.sale.draft")).toBeNull();
     expect(screen.getByRole("region", { name: "Receipt" })).toBeTruthy();
     expect(screen.getByText("Order C2-0001")).toBeTruthy();
+    expect(screen.getByText("Cashier · Ana Reyes")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "New order" }));
     expect(screen.getByText("0 items · ₱0.00 · Open cart")).toBeTruthy();
 
@@ -183,6 +184,8 @@ describe("paid cash order flow", () => {
       device_id: deviceId,
       device_sequence: 1,
       order_number: "C2-0001",
+      cashier_user_id: userId,
+      cashier_name: "Ana Reyes",
       status: "paid",
       total_centavos: 15_000,
     });

@@ -6,6 +6,7 @@ const id = "10000000-0000-4000-8000-000000000001";
 
 const validInput = {
   id,
+  cashierUserId: "10000000-0000-4000-8000-000000000006",
   deviceSequence: 421,
   orderNumber: "C2-0421",
   lines: [
@@ -41,7 +42,9 @@ const validInput = {
 
 describe("submitOrderInputSchema", () => {
   it("accepts a bounded integer cash order with sale-time snapshots", () => {
-    expect(submitOrderInputSchema.safeParse(validInput).success).toBe(true);
+    const result = submitOrderInputSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.cashierUserId).toBe(validInput.cashierUserId);
   });
 
   it.each([

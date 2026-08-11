@@ -72,8 +72,11 @@ describe("buildSubmitOrderInput", () => {
       ],
     };
 
-    expect(buildSubmitOrderInput(draft, catalog, 30_000)).toEqual({
+    expect(
+      buildSubmitOrderInput(draft, catalog, 30_000, "10000000-0000-4000-8000-000000000006"),
+    ).toEqual({
       id: draft.id,
+      cashierUserId: "10000000-0000-4000-8000-000000000006",
       deviceSequence: 421,
       orderNumber: "C2-0421",
       lines: [

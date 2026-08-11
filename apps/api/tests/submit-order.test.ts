@@ -26,6 +26,8 @@ const modifierId = randomUUID();
 const addOnId = randomUUID();
 const cashMethodId = randomUUID();
 const otherCashMethodId = randomUUID();
+const cashierUserId = randomUUID();
+const secondStoreCashierId = randomUUID();
 let nextDeviceSequence = 1;
 
 const device = {
@@ -59,6 +61,7 @@ const makeInput = (orderId = randomUUID()) => {
   const deviceSequence = nextDeviceSequence++;
   return {
     id: orderId,
+    cashierUserId,
     deviceSequence,
     orderNumber: `${device.code}-${String(deviceSequence).padStart(4, "0")}`,
     lines: [
@@ -107,6 +110,72 @@ beforeAll(async () => {
       { id: storeId, tenant_id: tenantId, name: "Order Store" },
       { id: secondStoreId, tenant_id: tenantId, name: "Second Order Store" },
       { id: otherStoreId, tenant_id: otherTenantId, name: "Other Order Store" },
+    ])
+    .execute();
+  await ownerDb
+    .insertInto("User")
+    .values([
+      {
+        id: cashierUserId,
+        tenant_id: tenantId,
+        email: `order-cashier-${cashierUserId}@test.local`,
+        first_name: "Ana",
+        last_name: "Reyes",
+        password_hash: "test-only",
+        must_change_password: false,
+        role: "cashier",
+      },
+      {
+        id: secondStoreCashierId,
+        tenant_id: tenantId,
+        email: `second-order-cashier-${secondStoreCashierId}@test.local`,
+        first_name: "Ben",
+        last_name: "Santos",
+        password_hash: "test-only",
+        must_change_password: false,
+        role: "cashier",
+      },
+    ])
+    .execute();
+  const effectiveFrom = new Date(Date.now() - 60_000);
+  await ownerDb
+    .insertInto("UserRole")
+    .values([
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: cashierUserId,
+        role: "cashier",
+        effective_from: effectiveFrom,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: secondStoreCashierId,
+        role: "cashier",
+        effective_from: effectiveFrom,
+      },
+    ])
+    .execute();
+  await ownerDb
+    .insertInto("UserStore")
+    .values([
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: cashierUserId,
+        store_id: storeId,
+        assigned: true,
+        effective_from: effectiveFrom,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        user_id: secondStoreCashierId,
+        store_id: secondStoreId,
+        assigned: true,
+        effective_from: effectiveFrom,
+      },
     ])
     .execute();
   await ownerDb
@@ -257,6 +326,9 @@ afterAll(async () => {
     .where("tenant_id", "in", [tenantId, otherTenantId])
     .execute();
   await ownerDb.deleteFrom("Device").where("tenant_id", "in", [tenantId, otherTenantId]).execute();
+  await ownerDb.deleteFrom("UserStore").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("UserRole").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("User").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("tenant_id", "in", [tenantId, otherTenantId]).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "in", [tenantId, otherTenantId]).execute();
   await ownerDb.destroy();
@@ -277,6 +349,8 @@ describe("terminal.submitOrder", () => {
         orderNumber: input.orderNumber,
         deviceCode: device.code,
         deviceName: device.name,
+        cashierUserId,
+        cashierName: "Ana Reyes",
         totalCentavos: 25_500,
         amountTenderedCentavos: 30_000,
         changeCentavos: 4_500,
@@ -307,6 +381,8 @@ describe("terminal.submitOrder", () => {
       status: "paid",
       device_sequence: input.deviceSequence,
       order_number: input.orderNumber,
+      cashier_user_id: cashierUserId,
+      cashier_name: "Ana Reyes",
       total_centavos: 25_500,
     });
     expect(line).toMatchObject({
@@ -411,6 +487,12 @@ describe("terminal.submitOrder", () => {
     expect(await client().terminal.submitOrder(collision)).toEqual({ ok: false });
   });
 
+  it("refuses a cashier who is not assigned to the Device Store", async () => {
+    const input = makeInput();
+    input.cashierUserId = secondStoreCashierId;
+    expect(await client().terminal.submitOrder(input)).toEqual({ ok: false });
+  });
+
   it("refuses an archived Variant", async () => {
     await ownerDb
       .updateTable("Variant")
@@ -505,11 +587,18 @@ describe("terminal.receipt", () => {
       .set({ name: "Archived after sale", price_centavos: 1, archived_at: new Date() })
       .where("id", "=", variantId)
       .execute();
+    await ownerDb
+      .updateTable("User")
+      .set({ first_name: "Renamed", last_name: "Cashier" })
+      .where("id", "=", cashierUserId)
+      .execute();
 
     const receipt = await client().terminal.receipt({ id: input.id });
     expect(receipt).toMatchObject({
       orderId: input.id,
       orderNumber: input.orderNumber,
+      cashierUserId,
+      cashierName: "Ana Reyes",
       lines: [
         {
           menuItemName: "Recorded Adobo",
@@ -530,6 +619,11 @@ describe("terminal.receipt", () => {
       .updateTable("Variant")
       .set({ name: "Whole", price_centavos: 12_000, archived_at: null })
       .where("id", "=", variantId)
+      .execute();
+    await ownerDb
+      .updateTable("User")
+      .set({ first_name: "Ana", last_name: "Reyes" })
+      .where("id", "=", cashierUserId)
       .execute();
   });
 
