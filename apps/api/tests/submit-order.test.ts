@@ -352,6 +352,16 @@ describe("terminal.submitOrder", () => {
       .where("order_id", "=", serial.id)
       .executeTakeFirstOrThrow();
     expect(storedSerial.menu_item_name).toBe("Recorded Adobo");
+
+    await expect(
+      withTenantScope(appDb, tenantId, (db) =>
+        db
+          .updateTable("Order")
+          .set({ total_centavos: 1 })
+          .where("id", "=", serial.id)
+          .execute(),
+      ),
+    ).rejects.toThrow();
   });
 
   it("refuses underpayment, missing required Modifiers, excess Add-ons, and another Store's unavailable Variant", async () => {
@@ -370,6 +380,10 @@ describe("terminal.submitOrder", () => {
     expect(
       await seam.actors.asDevice(secondStoreDevice).client.terminal.submitOrder(makeInput()),
     ).toEqual({ ok: false });
+
+    const mismatchedTotal = makeInput();
+    mismatchedTotal.totalCentavos += 1;
+    expect(await client().terminal.submitOrder(mismatchedTotal)).toEqual({ ok: false });
   });
 
   it("refuses an archived Variant", async () => {

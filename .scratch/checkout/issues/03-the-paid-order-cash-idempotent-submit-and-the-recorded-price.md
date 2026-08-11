@@ -1,6 +1,6 @@
 # 03 — The paid Order: cash, idempotent submit, and the recorded price
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -40,35 +40,47 @@ default product and this issue builds it.
 
 ## Acceptance criteria
 
-- [ ] `Order`, `OrderLine`, and `Payment` tables with `tenant_id`, RLS enabled and forced in the
+- [x] `Order`, `OrderLine`, and `Payment` tables with `tenant_id`, RLS enabled and forced in the
       creating migration, `@@unique([tenantId, id])`, and a **nullable** DrawerSession reference.
-- [ ] A unique constraint on the Order's client UUID; submitting the same UUID twice yields one
+- [x] A unique constraint on the Order's client UUID; submitting the same UUID twice yields one
       Order, and **two simultaneous requests** with the same UUID also yield one.
-- [ ] The Store comes from the Device token, never from the request body.
-- [ ] The server re-validates Variant ownership, required Modifier groups, and Add-on maximums,
+- [x] The Store comes from the Device token, never from the request body.
+- [x] The server re-validates Variant ownership, required Modifier groups, and Add-on maximums,
       and rejects a submission that violates any of them — asserted by submitting directly,
       bypassing the UI.
-- [ ] The recorded price the terminal sent is stored verbatim; the server never re-prices.
-- [ ] Each OrderLine stores the Variant id and name, the Modifier and Add-on ids, names and
+- [x] The recorded price the terminal sent is stored verbatim; the server never re-prices.
+- [x] Each OrderLine stores the Variant id and name, the Modifier and Add-on ids, names and
       Deltas, the quantity, the unit price, and the line total.
-- [ ] The Order total equals the exact integer sum of the stored line totals; the sum is not a
+- [x] The Order total equals the exact integer sum of the stored line totals; the sum is not a
       rounding site.
-- [ ] Cash: the tendered amount is entered, change is computed, and a tender below the total is
+- [x] Cash: the tendered amount is entered, change is computed, and a tender below the total is
       refused — in the UI *and* server-side.
-- [ ] A paid Order cannot be mutated by any procedure, including re-submitting a modified body
+- [x] A paid Order cannot be mutated by any procedure, including re-submitting a modified body
       under the same UUID.
-- [ ] Untrusted input: every id, quantity, and tendered amount is parsed to `Centavos` or a
+- [x] Untrusted input: every id, quantity, and tendered amount is parsed to `Centavos` or a
       bounded positive integer, or rejected.
-- [ ] Never logged: full Order payloads, tendered amounts, PINs. Log Order UUID, Store, Device,
+- [x] Never logged: full Order payloads, tendered amounts, PINs. Log Order UUID, Store, Device,
       actor, outcome. A test asserts no payload reaches the log.
-- [ ] Error messages are opaque about what exists — a wrong Order id reads the same whether it
+- [x] Error messages are opaque about what exists — a wrong Order id reads the same whether it
       belongs to another Tenant or does not exist.
-- [ ] Wrong-tenant and wrong-Store probes on every procedure this issue exposes, using
+- [x] Wrong-tenant and wrong-Store probes on every procedure this issue exposes, using
       `tenancy-identity`'s probe helper.
-- [ ] A price change or a Variant rename after the sale does not alter the persisted Order.
-- [ ] A single test through the seam rings up an order, pays, and asserts both the on-screen
+- [x] A price change or a Variant rename after the sale does not alter the persisted Order.
+- [x] A single test through the seam rings up an order, pays, and asserts both the on-screen
       confirmation and the persisted rows.
-- [ ] WCAG 2.2 AA on the payment step, both layouts.
+- [x] WCAG 2.2 AA on the payment step, both layouts.
+
+## Comments
+
+Implemented the cash-only paid-order seam with a client-generated UUID, atomic idempotent
+storage, immutable sale-time snapshots, device-derived Store identity, server validation, and a
+responsive payment step. The cash-only UI intentionally omits payment-method, discount, and VAT
+controls; those remain in later checkout issues.
+
+Focused proof covers contract bounds, serial and simultaneous duplicate submission, direct
+wrong-Tenant/wrong-Store probes, malformed compositions, underpayment, immutable recorded prices,
+safe logging, database UPDATE refusal, the full ring-up-to-persistence seam, and axe checks at
+1280x800 and 390x844.
 
 ## Visual reference
 
