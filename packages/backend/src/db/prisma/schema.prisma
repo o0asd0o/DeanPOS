@@ -56,6 +56,9 @@ model Tenant {
   discounts                             Discount[]
   discountAudits                        DiscountAudit[]
   menuItemAddOns                        MenuItemAddOn[]
+  orders                                Order[]
+  orderLines                            OrderLine[]
+  payments                              Payment[]
 }
 
 // Deactivated, never deleted (issue 01 acceptance criteria). RLS ENABLED and
@@ -82,6 +85,7 @@ model Store {
   devices                     Device[]
   enrolmentCodes              EnrolmentCode[]
   overrides                   Override[]
+  orders                      Order[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -241,6 +245,7 @@ model PaymentMethod {
   availabilities PaymentMethodAvailability[]
   audits         PaymentMethodAudit[]          @relation("PaymentMethodAuditMethod")
   paymentDetails PaymentMethodPaymentDetails[]
+  payments       Payment[]
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -576,6 +581,7 @@ model Device {
   enrolmentCodes EnrolmentCode[]
   deviceAudits   DeviceAudit[]
   overrides      Override[]
+  orders         Order[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, storeId, code])
@@ -645,5 +651,63 @@ model OverrideConsumption {
   override        Override @relation(fields: [tenantId, overrideId], references: [tenantId, id])
 
   @@unique([tenantId, overrideId])
+  @@index([tenantId])
+}
+
+model Order {
+  id              String      @id
+  tenantId        String      @map("tenant_id")
+  storeId         String      @map("store_id")
+  deviceId        String      @map("device_id")
+  drawerSessionId String?     @map("drawer_session_id")
+  status          String
+  totalCentavos   Int         @map("total_centavos")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  store           Store       @relation(fields: [tenantId, storeId], references: [tenantId, id])
+  device          Device      @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  lines           OrderLine[]
+  payments        Payment[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+}
+
+model OrderLine {
+  id                 String   @id
+  tenantId           String   @map("tenant_id")
+  orderId            String   @map("order_id")
+  menuItemId         String   @map("menu_item_id")
+  menuItemName       String   @map("menu_item_name")
+  variantId          String?  @map("variant_id")
+  variantName        String   @map("variant_name")
+  unitPriceCentavos  Int      @map("unit_price_centavos")
+  quantity           Int
+  lineTotalCentavos  Int      @map("line_total_centavos")
+  modifierSnapshot   Json     @default("[]") @map("modifier_snapshot")
+  addonSnapshot      Json     @default("[]") @map("addon_snapshot")
+  sortOrder          Int      @map("sort_order")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  order              Order    @relation(fields: [tenantId, orderId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId])
+  @@index([tenantId, orderId])
+}
+
+model Payment {
+  id                       String        @id
+  tenantId                 String        @map("tenant_id")
+  orderId                  String        @map("order_id")
+  paymentMethodId          String        @map("payment_method_id")
+  method                   String
+  amountTenderedCentavos   Int           @map("amount_tendered_centavos")
+  changeCentavos           Int           @map("change_centavos")
+  tenant                   Tenant        @relation(fields: [tenantId], references: [id])
+  order                    Order         @relation(fields: [tenantId, orderId], references: [tenantId, id])
+  paymentMethod            PaymentMethod @relation(fields: [tenantId, paymentMethodId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderId])
   @@index([tenantId])
 }
