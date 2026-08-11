@@ -58,7 +58,19 @@ describe("PaymentPanel", () => {
     );
 
     expect(screen.getAllByText("₱308.00").length).toBeGreaterThan(1);
-    expect(screen.getByRole("region", { name: "Payment" }).className).toContain("md:grid-cols-2");
+    expect(screen.getAllByText("Amount due")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Amount due" }).parentElement?.className).toContain(
+      "bg-secondary",
+    );
+    expect(screen.getByText("Total")).toBeTruthy();
+    const payment = screen.getByRole("region", { name: "Payment" });
+    expect(payment.className).toContain("@container/payment");
+    expect(
+      screen.getByText("Order summary").closest('[data-slot="card"]')?.parentElement?.className,
+    ).toContain("@3xl/payment:grid-cols-3");
+    expect(screen.getByRole("group", { name: "Quick tender" }).className).toContain(
+      "@xs/tender:grid-cols-3",
+    );
     expect(screen.queryByText("Payment method")).toBeNull();
     expect(screen.queryByText("Discount")).toBeNull();
     expect(screen.queryByText("VAT")).toBeNull();

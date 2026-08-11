@@ -25,9 +25,7 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
       <div className="flex shrink-0 items-start justify-between p-4">
         <div>
           <h2 className="font-semibold">Current order</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review items before payment.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Review items before payment.</p>
         </div>
         <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold tabular-nums">
           {lines.length} {lines.length === 1 ? "item" : "items"}
@@ -41,9 +39,7 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
             </span>
             <div>
               <p className="font-semibold">Your order is empty</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose a menu item to start.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">Choose a menu item to start.</p>
             </div>
           </div>
         ) : (
@@ -52,9 +48,7 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
               .map((id) => optionNames.get(id))
               .filter((name): name is string => Boolean(name));
             const addOns = [...new Set(line.addOnIds)].map((id) => {
-              const count = line.addOnIds.filter(
-                (entry) => entry === id,
-              ).length;
+              const count = line.addOnIds.filter((entry) => entry === id).length;
               return `${count}× ${optionNames.get(id) ?? "Add-on"}`;
             });
             return (
@@ -66,27 +60,19 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
                 onClick={() => onEdit(line)}
               >
                 <span className="flex min-w-0 gap-2 text-left">
-                  <span className="shrink-0 font-semibold tabular-nums">
-                    {line.quantity}×
-                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums">{line.quantity}×</span>
                   <span className="min-w-0">
                     <span className="block truncate font-medium">
                       {line.menuItemName}
                       {line.variantName ? ` · ${line.variantName}` : ""}
                     </span>
                     {modifiers.map((name) => (
-                      <span
-                        key={name}
-                        className="block text-xs text-muted-foreground"
-                      >
+                      <span key={name} className="block text-xs text-muted-foreground">
                         {name}
                       </span>
                     ))}
                     {addOns.map((label) => (
-                      <span
-                        key={label}
-                        className="block text-xs text-muted-foreground"
-                      >
+                      <span key={label} className="block text-xs text-muted-foreground">
                         + {label}
                       </span>
                     ))}
@@ -102,9 +88,7 @@ export function Cart({ ariaLabel, draft, optionNames, onEdit, onPay }: Props) {
       </div>
       <div className="shrink-0 bg-primary p-3 text-primary-foreground">
         <div className="mb-3 flex items-end justify-between px-1">
-          <span className="text-sm font-medium text-primary-foreground/70">
-            Total
-          </span>
+          <span className="text-sm font-medium text-primary-foreground/70">Total</span>
           <span className="text-2xl font-semibold tracking-tight tabular-nums">
             {formatPeso(total)}
           </span>

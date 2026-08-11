@@ -48,136 +48,161 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
     <form
       aria-label="Payment"
       role="region"
-      className="grid min-h-0 flex-1 gap-2 overflow-y-auto bg-muted/40 p-2 md:grid-cols-2"
+      className="@container/payment min-h-0 flex-1 overflow-y-auto bg-background p-2 md:p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (canComplete && !pending) void onSubmit(tenderedCentavos);
       }}
     >
-      <Card className="flex flex-col gap-5 p-4 md:p-6">
-        <section
-          aria-labelledby="amount-due-heading"
-          className="rounded-xl bg-muted p-5 text-center"
-        >
-          <h2
-            id="amount-due-heading"
-            className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-          >
-            Amount due
-          </h2>
-          <p className="mt-2 text-4xl font-semibold tabular-nums">
-            {formatPeso(draft.totalCentavos)}
-          </p>
-        </section>
-
-        <label className="grid gap-2 text-sm font-medium" htmlFor="cash-tendered">
-          Cash tendered
-          <Input
-            id="cash-tendered"
-            aria-label="Cash tendered"
-            inputMode="decimal"
-            autoComplete="off"
-            className="h-16 text-center text-2xl tabular-nums"
-            placeholder="0"
-            value={tenderedInput}
-            onChange={(event) => {
-              const next = event.target.value;
-              if (next === "" || /^\d+(?:\.\d{0,2})?$/.test(next)) setTenderedInput(next);
-            }}
-          />
-        </label>
-
-        <div aria-label="Quick tender" role="group" className="grid grid-cols-5 gap-2">
-          {quickTenderPesos.map((pesos) => (
-            <Button
-              key={pesos}
-              type="button"
-              variant="outline"
-              className="h-12 px-1 tabular-nums"
-              aria-label={`Tender ₱${pesos}`}
-              onClick={() => setTenderedInput(String(pesos))}
-            >
-              {pesos}
-            </Button>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            className="h-12 px-1"
-            aria-label="Tender exact amount"
-            onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
-          >
-            Exact
-          </Button>
-        </div>
-
-        <section aria-labelledby="change-heading" className="rounded-xl bg-muted p-4 text-center">
-          <h2
-            id="change-heading"
-            className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-          >
-            Change
-          </h2>
-          <p className="mt-1 text-3xl font-semibold tabular-nums">{formatPeso(changeCentavos)}</p>
-        </section>
-      </Card>
-
-      <Card className="flex min-h-0 flex-col gap-4 p-4 md:p-6">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <h2 className="font-semibold">Order summary</h2>
-          <div className="mt-3 grid gap-3">
-            {draft.lines.map((line) => {
-              const addOns = [...new Set(line.addOnIds)].map((id) => ({
-                id,
-                name: optionNames.get(id) ?? "Add-on",
-                count: line.addOnIds.filter((entry) => entry === id).length,
-              }));
-              return (
-                <div key={line.id} className="grid gap-1">
-                  <div className="flex items-start justify-between gap-3 text-sm">
-                    <span>
-                      {line.quantity}× {line.menuItemName}
-                      {line.variantName ? ` · ${line.variantName}` : ""}
-                    </span>
-                    <span className="shrink-0 font-medium tabular-nums">
-                      {formatPeso(line.totalCentavos)}
-                    </span>
-                  </div>
-                  {line.modifierIds.map((id) => (
-                    <p key={id} className="text-xs text-muted-foreground">
-                      {optionNames.get(id) ?? "Modifier"}
-                    </p>
-                  ))}
-                  {addOns.map((addOn) => (
-                    <p key={addOn.id} className="text-xs text-muted-foreground">
-                      + {addOn.count}× {addOn.name}
-                    </p>
-                  ))}
-                </div>
-              );
-            })}
+      <div className="grid min-h-full gap-3 @3xl/payment:grid-cols-3">
+        <Card className="min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-1">
+          <div className="flex shrink-0 items-start justify-between p-4 md:p-5">
+            <div>
+              <h2 className="font-semibold">Order summary</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Review the ticket before payment.
+              </p>
+            </div>
+            <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold whitespace-nowrap tabular-nums">
+              {draft.lines.length} {draft.lines.length === 1 ? "line" : "lines"}
+            </span>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between rounded-xl bg-muted p-4">
-          <span className="text-sm font-semibold">Amount due</span>
-          <span className="text-2xl font-semibold tabular-nums">
-            {formatPeso(draft.totalCentavos)}
-          </span>
-        </div>
+          <div className="min-h-0 overflow-y-auto px-4 pb-4 md:px-5">
+            <div className="grid gap-4">
+              {draft.lines.map((line) => {
+                const addOns = [...new Set(line.addOnIds)].map((id) => ({
+                  id,
+                  name: optionNames.get(id) ?? "Add-on",
+                  count: line.addOnIds.filter((entry) => entry === id).length,
+                }));
+                return (
+                  <div key={line.id} className="grid gap-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-medium">
+                        {line.quantity}× {line.menuItemName}
+                        {line.variantName ? ` · ${line.variantName}` : ""}
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        {formatPeso(line.totalCentavos)}
+                      </span>
+                    </div>
+                    {line.modifierIds.map((id) => (
+                      <p key={id} className="text-sm text-muted-foreground">
+                        {optionNames.get(id) ?? "Modifier"}
+                      </p>
+                    ))}
+                    {addOns.map((addOn) => (
+                      <p key={addOn.id} className="text-sm text-muted-foreground">
+                        + {addOn.count}× {addOn.name}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-          <Button type="button" variant="outline" onClick={onBack}>
-            <ChevronLeftIcon aria-hidden="true" />
-            Back to order
-          </Button>
-          <Button type="submit" size="lg" disabled={!canComplete || pending}>
-            <CheckIcon aria-hidden="true" />
-            {pending ? "Completing sale…" : "Complete sale"}
-          </Button>
-        </div>
-        {error ? <p role="alert">{error}</p> : null}
-      </Card>
+          <div className="mx-4 mb-4 flex items-end justify-between rounded-xl bg-secondary p-4 md:mx-5 md:mb-5">
+            <span className="text-sm font-medium text-muted-foreground">Total</span>
+            <span className="text-2xl font-semibold tracking-tight tabular-nums">
+              {formatPeso(draft.totalCentavos)}
+            </span>
+          </div>
+        </Card>
+
+        <Card className="@container/tender min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-2">
+          <div aria-labelledby="amount-due-heading" className="bg-secondary p-5 text-foreground">
+            <h2 id="amount-due-heading" className="text-sm font-medium text-muted-foreground">
+              Amount due
+            </h2>
+            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+              {formatPeso(draft.totalCentavos)}
+            </p>
+          </div>
+
+          <div className="flex flex-1 flex-col gap-5 p-4 md:p-5">
+            <label className="grid gap-2 text-sm font-medium" htmlFor="cash-tendered">
+              Cash tendered
+              <Input
+                id="cash-tendered"
+                aria-label="Cash tendered"
+                inputMode="decimal"
+                autoComplete="off"
+                className="h-16 px-4 text-right text-2xl font-semibold tabular-nums placeholder:text-muted-foreground"
+                placeholder="0"
+                value={tenderedInput}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (next === "" || /^\d+(?:\.\d{0,2})?$/.test(next)) setTenderedInput(next);
+                }}
+              />
+            </label>
+
+            <div
+              aria-label="Quick tender"
+              role="group"
+              className="grid grid-cols-2 gap-2 @xs/tender:grid-cols-3 @xl/tender:grid-cols-5"
+            >
+              {quickTenderPesos.map((pesos) => (
+                <Button
+                  key={pesos}
+                  type="button"
+                  variant="outline"
+                  className="h-12 bg-card px-2 shadow-none tabular-nums"
+                  aria-label={`Tender ₱${pesos}`}
+                  onClick={() => setTenderedInput(String(pesos))}
+                >
+                  {pesos}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 bg-card px-2 shadow-none"
+                aria-label="Tender exact amount"
+                onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
+              >
+                Exact
+              </Button>
+            </div>
+
+            <div
+              aria-labelledby="change-heading"
+              className="flex items-end justify-between rounded-xl bg-secondary p-4"
+            >
+              <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
+                Change
+              </h2>
+              <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                {formatPeso(changeCentavos)}
+              </p>
+            </div>
+          </div>
+
+          {error ? (
+            <p
+              role="alert"
+              className="px-4 pb-4 text-sm font-medium text-status-danger-tone md:px-5"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-auto shrink-0 bg-card p-4">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+              <Button type="button" variant="outline" onClick={onBack}>
+                <ChevronLeftIcon aria-hidden="true" />
+                Back to order
+              </Button>
+              <Button type="submit" size="lg" disabled={!canComplete || pending}>
+                <CheckIcon aria-hidden="true" />
+                {pending ? "Completing sale…" : "Complete sale"}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
     </form>
   );
 }
