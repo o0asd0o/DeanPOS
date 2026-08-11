@@ -101,25 +101,13 @@ describe("PaymentPanel", () => {
 
     const input = screen.getByRole("textbox", { name: "Cash tendered" });
     fireEvent.change(input, { target: { value: "300" } });
-    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty("disabled", true);
     fireEvent.click(screen.getByRole("button", { name: "Tender exact amount" }));
     expect(input).toHaveProperty("value", "308");
-    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty(
-      "disabled",
-      false,
-    );
+    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty("disabled", false);
 
     rerender(
-      <PaymentPanel
-        draft={draft}
-        catalog={catalog}
-        pending
-        onBack={vi.fn()}
-        onSubmit={onSubmit}
-      />,
+      <PaymentPanel draft={draft} catalog={catalog} pending onBack={vi.fn()} onSubmit={onSubmit} />,
     );
     expect(screen.getByRole("button", { name: "Completing sale…" })).toHaveProperty(
       "disabled",

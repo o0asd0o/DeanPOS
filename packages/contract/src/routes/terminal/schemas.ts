@@ -59,3 +59,41 @@ export const recordOverrideOutputSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), overrideId: z.string() }),
   z.object({ ok: z.literal(false) }),
 ]);
+
+const postgresIntegerSchema = z.number().int().min(0).max(2_147_483_647);
+const orderIdSchema = z.string().uuid();
+
+export const submitOrderOptionSnapshotSchema = z.object({
+  id: orderIdSchema,
+  name: z.string().trim().min(1).max(60),
+  deltaKind: z.enum(["absolute", "multiplier"]),
+  deltaValue: z.number().int().min(-100_000).max(100_000),
+});
+
+export const submitOrderLineSchema = z.object({
+  menuItemId: orderIdSchema,
+  menuItemName: z.string().trim().min(1).max(60),
+  variantId: orderIdSchema.nullable(),
+  variantName: z.string().trim().max(60),
+  unitPriceCentavos: postgresIntegerSchema,
+  quantity: z.number().int().min(1).max(10_000),
+  lineTotalCentavos: postgresIntegerSchema,
+  modifiers: z.array(submitOrderOptionSnapshotSchema).max(100),
+  addOns: z.array(submitOrderOptionSnapshotSchema).max(100),
+});
+
+export const submitOrderInputSchema = z.object({
+  id: orderIdSchema,
+  lines: z.array(submitOrderLineSchema).min(1).max(1_000),
+  totalCentavos: postgresIntegerSchema,
+  amountTenderedCentavos: postgresIntegerSchema,
+});
+
+export const submitOrderOutputSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    orderId: orderIdSchema,
+    changeCentavos: postgresIntegerSchema,
+  }),
+  z.object({ ok: z.literal(false) }),
+]);
