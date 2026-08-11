@@ -39,7 +39,9 @@ function createOptionNames(menuItems: readonly SaleMenuItem[]) {
   const optionNames = new Map<string, string>();
 
   for (const item of menuItems) {
-    for (const modifier of item.modifierGroups.flatMap((group) => group.modifiers)) {
+    for (const modifier of item.modifierGroups.flatMap(
+      (group) => group.modifiers,
+    )) {
       optionNames.set(modifier.id, modifier.name);
     }
     for (const addOn of item.addOns) {
@@ -66,13 +68,21 @@ export function SaleWorkspace({ catalog }: Props) {
 
   const visibleItems = catalog.menuItems.filter(
     (item) =>
-      (search !== "" || categoryId === null || item.categoryId === categoryId) &&
+      (search !== "" ||
+        categoryId === null ||
+        item.categoryId === categoryId) &&
       item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
   const categoryName =
-    catalog.categories.find((category) => category.id === categoryId)?.name ?? "All items";
-  const tileCount = selectedItem ? selectedItem.variants.length : visibleItems.length;
-  const optionNames = useMemo(() => createOptionNames(catalog.menuItems), [catalog.menuItems]);
+    catalog.categories.find((category) => category.id === categoryId)?.name ??
+    "All items";
+  const tileCount = selectedItem
+    ? selectedItem.variants.length
+    : visibleItems.length;
+  const optionNames = useMemo(
+    () => createOptionNames(catalog.menuItems),
+    [catalog.menuItems],
+  );
   const ensureDraft = () => {
     if (draft) return draft;
     const next = createDraft();
@@ -122,7 +132,9 @@ export function SaleWorkspace({ catalog }: Props) {
     setSelectedItem(null);
   };
   const editLine = (line: Draft["lines"][number]) => {
-    const item = catalog.menuItems.find((entry) => entry.id === line.menuItemId);
+    const item = catalog.menuItems.find(
+      (entry) => entry.id === line.menuItemId,
+    );
     if (item) setPicker({ item, variantId: line.variantId, lineId: line.id });
   };
   const addBaseItem = (item: SaleMenuItem) => {
@@ -178,7 +190,9 @@ export function SaleWorkspace({ catalog }: Props) {
           <span>{selectedItem.name}</span>
         </Button>
       ) : (
-        <span className="shrink-0 font-semibold whitespace-nowrap">{categoryName}</span>
+        <span className="shrink-0 font-semibold whitespace-nowrap">
+          {categoryName}
+        </span>
       )}
       {searchOpen ? (
         <Input
@@ -190,7 +204,9 @@ export function SaleWorkspace({ catalog }: Props) {
           onChange={(event) => setSearch(event.target.value)}
         />
       ) : (
-        <span className="flex-1 text-sm text-background/70">{tileCount} items</span>
+        <span className="flex-1 text-sm text-background/70">
+          {tileCount} items
+        </span>
       )}
       <Button
         type="button"
@@ -203,9 +219,16 @@ export function SaleWorkspace({ catalog }: Props) {
           if (searchOpen) setSearch("");
         }}
       >
-        {searchOpen ? <XIcon aria-hidden="true" /> : <SearchIcon aria-hidden="true" />}
+        {searchOpen ? (
+          <XIcon aria-hidden="true" />
+        ) : (
+          <SearchIcon aria-hidden="true" />
+        )}
       </Button>
-      <SaleKebabMenu disabled={(draft?.lines.length ?? 0) === 0} onClear={requestClear} />
+      <SaleKebabMenu
+        disabled={(draft?.lines.length ?? 0) === 0}
+        onClear={requestClear}
+      />
     </>
   );
   const headerTarget = document.getElementById("shell-sale-header");
@@ -265,13 +288,19 @@ export function SaleWorkspace({ catalog }: Props) {
         <ModifierAddonModal
           key={`${picker.lineId ?? "new"}-${picker.variantId}`}
           item={picker.item}
-          variant={picker.item.variants.find((entry) => entry.id === picker.variantId) ?? null}
+          variant={
+            picker.item.variants.find(
+              (entry) => entry.id === picker.variantId,
+            ) ?? null
+          }
           open
           onOpenChange={(open) => {
             if (!open) setPicker(null);
           }}
           initial={
-            picker.lineId ? draft?.lines.find((line) => line.id === picker.lineId) : undefined
+            picker.lineId
+              ? draft?.lines.find((line) => line.id === picker.lineId)
+              : undefined
           }
           onSubmit={submitPicker}
           onRemove={() => {
@@ -287,10 +316,16 @@ export function SaleWorkspace({ catalog }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear this order?</DialogTitle>
-            <DialogDescription>All lines in this draft will be removed.</DialogDescription>
+            <DialogDescription>
+              All lines in this draft will be removed.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setClearOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearOpen(false)}
+            >
               Cancel
             </Button>
             <Button type="button" danger onClick={confirmClear}>
