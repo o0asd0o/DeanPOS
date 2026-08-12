@@ -30,6 +30,10 @@ const gcashMethodId = randomUUID();
 const unavailableMethodId = randomUUID();
 const inactiveMethodId = randomUUID();
 const otherTenantMethodId = randomUUID();
+const orderDiscountId = randomUUID();
+const orderDiscountVersionId = randomUUID();
+const unavailableDiscountVersionId = randomUUID();
+const otherTenantDiscountVersionId = randomUUID();
 const cashierUserId = randomUUID();
 const secondStoreCashierId = randomUUID();
 let nextDeviceSequence = 1;
@@ -96,6 +100,7 @@ const makeInput = (orderId = randomUUID()) => {
         ],
       },
     ],
+    discountId: null as string | null,
     totalCentavos: 25_500,
     amountTenderedCentavos: 30_000,
   };
@@ -247,6 +252,73 @@ beforeAll(async () => {
     ])
     .execute();
   await ownerDb
+    .insertInto("Discount")
+    .values([
+      {
+        id: orderDiscountVersionId,
+        tenant_id: tenantId,
+        discount_id: orderDiscountId,
+        name: "Senior citizen",
+        type: "percent",
+        scope: "order",
+        value: 1_000,
+        requires_override: false,
+        vat_exempt: true,
+        requires_reference: false,
+        effective_from: effectiveFrom,
+      },
+      {
+        id: unavailableDiscountVersionId,
+        tenant_id: tenantId,
+        discount_id: randomUUID(),
+        name: "Second store only",
+        type: "amount",
+        scope: "order",
+        value: 1_000,
+        requires_override: false,
+        vat_exempt: false,
+        requires_reference: false,
+        effective_from: effectiveFrom,
+      },
+      {
+        id: otherTenantDiscountVersionId,
+        tenant_id: otherTenantId,
+        discount_id: randomUUID(),
+        name: "Other tenant discount",
+        type: "percent",
+        scope: "order",
+        value: 1_000,
+        requires_override: false,
+        vat_exempt: false,
+        requires_reference: false,
+        effective_from: effectiveFrom,
+      },
+    ])
+    .execute();
+  await ownerDb
+    .insertInto("DiscountAvailability")
+    .values([
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        discount_version_id: orderDiscountVersionId,
+        store_id: storeId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        discount_version_id: unavailableDiscountVersionId,
+        store_id: secondStoreId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: otherTenantId,
+        discount_version_id: otherTenantDiscountVersionId,
+        store_id: otherStoreId,
+      },
+    ])
+    .execute();
+  await ownerDb
     .insertInto("Category")
     .values({ id: categoryId, tenant_id: tenantId, name: "Food", sort_order: 0 })
     .execute();
@@ -344,6 +416,14 @@ afterAll(async () => {
     .where("tenant_id", "in", [tenantId, otherTenantId])
     .execute();
   await ownerDb.deleteFrom("Order").where("tenant_id", "in", [tenantId, otherTenantId]).execute();
+  await ownerDb
+    .deleteFrom("DiscountAvailability")
+    .where("tenant_id", "in", [tenantId, otherTenantId])
+    .execute();
+  await ownerDb
+    .deleteFrom("Discount")
+    .where("tenant_id", "in", [tenantId, otherTenantId])
+    .execute();
   await ownerDb.deleteFrom("VariantUnavailability").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("MenuItemAddOn").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("AddOn").where("tenant_id", "=", tenantId).execute();
@@ -375,6 +455,77 @@ afterAll(async () => {
 const client = () => seam.actors.asDevice(device).client;
 
 describe("terminal.submitOrder", () => {
+  it("captures and recomputes an available order Discount, then refuses unavailable, foreign, and forged discounts", async () => {
+    const input = makeInput();
+    input.discountId = orderDiscountVersionId;
+    input.totalCentavos = 22_950;
+    input.amountTenderedCentavos = 30_000;
+
+    expect(await client().terminal.submitOrder(input)).toMatchObject({
+      ok: true,
+      receipt: {
+        totalCentavos: 22_950,
+        discount: { name: "Senior citizen", amountCentavos: 2_550 },
+      },
+    });
+    expect(
+      await ownerDb
+        .selectFrom("Order")
+        .select([
+          "discount_id",
+          "discount_name",
+          "discount_type",
+          "discount_value",
+          "discount_scope",
+          "discount_vat_exempt",
+          "discount_amount_centavos",
+        ])
+        .where("id", "=", input.id)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      discount_id: orderDiscountVersionId,
+      discount_name: "Senior citizen",
+      discount_type: "percent",
+      discount_value: 1_000,
+      discount_scope: "order",
+      discount_vat_exempt: true,
+      discount_amount_centavos: 2_550,
+    });
+
+    const forgedTotal = makeInput();
+    forgedTotal.discountId = orderDiscountVersionId;
+    forgedTotal.totalCentavos = 22_949;
+    forgedTotal.amountTenderedCentavos = 30_000;
+    expect(await client().terminal.submitOrder(forgedTotal)).toEqual({ ok: false });
+
+    for (const discountId of [
+      unavailableDiscountVersionId,
+      otherTenantDiscountVersionId,
+      randomUUID(),
+    ]) {
+      const refused = makeInput();
+      refused.discountId = discountId;
+      refused.totalCentavos = 22_950;
+      refused.amountTenderedCentavos = 30_000;
+      expect(await client().terminal.submitOrder(refused)).toEqual({ ok: false });
+    }
+
+    await ownerDb
+      .updateTable("Discount")
+      .set({ name: "Changed after sale", archived_at: new Date() })
+      .where("id", "=", orderDiscountVersionId)
+      .execute();
+    expect(await client().terminal.receipt({ id: input.id })).toMatchObject({
+      discount: { name: "Senior citizen", amountCentavos: 2_550 },
+    });
+
+    const noConfiguredDiscount = makeInput();
+    noConfiguredDiscount.discountId = orderDiscountVersionId;
+    noConfiguredDiscount.totalCentavos = 22_950;
+    noConfiguredDiscount.amountTenderedCentavos = 30_000;
+    expect(await client().terminal.submitOrder(noConfiguredDiscount)).toEqual({ ok: false });
+  });
+
   it("stores one paid Order, its sale-time line snapshot, and its cash Payment", async () => {
     const input = makeInput();
     const result = await client().terminal.submitOrder(input);
@@ -627,7 +778,7 @@ describe("terminal.submitOrder", () => {
       .where("id", "=", tenantId)
       .execute();
     const vatOn = makeInput();
-    const submitted = await client().terminal.submitOrder({ ...vatOn, vatRatePercent: 0 });
+    const submitted = await client().terminal.submitOrder(vatOn);
     expect(submitted).toMatchObject({ ok: true, receipt: { vatRatePercent: 12 } });
     expect(
       await ownerDb

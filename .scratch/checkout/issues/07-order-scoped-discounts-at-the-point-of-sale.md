@@ -1,6 +1,6 @@
 # 07 — Order-scoped Discounts at the point of sale
 
-**Status:** ready-for-agent
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -44,24 +44,24 @@ reference, override, prompted value — and the VAT-exempt computation are issue
 
 ## Acceptance criteria
 
-- [ ] A Tenant with no Discounts configured renders **no discount control anywhere**, and the
+- [x] A Tenant with no Discounts configured renders **no discount control anywhere**, and the
       submit procedure **rejects an Order carrying a Discount** — the UI's absence is not the
       control.
-- [ ] The picker lists the Tenant's current, non-archived Discounts and applies one
+- [x] The picker lists the Tenant's current, non-archived Discounts and applies one
       Order-scoped Discount to the order.
-- [ ] Two Order-scoped Discounts on one Order are rejected server-side.
-- [ ] An `amount` Discount is Order-scoped only.
-- [ ] The Order stores the Discount's id, name, type, value, scope, and VAT-exemption; editing
+- [x] Two Order-scoped Discounts on one Order are rejected server-side.
+- [x] An `amount` Discount is Order-scoped only.
+- [x] The Order stores the Discount's id, name, type, value, scope, and VAT-exemption; editing
       or archiving the Discount afterwards changes neither the stored values nor the receipt.
-- [ ] The discount amount is recomputed server-side from the captured type and value and is
+- [x] The discount amount is recomputed server-side from the captured type and value and is
       rounded **exactly once**, half-up; the terminal's figure is not trusted.
-- [ ] A Discount id belonging to another Tenant, or not enabled for the Device's Store, is
+- [x] A Discount id belonging to another Tenant, or not enabled for the Device's Store, is
       refused.
-- [ ] The Order total equals the sum of the stored line totals minus the stored discount amount
+- [x] The Order total equals the sum of the stored line totals minus the stored discount amount
       — property-tested, and no Discount can drive a total below zero.
-- [ ] The receipt shows the discount with its name.
-- [ ] Applying a Discount issues no network request — it happens on the Device.
-- [ ] Wrong-tenant probes on any procedure this issue exposes; WCAG 2.2 AA.
+- [x] The receipt shows the discount with its name.
+- [x] Applying a Discount issues no network request — it happens on the Device.
+- [x] Wrong-tenant probes on any procedure this issue exposes; WCAG 2.2 AA.
 
 ## Visual reference
 
@@ -84,3 +84,11 @@ Discounts configured.
 
 - 04 — The receipt and the device-assigned order number
 - `catalog` issue 06 (Discounts) must have landed — it supplies the list this consumes.
+
+## Comments
+
+- 2026-08-12: Closed with Device-local picker state, server-side catalog validation and
+  recomputation, immutable Order snapshots, and receipt projection. Added POS accessibility
+  coverage, API refusal/snapshot coverage, and a fast-check arithmetic property. Full backend
+  and POS suites retain unrelated pre-existing failures (seed/design-value and test-environment
+  paths); focused issue checks pass.

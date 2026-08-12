@@ -13,15 +13,7 @@ import { insertOrderLines } from "../db-operations/commands/insert-order-lines.c
 import { insertPayment } from "../db-operations/commands/insert-payment.command.ts";
 import { getPaymentMethodForStore } from "../db-operations/queries/get-payment-method-for-store.query.ts";
 import { getReceiptById } from "../db-operations/queries/get-receipt-by-id.query.ts";
-import { isValidSubmittedLine } from "../helpers.ts";
-
-const computeDiscountAmount = (
-  subtotalCentavos: number,
-  discount: { type: "percent" | "amount"; value: number },
-) =>
-  discount.type === "amount"
-    ? discount.value
-    : Math.floor((subtotalCentavos * discount.value + 5_000) / 10_000);
+import { computeOrderDiscountAmount, isValidSubmittedLine } from "../helpers.ts";
 
 export const inputSchema = submitOrderInputSchema;
 type Input = z.infer<typeof inputSchema>;
@@ -109,7 +101,10 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       };
     }
     const discountAmountCentavos = selectedDiscount
-      ? computeDiscountAmount(subtotalCentavos, selectedDiscount)
+      ? computeOrderDiscountAmount(subtotalCentavos, {
+          type: selectedDiscount.type,
+          value: selectedDiscount.value!,
+        })
       : 0;
     if (
       discountAmountCentavos > subtotalCentavos ||

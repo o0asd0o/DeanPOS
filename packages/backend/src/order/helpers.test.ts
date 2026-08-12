@@ -25,11 +25,7 @@ describe("computeOrderDiscountAmount", () => {
   });
 
   it("uses an amount discount as its stored figure only when it cannot exceed the subtotal", () => {
-    expect(
-      computeOrderDiscountAmount(1_000, { type: "amount", value: 1_000 }),
-    ).toBe(1_000);
-    expect(
-      computeOrderDiscountAmount(999, { type: "amount", value: 1_000 }),
-    ).toBe(1_000);
+    expect(computeOrderDiscountAmount(1_000, { type: "amount", value: 1_000 })).toBe(1_000);
+    expect(computeOrderDiscountAmount(999, { type: "amount", value: 1_000 })).toBe(1_000);
   });
 });

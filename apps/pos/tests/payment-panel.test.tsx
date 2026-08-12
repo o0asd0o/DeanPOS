@@ -125,6 +125,66 @@ describe("PaymentPanel", () => {
     expect(screen.queryByText(/VAT \(/)).toBeNull();
   });
 
+  it("omits every discount control until the Device catalog contains an order Discount", () => {
+    render(
+      <PaymentPanel
+        draft={draft}
+        catalog={catalog}
+        pending={false}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /order discount/i })).toBeNull();
+  });
+
+  it("selects an order Discount locally and recalculates the amount due", async () => {
+    const onDiscountChange = vi.fn();
+    const configuredCatalog = {
+      ...catalog,
+      discounts: [
+        {
+          id: "senior-discount",
+          name: "Senior discount",
+          type: "percent" as const,
+          scope: "order" as const,
+          value: 1_000,
+        },
+      ],
+    };
+    const { container, rerender } = render(
+      <PaymentPanel
+        draft={draft}
+        catalog={configuredCatalog}
+        pending={false}
+        onBack={vi.fn()}
+        onDiscountChange={onDiscountChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Apply order discount" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Senior discount" }));
+
+    expect(onDiscountChange).toHaveBeenCalledWith("senior-discount");
+    rerender(
+      <PaymentPanel
+        draft={{ ...draft, discountId: "senior-discount" }}
+        catalog={configuredCatalog}
+        pending={false}
+        onBack={vi.fn()}
+        onDiscountChange={onDiscountChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText("₱277.20").length).toBeGreaterThan(1);
+    await expectNoAxeViolations(container);
+  });
+
   it("adds quick tender presets, calculates change, and submits centavos", () => {
     const onSubmit = vi.fn();
     render(

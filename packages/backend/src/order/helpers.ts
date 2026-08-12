@@ -37,6 +37,15 @@ type CatalogItem = {
   addOns: CatalogAddOn[];
 };
 
+export function computeOrderDiscountAmount(
+  subtotalCentavos: number,
+  discount: { type: "percent" | "amount"; value: number },
+): number {
+  return discount.type === "amount"
+    ? discount.value
+    : Math.floor((subtotalCentavos * discount.value + 5_000) / 10_000);
+}
+
 const toDelta = (snapshot: Snapshot): Delta =>
   snapshot.deltaKind === "absolute"
     ? { kind: "absolute", amountCentavos: snapshot.deltaValue as Centavos }

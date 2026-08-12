@@ -94,6 +94,21 @@ describe("ReceiptView", () => {
     expect(screen.queryByText("Change")).toBeNull();
   });
 
+  it("shows the captured discount name and amount", () => {
+    render(
+      <ReceiptView
+        receipt={{
+          ...receipt,
+          discount: { name: "Senior discount", amountCentavos: 2_550 },
+        }}
+        onNewOrder={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Discount · Senior discount")).toBeTruthy();
+    expect(screen.getByText("−₱25.50")).toBeTruthy();
+  });
+
   it("shows VAT from the saved rate only when VAT was enabled for the sale", async () => {
     const { container } = render(
       <ReceiptView
