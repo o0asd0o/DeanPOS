@@ -7,6 +7,8 @@ import { formatPeso } from "@/features/helpers.ts";
 type Props = { receipt: Receipt; onNewOrder: () => void };
 
 export function ReceiptView({ receipt, onNewOrder }: Props) {
+  const isCash = receipt.paymentMethodKind === "cash";
+
   return (
     <section
       aria-label="Receipt"
@@ -23,7 +25,7 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
               Sale complete
             </span>
             <span className="font-mono text-[0.6875rem] font-medium text-muted-foreground">
-              CASH · PAID
+              {receipt.paymentMethodName.toUpperCase()} · PAID
             </span>
           </div>
 
@@ -78,13 +80,15 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
               <dd className="font-mono">{formatPeso(receipt.totalCentavos)}</dd>
             </div>
             <div className="flex items-center justify-between gap-4 text-muted-foreground">
-              <dt>Amount tendered</dt>
+              <dt>{isCash ? "Amount tendered" : "Amount paid"}</dt>
               <dd className="font-mono">{formatPeso(receipt.amountTenderedCentavos)}</dd>
             </div>
-            <div className="mt-2 flex items-center justify-between gap-4 rounded-lg bg-status-success-tint px-3 py-2 font-semibold text-status-success-tone">
-              <dt>Change</dt>
-              <dd className="font-mono text-base">{formatPeso(receipt.changeCentavos)}</dd>
-            </div>
+            {isCash ? (
+              <div className="mt-2 flex items-center justify-between gap-4 rounded-lg bg-status-success-tint px-3 py-2 font-semibold text-status-success-tone">
+                <dt>Change</dt>
+                <dd className="font-mono text-base">{formatPeso(receipt.changeCentavos)}</dd>
+              </div>
+            ) : null}
           </dl>
         </div>
 

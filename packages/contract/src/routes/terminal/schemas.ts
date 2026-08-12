@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { overrideActionTypeSchema } from "../override/schemas.ts";
+import { paymentMethodKindSchema } from "../payment-method/schemas.ts";
 
 export const terminalEnrolInputSchema = z.object({ secret: z.string().min(1) });
 
@@ -113,6 +114,7 @@ export const receiptSchema = z.object({
   cashierName: z.string().nullable(),
   paymentMethodId: orderIdSchema,
   paymentMethodName: z.string(),
+  paymentMethodKind: paymentMethodKindSchema,
   totalCentavos: postgresIntegerSchema,
   amountTenderedCentavos: postgresIntegerSchema,
   changeCentavos: postgresIntegerSchema,
