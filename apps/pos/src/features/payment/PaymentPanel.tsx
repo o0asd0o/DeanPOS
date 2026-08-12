@@ -1,4 +1,4 @@
-import { CheckIcon, ChevronLeftIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, EraserIcon } from "lucide-react";
 import { useState } from "react";
 import { Button, Card, Input } from "ui";
 
@@ -13,7 +13,10 @@ type Props = {
   pending: boolean;
   error?: string | null;
   onBack: () => void;
-  onSubmit: (paymentMethodId: string, amountTenderedCentavos: number) => void | Promise<void>;
+  onSubmit: (
+    paymentMethodId: string,
+    amountTenderedCentavos: number,
+  ) => void | Promise<void>;
 };
 
 const quickTenderPesos = [100, 200, 500, 1_000] as const;
@@ -22,16 +25,27 @@ function parseTenderedCentavos(value: string): number | null {
   if (!/^\d+(?:\.\d{0,2})?$/.test(value)) return null;
   const [pesos, fraction = ""] = value.split(".");
   const centavos = Number(pesos) * 100 + Number(fraction.padEnd(2, "0"));
-  return Number.isSafeInteger(centavos) && centavos <= 2_147_483_647 ? centavos : null;
+  return Number.isSafeInteger(centavos) && centavos <= 2_147_483_647
+    ? centavos
+    : null;
 }
 
 function formatTenderInput(centavos: number): string {
   const pesos = Math.floor(centavos / 100);
   const remainder = centavos % 100;
-  return remainder === 0 ? String(pesos) : `${pesos}.${String(remainder).padStart(2, "0")}`;
+  return remainder === 0
+    ? String(pesos)
+    : `${pesos}.${String(remainder).padStart(2, "0")}`;
 }
 
-export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit }: Props) {
+export function PaymentPanel({
+  draft,
+  catalog,
+  pending,
+  error,
+  onBack,
+  onSubmit,
+}: Props) {
   const [selectedMethodId, setSelectedMethodId] = useState(
     () =>
       catalog.paymentMethods.find((method) => method.kind === "cash")?.id ??
@@ -43,14 +57,28 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
     catalog.paymentMethods[0]!;
   const isCash = selectedMethod.kind === "cash";
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
-  const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - draft.totalCentavos);
+  const changeCentavos = Math.max(
+    0,
+    (tenderedCentavos ?? 0) - draft.totalCentavos,
+  );
   const canComplete =
     tenderedCentavos !== null &&
-    (isCash ? tenderedCentavos >= draft.totalCentavos : tenderedCentavos === draft.totalCentavos);
+    (isCash
+      ? tenderedCentavos >= draft.totalCentavos
+      : tenderedCentavos === draft.totalCentavos);
+  const addQuickTender = (pesos: number) => {
+    const nextTenderedCentavos =
+      (parseTenderedCentavos(tenderedInput) ?? 0) + pesos * 100;
+    if (nextTenderedCentavos <= 2_147_483_647) {
+      setTenderedInput(formatTenderInput(nextTenderedCentavos));
+    }
+  };
   const optionNames = new Map(
     catalog.menuItems.flatMap((item) => [
       ...item.modifierGroups.flatMap((group) =>
-        group.modifiers.map((modifier) => [modifier.id, modifier.name] as const),
+        group.modifiers.map(
+          (modifier) => [modifier.id, modifier.name] as const,
+        ),
       ),
       ...item.addOns.map((addOn) => [addOn.id, addOn.name] as const),
     ]),
@@ -63,7 +91,8 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
       className="@container/payment min-h-0 flex-1 overflow-y-auto bg-background p-2 md:p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canComplete && !pending) void onSubmit(selectedMethod.id, tenderedCentavos);
+        if (canComplete && !pending)
+          void onSubmit(selectedMethod.id, tenderedCentavos);
       }}
     >
       <div className="grid min-h-full gap-3 @3xl/payment:grid-cols-3">
@@ -105,7 +134,10 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                       </p>
                     ))}
                     {addOns.map((addOn) => (
-                      <p key={addOn.id} className="text-sm text-muted-foreground">
+                      <p
+                        key={addOn.id}
+                        className="text-sm text-muted-foreground"
+                      >
                         + {addOn.count}× {addOn.name}
                       </p>
                     ))}
@@ -116,7 +148,9 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
           </div>
 
           <div className="mx-4 mb-4 flex items-end justify-between rounded-xl bg-secondary p-4 md:mx-5 md:mb-5">
-            <span className="text-sm font-medium text-muted-foreground">Total</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              Total
+            </span>
             <span className="text-2xl font-semibold tracking-tight tabular-nums">
               {formatPeso(draft.totalCentavos)}
             </span>
@@ -126,7 +160,10 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
         <Card className="@container/tender min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-2">
           <div className="grid gap-4 bg-secondary p-5 text-foreground @xl/tender:grid-cols-2">
             <div aria-labelledby="amount-due-heading" className="bg-secondary">
-              <h2 id="amount-due-heading" className="text-sm font-medium text-muted-foreground">
+              <h2
+                id="amount-due-heading"
+                className="text-sm font-medium text-muted-foreground"
+              >
                 Amount due
               </h2>
               <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
@@ -143,7 +180,9 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                     (candidate) => candidate.id === methodId,
                   );
                   setTenderedInput(
-                    method?.kind === "recorded" ? formatTenderInput(draft.totalCentavos) : "",
+                    method?.kind === "recorded"
+                      ? formatTenderInput(draft.totalCentavos)
+                      : "",
                   );
                 }}
               />
@@ -151,25 +190,39 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
           </div>
 
           <div className="flex flex-1 flex-col gap-5 p-4 md:p-5">
-            <label
-              className="grid gap-2 text-sm font-medium"
-              htmlFor={isCash ? "cash-tendered" : "recorded-amount"}
-            >
-              {isCash ? "Cash tendered" : "Amount recorded"}
-              <Input
-                id={isCash ? "cash-tendered" : "recorded-amount"}
-                aria-label={isCash ? "Cash tendered" : "Amount recorded"}
-                inputMode="decimal"
-                autoComplete="off"
-                className="h-16 px-4 text-right text-2xl font-semibold tabular-nums placeholder:text-muted-foreground"
-                placeholder="0"
-                value={tenderedInput}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  if (next === "" || /^\d+(?:\.\d{0,2})?$/.test(next)) setTenderedInput(next);
-                }}
-              />
-            </label>
+            <div className="grid gap-2 text-sm font-medium">
+              <label htmlFor={isCash ? "cash-tendered" : "recorded-amount"}>
+                {isCash ? "Cash tendered" : "Amount recorded"}
+              </label>
+              <div className="relative">
+                <Input
+                  id={isCash ? "cash-tendered" : "recorded-amount"}
+                  aria-label={isCash ? "Cash tendered" : "Amount recorded"}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  className="h-16 pl-14 pr-4 text-right text-2xl! font-semibold tabular-nums placeholder:text-muted-foreground"
+                  placeholder="0"
+                  value={tenderedInput}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (next === "" || /^\d+(?:\.\d{0,2})?$/.test(next))
+                      setTenderedInput(next);
+                  }}
+                />
+                {isCash && tenderedInput ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="absolute top-1/2 left-3 -translate-y-1/2"
+                    aria-label="Clear cash tendered"
+                    onClick={() => setTenderedInput("")}
+                  >
+                    <EraserIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
 
             {isCash ? (
               <div
@@ -184,7 +237,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                     variant="outline"
                     className="h-12 bg-card px-2 shadow-none tabular-nums"
                     aria-label={`Tender ₱${pesos}`}
-                    onClick={() => setTenderedInput(String(pesos))}
+                    onClick={() => addQuickTender(pesos)}
                   >
                     {pesos}
                   </Button>
@@ -194,14 +247,17 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                   variant="outline"
                   className="h-12 bg-card px-2 shadow-none"
                   aria-label="Tender exact amount"
-                  onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
+                  onClick={() =>
+                    setTenderedInput(formatTenderInput(draft.totalCentavos))
+                  }
                 >
                   Exact
                 </Button>
               </div>
             ) : (
               <p className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">
-                A recorded tender authorises nothing — no gateway, no QR, no settlement.
+                A recorded tender authorises nothing — no gateway, no QR, no
+                settlement.
               </p>
             )}
 
@@ -210,7 +266,10 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                 aria-labelledby="change-heading"
                 className="flex items-end justify-between rounded-xl bg-secondary p-4"
               >
-                <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
+                <h2
+                  id="change-heading"
+                  className="text-sm font-medium text-muted-foreground"
+                >
                   Change
                 </h2>
                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
@@ -235,7 +294,11 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                 <ChevronLeftIcon aria-hidden="true" />
                 Back to order
               </Button>
-              <Button type="submit" size="lg" disabled={!canComplete || pending}>
+              <Button
+                type="submit"
+                size="lg"
+                disabled={!canComplete || pending}
+              >
                 <CheckIcon aria-hidden="true" />
                 {pending ? "Completing sale…" : "Complete sale"}
               </Button>

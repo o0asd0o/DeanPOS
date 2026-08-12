@@ -81,13 +81,14 @@ describe("PaymentPanel", () => {
     expect(screen.getByRole("group", { name: "Quick tender" }).className).toContain(
       "@xs/tender:grid-cols-3",
     );
+    expect(screen.getByRole("textbox", { name: "Cash tendered" }).className).toContain("text-3xl");
     expect(screen.queryByText("Payment method")).toBeNull();
     expect(screen.queryByText("Discount")).toBeNull();
     expect(screen.queryByText("VAT")).toBeNull();
     await expectNoAxeViolations(container);
   });
 
-  it("sets quick tender, calculates change, and submits centavos", () => {
+  it("adds quick tender presets, calculates change, and submits centavos", () => {
     const onSubmit = vi.fn();
     render(
       <PaymentPanel
@@ -103,10 +104,17 @@ describe("PaymentPanel", () => {
     expect(complete).toHaveProperty("disabled", true);
     fireEvent.click(screen.getByRole("button", { name: "Tender ₱500" }));
     expect(screen.getByRole("textbox", { name: "Cash tendered" })).toHaveProperty("value", "500");
-    expect(screen.getByText("₱192.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear cash tendered" }));
+    expect(screen.getByRole("textbox", { name: "Cash tendered" })).toHaveProperty("value", "");
+    expect(screen.queryByRole("button", { name: "Clear cash tendered" })).toBeNull();
+    expect(complete).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByRole("button", { name: "Tender ₱500" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tender ₱100" }));
+    expect(screen.getByRole("textbox", { name: "Cash tendered" })).toHaveProperty("value", "600");
+    expect(screen.getByText("₱292.00")).toBeTruthy();
     expect(complete).toHaveProperty("disabled", false);
     fireEvent.click(complete);
-    expect(onSubmit).toHaveBeenCalledWith("cash-id", 50_000);
+    expect(onSubmit).toHaveBeenCalledWith("cash-id", 60_000);
   });
 
   it("supports exact cash, refuses underpayment, and disables while pending", () => {
