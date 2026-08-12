@@ -139,7 +139,7 @@ export function PaymentPanel({
                 }));
                 return (
                   <div key={line.id} className="grid gap-1">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                       <span className="font-medium">
                         {line.quantity}× {line.menuItemName}
                         {line.variantName ? ` · ${line.variantName}` : ""}
@@ -159,17 +159,17 @@ export function PaymentPanel({
                       </span>
                     </div>
                     {lineDiscountDetail ? (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {lineDiscountDetail.name} · −{formatPeso(lineDiscountDetail.amountCentavos)}
                       </p>
                     ) : null}
                     {line.modifierIds.map((id) => (
-                      <p key={id} className="text-sm text-muted-foreground">
+                      <p key={id} className="text-xs text-muted-foreground">
                         {optionNames.get(id) ?? "Modifier"}
                       </p>
                     ))}
                     {addOns.map((addOn) => (
-                      <p key={addOn.id} className="text-sm text-muted-foreground">
+                      <p key={addOn.id} className="text-xs text-muted-foreground">
                         + {addOn.count}× {addOn.name}
                       </p>
                     ))}
