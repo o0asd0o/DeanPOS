@@ -8,7 +8,7 @@ import {
 } from "../../../../../packages/schemas/src/money.ts";
 import type { Centavos } from "../../../../../packages/schemas/src/money.ts";
 
-import type { Draft } from "@/features/sale/draft-store.ts";
+import { composeLine, type Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 import { OrderDiscountMenu } from "@/features/discount/OrderDiscountMenu.tsx";
@@ -39,6 +39,26 @@ function formatTenderInput(centavos: number): string {
   const pesos = Math.floor(centavos / 100);
   const remainder = centavos % 100;
   return remainder === 0 ? String(pesos) : `${pesos}.${String(remainder).padStart(2, "0")}`;
+}
+
+function getLineDiscountDetail(
+  line: Draft["lines"][number],
+  catalog: SaleCatalog,
+): { name: string; amountCentavos: number } | null {
+  const discount = (catalog.discounts ?? []).find(
+    (candidate) => candidate.id === line.lineDiscountId,
+  );
+  const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
+  if (!discount || !item) return null;
+  const undiscountedTotal = composeLine(
+    line,
+    item.modifierGroups.flatMap((group) => group.modifiers),
+    item.addOns,
+  ).totalCentavos;
+  return {
+    name: discount.name,
+    amountCentavos: Math.max(0, undiscountedTotal - line.totalCentavos),
+  };
 }
 
 export function PaymentPanel({
@@ -140,6 +160,7 @@ export function PaymentPanel({
           >
             <div className="grid gap-4">
               {draft.lines.map((line) => {
+                const lineDiscountDetail = getLineDiscountDetail(line, catalog);
                 const addOns = [...new Set(line.addOnIds)].map((id) => ({
                   id,
                   name: optionNames.get(id) ?? "Add-on",
@@ -166,12 +187,9 @@ export function PaymentPanel({
                         ) : null}
                       </span>
                     </div>
-                    {line.lineDiscountId ? (
+                    {lineDiscountDetail ? (
                       <p className="text-sm text-muted-foreground">
-                        {
-                          lineDiscounts.find((discount) => discount.id === line.lineDiscountId)
-                            ?.name
-                        }
+                        {lineDiscountDetail.name} · −{formatPeso(lineDiscountDetail.amountCentavos)}
                       </p>
                     ) : null}
                     {line.modifierIds.map((id) => (
