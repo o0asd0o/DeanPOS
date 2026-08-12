@@ -1,6 +1,7 @@
 import { Button } from "ui";
 
 import type { SalePaymentMethod } from "@/features/sale/types.ts";
+import { PaymentMethodMark } from "./PaymentMethodMark.tsx";
 
 type Props = {
   methods: SalePaymentMethod[];
@@ -18,9 +19,11 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
             key={method.id}
             type="button"
             variant="outline"
+            aria-label={method.name}
             aria-pressed={method.id === selectedId}
             onClick={() => onSelect(method.id)}
           >
+            <PaymentMethodMark methodName={method.name} />
             {method.name}
           </Button>
         ))}

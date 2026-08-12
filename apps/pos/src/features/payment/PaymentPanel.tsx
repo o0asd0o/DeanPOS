@@ -200,7 +200,7 @@ export function PaymentPanel({
                   aria-label={isCash ? "Cash tendered" : "Amount recorded"}
                   inputMode="decimal"
                   autoComplete="off"
-                  className="h-16 pl-14 pr-4 text-right text-2xl! font-semibold tabular-nums placeholder:text-muted-foreground"
+                  className="h-16 pl-14 pr-4 text-right text-3xl! font-semibold tabular-nums placeholder:text-muted-foreground"
                   placeholder="0"
                   value={tenderedInput}
                   onChange={(event) => {
