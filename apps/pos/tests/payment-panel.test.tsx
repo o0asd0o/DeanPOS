@@ -45,6 +45,8 @@ const catalog = {
     },
   ],
   paymentMethods: [{ id: "cash-id", name: "Cash", kind: "cash" as const }],
+  vatEnabled: true,
+  vatRatePercent: 12,
 };
 
 const configuredCatalog = {
@@ -74,7 +76,7 @@ describe("PaymentPanel", () => {
     expect(styles).not.toContain("clip-path");
   });
 
-  it("renders the cash-only amount due, summary, and both responsive layout seams", async () => {
+  it("keeps the order total fixed, scrolls only order lines, and shows included VAT", async () => {
     const { container } = render(
       <PaymentPanel
         draft={draft}
@@ -91,6 +93,10 @@ describe("PaymentPanel", () => {
       "bg-secondary",
     );
     expect(screen.getByText("Total")).toBeTruthy();
+    expect(screen.getByText("VAT (12%)")).toBeTruthy();
+    expect(screen.getByText("₱33.00")).toBeTruthy();
+    expect(screen.getByLabelText("Order lines").className).toContain("overflow-y-auto");
+    expect(screen.getByText("Total").parentElement?.className).toContain("mt-auto");
     const payment = screen.getByRole("region", { name: "Payment" });
     expect(payment.className).toContain("@container/payment");
     expect(
@@ -102,8 +108,21 @@ describe("PaymentPanel", () => {
     expect(screen.getByRole("textbox", { name: "Cash tendered" }).className).toContain("text-3xl");
     expect(screen.queryByText("Payment method")).toBeNull();
     expect(screen.queryByText("Discount")).toBeNull();
-    expect(screen.queryByText("VAT")).toBeNull();
     await expectNoAxeViolations(container);
+  });
+
+  it("omits the VAT row for a non-VAT tenant", () => {
+    render(
+      <PaymentPanel
+        draft={draft}
+        catalog={{ ...catalog, vatEnabled: false }}
+        pending={false}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/VAT \(/)).toBeNull();
   });
 
   it("adds quick tender presets, calculates change, and submits centavos", () => {
@@ -244,5 +263,25 @@ describe("PaymentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Complete sale" }));
     expect(onSubmit).toHaveBeenCalledWith("gcash-id", 30_800);
     await expectNoAxeViolations(container);
+  });
+
+  it("keeps change immediately above the fixed action area", () => {
+    render(
+      <PaymentPanel
+        draft={draft}
+        catalog={catalog}
+        pending={false}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const paymentCard = screen
+      .getByRole("heading", { name: "Amount due" })
+      .closest('[data-slot="card"]');
+    expect(paymentCard?.className).toContain("flex");
+    expect(screen.getByRole("heading", { name: "Change" }).parentElement?.parentElement?.className).toContain(
+      "mt-auto",
+    );
   });
 });
