@@ -186,6 +186,8 @@ describe("PaymentPanel", () => {
     expect(maya.querySelector("img")?.getAttribute("src")).toContain("maya-brand-mark.png");
     expect(gcash.className).toContain("overflow-hidden");
     expect(gcash.className).toContain("p-0");
+    expect(gcash.className).toContain("w-28");
+    expect(gcash.className).not.toContain("w-32");
     expect(gcash.querySelector("img")?.className).toContain("h-full");
     expect(gcash.querySelector("img")?.className).toContain("w-full");
     expect(gcash.querySelector("img")?.className).toContain("object-cover");
