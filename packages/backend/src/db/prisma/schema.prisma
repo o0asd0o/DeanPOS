@@ -707,7 +707,8 @@ model Payment {
   tenantId                 String        @map("tenant_id")
   orderId                  String        @map("order_id")
   paymentMethodId          String        @map("payment_method_id")
-  method                   String
+  methodKind               String        @map("method")
+  methodName               String        @map("method_name")
   amountTenderedCentavos   Int           @map("amount_tendered_centavos")
   changeCentavos           Int           @map("change_centavos")
   tenant                   Tenant        @relation(fields: [tenantId], references: [id])

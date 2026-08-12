@@ -1,6 +1,6 @@
 # 05 — Payment methods: the chooser, recorded tenders, and the cash-only default
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **Category:** feature
 
 ## What to build
@@ -35,21 +35,21 @@ a part-cash-part-card customer.
 
 - [ ] The method chooser renders at the top of the payment panel, level with the amount due,
       listing the methods the Device's Store actually accepts.
-- [ ] A Store with only `cash` renders **no chooser** and pays in one tap.
-- [ ] Choosing a non-cash method removes the keypad, the quick-tender row, and the change
+- [x] A Store with only `cash` renders **no chooser** and pays in one tap.
+- [x] Choosing a non-cash method removes the keypad, the quick-tender row, and the change
       display, and the authorises-nothing copy is still present. Asserted as one test.
-- [ ] A non-cash payment computes no change and is refused if it carries a tendered amount
+- [x] A non-cash payment computes no change and is refused if it carries a tendered amount
       implying one.
-- [ ] Quick-tender buttons for common notes make an exact-cash sale one tap.
-- [ ] The Payment stores the method id **and its name at sale time**; renaming the method
+- [x] Quick-tender buttons for common notes make an exact-cash sale one tap.
+- [x] The Payment stores the method id **and its name at sale time**; renaming the method
       afterwards does not change the stored name or the receipt's rendering.
-- [ ] A deleted or deactivated PaymentMethod does not change any completed sale's rendering.
-- [ ] The method id is validated server-side against the Tenant's own configuration and the
+- [x] A deleted or deactivated PaymentMethod does not change any completed sale's rendering.
+- [x] The method id is validated server-side against the Tenant's own configuration and the
       Device's Store; another Tenant's method, or one not enabled for that Store, is **refused**,
       not silently ignored.
 - [ ] GCash and Maya render their official mark and brand colour, sourced from the provider's
       brand kit; every other method is a plain chip.
-- [ ] Tested on and off: cash-only tenant, and a tenant with `cash`, `gcash`, and `card`.
+- [x] Tested on and off: cash-only tenant, and a tenant with `cash`, `gcash`, and `card`.
 - [ ] Both layouts; WCAG 2.2 AA, including the branded chips meeting contrast.
 
 ## Visual reference
@@ -70,3 +70,18 @@ tenant.
 ## Depends on
 
 - 03 — The paid Order: cash, idempotent submit, and the recorded price
+
+## Comments
+
+Implemented the Store-scoped chooser through the versioned terminal catalog, recorded-tender
+amount rules, server-side Tenant/Store eligibility, sale-time method snapshots, and receipt
+rendering. PaymentMethod deletion remains forbidden; the regression proof covers deactivation,
+a refused hard delete, and unchanged historical rendering.
+
+Automated proof: contract 11/11; checkout POS 17/17 including axe; issue API 24/24; migration
+status current. Changed-file lint/typecheck passes. Repository-wide checks retain unrelated
+baseline failures in stale catalog contract/probe tests and a pre-existing raw receipt text size.
+
+Pending human work: confirm the chooser is level with Amount due at both named layouts; supply
+authorized official GCash/Maya brand-kit assets and colour specifications; then verify branded
+chip contrast and both layouts against WCAG 2.2 AA. No provider mark or colour was approximated.

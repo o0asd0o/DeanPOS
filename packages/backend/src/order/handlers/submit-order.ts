@@ -10,7 +10,7 @@ import { getPinRoster } from "../../device/db-operations/queries/get-pin-roster.
 import { insertOrder } from "../db-operations/commands/insert-order.command.ts";
 import { insertOrderLines } from "../db-operations/commands/insert-order-lines.command.ts";
 import { insertPayment } from "../db-operations/commands/insert-payment.command.ts";
-import { getCashPaymentMethod } from "../db-operations/queries/get-cash-payment-method.query.ts";
+import { getPaymentMethodForStore } from "../db-operations/queries/get-payment-method-for-store.query.ts";
 import { getReceiptById } from "../db-operations/queries/get-receipt-by-id.query.ts";
 import { isValidSubmittedLine } from "../helpers.ts";
 
@@ -60,14 +60,24 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
     }
 
-    const [{ content }, cashMethod, roster] = await Promise.all([
+    const [{ content }, paymentMethod, roster] = await Promise.all([
       selectCatalogRead(db, device.storeId),
-      getCashPaymentMethod(db),
+      getPaymentMethodForStore(db, {
+        paymentMethodId: input.paymentMethodId,
+        storeId: device.storeId,
+      }),
       getPinRoster(db, device.storeId, device.assignedUserId),
     ]);
     const cashier = roster.find((user) => user.userId === input.cashierUserId);
-    if (!cashMethod || !cashier) {
+    if (!paymentMethod || !cashier) {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
+    }
+    if (paymentMethod.kind === "recorded" && input.amountTenderedCentavos !== input.totalCentavos) {
+      return {
+        output: { ok: false } as const,
+        actorUserId: cashier.userId,
+        outcome: "refused" as const,
+      };
     }
     const catalog = content as Omit<Catalog, "version">;
     const valid = input.lines.every((line) => {
@@ -82,7 +92,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       };
     }
 
-    const changeCentavos = input.amountTenderedCentavos - input.totalCentavos;
+    const changeCentavos =
+      paymentMethod.kind === "cash" ? input.amountTenderedCentavos - input.totalCentavos : 0;
     const created = await insertOrder(db, {
       id: input.id,
       tenantId: device.tenantId,
@@ -117,7 +128,9 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
     await insertPayment(db, {
       tenantId: device.tenantId,
       orderId: input.id,
-      paymentMethodId: cashMethod.id,
+      paymentMethodId: paymentMethod.id,
+      paymentMethodKind: paymentMethod.kind,
+      paymentMethodName: paymentMethod.name,
       amountTenderedCentavos: input.amountTenderedCentavos,
       changeCentavos,
     });

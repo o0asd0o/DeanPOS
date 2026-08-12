@@ -5,6 +5,7 @@ import { Button, Card, Input } from "ui";
 import type { Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
+import { PaymentMethodChooser } from "./PaymentMethodChooser.tsx";
 
 type Props = {
   draft: Draft;
@@ -12,7 +13,7 @@ type Props = {
   pending: boolean;
   error?: string | null;
   onBack: () => void;
-  onSubmit: (amountTenderedCentavos: number) => void | Promise<void>;
+  onSubmit: (paymentMethodId: string, amountTenderedCentavos: number) => void | Promise<void>;
 };
 
 const quickTenderPesos = [100, 200, 500, 1_000] as const;
@@ -31,10 +32,21 @@ function formatTenderInput(centavos: number): string {
 }
 
 export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit }: Props) {
+  const [selectedMethodId, setSelectedMethodId] = useState(
+    () =>
+      catalog.paymentMethods.find((method) => method.kind === "cash")?.id ??
+      catalog.paymentMethods[0]!.id,
+  );
   const [tenderedInput, setTenderedInput] = useState("");
+  const selectedMethod =
+    catalog.paymentMethods.find((method) => method.id === selectedMethodId) ??
+    catalog.paymentMethods[0]!;
+  const isCash = selectedMethod.kind === "cash";
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
   const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - draft.totalCentavos);
-  const canComplete = tenderedCentavos !== null && tenderedCentavos >= draft.totalCentavos;
+  const canComplete =
+    tenderedCentavos !== null &&
+    (isCash ? tenderedCentavos >= draft.totalCentavos : tenderedCentavos === draft.totalCentavos);
   const optionNames = new Map(
     catalog.menuItems.flatMap((item) => [
       ...item.modifierGroups.flatMap((group) =>
@@ -51,7 +63,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
       className="@container/payment min-h-0 flex-1 overflow-y-auto bg-background p-2 md:p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (canComplete && !pending) void onSubmit(tenderedCentavos);
+        if (canComplete && !pending) void onSubmit(selectedMethod.id, tenderedCentavos);
       }}
     >
       <div className="grid min-h-full gap-3 @3xl/payment:grid-cols-3">
@@ -112,21 +124,36 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
         </Card>
 
         <Card className="@container/tender min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-2">
-          <div aria-labelledby="amount-due-heading" className="bg-secondary p-5 text-foreground">
-            <h2 id="amount-due-heading" className="text-sm font-medium text-muted-foreground">
-              Amount due
-            </h2>
-            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
-              {formatPeso(draft.totalCentavos)}
-            </p>
+          <div className="grid gap-4 bg-secondary p-5 text-foreground @xl/tender:grid-cols-2">
+            <div aria-labelledby="amount-due-heading" className="bg-secondary">
+              <h2 id="amount-due-heading" className="text-sm font-medium text-muted-foreground">
+                Amount due
+              </h2>
+              <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+                {formatPeso(draft.totalCentavos)}
+              </p>
+            </div>
+            {catalog.paymentMethods.length > 1 ? (
+              <PaymentMethodChooser
+                methods={catalog.paymentMethods}
+                selectedId={selectedMethod.id}
+                onSelect={(methodId) => {
+                  setSelectedMethodId(methodId);
+                  setTenderedInput("");
+                }}
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-1 flex-col gap-5 p-4 md:p-5">
-            <label className="grid gap-2 text-sm font-medium" htmlFor="cash-tendered">
-              Cash tendered
+            <label
+              className="grid gap-2 text-sm font-medium"
+              htmlFor={isCash ? "cash-tendered" : "recorded-amount"}
+            >
+              {isCash ? "Cash tendered" : "Amount recorded"}
               <Input
-                id="cash-tendered"
-                aria-label="Cash tendered"
+                id={isCash ? "cash-tendered" : "recorded-amount"}
+                aria-label={isCash ? "Cash tendered" : "Amount recorded"}
                 inputMode="decimal"
                 autoComplete="off"
                 className="h-16 px-4 text-right text-2xl font-semibold tabular-nums placeholder:text-muted-foreground"
@@ -139,45 +166,53 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
               />
             </label>
 
-            <div
-              aria-label="Quick tender"
-              role="group"
-              className="grid grid-cols-2 gap-2 @xs/tender:grid-cols-3 @xl/tender:grid-cols-5"
-            >
-              {quickTenderPesos.map((pesos) => (
+            {isCash ? (
+              <div
+                aria-label="Quick tender"
+                role="group"
+                className="grid grid-cols-2 gap-2 @xs/tender:grid-cols-3 @xl/tender:grid-cols-5"
+              >
+                {quickTenderPesos.map((pesos) => (
+                  <Button
+                    key={pesos}
+                    type="button"
+                    variant="outline"
+                    className="h-12 bg-card px-2 shadow-none tabular-nums"
+                    aria-label={`Tender ₱${pesos}`}
+                    onClick={() => setTenderedInput(String(pesos))}
+                  >
+                    {pesos}
+                  </Button>
+                ))}
                 <Button
-                  key={pesos}
                   type="button"
                   variant="outline"
-                  className="h-12 bg-card px-2 shadow-none tabular-nums"
-                  aria-label={`Tender ₱${pesos}`}
-                  onClick={() => setTenderedInput(String(pesos))}
+                  className="h-12 bg-card px-2 shadow-none"
+                  aria-label="Tender exact amount"
+                  onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
                 >
-                  {pesos}
+                  Exact
                 </Button>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 bg-card px-2 shadow-none"
-                aria-label="Tender exact amount"
-                onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
-              >
-                Exact
-              </Button>
-            </div>
-
-            <div
-              aria-labelledby="change-heading"
-              className="flex items-end justify-between rounded-xl bg-secondary p-4"
-            >
-              <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
-                Change
-              </h2>
-              <p className="text-2xl font-semibold tracking-tight tabular-nums">
-                {formatPeso(changeCentavos)}
+              </div>
+            ) : (
+              <p className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">
+                A recorded tender authorises nothing — no gateway, no QR, no settlement.
               </p>
-            </div>
+            )}
+
+            {isCash ? (
+              <div
+                aria-labelledby="change-heading"
+                className="flex items-end justify-between rounded-xl bg-secondary p-4"
+              >
+                <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
+                  Change
+                </h2>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {formatPeso(changeCentavos)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {error ? (

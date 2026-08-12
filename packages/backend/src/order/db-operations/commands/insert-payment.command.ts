@@ -8,6 +8,8 @@ export const insertPayment = (
     tenantId: string;
     orderId: string;
     paymentMethodId: string;
+    paymentMethodKind: "cash" | "recorded";
+    paymentMethodName: string;
     amountTenderedCentavos: number;
     changeCentavos: number;
   },
@@ -19,7 +21,8 @@ export const insertPayment = (
       tenant_id: values.tenantId,
       order_id: values.orderId,
       payment_method_id: values.paymentMethodId,
-      method: "cash",
+      method: values.paymentMethodKind,
+      method_name: values.paymentMethodName,
       amount_tendered_centavos: values.amountTenderedCentavos,
       change_centavos: values.changeCentavos,
     })

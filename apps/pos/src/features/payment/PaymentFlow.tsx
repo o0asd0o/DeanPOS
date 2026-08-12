@@ -32,7 +32,7 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
       pending={submitOrder.isPending}
       error={preparationError}
       onBack={onBack}
-      onSubmit={async (amountTenderedCentavos) => {
+      onSubmit={async (paymentMethodId, amountTenderedCentavos) => {
         const identity = readDeviceIdentity();
         if (!identity) throw new Error("This Device must be enrolled before taking payment.");
         if (!actingUser) throw new Error("Unlock the Device before taking payment.");
@@ -50,6 +50,7 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
                 buildSubmitOrderInput(
                   numberedDraft,
                   catalog,
+                  paymentMethodId,
                   amountTenderedCentavos,
                   actingUser.userId,
                 ),

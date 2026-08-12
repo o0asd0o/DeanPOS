@@ -12,6 +12,7 @@ export type SaleModifierGroup = {
 };
 export type SaleAddOn = { id: string; name: string; delta: SaleDelta; maximum: number | null };
 export type SaleVariant = { id: string; name: string; priceCentavos: number; available: boolean };
+export type SalePaymentMethod = { id: string; name: string; kind: "cash" | "recorded" };
 
 export type SaleMenuItem = {
   id: string;
@@ -27,4 +28,5 @@ export type SaleMenuItem = {
 export type SaleCatalog = {
   categories: { id: string; name: string }[];
   menuItems: SaleMenuItem[];
+  paymentMethods: SalePaymentMethod[];
 };

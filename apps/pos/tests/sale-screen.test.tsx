@@ -64,6 +64,7 @@ const catalog = {
     },
   ],
   discounts: [],
+  paymentMethods: [{ id: "cash-id", name: "Cash", kind: "cash" as const }],
   version: "0".repeat(64),
 };
 

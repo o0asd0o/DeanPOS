@@ -1,6 +1,7 @@
 import type { DatabaseInstance } from "../../../db/client.ts";
 import { sql } from "../../../db/client.ts";
 import { jsonArrayFrom, jsonBuildObject } from "kysely/helpers/postgres";
+import { selectAvailablePaymentMethods } from "../../../payment-method/db-operations/queries/select-available-payment-methods.query.ts";
 
 const buildCatalogPayload = (db: DatabaseInstance, storeId: string) => {
   const currentDiscounts = db
@@ -189,6 +190,13 @@ const buildCatalogPayload = (db: DatabaseInstance, storeId: string) => {
           .where("d.archived_at", "is", null)
           .orderBy("d.name")
           .orderBy("d.id"),
+      ),
+      paymentMethods: jsonArrayFrom(
+        selectAvailablePaymentMethods(db, storeId)
+          .select(["method.id", "method.name", "method.kind"])
+          .orderBy(sql`CASE WHEN method.kind = 'cash' THEN 0 ELSE 1 END`)
+          .orderBy("method.name")
+          .orderBy("method.id"),
       ),
     }).as("content"),
   ]);

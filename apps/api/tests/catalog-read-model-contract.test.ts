@@ -144,6 +144,7 @@ describe("catalog read-model contract: hash and forbidden fields", () => {
       categories: read.categories,
       menuItems: read.menuItems,
       discounts: read.discounts,
+      paymentMethods: read.paymentMethods,
     });
     const result = await sql<{ version: string }>`
       select encode(sha256(convert_to(${canonical}::jsonb::text, 'UTF8')), 'hex') as version

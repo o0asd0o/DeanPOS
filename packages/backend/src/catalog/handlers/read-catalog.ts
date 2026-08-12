@@ -19,7 +19,13 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
         ? ctx.device.tenantId
         : null;
   if (!tenantId) {
-    return { categories: [], menuItems: [], discounts: [], version: "0".repeat(64) };
+    return {
+      categories: [],
+      menuItems: [],
+      discounts: [],
+      paymentMethods: [],
+      version: "0".repeat(64),
+    };
   }
 
   return withTenantScope(ctx.db, tenantId, async (db) => {
@@ -33,7 +39,13 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
             (await canAccessStore(db, ctx.principal.userId, ctx.principal.role, input.storeId))
           : false;
     if (!store || !authorized)
-      return { categories: [], menuItems: [], discounts: [], version: "0".repeat(64) };
+      return {
+        categories: [],
+        menuItems: [],
+        discounts: [],
+        paymentMethods: [],
+        version: "0".repeat(64),
+      };
     const result = await selectCatalogRead(db, input.storeId);
     return { ...(result.content as Omit<Output, "version">), version: result.version };
   });

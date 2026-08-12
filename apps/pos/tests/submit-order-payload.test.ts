@@ -70,12 +70,26 @@ describe("buildSubmitOrderInput", () => {
           ],
         },
       ],
+      paymentMethods: [
+        {
+          id: "10000000-0000-4000-8000-000000000007",
+          name: "Cash",
+          kind: "cash" as const,
+        },
+      ],
     };
 
     expect(
-      buildSubmitOrderInput(draft, catalog, 30_000, "10000000-0000-4000-8000-000000000006"),
+      buildSubmitOrderInput(
+        draft,
+        catalog,
+        "10000000-0000-4000-8000-000000000007",
+        30_000,
+        "10000000-0000-4000-8000-000000000006",
+      ),
     ).toEqual({
       id: draft.id,
+      paymentMethodId: "10000000-0000-4000-8000-000000000007",
       cashierUserId: "10000000-0000-4000-8000-000000000006",
       deviceSequence: 421,
       orderNumber: "C2-0421",

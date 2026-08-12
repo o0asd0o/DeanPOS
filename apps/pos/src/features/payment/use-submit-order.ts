@@ -21,6 +21,7 @@ function toSnapshot(id: string, name: string, delta: SaleDelta): Snapshot {
 export function buildSubmitOrderInput(
   draft: Draft,
   catalog: SaleCatalog,
+  paymentMethodId: string,
   amountTenderedCentavos: number,
   cashierUserId: string,
 ) {
@@ -29,6 +30,7 @@ export function buildSubmitOrderInput(
   }
   return {
     id: draft.id,
+    paymentMethodId,
     cashierUserId,
     deviceSequence: draft.deviceSequence,
     orderNumber: draft.orderNumber,

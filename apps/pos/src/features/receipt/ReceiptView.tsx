@@ -36,6 +36,7 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
               Device {receipt.deviceCode} · {receipt.deviceName}
             </p>
             <p>Cashier · {receipt.cashierName ?? "Unknown"}</p>
+            <p>Payment method · {receipt.paymentMethodName}</p>
           </div>
         </header>
 

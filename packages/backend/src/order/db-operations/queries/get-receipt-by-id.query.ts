@@ -26,6 +26,8 @@ export async function getReceiptById(
       "device.name as device_name",
       "payment.amount_tendered_centavos",
       "payment.change_centavos",
+      "payment.payment_method_id",
+      "payment.method_name",
     ])
     .where("order.id", "=", values.id)
     .where("order.store_id", "=", values.storeId)
@@ -54,6 +56,8 @@ export async function getReceiptById(
     deviceName: order.device_name,
     cashierUserId: order.cashier_user_id,
     cashierName: order.cashier_name,
+    paymentMethodId: order.payment_method_id,
+    paymentMethodName: order.method_name,
     totalCentavos: order.total_centavos,
     amountTenderedCentavos: order.amount_tendered_centavos,
     changeCentavos: order.change_centavos,

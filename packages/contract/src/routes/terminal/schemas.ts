@@ -85,6 +85,7 @@ export const submitOrderLineSchema = z.object({
 
 export const submitOrderInputSchema = z.object({
   id: orderIdSchema,
+  paymentMethodId: orderIdSchema,
   cashierUserId: orderIdSchema,
   deviceSequence: deviceSequenceSchema,
   orderNumber: z.string().regex(/^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}-[0-9]{4,}$/),
@@ -110,6 +111,8 @@ export const receiptSchema = z.object({
   deviceName: z.string(),
   cashierUserId: orderIdSchema.nullable(),
   cashierName: z.string().nullable(),
+  paymentMethodId: orderIdSchema,
+  paymentMethodName: z.string(),
   totalCentavos: postgresIntegerSchema,
   amountTenderedCentavos: postgresIntegerSchema,
   changeCentavos: postgresIntegerSchema,

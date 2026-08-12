@@ -178,10 +178,16 @@ export const catalogReadDiscountSchema = z.object({
   requiresReference: z.boolean(),
   referenceLabel: z.string().nullable(),
 });
+export const catalogReadPaymentMethodSchema = z.object({
+  id: z.string().uuid(),
+  name: catalogNameSchema,
+  kind: z.enum(["cash", "recorded"]),
+});
 export const catalogReadOutputSchema = z.object({
   categories: z.array(catalogReadCategorySchema),
   menuItems: z.array(catalogReadMenuItemSchema),
   discounts: z.array(catalogReadDiscountSchema),
+  paymentMethods: z.array(catalogReadPaymentMethodSchema),
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export const catalogVersionOutputSchema = z.object({
