@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { Receipt } from "contract/src/contract.ts";
 
-import type { Draft } from "@/features/sale/draft-store.ts";
+import { writeDraft, type Draft } from "@/features/sale/draft-store.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
@@ -23,7 +23,7 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
   const { actingUser } = useActingUser();
   const submissionDraft = useRef(draft);
   const [preparationError, setPreparationError] = useState<string | null>(null);
-  if (submissionDraft.current.id !== draft.id) submissionDraft.current = draft;
+  submissionDraft.current = draft;
   const submitOrder = useSubmitOrder(onCompleted);
   return (
     <PaymentPanel
@@ -32,6 +32,12 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
       pending={submitOrder.isPending}
       error={preparationError}
       onBack={onBack}
+      onDiscountChange={(discountId) => {
+        const next = { ...draft, discountId };
+        submissionDraft.current = next;
+        writeDraft(next);
+        onDraftChanged(next);
+      }}
       onSubmit={async (paymentMethodId, amountTenderedCentavos) => {
         const identity = readDeviceIdentity();
         if (!identity) throw new Error("This Device must be enrolled before taking payment.");

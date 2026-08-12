@@ -96,6 +96,12 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
                 <dd className="font-mono">{formatPeso(vatCentavos)}</dd>
               </div>
             ) : null}
+            {receipt.discount ? (
+              <div className="flex items-center justify-between gap-4 text-muted-foreground">
+                <dt>Discount · {receipt.discount.name}</dt>
+                <dd className="font-mono">−{formatPeso(receipt.discount.amountCentavos)}</dd>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-4 font-semibold">
               <dt>Total</dt>
               <dd className="font-mono">{formatPeso(receipt.totalCentavos)}</dd>

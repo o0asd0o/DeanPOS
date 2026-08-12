@@ -1,7 +1,7 @@
 import type { Selectable } from "kysely";
 import type { Discount } from "../db/prisma/generated/types.ts";
 
-export const toDiscountOutput = (row: Selectable<Discount>) => ({
+export const toDiscountOutput = (row: Selectable<Discount>, storeIds: string[] = []) => ({
   id: row.id,
   discountId: row.discount_id,
   tenantId: row.tenant_id,
@@ -16,6 +16,7 @@ export const toDiscountOutput = (row: Selectable<Discount>) => ({
   archivedAt: row.archived_at,
   effectiveFrom: row.effective_from,
   createdAt: row.created_at,
+  storeIds,
 });
 
 export const toDiscountReadShape = (row: Selectable<Discount>) => ({

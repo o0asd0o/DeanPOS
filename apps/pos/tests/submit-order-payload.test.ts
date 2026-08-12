@@ -11,6 +11,7 @@ describe("buildSubmitOrderInput", () => {
       orderDeviceId: "device-a",
       deviceSequence: 421,
       orderNumber: "C2-0421",
+      discountId: null,
       lines: [
         {
           id: "draft-line",
@@ -93,6 +94,7 @@ describe("buildSubmitOrderInput", () => {
       cashierUserId: "10000000-0000-4000-8000-000000000006",
       deviceSequence: 421,
       orderNumber: "C2-0421",
+      discountId: null,
       lines: [
         {
           menuItemId: draft.lines[0].menuItemId,
@@ -112,5 +114,71 @@ describe("buildSubmitOrderInput", () => {
       totalCentavos: 27_000,
       amountTenderedCentavos: 30_000,
     });
+  });
+
+  it("submits the selected Discount id and its discounted Order total", () => {
+    const discountId = "10000000-0000-4000-8000-000000000008";
+    const draft = {
+      id: "10000000-0000-4000-8000-000000000001",
+      deviceSequence: 422,
+      orderNumber: "C2-0422",
+      discountId,
+      lines: [
+        {
+          id: "draft-line",
+          menuItemId: "10000000-0000-4000-8000-000000000002",
+          menuItemName: "Adobo",
+          variantId: null,
+          variantName: "",
+          unitPriceCentavos: 27_000,
+          quantity: 1,
+          modifierIds: [],
+          addOnIds: [],
+          totalCentavos: 27_000,
+        },
+      ],
+      totalCentavos: 27_000,
+    };
+    const input = buildSubmitOrderInput(
+      draft,
+      {
+        categories: [],
+        menuItems: [
+          {
+            id: draft.lines[0].menuItemId,
+            categoryId: "food",
+            name: "Adobo",
+            priceCentavos: 27_000,
+            available: true,
+            variants: [],
+            modifierGroups: [],
+            addOns: [],
+          },
+        ],
+        paymentMethods: [
+          {
+            id: "10000000-0000-4000-8000-000000000007",
+            name: "Cash",
+            kind: "cash",
+          },
+        ],
+        discounts: [
+          {
+            id: discountId,
+            name: "Senior Discount",
+            type: "percent",
+            scope: "order",
+            value: 2_200,
+          },
+        ],
+      },
+      "10000000-0000-4000-8000-000000000007",
+      21_060,
+      "10000000-0000-4000-8000-000000000006",
+    );
+
+    expect(input.discountId).toBe(discountId);
+    expect(input.totalCentavos).toBe(21_060);
+    expect(input.amountTenderedCentavos).toBe(21_060);
   });
 });

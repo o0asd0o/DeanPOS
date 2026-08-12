@@ -13,6 +13,7 @@ export type DiscountOutput = {
   archivedAt: Date | null;
   effectiveFrom: Date;
   createdAt: Date;
+  storeIds: string[];
 };
 
 export type DiscountStatus = "all" | "active" | "archived";

@@ -11,6 +11,7 @@ import type { Centavos } from "../../../../../packages/schemas/src/money.ts";
 import type { Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
+import { OrderDiscountMenu } from "@/features/discount/OrderDiscountMenu.tsx";
 import { PaymentMethodChooser } from "./PaymentMethodChooser.tsx";
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
   pending: boolean;
   error?: string | null;
   onBack: () => void;
+  onDiscountChange?: (discountId: string | null) => void;
   onSubmit: (paymentMethodId: string, amountTenderedCentavos: number) => void | Promise<void>;
 };
 
@@ -37,7 +39,15 @@ function formatTenderInput(centavos: number): string {
   return remainder === 0 ? String(pesos) : `${pesos}.${String(remainder).padStart(2, "0")}`;
 }
 
-export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit }: Props) {
+export function PaymentPanel({
+  draft,
+  catalog,
+  pending,
+  error,
+  onBack,
+  onDiscountChange = () => undefined,
+  onSubmit,
+}: Props) {
   const [selectedMethodId, setSelectedMethodId] = useState(
     () =>
       catalog.paymentMethods.find((method) => method.kind === "cash")?.id ??
@@ -49,16 +59,26 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
     catalog.paymentMethods[0]!;
   const isCash = selectedMethod.kind === "cash";
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
-  const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - draft.totalCentavos);
+  const discounts = (catalog.discounts ?? []).filter(
+    (discount) => discount.scope === "order" && discount.value !== null,
+  );
+  const selectedDiscount = discounts.find((discount) => discount.id === draft.discountId) ?? null;
+  const discountCentavos = selectedDiscount
+    ? selectedDiscount.type === "amount"
+      ? selectedDiscount.value!
+      : Math.floor((draft.totalCentavos * selectedDiscount.value! + 5_000) / 10_000)
+    : 0;
+  const totalCentavos = draft.totalCentavos - discountCentavos;
+  const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - totalCentavos);
   const vatRatePercent = catalog.vatRatePercent ?? 0;
   const vatCentavos = catalog.vatEnabled
     ? roundLineTotal(
-        vatBackout(centavosToMillicentavos(draft.totalCentavos as Centavos), vatRatePercent).vat,
+        vatBackout(centavosToMillicentavos(totalCentavos as Centavos), vatRatePercent).vat,
       )
     : null;
   const canComplete =
     tenderedCentavos !== null &&
-    (isCash ? tenderedCentavos >= draft.totalCentavos : tenderedCentavos === draft.totalCentavos);
+    (isCash ? tenderedCentavos >= totalCentavos : tenderedCentavos === totalCentavos);
   const addQuickTender = (pesos: number) => {
     const nextTenderedCentavos = (parseTenderedCentavos(tenderedInput) ?? 0) + pesos * 100;
     if (nextTenderedCentavos <= 2_147_483_647) {
@@ -86,16 +106,25 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
     >
       <div className="grid h-full min-h-0 gap-3 @3xl/payment:grid-cols-3">
         <Card className="min-h-0 max-h-96 gap-0 overflow-hidden p-0 @3xl/payment:max-h-none @3xl/payment:col-span-1">
-          <div className="flex shrink-0 items-start justify-between p-4 md:p-5">
-            <div>
-              <h2 className="font-semibold">Order summary</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Review the ticket before payment.
-              </p>
+          <div className="shrink-0 p-4 md:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Order summary</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Review before payment.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold whitespace-nowrap tabular-nums">
+                  {draft.lines.length} {draft.lines.length === 1 ? "line" : "lines"}
+                </span>
+                {discounts.length > 0 ? (
+                  <OrderDiscountMenu
+                    discounts={discounts}
+                    selectedId={selectedDiscount?.id ?? null}
+                    onSelect={onDiscountChange}
+                  />
+                ) : null}
+              </div>
             </div>
-            <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold whitespace-nowrap tabular-nums">
-              {draft.lines.length} {draft.lines.length === 1 ? "line" : "lines"}
-            </span>
           </div>
 
           <div
@@ -137,6 +166,12 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
           </div>
 
           <div className="mx-4 mt-auto mb-4 rounded-xl bg-secondary p-4 md:mx-5 md:mb-5">
+            {selectedDiscount ? (
+              <div className="mb-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>{selectedDiscount.name}</span>
+                <span className="font-medium tabular-nums">−{formatPeso(discountCentavos)}</span>
+              </div>
+            ) : null}
             {vatCentavos !== null ? (
               <div className="mb-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
                 <span>VAT ({vatRatePercent}%)</span>
@@ -146,7 +181,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
             <div className="flex items-end justify-between gap-3">
               <span className="text-sm font-medium text-muted-foreground">Total</span>
               <span className="text-2xl font-semibold tracking-tight tabular-nums">
-                {formatPeso(draft.totalCentavos)}
+                {formatPeso(totalCentavos)}
               </span>
             </div>
           </div>
@@ -159,7 +194,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                 Amount due
               </h2>
               <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
-                {formatPeso(draft.totalCentavos)}
+                {formatPeso(totalCentavos)}
               </p>
             </div>
             {catalog.paymentMethods.length > 1 ? (
@@ -172,7 +207,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                     (candidate) => candidate.id === methodId,
                   );
                   setTenderedInput(
-                    method?.kind === "recorded" ? formatTenderInput(draft.totalCentavos) : "",
+                    method?.kind === "recorded" ? formatTenderInput(totalCentavos) : "",
                   );
                 }}
               />
@@ -236,7 +271,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                   variant="outline"
                   className="h-12 bg-card px-2 shadow-none"
                   aria-label="Tender exact amount"
-                  onClick={() => setTenderedInput(formatTenderInput(draft.totalCentavos))}
+                  onClick={() => setTenderedInput(formatTenderInput(totalCentavos))}
                 >
                   Exact
                 </Button>

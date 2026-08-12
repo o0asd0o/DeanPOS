@@ -344,6 +344,7 @@ export const discountOutputSchema = z.object({
   archivedAt: z.date().nullable(),
   effectiveFrom: z.date(),
   createdAt: z.date(),
+  storeIds: z.array(z.string()),
 });
 const catalogDiscountFieldsSchema = z.object({
   name: catalogNameSchema,
@@ -357,7 +358,8 @@ export const catalogDiscountCreateInputSchema = catalogDiscountFieldsSchema
   .refine((input) => !input.requiresReference || Boolean(input.referenceLabel?.trim()), {
     message: "Reference label is required",
     path: ["referenceLabel"],
-  });
+  })
+  .and(z.object({ storeIds: z.array(z.string()).optional() }));
 // `id` is the lineage discountId, never a version-row id.
 export const catalogDiscountUpdateInputSchema = z
   .object({ id: z.string() })

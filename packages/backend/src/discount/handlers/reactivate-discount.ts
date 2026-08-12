@@ -5,10 +5,12 @@ import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { insertDiscount } from "../db-operations/commands/insert-discount.command.ts";
+import { insertDiscountAvailability } from "../db-operations/commands/insert-discount-availability.command.ts";
 import { insertDiscountAudit } from "../db-operations/commands/insert-discount-audit.command.ts";
 import { lockDiscount } from "../db-operations/commands/lock-discount.command.ts";
 import { findCurrentActiveDiscountByName } from "../db-operations/queries/find-current-active-discount-by-name.query.ts";
 import { getCurrentDiscount } from "../db-operations/queries/get-current-discount.query.ts";
+import { getDiscountAvailabilityStoreIds } from "../db-operations/queries/get-discount-availability-store-ids.query.ts";
 import { toDiscountOutput } from "../helpers.ts";
 export const inputSchema = catalogEntityIdInputSchema;
 type Input = z.infer<typeof inputSchema>;
@@ -35,8 +37,9 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
       );
       if (duplicate) return null;
       const effectiveFrom = new Date();
+      const versionId = randomUUID();
       const inserted = await insertDiscount(db, {
-        id: randomUUID(),
+        id: versionId,
         discountId: current.discount_id,
         tenantId: current.tenant_id,
         name: current.name,
@@ -50,6 +53,14 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         archivedAt: null,
         effectiveFrom,
       });
+      const storeIds = await getDiscountAvailabilityStoreIds(db, current.id);
+      for (const storeId of storeIds)
+        await insertDiscountAvailability(db, {
+          id: randomUUID(),
+          tenantId: current.tenant_id,
+          discountVersionId: versionId,
+          storeId,
+        });
       await insertDiscountAudit(db, {
         id: randomUUID(),
         tenantId: current.tenant_id,
@@ -57,9 +68,9 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         discountId: current.discount_id,
         field: "reactivated",
       });
-      return inserted;
+      return { inserted, storeIds };
     });
-    return row ? toDiscountOutput(row) : null;
+    return row ? toDiscountOutput(row.inserted, row.storeIds) : null;
   } catch {
     return null;
   }

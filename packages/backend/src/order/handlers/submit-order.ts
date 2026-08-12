@@ -15,6 +15,14 @@ import { getPaymentMethodForStore } from "../db-operations/queries/get-payment-m
 import { getReceiptById } from "../db-operations/queries/get-receipt-by-id.query.ts";
 import { isValidSubmittedLine } from "../helpers.ts";
 
+const computeDiscountAmount = (
+  subtotalCentavos: number,
+  discount: { type: "percent" | "amount"; value: number },
+) =>
+  discount.type === "amount"
+    ? discount.value
+    : Math.floor((subtotalCentavos * discount.value + 5_000) / 10_000);
+
 export const inputSchema = submitOrderInputSchema;
 type Input = z.infer<typeof inputSchema>;
 type Output = z.infer<typeof submitOrderOutputSchema>;
@@ -56,8 +64,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
     if (input.amountTenderedCentavos < input.totalCentavos) {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
     }
-    const summedTotal = input.lines.reduce((total, line) => total + line.lineTotalCentavos, 0);
-    if (!Number.isSafeInteger(summedTotal) || summedTotal !== input.totalCentavos) {
+    const subtotalCentavos = input.lines.reduce((total, line) => total + line.lineTotalCentavos, 0);
+    if (!Number.isSafeInteger(subtotalCentavos)) {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
     }
 
@@ -82,6 +90,37 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       };
     }
     const catalog = content as Omit<Catalog, "version">;
+    const selectedDiscount = input.discountId
+      ? catalog.discounts.find(
+          (discount) =>
+            discount.id === input.discountId &&
+            discount.scope === "order" &&
+            discount.value !== null,
+        )
+      : null;
+    if (
+      (input.discountId !== null && !selectedDiscount) ||
+      (!input.discountId && catalog.discounts.length === 0 ? false : false)
+    ) {
+      return {
+        output: { ok: false } as const,
+        actorUserId: cashier.userId,
+        outcome: "refused" as const,
+      };
+    }
+    const discountAmountCentavos = selectedDiscount
+      ? computeDiscountAmount(subtotalCentavos, selectedDiscount)
+      : 0;
+    if (
+      discountAmountCentavos > subtotalCentavos ||
+      input.totalCentavos !== subtotalCentavos - discountAmountCentavos
+    ) {
+      return {
+        output: { ok: false } as const,
+        actorUserId: cashier.userId,
+        outcome: "refused" as const,
+      };
+    }
     const valid = input.lines.every((line) => {
       const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
       return item ? isValidSubmittedLine(line, item) : false;
@@ -108,6 +147,17 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       totalCentavos: input.totalCentavos,
       vatEnabled: tenant.vat_enabled,
       vatRatePercent: tenant.vat_enabled ? tenant.vat_rate_percent : null,
+      discount: selectedDiscount
+        ? {
+            id: selectedDiscount.id,
+            name: selectedDiscount.name,
+            type: selectedDiscount.type,
+            value: selectedDiscount.value!,
+            scope: selectedDiscount.scope,
+            vatExempt: selectedDiscount.vatExempt,
+            amountCentavos: discountAmountCentavos,
+          }
+        : null,
     });
     if (!created) {
       const existing = await getReceiptById(db, { id: input.id, storeId: device.storeId });

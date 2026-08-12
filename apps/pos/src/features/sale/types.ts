@@ -13,6 +13,13 @@ export type SaleModifierGroup = {
 export type SaleAddOn = { id: string; name: string; delta: SaleDelta; maximum: number | null };
 export type SaleVariant = { id: string; name: string; priceCentavos: number; available: boolean };
 export type SalePaymentMethod = { id: string; name: string; kind: "cash" | "recorded" };
+export type SaleDiscount = {
+  id: string;
+  name: string;
+  type: "percent" | "amount";
+  scope: "order" | "line";
+  value: number | null;
+};
 
 export type SaleMenuItem = {
   id: string;
@@ -29,6 +36,7 @@ export type SaleCatalog = {
   categories: { id: string; name: string }[];
   menuItems: SaleMenuItem[];
   paymentMethods: SalePaymentMethod[];
+  discounts?: SaleDiscount[];
   vatEnabled?: boolean;
   vatRatePercent?: number;
 };

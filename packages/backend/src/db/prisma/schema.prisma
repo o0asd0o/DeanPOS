@@ -54,6 +54,7 @@ model Tenant {
   menuItemModifierGroups                MenuItemModifierGroup[]
   addOns                                AddOn[]
   discounts                             Discount[]
+  discountAvailabilities                DiscountAvailability[]
   discountAudits                        DiscountAudit[]
   menuItemAddOns                        MenuItemAddOn[]
   orders                                Order[]
@@ -78,8 +79,9 @@ model Store {
   tenant                      Tenant                        @relation(fields: [tenantId], references: [id])
   userStores                  UserStore[]
   paymentMethodAvailabilities PaymentMethodAvailability[]
-  variantUnavailabilities      VariantUnavailability[]
-  menuItemUnavailabilities     MenuItemUnavailability[]
+  discountAvailabilities      DiscountAvailability[]
+  variantUnavailabilities     VariantUnavailability[]
+  menuItemUnavailabilities    MenuItemUnavailability[]
   paymentMethodAudits         PaymentMethodAudit[]
   paymentMethodPaymentDetails PaymentMethodPaymentDetails[]
   devices                     Device[]
@@ -453,11 +455,26 @@ model Discount {
   effectiveFrom     DateTime  @map("effective_from")
   createdAt         DateTime  @default(now()) @map("created_at")
   tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  availabilities    DiscountAvailability[]
 
   @@unique([tenantId, id])
   @@unique([discountId, effectiveFrom])
   @@index([tenantId])
   @@index([tenantId, discountId])
+}
+
+model DiscountAvailability {
+  id                String   @id
+  tenantId          String   @map("tenant_id")
+  discountVersionId String   @map("discount_version_id")
+  storeId           String   @map("store_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  discount          Discount @relation(fields: [tenantId, discountVersionId], references: [tenantId, id])
+  store             Store    @relation(fields: [tenantId, storeId], references: [tenantId, id])
+
+  @@unique([discountVersionId, storeId])
+  @@index([tenantId])
 }
 
 model DiscountAudit {
@@ -667,6 +684,13 @@ model Order {
   drawerSessionId String?     @map("drawer_session_id")
   status          String
   totalCentavos   Int         @map("total_centavos")
+  discountId      String?     @map("discount_id")
+  discountName    String?     @map("discount_name")
+  discountType    String?     @map("discount_type")
+  discountValue   Int?        @map("discount_value")
+  discountScope   String?     @map("discount_scope")
+  discountVatExempt Boolean?  @map("discount_vat_exempt")
+  discountAmountCentavos Int? @map("discount_amount_centavos")
   vatEnabled      Boolean     @map("vat_enabled")
   vatRatePercent  Int?        @map("vat_rate_percent")
   createdAt       DateTime    @default(now()) @map("created_at")

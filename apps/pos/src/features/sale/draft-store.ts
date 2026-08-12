@@ -28,6 +28,7 @@ export type Draft = {
   id: string;
   lines: DraftLine[];
   totalCentavos: number;
+  discountId?: string | null;
   orderDeviceId?: string;
   deviceSequence?: number;
   orderNumber?: string;

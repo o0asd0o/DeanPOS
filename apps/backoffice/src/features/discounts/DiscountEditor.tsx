@@ -1,10 +1,15 @@
 import { useForm } from "@tanstack/react-form";
 import { CheckIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Input, cn, useSubmitGate } from "ui";
 
 import { SheetForm } from "@/components/SheetForm.tsx";
-import { useCreateDiscountMutation, useUpdateDiscountMutation } from "./__common/queries.ts";
+import { AvailabilityField } from "@/features/payment-methods/AvailabilityField.tsx";
+import {
+  useCreateDiscountMutation,
+  useStoresQuery,
+  useUpdateDiscountMutation,
+} from "./__common/queries.ts";
 import type { DiscountOutput } from "./helpers.ts";
 
 export function DiscountEditor({
@@ -20,6 +25,14 @@ export function DiscountEditor({
   const update = useUpdateDiscountMutation();
   const saving = create.isPending || update.isPending;
   const [error, setError] = useState<string | null>(null);
+  const stores = useStoresQuery().data?.items ?? [];
+  const [storeIds, setStoreIds] = useState<Set<string>>(() => new Set(discount?.storeIds ?? []));
+  const defaultedStores = useRef(discount !== null);
+  useEffect(() => {
+    if (defaultedStores.current || stores.length === 0) return;
+    defaultedStores.current = true;
+    setStoreIds(new Set(stores.map((store) => store.id)));
+  }, [stores]);
   const form = useForm({
     defaultValues: {
       name: discount?.name ?? "",
@@ -59,6 +72,7 @@ export function DiscountEditor({
         vatExempt: value.vatExempt,
         requiresReference: value.requiresReference,
         referenceLabel: value.requiresReference ? value.referenceLabel.trim() : null,
+        storeIds: [...storeIds],
       };
       const payload =
         value.type === "amount"
@@ -74,7 +88,10 @@ export function DiscountEditor({
       onSaved(discount ? "Discount saved" : "Discount created");
     },
   });
-  const gate = useSubmitGate(form, { busy: saving });
+  const storesChanged =
+    [...storeIds].sort().join("\n") !==
+    [...(discount?.storeIds ?? stores.map((store) => store.id))].sort().join("\n");
+  const gate = useSubmitGate(form, { busy: saving, dirty: storesChanged });
   return (
     <SheetForm
       title={discount ? `Edit ${discount.name}` : "New discount"}
@@ -280,6 +297,7 @@ export function DiscountEditor({
           </fieldset>
         )}
       </form.Subscribe>
+      <AvailabilityField stores={stores} selectedIds={storeIds} onChange={setStoreIds} />
       <form.Subscribe selector={(state) => state.values.requiresReference}>
         {(requiresReference) =>
           requiresReference ? (

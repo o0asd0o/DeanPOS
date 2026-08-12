@@ -188,6 +188,7 @@ const buildCatalogPayload = (db: DatabaseInstance, storeId: string) => {
             "d.reference_label as referenceLabel",
           ])
           .where("d.archived_at", "is", null)
+          .where((eb) => eb.exists(eb.selectFrom("DiscountAvailability as da").select("da.id").whereRef("da.tenant_id", "=", "d.tenant_id").whereRef("da.discount_version_id", "=", "d.id").where("da.store_id", "=", storeId)))
           .orderBy("d.name")
           .orderBy("d.id"),
       ),

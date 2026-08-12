@@ -24,6 +24,8 @@ export async function getReceiptById(
       "order.total_centavos",
       "order.vat_enabled",
       "order.vat_rate_percent",
+      "order.discount_name",
+      "order.discount_amount_centavos",
       "device.code as device_code",
       "device.name as device_name",
       "payment.amount_tendered_centavos",
@@ -66,6 +68,10 @@ export async function getReceiptById(
     vatRatePercent: order.vat_enabled ? order.vat_rate_percent : null,
     amountTenderedCentavos: order.amount_tendered_centavos,
     changeCentavos: order.change_centavos,
+    discount:
+      order.discount_name === null || order.discount_amount_centavos === null
+        ? null
+        : { name: order.discount_name, amountCentavos: order.discount_amount_centavos },
     lines: lines.map((line) => ({
       menuItemName: line.menu_item_name,
       variantName: line.variant_name,

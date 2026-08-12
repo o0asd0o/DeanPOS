@@ -59,7 +59,21 @@ export function buildSubmitOrderInput(
         }),
       };
     }),
-    totalCentavos: draft.totalCentavos,
+    discountId: draft.discountId ?? null,
+    totalCentavos: (() => {
+      const discount = (catalog.discounts ?? []).find(
+        (candidate) =>
+          candidate.id === draft.discountId &&
+          candidate.scope === "order" &&
+          candidate.value !== null,
+      );
+      if (!discount) return draft.totalCentavos;
+      const amount =
+        discount.type === "amount"
+          ? discount.value!
+          : Math.floor((draft.totalCentavos * discount.value! + 5_000) / 10_000);
+      return draft.totalCentavos - amount;
+    })(),
     amountTenderedCentavos,
   };
 }

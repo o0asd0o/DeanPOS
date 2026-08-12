@@ -91,6 +91,7 @@ export const submitOrderInputSchema = z.object({
   deviceSequence: deviceSequenceSchema,
   orderNumber: z.string().regex(/^[ABCDEFGHJKMNPQRSTUVWXYZ0-9]{2,4}-[0-9]{4,}$/),
   lines: z.array(submitOrderLineSchema).min(1).max(1_000),
+  discountId: orderIdSchema.nullable().default(null),
   totalCentavos: postgresIntegerSchema,
   amountTenderedCentavos: postgresIntegerSchema,
 });
@@ -120,6 +121,10 @@ export const receiptSchema = z.object({
   amountTenderedCentavos: postgresIntegerSchema,
   changeCentavos: postgresIntegerSchema,
   lines: z.array(receiptLineSchema),
+  discount: z
+    .object({ name: z.string(), amountCentavos: postgresIntegerSchema })
+    .nullable()
+    .optional(),
 });
 export type Receipt = z.infer<typeof receiptSchema>;
 

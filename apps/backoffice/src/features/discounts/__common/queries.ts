@@ -8,6 +8,15 @@ export function useDiscountsQuery() {
   return useQuery(orpc.catalog.listDiscounts.queryOptions());
 }
 
+export function useStoresQuery() {
+  const { orpc } = useRouteContext({ from: "/_shell/discounts" });
+  return useQuery(
+    orpc.store.list.queryOptions({
+      input: { page: 1, perPage: 1000, status: "active", sort: { key: "name", direction: "asc" } },
+    }),
+  );
+}
+
 function useInvalidateDiscounts() {
   const { orpc } = useRouteContext({ from: "/_shell/discounts" });
   const queryClient = useQueryClient();

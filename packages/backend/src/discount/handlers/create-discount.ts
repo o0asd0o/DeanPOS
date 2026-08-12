@@ -5,6 +5,7 @@ import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { insertDiscount } from "../db-operations/commands/insert-discount.command.ts";
+import { insertDiscountAvailability } from "../db-operations/commands/insert-discount-availability.command.ts";
 import { insertDiscountAudit } from "../db-operations/commands/insert-discount-audit.command.ts";
 import { lockDiscount } from "../db-operations/commands/lock-discount.command.ts";
 import { toDiscountOutput } from "../helpers.ts";
@@ -49,6 +50,18 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         archivedAt: null,
         effectiveFrom,
       });
+      const storeIds =
+        input.storeIds ??
+        (await db.selectFrom("Store").select("id").where("active", "=", true).execute()).map(
+          (store) => store.id,
+        );
+      for (const storeId of new Set(storeIds))
+        await insertDiscountAvailability(db, {
+          id: randomUUID(),
+          tenantId: ctx.principal.tenantId,
+          discountVersionId: inserted.id,
+          storeId,
+        });
       await insertDiscountAudit(db, {
         id: randomUUID(),
         tenantId: ctx.principal.tenantId,
@@ -56,9 +69,9 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         discountId,
         field: "created",
       });
-      return inserted;
+      return { inserted, storeIds: [...new Set(storeIds)] };
     });
-    return row ? toDiscountOutput(row) : null;
+    return row ? toDiscountOutput(row.inserted, row.storeIds) : null;
   } catch {
     return null;
   }

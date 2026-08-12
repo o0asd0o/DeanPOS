@@ -5,9 +5,11 @@ import { hasAtLeastRole } from "../../common/authorize.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { insertDiscount } from "../db-operations/commands/insert-discount.command.ts";
+import { insertDiscountAvailability } from "../db-operations/commands/insert-discount-availability.command.ts";
 import { insertDiscountAudit } from "../db-operations/commands/insert-discount-audit.command.ts";
 import { lockDiscount } from "../db-operations/commands/lock-discount.command.ts";
 import { getCurrentDiscount } from "../db-operations/queries/get-current-discount.query.ts";
+import { getDiscountAvailabilityStoreIds } from "../db-operations/queries/get-discount-availability-store-ids.query.ts";
 import { toDiscountOutput } from "../helpers.ts";
 
 export const inputSchema = catalogDiscountUpdateInputSchema;
@@ -59,8 +61,9 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         reference_label: input.referenceLabel?.trim() || null,
       };
       const effectiveFrom = new Date();
+      const versionId = randomUUID();
       const inserted = await insertDiscount(db, {
-        id: randomUUID(),
+        id: versionId,
         discountId: input.id,
         tenantId: ctx.principal.tenantId,
         name: next.name,
@@ -74,6 +77,16 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
         archivedAt: current.archived_at,
         effectiveFrom,
       });
+      const storeIds = [
+        ...new Set(input.storeIds ?? (await getDiscountAvailabilityStoreIds(db, current.id))),
+      ];
+      for (const storeId of storeIds)
+        await insertDiscountAvailability(db, {
+          id: randomUUID(),
+          tenantId: ctx.principal.tenantId,
+          discountVersionId: versionId,
+          storeId,
+        });
       for (const field of fields)
         if (
           current[
@@ -106,9 +119,9 @@ export const handler: Handler<Input, ReturnType<typeof toDiscountOutput> | null>
             discountId: input.id,
             field,
           });
-      return inserted;
+      return { inserted, storeIds };
     });
-    return row ? toDiscountOutput(row) : null;
+    return row ? toDiscountOutput(row.inserted, row.storeIds) : null;
   } catch {
     return null;
   }
