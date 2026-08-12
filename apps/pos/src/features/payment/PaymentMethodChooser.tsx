@@ -12,9 +12,13 @@ type Props = {
 
 export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
   return (
-    <div aria-label="Payment method" role="group" className="grid gap-2">
+    <div
+      aria-label="Payment method"
+      role="group"
+      className="grid min-w-0 gap-2 @xl/tender:col-span-2"
+    >
       <span className="text-sm font-medium text-muted-foreground">Payment method</span>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-nowrap gap-2 overflow-x-auto py-1">
         {methods.map((method) => {
           const brand = getPaymentMethodBrand(method.name);
           return (

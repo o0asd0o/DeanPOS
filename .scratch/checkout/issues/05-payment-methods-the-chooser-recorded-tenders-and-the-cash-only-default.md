@@ -86,7 +86,8 @@ Human resolution: supplied GCash and Maya artwork was cropped without redrawing 
 The branded methods now render as image-only 112px buttons with accessible names and edge-to-edge
 brand backgrounds; each mark retains proportional native background padding. Plain methods retain
 text chips. Selected methods retain the pressed background and add a visible ring so the state is
-clear over either brand image.
+clear over either brand image. The chooser owns two thirds of the wide header and keeps every
+method on one horizontal row; narrow layouts scroll that row instead of wrapping Maya.
 
 Final proof: payment panel 5/5 including axe, image-only brand identity, generic-chip fallback,
 selected-state semantics and styling, cash-only/configured variants, and responsive layout seams;

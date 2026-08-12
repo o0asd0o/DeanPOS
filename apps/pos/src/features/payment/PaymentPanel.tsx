@@ -130,7 +130,7 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
         </Card>
 
         <Card className="@container/tender min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-2">
-          <div className="grid gap-4 bg-secondary p-5 text-foreground @xl/tender:grid-cols-2">
+          <div className="grid gap-4 bg-secondary p-5 text-foreground @xl/tender:grid-cols-3">
             <div aria-labelledby="amount-due-heading" className="bg-secondary">
               <h2 id="amount-due-heading" className="text-sm font-medium text-muted-foreground">
                 Amount due
