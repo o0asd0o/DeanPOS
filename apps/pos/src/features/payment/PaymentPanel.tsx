@@ -139,7 +139,12 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                 selectedId={selectedMethod.id}
                 onSelect={(methodId) => {
                   setSelectedMethodId(methodId);
-                  setTenderedInput("");
+                  const method = catalog.paymentMethods.find(
+                    (candidate) => candidate.id === methodId,
+                  );
+                  setTenderedInput(
+                    method?.kind === "recorded" ? formatTenderInput(draft.totalCentavos) : "",
+                  );
                 }}
               />
             ) : null}
