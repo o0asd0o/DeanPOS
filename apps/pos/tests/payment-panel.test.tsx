@@ -68,6 +68,18 @@ describe("PaymentPanel", () => {
     expect(readPngSize("src/assets/maya-brand-mark.png")).toEqual({ width: 560, height: 220 });
   });
 
+  it("reveals selected branding left to right without scale motion", () => {
+    const styles = readFileSync("src/styles.css", "utf8");
+    const reveal = styles.slice(
+      styles.indexOf("@keyframes payment-brand-reveal"),
+      styles.indexOf(".payment-brand-reveal"),
+    );
+    expect(reveal).toContain("clip-path: inset(0 100% 0 0)");
+    expect(reveal).not.toContain("transform");
+    expect(styles).toContain("animation: payment-brand-reveal 180ms linear both");
+    expect(styles).toContain("animation: none");
+  });
+
   it("renders the cash-only amount due, summary, and both responsive layout seams", async () => {
     const { container } = render(
       <PaymentPanel
@@ -198,7 +210,9 @@ describe("PaymentPanel", () => {
     expect(maya.textContent).toBe("Maya");
     expect(gcash.querySelector("img")).toBeNull();
     expect(maya.querySelector("img")).toBeNull();
-    expect(gcash.className).not.toContain("w-28");
+    expect(gcash.className).toContain("min-w-28");
+    expect(gcash.className).toContain("transition-[color,box-shadow,border-color]");
+    expect(gcash.className).not.toContain("transition-all");
     expect(screen.getByRole("button", { name: "Card" }).querySelector("img")).toBeNull();
     expect(gcash.className).toContain("aria-pressed:ring-2");
     expect(screen.getByRole("button", { name: "Cash" }).getAttribute("aria-pressed")).toBe("true");
@@ -218,6 +232,7 @@ describe("PaymentPanel", () => {
     expect(gcash.querySelector("img")?.className).toContain("h-full");
     expect(gcash.querySelector("img")?.className).toContain("w-full");
     expect(gcash.querySelector("img")?.className).toContain("object-cover");
+    expect(gcash.querySelector("img")?.className).toContain("payment-brand-reveal");
     expect(maya.textContent).toBe("Maya");
     expect(maya.querySelector("img")).toBeNull();
 
