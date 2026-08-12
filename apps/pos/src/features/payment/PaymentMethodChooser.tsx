@@ -21,6 +21,7 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
       <div className="flex flex-nowrap gap-2 overflow-x-auto py-1">
         {methods.map((method) => {
           const brand = getPaymentMethodBrand(method.name);
+          const selected = method.id === selectedId;
           return (
             <Button
               key={method.id}
@@ -28,13 +29,13 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
               variant="outline"
               className={cn(
                 "aria-pressed:ring-2 aria-pressed:ring-ring aria-pressed:ring-offset-2",
-                brand && "w-28 overflow-hidden p-0",
+                brand && selected && "w-28 overflow-hidden p-0",
               )}
               aria-label={method.name}
-              aria-pressed={method.id === selectedId}
+              aria-pressed={selected}
               onClick={() => onSelect(method.id)}
             >
-              {brand ? <PaymentMethodMark brand={brand} /> : method.name}
+              {brand && selected ? <PaymentMethodMark brand={brand} /> : method.name}
             </Button>
           );
         })}

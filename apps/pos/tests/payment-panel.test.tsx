@@ -202,6 +202,12 @@ describe("PaymentPanel", () => {
     expect(screen.getByRole("button", { name: "Card" }).querySelector("img")).toBeNull();
     expect(gcash.className).toContain("aria-pressed:ring-2");
     expect(screen.getByRole("button", { name: "Cash" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(maya);
+    expect(maya.getAttribute("aria-pressed")).toBe("true");
+    expect(maya.textContent).toBe("");
+    expect(maya.querySelector("img")?.getAttribute("src")).toContain("maya-brand-mark.png");
+    expect(gcash.textContent).toBe("GCash");
+    expect(gcash.querySelector("img")).toBeNull();
     fireEvent.click(gcash);
     expect(gcash.getAttribute("aria-pressed")).toBe("true");
     expect(gcash.textContent).toBe("");

@@ -89,6 +89,8 @@ text chips. Selected methods retain the pressed background and add a visible rin
 clear over either brand image. The chooser owns two thirds of the wide header and keeps every
 method on one horizontal row; narrow layouts scroll that row instead of wrapping Maya. Both marks
 use expanded edge-matched background padding to keep their visual scale compact without distortion.
+GCash and Maya show that artwork only while selected; their unselected states are ordinary text
+chips matching Cash and Card.
 
 Final proof: payment panel 5/5 including axe, image-only brand identity, generic-chip fallback,
 selected-state semantics and styling, cash-only/configured variants, and responsive layout seams;
