@@ -451,6 +451,7 @@ describe("terminal.submitOrder", () => {
       receipt: {
         paymentMethodId: gcashMethodId,
         paymentMethodName: "GCash",
+        paymentMethodKind: "recorded",
         amountTenderedCentavos: input.totalCentavos,
         changeCentavos: 0,
       },

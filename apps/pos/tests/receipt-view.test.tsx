@@ -12,6 +12,7 @@ const receipt = {
   cashierName: "Ana Reyes",
   paymentMethodId: "10000000-0000-4000-8000-000000000007",
   paymentMethodName: "Cash",
+  paymentMethodKind: "cash" as const,
   totalCentavos: 25_500,
   amountTenderedCentavos: 30_000,
   changeCentavos: 4_500,
@@ -33,6 +34,14 @@ const receipt = {
       ],
     },
   ],
+};
+
+const recordedReceipt = {
+  ...receipt,
+  paymentMethodName: "GCash",
+  paymentMethodKind: "recorded" as const,
+  amountTenderedCentavos: 25_500,
+  changeCentavos: 0,
 };
 
 function setViewport(width: number, height: number) {
@@ -72,5 +81,15 @@ describe("ReceiptView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New order" }));
     expect(onNewOrder).toHaveBeenCalledOnce();
+  });
+
+  it("identifies a recorded tender and omits cash-only change details", () => {
+    render(<ReceiptView receipt={recordedReceipt} onNewOrder={vi.fn()} />);
+
+    expect(screen.getByText("GCASH · PAID")).toBeTruthy();
+    expect(screen.getByText("Payment method · GCash")).toBeTruthy();
+    expect(screen.getByText("Amount paid")).toBeTruthy();
+    expect(screen.queryByText("Amount tendered")).toBeNull();
+    expect(screen.queryByText("Change")).toBeNull();
   });
 });
