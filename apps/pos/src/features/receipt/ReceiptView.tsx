@@ -90,16 +90,16 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
 
         <div className="px-4 py-3">
           <dl className="space-y-1.5 text-sm">
-            <div className="flex items-center justify-between gap-4 font-semibold">
-              <dt>Total</dt>
-              <dd className="font-mono">{formatPeso(receipt.totalCentavos)}</dd>
-            </div>
             {vatCentavos !== null ? (
               <div className="flex items-center justify-between gap-4 text-muted-foreground">
                 <dt>VAT ({receipt.vatRatePercent}%)</dt>
                 <dd className="font-mono">{formatPeso(vatCentavos)}</dd>
               </div>
             ) : null}
+            <div className="flex items-center justify-between gap-4 font-semibold">
+              <dt>Total</dt>
+              <dd className="font-mono">{formatPeso(receipt.totalCentavos)}</dd>
+            </div>
             <div className="flex items-center justify-between gap-4 text-muted-foreground">
               <dt>{isCash ? "Amount tendered" : "Amount paid"}</dt>
               <dd className="font-mono">{formatPeso(receipt.amountTenderedCentavos)}</dd>
