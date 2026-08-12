@@ -161,4 +161,29 @@ describe("catalog.read", () => {
     expect(renamed?.name).toBe("Adobo");
     expect((await client.catalog.version({ storeId })).version).toBe(version.version);
   });
+
+  it("includes the Tenant VAT setting and moves the catalog version when it changes", async () => {
+    const client = seam.actors.asTenant(tenantId, {
+      userId: adminId,
+      role: "admin",
+    }).client;
+    const vatOff = await client.catalog.read({ storeId });
+    expect(vatOff).toMatchObject({ vatEnabled: false, vatRatePercent: 12 });
+
+    await ownerDb
+      .updateTable("Tenant")
+      .set({ vat_enabled: true, vat_rate_percent: 7 })
+      .where("id", "=", tenantId)
+      .execute();
+
+    const vatOn = await client.catalog.read({ storeId });
+    expect(vatOn).toMatchObject({ vatEnabled: true, vatRatePercent: 7 });
+    expect(vatOn.version).not.toBe(vatOff.version);
+
+    await ownerDb
+      .updateTable("Tenant")
+      .set({ vat_enabled: false, vat_rate_percent: 12 })
+      .where("id", "=", tenantId)
+      .execute();
+  });
 });

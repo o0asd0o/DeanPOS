@@ -1,6 +1,12 @@
 import { CheckIcon, ChevronLeftIcon, EraserIcon } from "lucide-react";
 import { useState } from "react";
 import { Button, Card, Input } from "ui";
+import {
+  centavosToMillicentavos,
+  roundLineTotal,
+  vatBackout,
+} from "../../../../../packages/schemas/src/money.ts";
+import type { Centavos } from "../../../../../packages/schemas/src/money.ts";
 
 import type { Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
@@ -44,6 +50,12 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
   const isCash = selectedMethod.kind === "cash";
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
   const changeCentavos = Math.max(0, (tenderedCentavos ?? 0) - draft.totalCentavos);
+  const vatRatePercent = catalog.vatRatePercent ?? 0;
+  const vatCentavos = catalog.vatEnabled
+    ? roundLineTotal(
+        vatBackout(centavosToMillicentavos(draft.totalCentavos as Centavos), vatRatePercent).vat,
+      )
+    : null;
   const canComplete =
     tenderedCentavos !== null &&
     (isCash ? tenderedCentavos >= draft.totalCentavos : tenderedCentavos === draft.totalCentavos);
@@ -66,14 +78,14 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
     <form
       aria-label="Payment"
       role="region"
-      className="@container/payment min-h-0 flex-1 overflow-y-auto bg-background p-2 md:p-3"
+      className="@container/payment min-h-0 flex-1 overflow-hidden bg-background p-2 md:p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (canComplete && !pending) void onSubmit(selectedMethod.id, tenderedCentavos);
       }}
     >
-      <div className="grid min-h-full gap-3 @3xl/payment:grid-cols-3">
-        <Card className="min-h-0 gap-0 overflow-hidden p-0 @3xl/payment:col-span-1">
+      <div className="grid h-full min-h-0 gap-3 @3xl/payment:grid-cols-3">
+        <Card className="min-h-0 max-h-96 gap-0 overflow-hidden p-0 @3xl/payment:max-h-none @3xl/payment:col-span-1">
           <div className="flex shrink-0 items-start justify-between p-4 md:p-5">
             <div>
               <h2 className="font-semibold">Order summary</h2>
@@ -86,7 +98,10 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
             </span>
           </div>
 
-          <div className="min-h-0 overflow-y-auto px-4 pb-4 md:px-5">
+          <div
+            aria-label="Order lines"
+            className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 md:px-5"
+          >
             <div className="grid gap-4">
               {draft.lines.map((line) => {
                 const addOns = [...new Set(line.addOnIds)].map((id) => ({
@@ -121,11 +136,19 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
             </div>
           </div>
 
-          <div className="mx-4 mb-4 flex items-end justify-between rounded-xl bg-secondary p-4 md:mx-5 md:mb-5">
-            <span className="text-sm font-medium text-muted-foreground">Total</span>
-            <span className="text-2xl font-semibold tracking-tight tabular-nums">
-              {formatPeso(draft.totalCentavos)}
-            </span>
+          <div className="mx-4 mt-auto mb-4 rounded-xl bg-secondary p-4 md:mx-5 md:mb-5">
+            {vatCentavos !== null ? (
+              <div className="mb-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>VAT ({vatRatePercent}%)</span>
+                <span className="font-medium tabular-nums">{formatPeso(vatCentavos)}</span>
+              </div>
+            ) : null}
+            <div className="flex items-end justify-between gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Total</span>
+              <span className="text-2xl font-semibold tracking-tight tabular-nums">
+                {formatPeso(draft.totalCentavos)}
+              </span>
+            </div>
           </div>
         </Card>
 
@@ -223,20 +246,6 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
                 A recorded tender authorises nothing — no gateway, no QR, no settlement.
               </p>
             )}
-
-            {isCash ? (
-              <div
-                aria-labelledby="change-heading"
-                className="flex items-end justify-between rounded-xl bg-secondary p-4"
-              >
-                <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
-                  Change
-                </h2>
-                <p className="text-2xl font-semibold tracking-tight tabular-nums">
-                  {formatPeso(changeCentavos)}
-                </p>
-              </div>
-            ) : null}
           </div>
 
           {error ? (
@@ -249,6 +258,19 @@ export function PaymentPanel({ draft, catalog, pending, error, onBack, onSubmit 
           ) : null}
 
           <div className="mt-auto shrink-0 bg-card p-4">
+            {isCash ? (
+              <div
+                aria-labelledby="change-heading"
+                className="mb-4 flex items-end justify-between rounded-xl bg-secondary p-4"
+              >
+                <h2 id="change-heading" className="text-sm font-medium text-muted-foreground">
+                  Change
+                </h2>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {formatPeso(changeCentavos)}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={onBack}>
                 <ChevronLeftIcon aria-hidden="true" />

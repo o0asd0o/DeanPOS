@@ -29,4 +29,6 @@ export type SaleCatalog = {
   categories: { id: string; name: string }[];
   menuItems: SaleMenuItem[];
   paymentMethods: SalePaymentMethod[];
+  vatEnabled?: boolean;
+  vatRatePercent?: number;
 };

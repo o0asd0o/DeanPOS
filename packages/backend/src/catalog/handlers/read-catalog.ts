@@ -24,6 +24,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       menuItems: [],
       discounts: [],
       paymentMethods: [],
+      vatEnabled: false,
+      vatRatePercent: 0,
       version: "0".repeat(64),
     };
   }
@@ -44,6 +46,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
         menuItems: [],
         discounts: [],
         paymentMethods: [],
+        vatEnabled: false,
+        vatRatePercent: 0,
         version: "0".repeat(64),
       };
     const result = await selectCatalogRead(db, input.storeId);

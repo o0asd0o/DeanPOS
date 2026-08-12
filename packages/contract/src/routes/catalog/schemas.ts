@@ -188,6 +188,8 @@ export const catalogReadOutputSchema = z.object({
   menuItems: z.array(catalogReadMenuItemSchema),
   discounts: z.array(catalogReadDiscountSchema),
   paymentMethods: z.array(catalogReadPaymentMethodSchema),
+  vatEnabled: z.boolean(),
+  vatRatePercent: z.number().int().min(0),
   version: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export const catalogVersionOutputSchema = z.object({

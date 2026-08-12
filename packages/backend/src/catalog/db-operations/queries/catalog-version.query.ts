@@ -198,6 +198,8 @@ const buildCatalogPayload = (db: DatabaseInstance, storeId: string) => {
           .orderBy("method.name")
           .orderBy("method.id"),
       ),
+      vatEnabled: sql<boolean>`(SELECT vat_enabled FROM "Tenant" LIMIT 1)`,
+      vatRatePercent: sql<number>`(SELECT vat_rate_percent FROM "Tenant" LIMIT 1)`,
     }).as("content"),
   ]);
 };

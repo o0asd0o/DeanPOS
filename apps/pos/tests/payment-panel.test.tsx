@@ -96,7 +96,7 @@ describe("PaymentPanel", () => {
     expect(screen.getByText("VAT (12%)")).toBeTruthy();
     expect(screen.getByText("₱33.00")).toBeTruthy();
     expect(screen.getByLabelText("Order lines").className).toContain("overflow-y-auto");
-    expect(screen.getByText("Total").parentElement?.className).toContain("mt-auto");
+    expect(screen.getByText("Total").parentElement?.parentElement?.className).toContain("mt-auto");
     const payment = screen.getByRole("region", { name: "Payment" });
     expect(payment.className).toContain("@container/payment");
     expect(
@@ -280,8 +280,8 @@ describe("PaymentPanel", () => {
       .getByRole("heading", { name: "Amount due" })
       .closest('[data-slot="card"]');
     expect(paymentCard?.className).toContain("flex");
-    expect(screen.getByRole("heading", { name: "Change" }).parentElement?.parentElement?.className).toContain(
-      "mt-auto",
-    );
+    expect(
+      screen.getByRole("heading", { name: "Change" }).parentElement?.parentElement?.className,
+    ).toContain("mt-auto");
   });
 });
