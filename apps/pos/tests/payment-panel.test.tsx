@@ -178,11 +178,17 @@ describe("PaymentPanel", () => {
     const chooser = screen.getByRole("group", { name: "Payment method" });
     expect(chooser).toBeTruthy();
     expect(chooser.parentElement?.className).toContain("@xl/tender:grid-cols-2");
-    expect(screen.getByRole("img", { name: "GCash official mark" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Maya official mark" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Card" }).querySelector("[role=img]")).toBeNull();
+    const gcash = screen.getByRole("button", { name: "GCash" });
+    const maya = screen.getByRole("button", { name: "Maya" });
+    expect(gcash.textContent).toBe("");
+    expect(maya.textContent).toBe("");
+    expect(gcash.querySelector("img")).toBeTruthy();
+    expect(maya.querySelector("img")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Card" }).querySelector("img")).toBeNull();
+    expect(gcash.className).toContain("aria-pressed:ring-2");
     expect(screen.getByRole("button", { name: "Cash" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "GCash" }));
+    fireEvent.click(gcash);
+    expect(gcash.getAttribute("aria-pressed")).toBe("true");
 
     expect(screen.queryByRole("textbox", { name: "Cash tendered" })).toBeNull();
     expect(screen.queryByRole("group", { name: "Quick tender" })).toBeNull();
