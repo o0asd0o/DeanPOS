@@ -227,6 +227,54 @@ describe("PaymentPanel", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("shows the money reduced by an applied line Discount", () => {
+    render(
+      <PaymentPanel
+        draft={{
+          ...draft,
+          lines: [
+            {
+              ...draft.lines[0],
+              unitPriceCentavos: 13_000,
+              totalCentavos: 11_700,
+              lineDiscountId: "line-discount",
+            },
+          ],
+          totalCentavos: 11_700,
+        }}
+        catalog={{
+          ...catalog,
+          menuItems: [
+            {
+              ...catalog.menuItems[0],
+              priceCentavos: 13_000,
+              variants: [
+                {
+                  ...catalog.menuItems[0].variants[0],
+                  priceCentavos: 13_000,
+                },
+              ],
+            },
+          ],
+          discounts: [
+            {
+              id: "line-discount",
+              name: "Disc",
+              type: "percent",
+              scope: "line",
+              value: 1_000,
+            },
+          ],
+        }}
+        pending={false}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Disc · −₱13.00")).toBeTruthy();
+  });
+
   it("adds quick tender presets, calculates change, and submits centavos", () => {
     const onSubmit = vi.fn();
     render(
