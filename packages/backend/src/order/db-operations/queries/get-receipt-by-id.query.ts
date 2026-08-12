@@ -22,6 +22,8 @@ export async function getReceiptById(
       "order.cashier_user_id",
       "order.cashier_name",
       "order.total_centavos",
+      "order.vat_enabled",
+      "order.vat_rate_percent",
       "device.code as device_code",
       "device.name as device_name",
       "payment.amount_tendered_centavos",
@@ -61,6 +63,7 @@ export async function getReceiptById(
     paymentMethodName: order.method_name,
     paymentMethodKind: order.method_kind as "cash" | "recorded",
     totalCentavos: order.total_centavos,
+    vatRatePercent: order.vat_enabled ? order.vat_rate_percent : null,
     amountTenderedCentavos: order.amount_tendered_centavos,
     changeCentavos: order.change_centavos,
     lines: lines.map((line) => ({

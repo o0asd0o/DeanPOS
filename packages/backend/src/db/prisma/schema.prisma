@@ -667,6 +667,8 @@ model Order {
   drawerSessionId String?     @map("drawer_session_id")
   status          String
   totalCentavos   Int         @map("total_centavos")
+  vatEnabled      Boolean     @map("vat_enabled")
+  vatRatePercent  Int?        @map("vat_rate_percent")
   createdAt       DateTime    @default(now()) @map("created_at")
   tenant          Tenant      @relation(fields: [tenantId], references: [id])
   store           Store       @relation(fields: [tenantId, storeId], references: [tenantId, id])

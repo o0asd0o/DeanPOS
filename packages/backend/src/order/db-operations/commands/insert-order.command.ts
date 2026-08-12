@@ -12,6 +12,8 @@ export const insertOrder = (
     cashierUserId: string;
     cashierName: string;
     totalCentavos: number;
+    vatEnabled: boolean;
+    vatRatePercent: number | null;
   },
 ) =>
   db
@@ -28,6 +30,8 @@ export const insertOrder = (
       drawer_session_id: null,
       status: "paid",
       total_centavos: values.totalCentavos,
+      vat_enabled: values.vatEnabled,
+      vat_rate_percent: values.vatRatePercent,
     })
     .onConflict((conflict) => conflict.doNothing())
     .returning("id")

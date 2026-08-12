@@ -7,6 +7,7 @@ import { deviceCtx } from "../../common/ctx.ts";
 import type { Handler } from "../../common/handler.ts";
 import { withTenantScope } from "../../db/client.ts";
 import { getPinRoster } from "../../device/db-operations/queries/get-pin-roster.query.ts";
+import { getTenantSettings } from "../../tenant-settings/db-operations/queries/get-tenant-settings.query.ts";
 import { insertOrder } from "../db-operations/commands/insert-order.command.ts";
 import { insertOrderLines } from "../db-operations/commands/insert-order-lines.command.ts";
 import { insertPayment } from "../db-operations/commands/insert-payment.command.ts";
@@ -60,16 +61,17 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
     }
 
-    const [{ content }, paymentMethod, roster] = await Promise.all([
+    const [{ content }, paymentMethod, roster, tenant] = await Promise.all([
       selectCatalogRead(db, device.storeId),
       getPaymentMethodForStore(db, {
         paymentMethodId: input.paymentMethodId,
         storeId: device.storeId,
       }),
       getPinRoster(db, device.storeId, device.assignedUserId),
+      getTenantSettings(db, device.tenantId),
     ]);
     const cashier = roster.find((user) => user.userId === input.cashierUserId);
-    if (!paymentMethod || !cashier) {
+    if (!paymentMethod || !cashier || !tenant) {
       return { output: { ok: false } as const, actorUserId: null, outcome: "refused" as const };
     }
     if (paymentMethod.kind === "recorded" && input.amountTenderedCentavos !== input.totalCentavos) {
@@ -104,6 +106,8 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
       cashierUserId: cashier.userId,
       cashierName: cashier.displayName,
       totalCentavos: input.totalCentavos,
+      vatEnabled: tenant.vat_enabled,
+      vatRatePercent: tenant.vat_enabled ? tenant.vat_rate_percent : null,
     });
     if (!created) {
       const existing = await getReceiptById(db, { id: input.id, storeId: device.storeId });

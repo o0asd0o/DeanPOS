@@ -420,6 +420,8 @@ describe("terminal.submitOrder", () => {
       cashier_user_id: cashierUserId,
       cashier_name: "Ana Reyes",
       total_centavos: 25_500,
+      vat_enabled: false,
+      vat_rate_percent: null,
     });
     expect(line).toMatchObject({
       menu_item_id: menuItemId,
@@ -616,6 +618,50 @@ describe("terminal.submitOrder", () => {
       unit_price_centavos: 12_000,
       line_total_centavos: 25_500,
     });
+  });
+
+  it("captures VAT from the Tenant and preserves it after settings change", async () => {
+    await ownerDb
+      .updateTable("Tenant")
+      .set({ vat_enabled: true, vat_rate_percent: 12 })
+      .where("id", "=", tenantId)
+      .execute();
+    const vatOn = makeInput();
+    const submitted = await client().terminal.submitOrder({ ...vatOn, vatRatePercent: 0 });
+    expect(submitted).toMatchObject({ ok: true, receipt: { vatRatePercent: 12 } });
+    expect(
+      await ownerDb
+        .selectFrom("Order")
+        .select(["vat_enabled", "vat_rate_percent"])
+        .where("id", "=", vatOn.id)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ vat_enabled: true, vat_rate_percent: 12 });
+
+    await ownerDb
+      .updateTable("Tenant")
+      .set({ vat_enabled: false, vat_rate_percent: 0 })
+      .where("id", "=", tenantId)
+      .execute();
+    expect(await client().terminal.receipt({ id: vatOn.id })).toMatchObject({ vatRatePercent: 12 });
+
+    const vatOff = makeInput();
+    expect(await client().terminal.submitOrder(vatOff)).toMatchObject({
+      ok: true,
+      receipt: { vatRatePercent: null },
+    });
+    expect(
+      await ownerDb
+        .selectFrom("Order")
+        .select(["vat_enabled", "vat_rate_percent"])
+        .where("id", "=", vatOff.id)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ vat_enabled: false, vat_rate_percent: null });
+
+    await ownerDb
+      .updateTable("Tenant")
+      .set({ vat_enabled: false, vat_rate_percent: 12 })
+      .where("id", "=", tenantId)
+      .execute();
   });
 
   it("logs identity and outcome without payloads or amounts", async () => {

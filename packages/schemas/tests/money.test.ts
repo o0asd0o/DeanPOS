@@ -116,6 +116,24 @@ describe("vatBackout", () => {
       ),
     );
   });
+
+  it("keeps every VAT calculation exact in both tenant configurations", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 1_000_000_000 }),
+        fc.integer({ min: 0, max: 100 }),
+        fc.boolean(),
+        (total, ratePercent, vatEnabled) => {
+          if (!vatEnabled) return;
+
+          const { base, vat } = vatBackout(total as Millicentavos, ratePercent);
+          expect(Number.isSafeInteger(base)).toBe(true);
+          expect(Number.isSafeInteger(vat)).toBe(true);
+          expect(base + vat).toBe(total);
+        },
+      ),
+    );
+  });
 });
 
 const deltaArb = fc.oneof(

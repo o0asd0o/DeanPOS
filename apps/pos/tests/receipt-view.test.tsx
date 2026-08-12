@@ -14,6 +14,7 @@ const receipt = {
   paymentMethodName: "Cash",
   paymentMethodKind: "cash" as const,
   totalCentavos: 25_500,
+  vatRatePercent: null,
   amountTenderedCentavos: 30_000,
   changeCentavos: 4_500,
   lines: [
@@ -91,5 +92,18 @@ describe("ReceiptView", () => {
     expect(screen.getByText("Amount paid")).toBeTruthy();
     expect(screen.queryByText("Amount tendered")).toBeNull();
     expect(screen.queryByText("Change")).toBeNull();
+  });
+
+  it("shows VAT from the saved rate only when VAT was enabled for the sale", async () => {
+    const { container } = render(
+      <ReceiptView
+        receipt={{ ...receipt, totalCentavos: 38_500, vatRatePercent: 12 }}
+        onNewOrder={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("VAT (12%)")).toBeTruthy();
+    expect(screen.getByText("₱41.25")).toBeTruthy();
+    await expectNoAxeViolations(container);
   });
 });

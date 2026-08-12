@@ -116,6 +116,7 @@ export const receiptSchema = z.object({
   paymentMethodName: z.string(),
   paymentMethodKind: paymentMethodKindSchema,
   totalCentavos: postgresIntegerSchema,
+  vatRatePercent: z.number().int().min(0).nullable(),
   amountTenderedCentavos: postgresIntegerSchema,
   changeCentavos: postgresIntegerSchema,
   lines: z.array(receiptLineSchema),

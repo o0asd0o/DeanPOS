@@ -1,6 +1,12 @@
 import { CheckCircle2Icon, PlusIcon } from "lucide-react";
 import { Button } from "ui";
 import type { Receipt } from "contract/src/contract.ts";
+import {
+  centavosToMillicentavos,
+  roundLineTotal,
+  vatBackout,
+} from "../../../../../packages/schemas/src/money.ts";
+import type { Centavos } from "../../../../../packages/schemas/src/money.ts";
 
 import { formatPeso } from "@/features/helpers.ts";
 
@@ -8,6 +14,15 @@ type Props = { receipt: Receipt; onNewOrder: () => void };
 
 export function ReceiptView({ receipt, onNewOrder }: Props) {
   const isCash = receipt.paymentMethodKind === "cash";
+  const vatCentavos =
+    receipt.vatRatePercent === null
+      ? null
+      : roundLineTotal(
+          vatBackout(
+            centavosToMillicentavos(receipt.totalCentavos as Centavos),
+            receipt.vatRatePercent,
+          ).vat,
+        );
 
   return (
     <section
@@ -79,6 +94,12 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
               <dt>Total</dt>
               <dd className="font-mono">{formatPeso(receipt.totalCentavos)}</dd>
             </div>
+            {vatCentavos !== null ? (
+              <div className="flex items-center justify-between gap-4 text-muted-foreground">
+                <dt>VAT ({receipt.vatRatePercent}%)</dt>
+                <dd className="font-mono">{formatPeso(vatCentavos)}</dd>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between gap-4 text-muted-foreground">
               <dt>{isCash ? "Amount tendered" : "Amount paid"}</dt>
               <dd className="font-mono">{formatPeso(receipt.amountTenderedCentavos)}</dd>

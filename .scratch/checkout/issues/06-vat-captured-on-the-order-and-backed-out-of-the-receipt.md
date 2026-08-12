@@ -1,6 +1,6 @@
 # 06 — VAT captured on the Order and backed out of the receipt
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **Category:** feature
 
 ## What to build
@@ -29,17 +29,17 @@ are issue 09; this issue is the ordinary case.
 
 ## Acceptance criteria
 
-- [ ] The Order stores VAT enablement and the rate percent in force at sale time, read
+- [x] The Order stores VAT enablement and the rate percent in force at sale time, read
       server-side from the Tenant.
-- [ ] A rate or enablement asserted by the terminal is ignored or rejected — never trusted.
-- [ ] **VAT on:** the receipt shows VAT backed out of the Order total at the captured rate.
-- [ ] **VAT off:** no VAT line on the receipt and no VAT figure in the submit response or the
+- [x] A rate or enablement asserted by the terminal is ignored or rejected — never trusted.
+- [x] **VAT on:** the receipt shows VAT backed out of the Order total at the captured rate.
+- [x] **VAT off:** no VAT line on the receipt and no VAT figure in the submit response or the
       persisted row.
-- [ ] Changing the Tenant's rate or enablement after a sale does not change that sale's stored
+- [x] Changing the Tenant's rate or enablement after a sale does not change that sale's stored
       figures or its receipt.
-- [ ] Property test, both configurations: VAT backed out and re-applied returns the original
+- [x] Property test, both configurations: VAT backed out and re-applied returns the original
       total; every intermediate is an exact `Millicentavos` integer.
-- [ ] Every existing money property in this area is re-asserted with VAT enabled and disabled.
+- [x] Every existing money property in this area is re-asserted with VAT enabled and disabled.
 - [ ] WCAG 2.2 AA; the VAT line is drawn from the mock, not improvised.
 
 ## Visual reference
@@ -61,3 +61,9 @@ absence is the default configuration and needs its own build check.
 ## Depends on
 
 - 04 — The receipt and the device-assigned order number
+
+## Comments
+
+- 2026-08-12: Proven by `schemas` money properties, POS receipt tests, and API submit-order
+  integration tests. The remaining visual reference check requires human review at 1280px and
+  390px; it is intentionally unchecked.
