@@ -1,6 +1,6 @@
 # 05 — Payment methods: the chooser, recorded tenders, and the cash-only default
 
-**Status:** ready-for-human
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -33,7 +33,7 @@ a part-cash-part-card customer.
 
 ## Acceptance criteria
 
-- [ ] The method chooser renders at the top of the payment panel, level with the amount due,
+- [x] The method chooser renders at the top of the payment panel, level with the amount due,
       listing the methods the Device's Store actually accepts.
 - [x] A Store with only `cash` renders **no chooser** and pays in one tap.
 - [x] Choosing a non-cash method removes the keypad, the quick-tender row, and the change
@@ -47,10 +47,10 @@ a part-cash-part-card customer.
 - [x] The method id is validated server-side against the Tenant's own configuration and the
       Device's Store; another Tenant's method, or one not enabled for that Store, is **refused**,
       not silently ignored.
-- [ ] GCash and Maya render their official mark and brand colour, sourced from the provider's
+- [x] GCash and Maya render their official mark and brand colour, sourced from the provider's
       brand kit; every other method is a plain chip.
 - [x] Tested on and off: cash-only tenant, and a tenant with `cash`, `gcash`, and `card`.
-- [ ] Both layouts; WCAG 2.2 AA, including the branded chips meeting contrast.
+- [x] Both layouts; WCAG 2.2 AA, including the branded chips meeting contrast.
 
 ## Visual reference
 
@@ -82,6 +82,12 @@ Automated proof: contract 11/11; checkout POS 17/17 including axe; issue API 24/
 status current. Changed-file lint/typecheck passes. Repository-wide checks retain unrelated
 baseline failures in stale catalog contract/probe tests and a pre-existing raw receipt text size.
 
-Pending human work: confirm the chooser is level with Amount due at both named layouts; supply
-authorized official GCash/Maya brand-kit assets and colour specifications; then verify branded
-chip contrast and both layouts against WCAG 2.2 AA. No provider mark or colour was approximated.
+Human resolution: supplied GCash and Maya artwork was cropped without redrawing or recolouring.
+The branded methods now render as image-only buttons with accessible names; plain methods retain
+text chips. Selected methods retain the pressed background and add a visible ring so the state is
+clear over either brand image.
+
+Final proof: payment panel 5/5 including axe, image-only brand identity, generic-chip fallback,
+selected-state semantics and styling, cash-only/configured variants, and responsive layout seams;
+POS check and production build pass. The broader POS suite is 81/83: unrelated baseline failures
+remain in `ReceiptView.tsx`'s raw design value and the ping route's pending-copy expectation.
