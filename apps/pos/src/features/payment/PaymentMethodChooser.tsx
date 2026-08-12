@@ -1,4 +1,4 @@
-import { Button } from "ui";
+import { Button, cn } from "ui";
 
 import type { SalePaymentMethod } from "@/features/sale/types.ts";
 import { getPaymentMethodBrand } from "./helpers.ts";
@@ -22,7 +22,10 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
               key={method.id}
               type="button"
               variant="outline"
-              className="aria-pressed:ring-2 aria-pressed:ring-ring aria-pressed:ring-offset-2"
+              className={cn(
+                "aria-pressed:ring-2 aria-pressed:ring-ring aria-pressed:ring-offset-2",
+                brand && "w-32 overflow-hidden p-0",
+              )}
               aria-label={method.name}
               aria-pressed={method.id === selectedId}
               onClick={() => onSelect(method.id)}

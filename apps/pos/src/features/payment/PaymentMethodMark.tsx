@@ -10,7 +10,7 @@ export function PaymentMethodMark({ brand }: Props) {
   return (
     <img
       alt=""
-      className="h-7 w-auto max-w-28 rounded-sm object-contain"
+      className="h-full w-full object-cover"
       src={brand === "GCash" ? gcashBrandMarkUrl : mayaBrandMarkUrl}
     />
   );
