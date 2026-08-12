@@ -9,6 +9,7 @@ import {
   defaultModifierIds,
   hasRequiredModifiers,
   removeLine,
+  setLineDiscount,
   updateLine,
 } from "@/features/sale/draft-store.ts";
 import type { SaleAddOn, SaleModifier, SaleModifierGroup } from "@/features/sale/types.ts";
@@ -106,6 +107,82 @@ describe("sale line composition", () => {
       [{ id: "half", name: "Half", delta: { kind: "multiplier", perMille: 1_500 }, maximum: null }],
     );
     expect(line.totalCentavos).toBe(5);
+  });
+
+  it("applies a percent line Discount before the line's single rounding", () => {
+    const line = composeLine(
+      { ...base, unitPriceCentavos: 201, quantity: 1, addOnIds: ["half"] },
+      [],
+      [{ id: "half", name: "Half", delta: { kind: "multiplier", perMille: 500 }, maximum: null }],
+      { id: "senior", name: "Senior discount", type: "percent", scope: "line", value: 2_000 },
+    );
+
+    expect(line.totalCentavos).toBe(80);
+    expect(line.lineDiscountId).toBe("senior");
+  });
+
+  it("applies a line Discount locally without changing another OrderLine", () => {
+    let draft = createDraft();
+    draft = addLine(
+      draft,
+      composeLine(
+        { ...base, unitPriceCentavos: 201, addOnIds: ["half"] },
+        [],
+        [
+          {
+            id: "half",
+            name: "Half",
+            delta: { kind: "multiplier", perMille: 500 },
+            maximum: null,
+          },
+        ],
+      ),
+    );
+    draft = addLine(
+      draft,
+      composeLine({ ...base, menuItemId: "munggo", menuItemName: "Munggo" }, [], []),
+    );
+    const firstLineId = draft.lines[0]!.id;
+
+    const discounted = setLineDiscount(draft, firstLineId, "senior", {
+      categories: [],
+      menuItems: [
+        {
+          id: "adobo",
+          categoryId: "food",
+          name: "Adobo",
+          priceCentavos: 201,
+          available: true,
+          variants: [],
+          modifierGroups: [],
+          addOns: [
+            {
+              id: "half",
+              name: "Half",
+              delta: { kind: "multiplier", perMille: 500 },
+              maximum: null,
+            },
+          ],
+        },
+        {
+          id: "munggo",
+          categoryId: "food",
+          name: "Munggo",
+          priceCentavos: 8_000,
+          available: true,
+          variants: [],
+          modifierGroups: [],
+          addOns: [],
+        },
+      ],
+      paymentMethods: [],
+      discounts: [
+        { id: "senior", name: "Senior discount", type: "percent", scope: "line", value: 2_000 },
+      ],
+    });
+
+    expect(discounted.lines.map((line) => line.totalCentavos)).toEqual([80, 8_000]);
+    expect(discounted.totalCentavos).toBe(8_080);
   });
 
   it("property: generated non-negative integer prices and deltas produce non-negative centavos", () => {

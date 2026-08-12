@@ -46,6 +46,7 @@ export function buildSubmitOrderInput(
         unitPriceCentavos: line.unitPriceCentavos,
         quantity: line.quantity,
         lineTotalCentavos: line.totalCentavos,
+        discountIds: line.lineDiscountId ? [line.lineDiscountId] : [],
         modifiers: line.modifierIds.map((id) => {
           const modifier = modifiers.find((candidate) => candidate.id === id);
           if (!modifier)

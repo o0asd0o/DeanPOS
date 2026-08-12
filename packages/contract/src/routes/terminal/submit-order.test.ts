@@ -19,6 +19,7 @@ const validInput = {
       unitPriceCentavos: 12_000,
       quantity: 2,
       lineTotalCentavos: 25_500,
+      discountIds: [],
       modifiers: [
         {
           id: "10000000-0000-4000-8000-000000000004",
@@ -59,6 +60,21 @@ describe("submitOrderInputSchema", () => {
     ["zero Device sequence", { ...validInput, deviceSequence: 0 }],
     ["malformed Order number", { ...validInput, orderNumber: "C2-421" }],
     ["empty lines", { ...validInput, lines: [] }],
+    [
+      "two line Discounts",
+      {
+        ...validInput,
+        lines: [
+          {
+            ...validInput.lines[0],
+            discountIds: [
+              "10000000-0000-4000-8000-000000000008",
+              "10000000-0000-4000-8000-000000000009",
+            ],
+          },
+        ],
+      },
+    ],
   ])("rejects %s", (_label, input) => {
     expect(submitOrderInputSchema.safeParse(input).success).toBe(false);
   });

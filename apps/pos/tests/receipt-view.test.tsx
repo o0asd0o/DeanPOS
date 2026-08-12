@@ -24,6 +24,7 @@ const receipt = {
       unitPriceCentavos: 12_000,
       quantity: 2,
       lineTotalCentavos: 25_500,
+      discount: null,
       modifiers: [{ id: "modifier", name: "Spicy", deltaKind: "absolute" as const, deltaValue: 0 }],
       addOns: [
         {
@@ -107,6 +108,25 @@ describe("ReceiptView", () => {
 
     expect(screen.getByText("Discount · Senior discount")).toBeTruthy();
     expect(screen.getByText("−₱25.50")).toBeTruthy();
+  });
+
+  it("shows a captured line Discount with its line", () => {
+    render(
+      <ReceiptView
+        receipt={{
+          ...receipt,
+          lines: [
+            {
+              ...receipt.lines[0],
+              discount: { name: "Senior discount", type: "percent", value: 2_000 },
+            },
+          ],
+        }}
+        onNewOrder={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Line discount · Senior discount")).toBeTruthy();
   });
 
   it("shows VAT from the saved rate only when VAT was enabled for the sale", async () => {

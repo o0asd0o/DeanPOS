@@ -185,6 +185,48 @@ describe("PaymentPanel", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("offers percent line Discounts on each line and identifies the target line", async () => {
+    const onLineDiscountChange = vi.fn();
+    const configuredCatalog = {
+      ...catalog,
+      discounts: [
+        {
+          id: "line-senior-discount",
+          name: "Line senior discount",
+          type: "percent" as const,
+          scope: "line" as const,
+          value: 2_000,
+        },
+        {
+          id: "invalid-line-amount",
+          name: "Invalid amount",
+          type: "amount" as const,
+          scope: "line" as const,
+          value: 1_000,
+        },
+      ],
+    };
+    const { container } = render(
+      <PaymentPanel
+        draft={draft}
+        catalog={configuredCatalog}
+        pending={false}
+        onBack={vi.fn()}
+        onLineDiscountChange={onLineDiscountChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Apply line discount to Adobo · Whole" }),
+      { button: 0, ctrlKey: false },
+    );
+    expect(screen.queryByRole("menuitem", { name: "Invalid amount" })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Line senior discount" }));
+    expect(onLineDiscountChange).toHaveBeenCalledWith("line-1", "line-senior-discount");
+    await expectNoAxeViolations(container);
+  });
+
   it("adds quick tender presets, calculates change, and submits centavos", () => {
     const onSubmit = vi.fn();
     render(

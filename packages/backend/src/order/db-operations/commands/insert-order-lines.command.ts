@@ -19,6 +19,7 @@ type Line = {
   lineTotalCentavos: number;
   modifiers: Snapshot[];
   addOns: Snapshot[];
+  discount: { id: string; name: string; type: "percent"; value: number } | null;
 };
 
 export const insertOrderLines = (
@@ -39,6 +40,10 @@ export const insertOrderLines = (
         unit_price_centavos: line.unitPriceCentavos,
         quantity: line.quantity,
         line_total_centavos: line.lineTotalCentavos,
+        discount_id: line.discount?.id ?? null,
+        discount_name: line.discount?.name ?? null,
+        discount_type: line.discount?.type ?? null,
+        discount_value: line.discount?.value ?? null,
         modifier_snapshot: JSON.stringify(line.modifiers),
         addon_snapshot: JSON.stringify(line.addOns),
         sort_order: sortOrder,

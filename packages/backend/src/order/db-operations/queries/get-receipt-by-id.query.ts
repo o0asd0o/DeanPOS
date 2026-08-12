@@ -47,6 +47,9 @@ export async function getReceiptById(
       "unit_price_centavos",
       "quantity",
       "line_total_centavos",
+      "discount_name",
+      "discount_type",
+      "discount_value",
       "modifier_snapshot",
       "addon_snapshot",
     ])
@@ -78,6 +81,16 @@ export async function getReceiptById(
       unitPriceCentavos: line.unit_price_centavos,
       quantity: line.quantity,
       lineTotalCentavos: line.line_total_centavos,
+      discount:
+        line.discount_name === null ||
+        line.discount_type !== "percent" ||
+        line.discount_value === null
+          ? null
+          : {
+              name: line.discount_name,
+              type: "percent" as const,
+              value: line.discount_value,
+            },
       modifiers: line.modifier_snapshot,
       addOns: line.addon_snapshot,
     })),

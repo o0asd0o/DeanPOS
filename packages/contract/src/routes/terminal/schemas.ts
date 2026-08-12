@@ -80,6 +80,7 @@ export const submitOrderLineSchema = z.object({
   unitPriceCentavos: postgresIntegerSchema,
   quantity: z.number().int().min(1).max(10_000),
   lineTotalCentavos: postgresIntegerSchema,
+  discountIds: z.array(orderIdSchema).max(1).default([]),
   modifiers: z.array(submitOrderOptionSnapshotSchema).max(100),
   addOns: z.array(submitOrderOptionSnapshotSchema).max(100),
 });
@@ -102,6 +103,14 @@ export const receiptLineSchema = z.object({
   unitPriceCentavos: postgresIntegerSchema,
   quantity: z.number().int().min(1),
   lineTotalCentavos: postgresIntegerSchema,
+  discount: z
+    .object({
+      name: z.string(),
+      type: z.literal("percent"),
+      value: z.number().int().min(0).max(10_000),
+    })
+    .nullable()
+    .optional(),
   modifiers: z.array(submitOrderOptionSnapshotSchema),
   addOns: z.array(submitOrderOptionSnapshotSchema),
 });

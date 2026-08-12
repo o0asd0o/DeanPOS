@@ -50,6 +50,30 @@ export function roundLineTotal(amount: Millicentavos): Centavos {
   return divideRoundHalfUp(amount, MILLICENTAVOS_PER_CENTAVO) as Centavos;
 }
 
+export function roundDiscountedLineTotal(
+  exactUnit: Millicentavos,
+  quantity: number,
+  discountPerTenThousand: number,
+): Centavos {
+  if (
+    !Number.isSafeInteger(exactUnit) ||
+    exactUnit < 0 ||
+    !Number.isSafeInteger(quantity) ||
+    quantity < 1 ||
+    !Number.isSafeInteger(discountPerTenThousand) ||
+    discountPerTenThousand < 0 ||
+    discountPerTenThousand > 10_000
+  ) {
+    throw new Error("Invalid discounted line arithmetic");
+  }
+  const denominator = 10_000_000n;
+  const numerator = BigInt(exactUnit) * BigInt(quantity) * BigInt(10_000 - discountPerTenThousand);
+  const rounded = (numerator + denominator / 2n) / denominator;
+  const result = Number(rounded);
+  if (!Number.isSafeInteger(result)) throw new Error("Discounted line total exceeds safe integer");
+  return result as Centavos;
+}
+
 export interface VatBackout {
   readonly base: Millicentavos;
   readonly vat: Millicentavos;

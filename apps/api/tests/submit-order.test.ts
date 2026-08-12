@@ -32,6 +32,10 @@ const inactiveMethodId = randomUUID();
 const otherTenantMethodId = randomUUID();
 const orderDiscountId = randomUUID();
 const orderDiscountVersionId = randomUUID();
+const lineDiscountId = randomUUID();
+const lineDiscountVersionId = randomUUID();
+const amountOrderDiscountId = randomUUID();
+const amountOrderDiscountVersionId = randomUUID();
 const unavailableDiscountVersionId = randomUUID();
 const otherTenantDiscountVersionId = randomUUID();
 const cashierUserId = randomUUID();
@@ -82,6 +86,7 @@ const makeInput = (orderId = randomUUID()) => {
         unitPriceCentavos: 12_000,
         quantity: 2,
         lineTotalCentavos: 25_500,
+        discountIds: [] as string[],
         modifiers: [
           {
             id: modifierId,
@@ -281,6 +286,32 @@ beforeAll(async () => {
         effective_from: effectiveFrom,
       },
       {
+        id: lineDiscountVersionId,
+        tenant_id: tenantId,
+        discount_id: lineDiscountId,
+        name: "Line senior discount",
+        type: "percent",
+        scope: "line",
+        value: 1_000,
+        requires_override: false,
+        vat_exempt: false,
+        requires_reference: false,
+        effective_from: effectiveFrom,
+      },
+      {
+        id: amountOrderDiscountVersionId,
+        tenant_id: tenantId,
+        discount_id: amountOrderDiscountId,
+        name: "Order amount discount",
+        type: "amount",
+        scope: "order",
+        value: 1_000,
+        requires_override: false,
+        vat_exempt: false,
+        requires_reference: false,
+        effective_from: effectiveFrom,
+      },
+      {
         id: otherTenantDiscountVersionId,
         tenant_id: otherTenantId,
         discount_id: randomUUID(),
@@ -309,6 +340,18 @@ beforeAll(async () => {
         tenant_id: tenantId,
         discount_version_id: unavailableDiscountVersionId,
         store_id: secondStoreId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        discount_version_id: lineDiscountVersionId,
+        store_id: storeId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        discount_version_id: amountOrderDiscountVersionId,
+        store_id: storeId,
       },
       {
         id: randomUUID(),
@@ -455,6 +498,65 @@ afterAll(async () => {
 const client = () => seam.actors.asDevice(device).client;
 
 describe("terminal.submitOrder", () => {
+  it("applies one percent line Discount before rounding and coexists with an Order Discount", async () => {
+    const input = makeInput();
+    input.lines[0]!.discountIds = [lineDiscountVersionId];
+    input.lines[0]!.lineTotalCentavos = 22_950;
+    input.discountId = orderDiscountVersionId;
+    input.totalCentavos = 20_655;
+
+    expect(await client().terminal.submitOrder(input)).toMatchObject({
+      ok: true,
+      receipt: {
+        totalCentavos: 20_655,
+        discount: { name: "Senior citizen", amountCentavos: 2_295 },
+        lines: [
+          {
+            lineTotalCentavos: 22_950,
+            discount: { name: "Line senior discount", type: "percent", value: 1_000 },
+          },
+        ],
+      },
+    });
+    expect(
+      await ownerDb
+        .selectFrom("OrderLine")
+        .select(["discount_id", "discount_name", "discount_type", "discount_value"])
+        .where("order_id", "=", input.id)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      discount_id: lineDiscountVersionId,
+      discount_name: "Line senior discount",
+      discount_type: "percent",
+      discount_value: 1_000,
+    });
+
+    const amount = makeInput();
+    amount.lines[0]!.discountIds = [amountOrderDiscountVersionId];
+    expect(await client().terminal.submitOrder(amount)).toEqual({ ok: false });
+  });
+
+  it("reduces only the OrderLine that names the line Discount", async () => {
+    const input = makeInput();
+    input.lines = [
+      { ...input.lines[0]!, discountIds: [lineDiscountVersionId], lineTotalCentavos: 22_950 },
+      { ...input.lines[0]!, discountIds: [], lineTotalCentavos: 25_500 },
+    ];
+    input.totalCentavos = 48_450;
+    input.amountTenderedCentavos = 50_000;
+
+    expect(await client().terminal.submitOrder(input)).toMatchObject({
+      ok: true,
+      receipt: {
+        totalCentavos: 48_450,
+        lines: [
+          { lineTotalCentavos: 22_950, discount: { name: "Line senior discount" } },
+          { lineTotalCentavos: 25_500, discount: null },
+        ],
+      },
+    });
+  });
+
   it("captures and recomputes an available order Discount, then refuses unavailable, foreign, and forged discounts", async () => {
     const input = makeInput();
     input.discountId = orderDiscountVersionId;

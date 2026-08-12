@@ -1,5 +1,6 @@
 import {
   applyDeltas,
+  roundDiscountedLineTotal,
   roundLineTotal,
   type Centavos,
   type Delta,
@@ -20,7 +21,10 @@ type SubmittedLine = {
   lineTotalCentavos: number;
   modifiers: Snapshot[];
   addOns: Snapshot[];
+  discountIds: string[];
 };
+
+type LineDiscount = { value: number };
 
 type CatalogModifier = { id: string };
 type CatalogModifierGroup = {
@@ -46,12 +50,22 @@ export function computeOrderDiscountAmount(
     : Math.floor((subtotalCentavos * discount.value + 5_000) / 10_000);
 }
 
+export const computeDiscountedLineTotal = (
+  exactUnit: number,
+  quantity: number,
+  discountPerTenThousand: number,
+) => roundDiscountedLineTotal(exactUnit as Millicentavos, quantity, discountPerTenThousand);
+
 const toDelta = (snapshot: Snapshot): Delta =>
   snapshot.deltaKind === "absolute"
     ? { kind: "absolute", amountCentavos: snapshot.deltaValue as Centavos }
     : { kind: "multiplier", perMille: snapshot.deltaValue as never };
 
-export function isValidSubmittedLine(line: SubmittedLine, item: CatalogItem): boolean {
+export function isValidSubmittedLine(
+  line: SubmittedLine,
+  item: CatalogItem,
+  discount: LineDiscount | null,
+): boolean {
   if (item.id !== line.menuItemId || !item.available) return false;
   if (
     line.variantId !== null &&
@@ -88,6 +102,9 @@ export function isValidSubmittedLine(line: SubmittedLine, item: CatalogItem): bo
     line.unitPriceCentavos as Centavos,
     [...line.modifiers, ...line.addOns].map(toDelta),
   );
-  const computedTotal = roundLineTotal((exactUnit * line.quantity) as Millicentavos);
+  if (exactUnit < 0) return false;
+  const computedTotal = discount
+    ? computeDiscountedLineTotal(exactUnit, line.quantity, discount.value)
+    : roundLineTotal((exactUnit * line.quantity) as Millicentavos);
   return computedTotal === line.lineTotalCentavos;
 }

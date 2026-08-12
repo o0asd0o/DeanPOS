@@ -116,9 +116,26 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
         outcome: "refused" as const,
       };
     }
-    const valid = input.lines.every((line) => {
+    const lineDiscounts = input.lines.map((line) => {
+      const discountId = line.discountIds[0];
+      if (!discountId) return null;
+      return (
+        catalog.discounts.find(
+          (discount) =>
+            discount.id === discountId &&
+            discount.scope === "line" &&
+            discount.type === "percent" &&
+            discount.value !== null,
+        ) ?? null
+      );
+    });
+    const valid = input.lines.every((line, index) => {
+      if (line.discountIds.length > 0 && !lineDiscounts[index]) return false;
       const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
-      return item ? isValidSubmittedLine(line, item) : false;
+      const discount = lineDiscounts[index];
+      return item && (!discount || discount.type === "percent")
+        ? isValidSubmittedLine(line, item, discount ? { value: discount.value! } : null)
+        : false;
     });
     if (!valid) {
       return {
@@ -172,7 +189,20 @@ export const handler: Handler<Input, Output> = async ({ ctx, input }) => {
     await insertOrderLines(db, {
       tenantId: device.tenantId,
       orderId: input.id,
-      lines: input.lines,
+      lines: input.lines.map((line, index) => {
+        const discount = lineDiscounts[index];
+        return {
+          ...line,
+          discount: discount
+            ? {
+                id: discount.id,
+                name: discount.name,
+                type: "percent" as const,
+                value: discount.value!,
+              }
+            : null,
+        };
+      }),
     });
     await insertPayment(db, {
       tenantId: device.tenantId,

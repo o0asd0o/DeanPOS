@@ -139,6 +139,7 @@ export function SaleWorkspace({ catalog }: Props) {
           input,
           picker.item.modifierGroups.flatMap((g) => g.modifiers),
           picker.item.addOns,
+          catalog.discounts,
         )
       : addLine(
           ensureDraft(),
@@ -349,6 +350,7 @@ export function SaleWorkspace({ catalog }: Props) {
           initial={
             picker.lineId ? draft?.lines.find((line) => line.id === picker.lineId) : undefined
           }
+          discounts={catalog.discounts}
           onSubmit={submitPicker}
           onRemove={() => {
             if (!picker.lineId || !draft) return;

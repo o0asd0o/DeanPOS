@@ -717,6 +717,10 @@ model OrderLine {
   unitPriceCentavos  Int      @map("unit_price_centavos")
   quantity           Int
   lineTotalCentavos  Int      @map("line_total_centavos")
+  discountId         String?  @map("discount_id")
+  discountName       String?  @map("discount_name")
+  discountType       String?  @map("discount_type")
+  discountValue      Int?     @map("discount_value")
   modifierSnapshot   Json     @default("[]") @map("modifier_snapshot")
   addonSnapshot      Json     @default("[]") @map("addon_snapshot")
   sortOrder          Int      @map("sort_order")

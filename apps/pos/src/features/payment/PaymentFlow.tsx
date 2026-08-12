@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { Receipt } from "contract/src/contract.ts";
 
-import { writeDraft, type Draft } from "@/features/sale/draft-store.ts";
+import { setLineDiscount, writeDraft, type Draft } from "@/features/sale/draft-store.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 import { useActingUser } from "@/lib/acting-user.tsx";
 import { readDeviceIdentity } from "@/lib/device-token.ts";
@@ -34,6 +34,12 @@ export function PaymentFlow({ draft, catalog, onBack, onDraftChanged, onComplete
       onBack={onBack}
       onDiscountChange={(discountId) => {
         const next = { ...draft, discountId };
+        submissionDraft.current = next;
+        writeDraft(next);
+        onDraftChanged(next);
+      }}
+      onLineDiscountChange={(lineId, discountId) => {
+        const next = setLineDiscount(draft, lineId, discountId, catalog);
         submissionDraft.current = next;
         writeDraft(next);
         onDraftChanged(next);

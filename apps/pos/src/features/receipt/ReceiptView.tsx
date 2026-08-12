@@ -83,6 +83,11 @@ export function ReceiptView({ receipt, onNewOrder }: Props) {
                     Add-on · {addOn.name}
                   </p>
                 ))}
+                {line.discount ? (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Line discount · {line.discount.name}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

@@ -12,6 +12,7 @@ import type { Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 import { OrderDiscountMenu } from "@/features/discount/OrderDiscountMenu.tsx";
+import { LineDiscountMenu } from "@/features/discount/LineDiscountMenu.tsx";
 import { PaymentMethodChooser } from "./PaymentMethodChooser.tsx";
 
 type Props = {
@@ -21,6 +22,7 @@ type Props = {
   error?: string | null;
   onBack: () => void;
   onDiscountChange?: (discountId: string | null) => void;
+  onLineDiscountChange?: (lineId: string, discountId: string | null) => void;
   onSubmit: (paymentMethodId: string, amountTenderedCentavos: number) => void | Promise<void>;
 };
 
@@ -46,6 +48,7 @@ export function PaymentPanel({
   error,
   onBack,
   onDiscountChange = () => undefined,
+  onLineDiscountChange = () => undefined,
   onSubmit,
 }: Props) {
   const [selectedMethodId, setSelectedMethodId] = useState(
@@ -61,6 +64,10 @@ export function PaymentPanel({
   const tenderedCentavos = parseTenderedCentavos(tenderedInput);
   const discounts = (catalog.discounts ?? []).filter(
     (discount) => discount.scope === "order" && discount.value !== null,
+  );
+  const lineDiscounts = (catalog.discounts ?? []).filter(
+    (discount) =>
+      discount.scope === "line" && discount.type === "percent" && discount.value !== null,
   );
   const selectedDiscount = discounts.find((discount) => discount.id === draft.discountId) ?? null;
   const discountCentavos = selectedDiscount
@@ -145,10 +152,28 @@ export function PaymentPanel({
                         {line.quantity}× {line.menuItemName}
                         {line.variantName ? ` · ${line.variantName}` : ""}
                       </span>
-                      <span className="shrink-0 font-semibold tabular-nums">
-                        {formatPeso(line.totalCentavos)}
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="font-semibold tabular-nums">
+                          {formatPeso(line.totalCentavos)}
+                        </span>
+                        {lineDiscounts.length > 0 ? (
+                          <LineDiscountMenu
+                            discounts={lineDiscounts}
+                            lineName={`${line.menuItemName}${line.variantName ? ` · ${line.variantName}` : ""}`}
+                            selectedId={line.lineDiscountId ?? null}
+                            onSelect={(discountId) => onLineDiscountChange(line.id, discountId)}
+                          />
+                        ) : null}
                       </span>
                     </div>
+                    {line.lineDiscountId ? (
+                      <p className="text-sm text-muted-foreground">
+                        {
+                          lineDiscounts.find((discount) => discount.id === line.lineDiscountId)
+                            ?.name
+                        }
+                      </p>
+                    ) : null}
                     {line.modifierIds.map((id) => (
                       <p key={id} className="text-sm text-muted-foreground">
                         {optionNames.get(id) ?? "Modifier"}

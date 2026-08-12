@@ -20,6 +20,7 @@ import { formatPeso } from "@/features/helpers.ts";
 import type {
   SaleAddOn,
   SaleDelta,
+  SaleDiscount,
   SaleMenuItem,
   SaleModifierGroup,
   SaleVariant,
@@ -30,6 +31,7 @@ type Props = {
   variant: SaleVariant | null;
   open: boolean;
   initial?: DraftLineInput;
+  discounts?: SaleDiscount[];
   onOpenChange: (open: boolean) => void;
   onSubmit: (line: DraftLineInput, source: HTMLButtonElement) => void;
   onRemove: () => void;
@@ -51,6 +53,7 @@ export function ModifierAddonModal({
   variant,
   open,
   initial,
+  discounts = [],
   onOpenChange,
   onSubmit,
   onRemove,
@@ -71,11 +74,16 @@ export function ModifierAddonModal({
     quantity,
     modifierIds,
     addOnIds,
+    lineDiscountId: initial?.lineDiscountId ?? null,
   };
+  const lineDiscount = line.lineDiscountId
+    ? (discounts.find((discount) => discount.id === line.lineDiscountId) ?? null)
+    : null;
   const runningTotal = composeLine(
     line,
     item.modifierGroups.flatMap((group) => group.modifiers),
     item.addOns,
+    lineDiscount,
   ).totalCentavos;
 
   const toggleModifier = (group: SaleModifierGroup, id: string) => {

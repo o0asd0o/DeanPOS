@@ -33,18 +33,18 @@ refund apportions it later (issue 12).
 
 ## Acceptance criteria
 
-- [ ] A `percent` Discount is applied to a single line and reduces exactly that line.
-- [ ] The reduction is applied to the **unrounded** millicentavo amount, before the line's
+- [x] A `percent` Discount is applied to a single line and reduces exactly that line.
+- [x] The reduction is applied to the **unrounded** millicentavo amount, before the line's
       single rounding — asserted on a price where discounting after rounding would differ by a
       centavo.
-- [ ] At most one line-scoped Discount per line; a second is rejected.
-- [ ] An `amount` Discount applied to a line is rejected **server-side**, not only in the UI.
-- [ ] A line-scoped Discount and an Order-scoped Discount coexist on the same order, each
+- [x] At most one line-scoped Discount per line; a second is rejected.
+- [x] An `amount` Discount applied to a line is rejected **server-side**, not only in the UI.
+- [x] A line-scoped Discount and an Order-scoped Discount coexist on the same order, each
       applied exactly once.
-- [ ] The line captures the Discount's name, type, and value alongside its recorded total.
-- [ ] Property test: exactly two figures are rounded on a sale with both scopes applied — the
+- [x] The line captures the Discount's name, type, and value alongside its recorded total.
+- [x] Property test: exactly two figures are rounded on a sale with both scopes applied — the
       OrderLine total and the Order-scoped Discount amount.
-- [ ] The receipt shows the line's discount with its name.
+- [x] The receipt shows the line's discount with its name.
 - [ ] WCAG 2.2 AA.
 
 ## Visual reference
@@ -61,3 +61,11 @@ refund apportions it later (issue 12).
 ## Depends on
 
 - 07 — Order-scoped Discounts at the point of sale
+
+## Comments
+
+- 2026-08-12: Implemented percent line Discounts with exact before-rounding arithmetic,
+  server-side scope/catalog validation, immutable OrderLine snapshots, receipt projection, and
+  coexistence with Order Discounts. Focused POS, contract, backend property, and API database
+  tests pass. WCAG remains open for human visual and assistive-technology review; status remains
+  non-done until that review passes.
