@@ -83,9 +83,10 @@ status current. Changed-file lint/typecheck passes. Repository-wide checks retai
 baseline failures in stale catalog contract/probe tests and a pre-existing raw receipt text size.
 
 Human resolution: supplied GCash and Maya artwork was cropped without redrawing or recolouring.
-The branded methods now render as image-only buttons with accessible names and edge-to-edge
-artwork; plain methods retain text chips. Selected methods retain the pressed background and add
-a visible ring so the state is clear over either brand image.
+The branded methods now render as image-only 112px buttons with accessible names and edge-to-edge
+brand backgrounds; each mark retains proportional native background padding. Plain methods retain
+text chips. Selected methods retain the pressed background and add a visible ring so the state is
+clear over either brand image.
 
 Final proof: payment panel 5/5 including axe, image-only brand identity, generic-chip fallback,
 selected-state semantics and styling, cash-only/configured variants, and responsive layout seams;
