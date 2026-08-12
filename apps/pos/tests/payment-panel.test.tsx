@@ -51,6 +51,7 @@ const configuredCatalog = {
   paymentMethods: [
     ...catalog.paymentMethods,
     { id: "gcash-id", name: "GCash", kind: "recorded" as const },
+    { id: "maya-id", name: "Maya", kind: "recorded" as const },
     { id: "card-id", name: "Card", kind: "recorded" as const },
   ],
 };
@@ -174,7 +175,12 @@ describe("PaymentPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("group", { name: "Payment method" })).toBeTruthy();
+    const chooser = screen.getByRole("group", { name: "Payment method" });
+    expect(chooser).toBeTruthy();
+    expect(chooser.parentElement?.className).toContain("@xl/tender:grid-cols-2");
+    expect(screen.getByRole("img", { name: "GCash official mark" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Maya official mark" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Card" }).querySelector("[role=img]")).toBeNull();
     expect(screen.getByRole("button", { name: "Cash" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "GCash" }));
 
