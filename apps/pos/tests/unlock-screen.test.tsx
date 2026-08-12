@@ -269,23 +269,19 @@ describe("the unlock screen", () => {
     expect((screen.getByLabelText("PIN") as HTMLInputElement).value).toBe("");
   });
 
-  it("Unlock stays live with nothing filled in and names the first missing step on click", async () => {
+  it("requires an account choice before revealing the PIN step", async () => {
     await seedDeviceAndRoster();
 
     const { db } = renderRoute({ router, initialLocation: "/" });
     cleanup = () => db.destroy();
 
     await waitFor(() => expect(screen.getByText("Ana Reyes")).toBeTruthy(), { timeout: 3000 });
-    expect(screen.getByRole("button", { name: "Unlock" }).getAttribute("aria-disabled")).toBe(
-      "false",
-    );
+    expect(screen.queryByRole("button", { name: "Unlock" })).toBeNull();
+    expect(screen.queryByLabelText("PIN")).toBeNull();
+    expect(screen.getByText("Choose account")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
-    await waitFor(() => expect(screen.getByText("Choose who is on the till")).toBeTruthy());
-
-    // Choosing answers that message; the PIN is then the missing step.
     fireEvent.click(screen.getByRole("button", { name: "Ana Reyes" }));
-    expect(screen.queryByText("Choose who is on the till")).toBeNull();
+    expect(screen.getByLabelText("PIN")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
     await waitFor(() => expect(screen.getByText("Enter your PIN")).toBeTruthy());

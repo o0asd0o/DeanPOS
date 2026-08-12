@@ -1,6 +1,6 @@
 # 06 — VAT captured on the Order and backed out of the receipt
 
-**Status:** ready-for-human
+**Status:** done
 **Category:** feature
 
 ## What to build
@@ -45,7 +45,7 @@ are issue 09; this issue is the ordinary case.
 ## Visual reference
 
 - Image · whole-screen · 1280: `design/lofi/pos/receipt-1280.svg`
-- Image · whole-screen · 390:  `design/lofi/pos/receipt-390.svg`
+- Image · whole-screen · 390: `design/lofi/pos/receipt-390.svg`
 
 The VAT line is a **conditional surface**. A non-VAT tenant has no VAT line anywhere — that
 absence is the default configuration and needs its own build check.

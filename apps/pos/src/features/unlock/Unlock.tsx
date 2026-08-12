@@ -1,7 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
-import { Button, Card, CardContent, CardHeader, CardTitle, useSubmitGate } from "ui";
+import { ChevronLeftIcon } from "lucide-react";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  useSubmitGate,
+} from "ui";
 
 import { verifyPin } from "contract/src/pin.ts";
 
@@ -36,6 +45,7 @@ export function Unlock() {
   const { setActingUser } = useActingUser();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeStep, setActiveStep] = useState<"accounts" | "pin">("accounts");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [managerUnlockOpen, setManagerUnlockOpen] = useState(false);
@@ -110,16 +120,25 @@ export function Unlock() {
     setSrStatus("");
   };
 
+  useEffect(() => {
+    if (!restricted && activeStep === "pin" && selectedUser) pinInputRef.current?.focus();
+  }, [activeStep, restricted, selectedUser]);
+
   const handleSelect = (userId: string) => {
     if (isDeviceLock) return;
     setSelectedId(userId);
     form.reset();
     setError(null);
-    pinInputRef.current?.focus();
+    setActiveStep("pin");
   };
 
-  // Unlock stays live whenever there is something to complete, and the click
-  // names the first unmet step — a disabled button explains nothing.
+  const handleBackToAccounts = () => {
+    form.reset();
+    setError(null);
+    setActiveStep("accounts");
+  };
+
+  // At the PIN step, Unlock stays live so its click can name a missing PIN.
   const unlockBlocked = gate.blocked || isLocked;
 
   const noOneYet = !roster || (!restricted && roster.users.length === 0);
@@ -128,7 +147,12 @@ export function Unlock() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle>{identity ? `${identity.storeName} · ${identity.name}` : ""}</CardTitle>
+          <CardTitle>Unlock this till</CardTitle>
+          <CardDescription>
+            {identity
+              ? `${identity.storeName} · ${identity.name}`
+              : "Choose your account, then enter your PIN"}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {noOneYet ? (
@@ -201,67 +225,86 @@ export function Unlock() {
               />
             </>
           ) : (
-            <>
-              <span id="who-is-on-the-till" className="sr-only">
-                Who is on the till
-              </span>
-              <div
-                role="group"
-                aria-labelledby="who-is-on-the-till"
-                className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-              >
-                {roster.users.map((user) => (
-                  <Button
-                    key={user.userId}
-                    type="button"
-                    variant="outline"
-                    aria-pressed={user.userId === selectedId}
-                    aria-disabled={isDeviceLock}
-                    onClick={() => handleSelect(user.userId)}
+            <div>
+              {activeStep === "accounts" ? (
+                <div className="animate-in slide-in-from-left-4 duration-200">
+                  <p className="mb-2 text-sm font-medium">Choose account</p>
+                  <div
+                    role="group"
+                    aria-label="Choose your account"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
                   >
-                    {user.displayName}
-                  </Button>
-                ))}
-              </div>
+                    {roster.users.map((user) => (
+                      <Button
+                        key={user.userId}
+                        type="button"
+                        variant="outline"
+                        aria-pressed={user.userId === selectedId}
+                        aria-disabled={isDeviceLock}
+                        onClick={() => handleSelect(user.userId)}
+                        className="min-h-14 px-4"
+                      >
+                        {user.displayName}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-in slide-in-from-right-4 duration-200">
+                  {selectedUser && (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        gate.submit();
+                      }}
+                      className="flex flex-col gap-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">PIN · {selectedUser.displayName}</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleBackToAccounts}
+                        >
+                          <ChevronLeftIcon />
+                          Back
+                        </Button>
+                      </div>
+                      <PinPad
+                        inputRef={pinInputRef}
+                        pin={pin}
+                        onPinChange={setPinDigits}
+                        lockedUntil={lockedUntil}
+                        lockMessage={
+                          isDeviceLock
+                            ? "Too many attempts — locked for"
+                            : `Too many attempts — ${selectedUser.displayName} locked for`
+                        }
+                        srStatus={srStatus}
+                        trailing={
+                          <Button type="submit" aria-disabled={unlockBlocked}>
+                            {pending ? "Unlocking…" : "Unlock"}
+                          </Button>
+                        }
+                      />
 
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  gate.submit();
-                }}
-                className="flex flex-col gap-4"
-              >
-                <PinPad
-                  inputRef={pinInputRef}
-                  pin={pin}
-                  onPinChange={setPinDigits}
-                  lockedUntil={lockedUntil}
-                  lockMessage={
-                    isDeviceLock
-                      ? "Too many attempts — locked for"
-                      : `Too many attempts — ${selectedUser?.displayName} locked for`
-                  }
-                  srStatus={srStatus}
-                  trailing={
-                    <Button type="submit" aria-disabled={unlockBlocked}>
-                      {pending ? "Unlocking…" : "Unlock"}
-                    </Button>
-                  }
-                />
-
-                {selectedUser && selectedUser.pinHash === null && (
-                  <p role="alert" className="text-sm text-destructive">
-                    {selectedUser.displayName} has no PIN yet. They set one in the back office, from
-                    their account menu
-                  </p>
-                )}
-                {error && !isLocked && (
-                  <p role="alert" className="text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-              </form>
-            </>
+                      {selectedUser.pinHash === null && (
+                        <p role="alert" className="text-sm text-destructive">
+                          {selectedUser.displayName} has no PIN yet. They set one in the back
+                          office, from their account menu
+                        </p>
+                      )}
+                      {error && !isLocked && (
+                        <p role="alert" className="text-sm text-destructive">
+                          {error}
+                        </p>
+                      )}
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
