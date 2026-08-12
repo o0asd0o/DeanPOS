@@ -104,6 +104,10 @@ describe("ReceiptView", () => {
 
     expect(screen.getByText("VAT (12%)")).toBeTruthy();
     expect(screen.getByText("₱41.25")).toBeTruthy();
+    expect(
+      screen.getByText("VAT (12%)").compareDocumentPosition(screen.getByText("Total")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await expectNoAxeViolations(container);
   });
 });
