@@ -176,6 +176,8 @@ describe("PaymentPanel", () => {
     expect(screen.getByText(/authorises nothing/i)).toBeTruthy();
 
     const amount = screen.getByRole("textbox", { name: "Amount recorded" });
+    expect(amount).toHaveProperty("value", "308");
+    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty("disabled", false);
     fireEvent.change(amount, { target: { value: "309" } });
     expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty("disabled", true);
     fireEvent.change(amount, { target: { value: "308" } });
