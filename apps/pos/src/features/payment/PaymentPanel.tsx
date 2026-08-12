@@ -8,12 +8,18 @@ import {
 } from "../../../../../packages/schemas/src/money.ts";
 import type { Centavos } from "../../../../../packages/schemas/src/money.ts";
 
-import { composeLine, type Draft } from "@/features/sale/draft-store.ts";
+import { type Draft } from "@/features/sale/draft-store.ts";
 import { formatPeso } from "@/features/helpers.ts";
 import type { SaleCatalog } from "@/features/sale/types.ts";
 import { OrderDiscountMenu } from "@/features/discount/OrderDiscountMenu.tsx";
 import { LineDiscountMenu } from "@/features/discount/LineDiscountMenu.tsx";
 import { PaymentMethodChooser } from "./PaymentMethodChooser.tsx";
+import {
+  formatTenderInput,
+  getLineDiscountDetail,
+  parseTenderedCentavos,
+  QUICK_TENDER_PESOS,
+} from "./helpers.ts";
 
 type Props = {
   draft: Draft;
@@ -25,41 +31,6 @@ type Props = {
   onLineDiscountChange?: (lineId: string, discountId: string | null) => void;
   onSubmit: (paymentMethodId: string, amountTenderedCentavos: number) => void | Promise<void>;
 };
-
-const quickTenderPesos = [100, 200, 500, 1_000] as const;
-
-function parseTenderedCentavos(value: string): number | null {
-  if (!/^\d+(?:\.\d{0,2})?$/.test(value)) return null;
-  const [pesos, fraction = ""] = value.split(".");
-  const centavos = Number(pesos) * 100 + Number(fraction.padEnd(2, "0"));
-  return Number.isSafeInteger(centavos) && centavos <= 2_147_483_647 ? centavos : null;
-}
-
-function formatTenderInput(centavos: number): string {
-  const pesos = Math.floor(centavos / 100);
-  const remainder = centavos % 100;
-  return remainder === 0 ? String(pesos) : `${pesos}.${String(remainder).padStart(2, "0")}`;
-}
-
-function getLineDiscountDetail(
-  line: Draft["lines"][number],
-  catalog: SaleCatalog,
-): { name: string; amountCentavos: number } | null {
-  const discount = (catalog.discounts ?? []).find(
-    (candidate) => candidate.id === line.lineDiscountId,
-  );
-  const item = catalog.menuItems.find((candidate) => candidate.id === line.menuItemId);
-  if (!discount || !item) return null;
-  const undiscountedTotal = composeLine(
-    line,
-    item.modifierGroups.flatMap((group) => group.modifiers),
-    item.addOns,
-  ).totalCentavos;
-  return {
-    name: discount.name,
-    amountCentavos: Math.max(0, undiscountedTotal - line.totalCentavos),
-  };
-}
 
 export function PaymentPanel({
   draft,
@@ -297,7 +268,7 @@ export function PaymentPanel({
                 role="group"
                 className="grid grid-cols-2 gap-2 @xs/tender:grid-cols-3 @xl/tender:grid-cols-5"
               >
-                {quickTenderPesos.map((pesos) => (
+                {QUICK_TENDER_PESOS.map((pesos) => (
                   <Button
                     key={pesos}
                     type="button"
