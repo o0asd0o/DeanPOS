@@ -18,7 +18,7 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
       className="grid min-w-0 gap-2 @xl/tender:col-span-2"
     >
       <span className="text-sm font-medium text-muted-foreground">Payment method</span>
-      <div className="flex flex-nowrap gap-2 overflow-x-auto py-1">
+      <div className="flex px-1 flex-nowrap gap-2 overflow-x-auto py-1">
         {methods.map((method) => {
           const brand = getPaymentMethodBrand(method.name);
           const selected = method.id === selectedId;

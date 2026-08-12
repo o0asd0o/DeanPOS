@@ -90,9 +90,8 @@ clear over either brand image. The chooser owns two thirds of the wide header an
 method on one horizontal row; narrow layouts scroll that row instead of wrapping Maya. Both marks
 use expanded edge-matched background padding to keep their visual scale compact without distortion.
 GCash and Maya show that artwork only while selected; their unselected states are ordinary text
-chips matching Cash and Card. Selection keeps a stable pill width and reveals the artwork from
-left to right over 180ms with linear clipping; no scale or layout animation runs, and reduced-motion
-preferences make the reveal immediate.
+chips matching Cash and Card. Selection keeps a stable pill width and swaps to artwork immediately,
+with no reveal, scale, or layout animation.
 
 Final proof: payment panel 5/5 including axe, image-only brand identity, generic-chip fallback,
 selected-state semantics and styling, cash-only/configured variants, and responsive layout seams;
