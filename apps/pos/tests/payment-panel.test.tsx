@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expectNoAxeViolations, fireEvent, render, screen } from "api/src/test-seam-react.tsx";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -56,7 +57,17 @@ const configuredCatalog = {
   ],
 };
 
+function readPngSize(path: string) {
+  const png = readFileSync(path);
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+}
+
 describe("PaymentPanel", () => {
+  it("keeps both brand marks proportionally padded inside their pills", () => {
+    expect(readPngSize("src/assets/gcash-brand-mark.png")).toEqual({ width: 780, height: 306 });
+    expect(readPngSize("src/assets/maya-brand-mark.png")).toEqual({ width: 560, height: 220 });
+  });
+
   it("renders the cash-only amount due, summary, and both responsive layout seams", async () => {
     const { container } = render(
       <PaymentPanel
