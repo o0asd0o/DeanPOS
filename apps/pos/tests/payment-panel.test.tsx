@@ -177,7 +177,10 @@ describe("PaymentPanel", () => {
 
     const chooser = screen.getByRole("group", { name: "Payment method" });
     expect(chooser).toBeTruthy();
-    expect(chooser.parentElement?.className).toContain("@xl/tender:grid-cols-2");
+    expect(chooser.parentElement?.className).toContain("@xl/tender:grid-cols-3");
+    expect(chooser.className).toContain("@xl/tender:col-span-2");
+    expect(chooser.lastElementChild?.className).toContain("flex-nowrap");
+    expect(chooser.lastElementChild?.className).toContain("overflow-x-auto");
     const gcash = screen.getByRole("button", { name: "GCash" });
     const maya = screen.getByRole("button", { name: "Maya" });
     expect(gcash.textContent).toBe("");
