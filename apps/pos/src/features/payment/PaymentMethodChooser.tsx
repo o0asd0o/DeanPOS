@@ -28,7 +28,7 @@ export function PaymentMethodChooser({ methods, selectedId, onSelect }: Props) {
               type="button"
               variant="outline"
               className={cn(
-                "aria-pressed:ring-2 aria-pressed:ring-ring aria-pressed:ring-offset-2",
+                "min-w-28 transition-[color,box-shadow,border-color] duration-150 aria-pressed:ring-2 aria-pressed:ring-ring aria-pressed:ring-offset-2",
                 brand && selected && "w-28 overflow-hidden p-0",
               )}
               aria-label={method.name}

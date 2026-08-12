@@ -38,6 +38,16 @@
   }
 }
 
+@keyframes payment-brand-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
 .cart-flight {
   position: fixed;
   display: inline-flex;
@@ -56,9 +66,17 @@
   animation: cart-flight 180ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
+.payment-brand-reveal {
+  animation: payment-brand-reveal 180ms linear both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cart-flight {
     animation-name: cart-flight-reduced;
     animation-duration: 80ms;
+  }
+
+  .payment-brand-reveal {
+    animation: none;
   }
 }
