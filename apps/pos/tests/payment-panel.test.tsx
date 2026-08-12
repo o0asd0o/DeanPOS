@@ -43,6 +43,16 @@ const catalog = {
       addOns: [],
     },
   ],
+  paymentMethods: [{ id: "cash-id", name: "Cash", kind: "cash" as const }],
+};
+
+const configuredCatalog = {
+  ...catalog,
+  paymentMethods: [
+    ...catalog.paymentMethods,
+    { id: "gcash-id", name: "GCash", kind: "recorded" as const },
+    { id: "card-id", name: "Card", kind: "recorded" as const },
+  ],
 };
 
 describe("PaymentPanel", () => {
@@ -96,7 +106,7 @@ describe("PaymentPanel", () => {
     expect(screen.getByText("₱192.00")).toBeTruthy();
     expect(complete).toHaveProperty("disabled", false);
     fireEvent.click(complete);
-    expect(onSubmit).toHaveBeenCalledWith(50_000);
+    expect(onSubmit).toHaveBeenCalledWith("cash-id", 50_000);
   });
 
   it("supports exact cash, refuses underpayment, and disables while pending", () => {
@@ -142,5 +152,35 @@ describe("PaymentPanel", () => {
     expect(screen.getByRole("alert").textContent).toContain(
       "This Device cannot assign another Order number",
     );
+  });
+
+  it("chooses a recorded method while removing every cash-only control and retaining the warning", async () => {
+    const onSubmit = vi.fn();
+    const { container } = render(
+      <PaymentPanel
+        draft={draft}
+        catalog={configuredCatalog}
+        pending={false}
+        onBack={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByRole("group", { name: "Payment method" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cash" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "GCash" }));
+
+    expect(screen.queryByRole("textbox", { name: "Cash tendered" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Quick tender" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Change" })).toBeNull();
+    expect(screen.getByText(/authorises nothing/i)).toBeTruthy();
+
+    const amount = screen.getByRole("textbox", { name: "Amount recorded" });
+    fireEvent.change(amount, { target: { value: "309" } });
+    expect(screen.getByRole("button", { name: "Complete sale" })).toHaveProperty("disabled", true);
+    fireEvent.change(amount, { target: { value: "308" } });
+    fireEvent.click(screen.getByRole("button", { name: "Complete sale" }));
+    expect(onSubmit).toHaveBeenCalledWith("gcash-id", 30_800);
+    await expectNoAxeViolations(container);
   });
 });

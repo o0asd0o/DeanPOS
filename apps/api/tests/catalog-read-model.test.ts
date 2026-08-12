@@ -11,6 +11,10 @@ const ownerDb = createDb({ databaseUrl: process.env.DATABASE_URI! });
 const tenantId = randomUUID();
 const adminId = randomUUID();
 const storeId = randomUUID();
+const cashMethodId = randomUUID();
+const gcashMethodId = randomUUID();
+const cardMethodId = randomUUID();
+const inactiveMethodId = randomUUID();
 
 beforeAll(async () => {
   await ownerDb.insertInto("Tenant").values({ id: tenantId, name: "Catalog Tenant" }).execute();
@@ -28,12 +32,40 @@ beforeAll(async () => {
     .insertInto("Store")
     .values({ id: storeId, tenant_id: tenantId, name: "Catalog Store" })
     .execute();
+  await ownerDb
+    .insertInto("PaymentMethod")
+    .values([
+      { id: cashMethodId, tenant_id: tenantId, name: "Cash", kind: "cash" },
+      { id: gcashMethodId, tenant_id: tenantId, name: "GCash", kind: "recorded" },
+      { id: cardMethodId, tenant_id: tenantId, name: "Card", kind: "recorded" },
+      { id: inactiveMethodId, tenant_id: tenantId, name: "Maya", kind: "recorded", active: false },
+    ])
+    .execute();
+  await ownerDb
+    .insertInto("PaymentMethodAvailability")
+    .values([
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        payment_method_id: gcashMethodId,
+        store_id: storeId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        payment_method_id: inactiveMethodId,
+        store_id: storeId,
+      },
+    ])
+    .execute();
 });
 
 afterAll(async () => {
   await ownerDb.deleteFrom("Variant").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("PaymentMethodAvailability").where("tenant_id", "=", tenantId).execute();
+  await ownerDb.deleteFrom("PaymentMethod").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Store").where("id", "=", storeId).execute();
   await ownerDb.deleteFrom("User").where("id", "=", adminId).execute();
   await ownerDb.deleteFrom("Tenant").where("id", "=", tenantId).execute();
@@ -116,6 +148,10 @@ describe("catalog.read", () => {
       addOns: [],
       available: true,
     });
+    expect(read.paymentMethods).toStrictEqual([
+      { id: cashMethodId, name: "Cash", kind: "cash" },
+      { id: gcashMethodId, name: "GCash", kind: "recorded" },
+    ]);
     expect(version.version).toBe(read.version);
 
     const renamed = await client.catalog.renameMenuItem({

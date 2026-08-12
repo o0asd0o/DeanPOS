@@ -6,6 +6,7 @@ const id = "10000000-0000-4000-8000-000000000001";
 
 const validInput = {
   id,
+  paymentMethodId: "10000000-0000-4000-8000-000000000007",
   cashierUserId: "10000000-0000-4000-8000-000000000006",
   deviceSequence: 421,
   orderNumber: "C2-0421",
@@ -49,6 +50,7 @@ describe("submitOrderInputSchema", () => {
 
   it.each([
     ["non-UUID order id", { ...validInput, id: "order-1" }],
+    ["non-UUID payment method id", { ...validInput, paymentMethodId: "cash" }],
     ["zero quantity", { ...validInput, lines: [{ ...validInput.lines[0], quantity: 0 }] }],
     ["fractional quantity", { ...validInput, lines: [{ ...validInput.lines[0], quantity: 1.5 }] }],
     ["negative tender", { ...validInput, amountTenderedCentavos: -1 }],

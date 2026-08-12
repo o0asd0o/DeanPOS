@@ -26,6 +26,10 @@ const modifierId = randomUUID();
 const addOnId = randomUUID();
 const cashMethodId = randomUUID();
 const otherCashMethodId = randomUUID();
+const gcashMethodId = randomUUID();
+const unavailableMethodId = randomUUID();
+const inactiveMethodId = randomUUID();
+const otherTenantMethodId = randomUUID();
 const cashierUserId = randomUUID();
 const secondStoreCashierId = randomUUID();
 let nextDeviceSequence = 1;
@@ -61,6 +65,7 @@ const makeInput = (orderId = randomUUID()) => {
   const deviceSequence = nextDeviceSequence++;
   return {
     id: orderId,
+    paymentMethodId: cashMethodId,
     cashierUserId,
     deviceSequence,
     orderNumber: `${device.code}-${String(deviceSequence).padStart(4, "0")}`,
@@ -211,7 +216,34 @@ beforeAll(async () => {
     .insertInto("PaymentMethod")
     .values([
       { id: cashMethodId, tenant_id: tenantId, name: "Cash", kind: "cash" },
+      { id: gcashMethodId, tenant_id: tenantId, name: "GCash", kind: "recorded" },
+      { id: unavailableMethodId, tenant_id: tenantId, name: "Card", kind: "recorded" },
+      { id: inactiveMethodId, tenant_id: tenantId, name: "Maya", kind: "recorded", active: false },
       { id: otherCashMethodId, tenant_id: otherTenantId, name: "Cash", kind: "cash" },
+      { id: otherTenantMethodId, tenant_id: otherTenantId, name: "Other Card", kind: "recorded" },
+    ])
+    .execute();
+  await ownerDb
+    .insertInto("PaymentMethodAvailability")
+    .values([
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        payment_method_id: gcashMethodId,
+        store_id: storeId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        payment_method_id: inactiveMethodId,
+        store_id: storeId,
+      },
+      {
+        id: randomUUID(),
+        tenant_id: otherTenantId,
+        payment_method_id: otherTenantMethodId,
+        store_id: otherStoreId,
+      },
     ])
     .execute();
   await ownerDb
@@ -322,6 +354,10 @@ afterAll(async () => {
   await ownerDb.deleteFrom("MenuItem").where("tenant_id", "=", tenantId).execute();
   await ownerDb.deleteFrom("Category").where("tenant_id", "=", tenantId).execute();
   await ownerDb
+    .deleteFrom("PaymentMethodAvailability")
+    .where("tenant_id", "in", [tenantId, otherTenantId])
+    .execute();
+  await ownerDb
     .deleteFrom("PaymentMethod")
     .where("tenant_id", "in", [tenantId, otherTenantId])
     .execute();
@@ -398,10 +434,57 @@ describe("terminal.submitOrder", () => {
     expect(line.addon_snapshot).toEqual(input.lines[0]!.addOns);
     expect(payment).toMatchObject({
       payment_method_id: cashMethodId,
-      method: "cash",
+      method_name: "Cash",
       amount_tendered_centavos: 30_000,
       change_centavos: 4_500,
     });
+  });
+
+  it("records an exact non-cash tender with its sale-time method name and no change", async () => {
+    const input = makeInput();
+    input.paymentMethodId = gcashMethodId;
+    input.amountTenderedCentavos = input.totalCentavos;
+
+    const result = await client().terminal.submitOrder(input);
+    expect(result).toMatchObject({
+      ok: true,
+      receipt: {
+        paymentMethodId: gcashMethodId,
+        paymentMethodName: "GCash",
+        amountTenderedCentavos: input.totalCentavos,
+        changeCentavos: 0,
+      },
+    });
+    expect(
+      await ownerDb
+        .selectFrom("Payment")
+        .selectAll()
+        .where("order_id", "=", input.id)
+        .executeTakeFirstOrThrow(),
+    ).toMatchObject({ payment_method_id: gcashMethodId, method_name: "GCash", change_centavos: 0 });
+  });
+
+  it("refuses recorded change, inactive, unavailable, and another Tenant's methods before creating an Order", async () => {
+    const cases = [
+      { methodId: gcashMethodId, amount: 25_501 },
+      { methodId: inactiveMethodId, amount: 25_500 },
+      { methodId: unavailableMethodId, amount: 25_500 },
+      { methodId: otherTenantMethodId, amount: 25_500 },
+    ];
+
+    for (const entry of cases) {
+      const input = makeInput();
+      input.paymentMethodId = entry.methodId;
+      input.amountTenderedCentavos = entry.amount;
+      expect(await client().terminal.submitOrder(input)).toEqual({ ok: false });
+      expect(
+        await ownerDb
+          .selectFrom("Order")
+          .select("id")
+          .where("id", "=", input.id)
+          .executeTakeFirst(),
+      ).toBeUndefined();
+    }
   });
 
   it("makes serial and parallel retries immutable and idempotent", async () => {
@@ -572,6 +655,32 @@ describe("terminal.submitOrder", () => {
 });
 
 describe("terminal.receipt", () => {
+  it("keeps the recorded method name after rename, deactivation, and a refused hard delete", async () => {
+    const input = makeInput();
+    input.paymentMethodId = gcashMethodId;
+    input.amountTenderedCentavos = input.totalCentavos;
+    expect((await client().terminal.submitOrder(input)).ok).toBe(true);
+
+    await ownerDb
+      .updateTable("PaymentMethod")
+      .set({ name: "GCash renamed", active: false })
+      .where("id", "=", gcashMethodId)
+      .execute();
+    await expect(
+      ownerDb.deleteFrom("PaymentMethod").where("id", "=", gcashMethodId).execute(),
+    ).rejects.toThrow();
+
+    expect(await client().terminal.receipt({ id: input.id })).toMatchObject({
+      paymentMethodId: gcashMethodId,
+      paymentMethodName: "GCash",
+    });
+    await ownerDb
+      .updateTable("PaymentMethod")
+      .set({ name: "GCash", active: true })
+      .where("id", "=", gcashMethodId)
+      .execute();
+  });
+
   it("reads the persisted receipt projection after catalog names and prices change", async () => {
     const input = makeInput();
     const submitted = await client().terminal.submitOrder(input);
