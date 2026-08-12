@@ -10,6 +10,8 @@ const receipt = {
   deviceName: "Counter 2",
   cashierUserId: "10000000-0000-4000-8000-000000000006",
   cashierName: "Ana Reyes",
+  paymentMethodId: "10000000-0000-4000-8000-000000000007",
+  paymentMethodName: "Cash",
   totalCentavos: 25_500,
   amountTenderedCentavos: 30_000,
   changeCentavos: 4_500,
@@ -54,6 +56,7 @@ describe("ReceiptView", () => {
     expect(screen.getByText("Order C2-0421")).toBeTruthy();
     expect(screen.getByText("Device C2 · Counter 2")).toBeTruthy();
     expect(screen.getByText("Cashier · Ana Reyes")).toBeTruthy();
+    expect(screen.getByText("Payment method · Cash")).toBeTruthy();
     expect(screen.getByText("Adobo · Whole ×2")).toBeTruthy();
     expect(screen.getByText("Modifier · Spicy")).toBeTruthy();
     expect(screen.getByText("Add-on · Extra rice")).toBeTruthy();
